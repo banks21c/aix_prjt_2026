@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    <meta name="description" content="장고 랜덤포레스트 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background-color: #f4f6f9;
+            color: #212529;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        a { text-decoration: none; }
+        .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+
+        /* 네비게이션 */
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .navbar .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #0d47a1;
+            font-size: 20px;
+        }
+        .navbar-brand span {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 400;
+        }
+        .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .badge {
+            background: #0d47a1;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+        .btn {
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .btn-outline { border-color: #ced4da; color: #495057; background: #fff; }
+        .btn-outline:hover { background: #f1f3f5; }
+        .btn-primary { background: #0d47a1; color: #fff; }
+        .btn-primary:hover { background: #0b3c8a; }
+        .nav-username { font-size: 14px; font-weight: 600; color: #495057; margin-right: 2px; }
+
+        .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
+        .site-messages li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .site-messages .success { background: #e6f4ea; color: #1e7e34; }
+        .site-messages .error { background: #fdecea; color: #c62828; }
+
+        /* 히어로 섹션 */
+        .hero {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 60%, #1e88e5 100%);
+            color: #fff;
+            padding: 96px 0 80px;
+        }
+        .hero h1 {
+            font-size: 40px;
+            font-weight: 800;
+            line-height: 1.35;
+            margin: 0 0 20px;
+        }
+        .hero p {
+            font-size: 17px;
+            line-height: 1.7;
+            color: #dce8fb;
+            max-width: 640px;
+            margin: 0 0 32px;
+        }
+        .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .hero .btn-primary { background: #ffffff; color: #0d47a1; }
+        .hero .btn-primary:hover { background: #eef3fb; }
+        .hero .btn-outline { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
+        .hero .btn-outline:hover { background: rgba(255,255,255,0.12); }
+        .hero-stat {
+            margin-top: 48px;
+            display: inline-flex;
+            align-items: baseline;
+            gap: 10px;
+            background: rgba(255,255,255,0.12);
+            padding: 12px 20px;
+            border-radius: 12px;
+        }
+        .hero-stat strong { font-size: 26px; font-weight: 800; }
+        .hero-stat span { font-size: 14px; color: #dce8fb; }
+
+        /* 섹션 공통 */
+        section { padding: 72px 0; }
+        .section-title { text-align: center; margin-bottom: 48px; }
+        .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; color: #212529; }
+        .section-title p { font-size: 15px; color: #6c757d; margin: 0; }
+
+        /* 기능 카드 */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .feature-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .feature-card:hover { transform: translateY(-4px); }
+        .feature-card .icon { font-size: 30px; margin-bottom: 16px; }
+        .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: #0d47a1; }
+        .feature-card p { font-size: 14px; line-height: 1.65; color: #6c757d; margin: 0; }
+
+        /* 진행 절차 */
+        .flow {
+            background: #fff;
+        }
+        .flow-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .flow-step {
+            text-align: center;
+            padding: 24px 16px;
+        }
+        .flow-step .num {
+            width: 36px;
+            height: 36px;
+            line-height: 36px;
+            border-radius: 50%;
+            background: #0d47a1;
+            color: #fff;
+            font-weight: 700;
+            margin: 0 auto 14px;
+            font-size: 14px;
+        }
+        .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; color: #212529; }
+        .flow-step p { font-size: 13px; color: #6c757d; margin: 0; line-height: 1.6; }
+
+        /* 최신 뉴스 */
+        .news-list { display: flex; flex-direction: column; gap: 14px; }
+        .news-item {
+            display: block;
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            color: inherit;
+        }
+        .news-item .stock { font-size: 12px; font-weight: 700; color: #0d47a1; margin-bottom: 6px; display: block; }
+        .news-item .title { font-size: 15px; font-weight: 600; color: #212529; }
+        .news-empty { text-align: center; color: #adb5bd; font-size: 14px; padding: 32px 0; }
+
+        /* CTA */
+        .cta {
+            background: #0d47a1;
+            color: #fff;
+            text-align: center;
+        }
+        .cta h2 { font-size: 26px; font-weight: 800; margin: 0 0 14px; }
+        .cta p { font-size: 15px; color: #dce8fb; margin: 0 0 28px; }
+        .cta .btn-primary { background: #fff; color: #0d47a1; }
+        .cta .btn-primary:hover { background: #eef3fb; }
+
+        /* 푸터 */
+        footer {
+            background: #10131a;
+            color: #adb5bd;
+            padding: 32px 0;
+            font-size: 13px;
+            text-align: center;
+        }
+        footer strong { color: #fff; }
+        .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: #6c757d; }
+
+        @media (max-width: 900px) {
+            .feature-grid { grid-template-columns: 1fr; }
+            .flow-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero h1 { font-size: 30px; }
+        }
+
+        /* 챗봇 위젯 */
+        .chatbot-toggle {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #0d47a1;
+            color: #fff;
+            border: none;
+            font-size: 24px;
+            box-shadow: 0 6px 16px rgba(13,71,161,0.35);
+            cursor: pointer;
+            z-index: 100;
+        }
+        .chatbot-toggle:hover { background: #0b3c8a; }
+
+        .chatbot-panel {
+            position: fixed;
+            right: 24px;
+            bottom: 92px;
+            width: 340px;
+            max-width: calc(100vw - 32px);
+            height: 460px;
+            max-height: calc(100vh - 140px);
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 100;
+        }
+        .chatbot-panel.open { display: flex; }
+        .chatbot-header {
+            background: #0d47a1;
+            color: #fff;
+            padding: 14px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chatbot-header small { display: block; font-weight: 400; font-size: 11px; color: #dce8fb; margin-top: 2px; }
+        .chatbot-close { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f4f6f9;
+        }
+        .chatbot-msg { max-width: 85%; padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+        .chatbot-msg.user { align-self: flex-end; background: #0d47a1; color: #fff; border-bottom-right-radius: 2px; }
+        .chatbot-msg.bot { align-self: flex-start; background: #fff; color: #212529; border: 1px solid #e9ecef; border-bottom-left-radius: 2px; }
+        .chatbot-msg.bot.pending { color: #adb5bd; }
+        .chatbot-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e9ecef; }
+        .chatbot-input-row input {
+            flex: 1;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-size: 13px;
+            outline: none;
+        }
+        .chatbot-input-row input:focus { border-color: #0d47a1; }
+        .chatbot-input-row button {
+            background: #0d47a1;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .chatbot-input-row button:disabled { background: #adb5bd; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <!-- 상단 네비게이션 바 -->
+    <nav class="navbar">
+        <div class="container">
+            <a class="navbar-brand" href="/">📈 NextFinUp <span>AI 자산 허브</span></a>
+            <div class="nav-actions">
+                <span class="badge">Beta</span>
+                <a href="/dashboard/" class="btn btn-outline">대시보드</a>
+                {% if user.is_authenticated %}
+                    <span class="nav-username">{{ user.first_name|default:user.username }}님</span>
+                    <a href="{% url 'logout' %}" class="btn btn-outline">로그아웃</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-outline">로그인</a>
+                    <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    {% if messages %}
+    <div class="container">
+        <ul class="site-messages">
+            {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- 히어로 -->
+    <div class="hero">
+        <div class="container">
+            <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
+            <p>
+                장고 기반 랜덤포레스트 머신러닝 모델이 KOSPI200·KOSDAQ150 종목의 다음날 종가와
+                상승 확률, 5일 예상 수익률을 예측하고, 실시간 경제 뉴스를 자동으로 분석해
+                투자 판단에 필요한 인사이트를 함께 제공합니다.
+            </p>
+            <div class="hero-actions">
+                <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
+                <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+            </div>
+            <div class="hero-stat">
+                <strong>{{ active_stock_count }}</strong>
+                <span>개 종목 AI 모니터링 중</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 핵심 기능 -->
+    <section id="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>NextFinUp이 제공하는 것</h2>
+                <p>데이터 수집부터 예측, 뉴스 분석까지 전 과정을 자동화했습니다.</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🤖</div>
+                    <h3>AI 주가 예측</h3>
+                    <p>10년치 일봉 데이터를 학습한 랜덤포레스트 모델이 다음날 종가, 상승/하락 확률,
+                        5일 예상 수익률과 매수·매도·관망 시그널을 산출합니다.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📰</div>
+                    <h3>실시간 뉴스 매칭</h3>
+                    <p>한국경제·매일경제 등 주요 경제지 피드를 실시간 수집해 관심 종목과
+                        연관된 기사를 자동으로 골라 3줄 요약과 투자 관점 분석을 제공합니다.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📊</div>
+                    <h3>종목별 통합 브리핑</h3>
+                    <p>KOSPI200·KOSDAQ150 편입 종목을 중심으로 가격 데이터, AI 예측, 최신 뉴스를
+                        한 화면의 대시보드에서 한눈에 확인할 수 있습니다.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 동작 흐름 -->
+    <section class="flow">
+        <div class="container">
+            <div class="section-title">
+                <h2>어떻게 동작하나요</h2>
+                <p>백엔드 파이프라인이 매일 자동으로 데이터를 갱신합니다.</p>
+            </div>
+            <div class="flow-grid">
+                <div class="flow-step">
+                    <div class="num">1</div>
+                    <h4>종목 데이터 수집</h4>
+                    <p>KOSPI200·KOSDAQ150 편입 종목의 10년치 일봉 데이터를 수집합니다.</p>
+                </div>
+                <div class="flow-step">
+                    <div class="num">2</div>
+                    <h4>AI 모델 학습·예측</h4>
+                    <p>종목별 머신러닝 모델을 학습시켜 다음날 가격과 매매 시그널을 산출합니다.</p>
+                </div>
+                <div class="flow-step">
+                    <div class="num">3</div>
+                    <h4>뉴스 수집·분석</h4>
+                    <p>실시간 경제 뉴스를 수집해 관련 종목과 매칭하고 AI로 요약·분석합니다.</p>
+                </div>
+                <div class="flow-step">
+                    <div class="num">4</div>
+                    <h4>대시보드 제공</h4>
+                    <p>예측 결과와 뉴스를 결합해 대시보드와 블로그 콘텐츠로 제공합니다.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 최신 뉴스 -->
+    <section>
+        <div class="container">
+            <div class="section-title">
+                <h2>최신 AI 분석 브리핑</h2>
+                <p>가장 최근에 수집·분석된 종목 뉴스입니다.</p>
+            </div>
+            <div class="news-list">
+                {% for article in latest_articles %}
+                <a href="/dashboard/" class="news-item">
+                    <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
+                    <span class="title">{{ article.title }}</span>
+                </a>
+                {% empty %}
+                <div class="news-empty">아직 수집된 분석 브리핑이 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>지금 바로 AI 예측 대시보드를 확인하세요</h2>
+            <p>관심 종목의 실시간 AI 예측과 뉴스 브리핑을 무료로 확인할 수 있습니다.</p>
+            <a href="/dashboard/" class="btn btn-primary">대시보드 바로가기</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
+            <p class="disclaimer">
+                본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
+                자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
+                최종 투자 판단과 책임은 이용자 본인에게 있습니다.
+            </p>
+        </div>
+    </footer>
+
+    <!-- 주식/경제 챗봇 위젯 -->
+    {% csrf_token %}
+    <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기">💬</button>
+    <div class="chatbot-panel" id="chatbotPanel">
+        <div class="chatbot-header">
+            <div>
+                NextFinUp AI 챗봇
+                <small>주식·경제 관련 질문에 답해드려요</small>
+            </div>
+            <button type="button" class="chatbot-close" id="chatbotClose" aria-label="챗봇 닫기">✕</button>
+        </div>
+        <div class="chatbot-messages" id="chatbotMessages">
+            <div class="chatbot-msg bot">안녕하세요! 종목 예측, 시황, 경제 뉴스 등 주식·경제 관련 질문을 편하게 물어보세요.</div>
+        </div>
+        <div class="chatbot-input-row">
+            <input type="text" id="chatbotInput" placeholder="예) 삼성전자 전망 어때?" maxlength="500">
+            <button type="button" id="chatbotSend">전송</button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const toggleBtn = document.getElementById('chatbotToggle');
+            const closeBtn = document.getElementById('chatbotClose');
+            const panel = document.getElementById('chatbotPanel');
+            const messagesEl = document.getElementById('chatbotMessages');
+            const input = document.getElementById('chatbotInput');
+            const sendBtn = document.getElementById('chatbotSend');
+            const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+
+            const MAX_HISTORY = 6;
+            let history = [];
+
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('open');
+                if (panel.classList.contains('open')) input.focus();
+            });
+            closeBtn.addEventListener('click', () => panel.classList.remove('open'));
+
+            function appendMessage(text, role) {
+                const el = document.createElement('div');
+                el.className = 'chatbot-msg ' + (role === 'user' ? 'user' : 'bot');
+                el.textContent = text;
+                messagesEl.appendChild(el);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+                return el;
+            }
+
+            async function sendMessage() {
+                const question = input.value.trim();
+                if (!question) return;
+
+                appendMessage(question, 'user');
+                input.value = '';
+                sendBtn.disabled = true;
+                input.disabled = true;
+                const pendingEl = appendMessage('답변 생성 중...', 'bot');
+                pendingEl.classList.add('pending');
+
+                try {
+                    const res = await fetch("{% url 'chatbot_ask' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken,
+                        },
+                        body: JSON.stringify({ message: question, history: history }),
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        pendingEl.textContent = data.error || '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                    } else {
+                        pendingEl.textContent = data.answer;
+                        history.push({ role: 'user', content: question });
+                        history.push({ role: 'assistant', content: data.answer });
+                        history = history.slice(-MAX_HISTORY);
+                    }
+                } catch (err) {
+                    pendingEl.textContent = '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                } finally {
+                    pendingEl.classList.remove('pending');
+                    sendBtn.disabled = false;
+                    input.disabled = false;
+                    input.focus();
+                }
+            }
+
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        })();
+    </script>
+
+</body>
+</html>
