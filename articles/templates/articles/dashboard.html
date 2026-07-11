@@ -27,16 +27,7 @@
 <body>
 
     <!-- 상단 네비게이션 바 -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="/">📈 NextFinUp <span class="text-secondary" style="font-size: 14px; font-weight: 400;">AI 자산 허브</span></a>
-            <div class="d-flex align-items-center">
-                <span class="badge bg-primary me-2">Beta</span>
-                <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
-                <a href="/admin/" class="btn btn-sm btn-outline-secondary" target="_blank">관리자 센터</a>
-            </div>
-        </div>
-    </nav>
+    {% include "articles/_header.html" %}
 
     <div class="container my-5">
         <div class="row mb-4">
@@ -106,10 +97,12 @@
                     {% if major_news %}
                         {% for news in major_news %}
                             <div class="news-item">
-                                <p class="fw-semibold mb-1" style="font-size: 14px;">
-                                    {% if news.stock %}<span class="badge bg-light text-dark border me-1">{{ news.stock.name }}</span>{% endif %}
-                                    {{ news.title }}
-                                </p>
+                                <div class="mb-1" style="font-size: 14px;">
+                                    {% if news.stock %}
+                                    <a href="{% url 'stock_detail' news.stock.ticker %}" class="badge bg-light text-dark border me-1 text-decoration-none">{{ news.stock.name }}</a>
+                                    {% endif %}
+                                    <a href="{% url 'news_detail' news.pk %}" class="fw-semibold text-decoration-none text-dark">{{ news.title }}</a>
+                                </div>
                                 <div class="text-muted" style="font-size: 12px;">{{ news.source_media }} · {{ news.scraped_at|date:"m/d H:i" }}</div>
                             </div>
                         {% endfor %}
@@ -127,7 +120,7 @@
                         {% for mover in top_gainers %}
                             <div class="mover-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-bold">{{ mover.name }}</div>
+                                    <a href="{% url 'stock_detail' mover.ticker %}" class="fw-bold text-decoration-none text-dark">{{ mover.name }}</a>
                                     <div class="text-muted" style="font-size: 12px;">{{ mover.ticker }} · 현재가 {{ mover.price|floatformat:0 }}원</div>
                                 </div>
                                 <div class="text-end">
@@ -146,7 +139,7 @@
                         {% for mover in top_losers %}
                             <div class="mover-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-bold">{{ mover.name }}</div>
+                                    <a href="{% url 'stock_detail' mover.ticker %}" class="fw-bold text-decoration-none text-dark">{{ mover.name }}</a>
                                     <div class="text-muted" style="font-size: 12px;">{{ mover.ticker }} · 현재가 {{ mover.price|floatformat:0 }}원</div>
                                 </div>
                                 <div class="text-end">

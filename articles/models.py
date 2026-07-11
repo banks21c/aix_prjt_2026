@@ -85,6 +85,27 @@ class RankedMover(models.Model):
 
 
 # ==========================================
+# 1-0-1-1. 한국투자증권(KIS) 주식현재가 시세 캐시
+# 종목 상세 페이지를 열 때마다 KIS API를 직접 호출하면 트래픽이 늘었을 때 호출 제한에
+# 걸리기 쉬워서, collect_stock_realtime_price 명령이 주기적으로 갱신해 저장해두고
+# 종목 상세 페이지는 이 테이블만 읽는다 (RankedMover와 동일한 캐싱 패턴).
+# ==========================================
+class StockRealtimePrice(models.Model):
+    stock = models.OneToOneField(StockItem, on_delete=models.CASCADE, related_name="realtime_price", verbose_name="종목")
+    close_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="현재가")
+    open_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="시가")
+    high_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="고가")
+    low_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="저가")
+    change = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="전일 대비")
+    change_pct = models.FloatField(verbose_name="전일 대비율(%)")
+    volume = models.BigIntegerField(verbose_name="누적 거래량")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
+
+    def __str__(self):
+        return f"{self.stock.name} 현재가 {self.close_price} ({self.updated_at})"
+
+
+# ==========================================
 # 1-0-2. 한국투자증권(KIS) 국내휴장일조회 캐시
 # 문서상 "1일 1회 호출" 권장 API라, 응답으로 한 번에 받아오는 여러 날짜치를 모두 캐싱해두고
 # 이후에는 이 테이블만 조회해서 개장일 여부를 판단합니다.
@@ -253,6 +274,154 @@ class UserSubscription(models.Model):
     def __str__(self):
         status = "유료회원" if self.is_active_premium else "일반회원"
         return f"{self.user.username} ({status})"
+
+
+# ==========================================
+# 6. 마이페이지 - 뉴스 구독 / 자동 포스팅 설정 테이블
+# ==========================================
+class UserPreference(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference", verbose_name="사용자")
+    phone_number = models.CharField(max_length=20, blank=True, verbose_name="전화번호")
+
+    # 이메일 인증 (회원가입/마이페이지에서 직접 입력·수정한 이메일만 대상. 카카오/구글 소셜 로그인으로
+    # 자동 채워지는 이메일은 해당 없음). 인증 전에는 User.email을 바로 바꾸지 않고 pending_email에 보관한다.
+    is_email_verified = models.BooleanField(default=False, verbose_name="이메일 인증 여부")
+    pending_email = models.CharField(max_length=254, blank=True, verbose_name="인증 대기 중인 이메일")
+    email_verification_token = models.CharField(max_length=64, blank=True, verbose_name="이메일 인증 토큰")
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="인증 메일 발송 시각")
+
+    news_subscription = models.BooleanField(default=False, verbose_name="뉴스 구독 여부")
+    interested_keywords = models.CharField(max_length=255, blank=True, verbose_name="관심 키워드(콤마로 구분)")
+    # 체크 시 관심 키워드 필터를 무시하고 모든 미발행 기사를 발행 대상으로 삼음
+    post_all_articles = models.BooleanField(default=False, verbose_name="전체 기사 발행(관심 키워드 무시)")
+    auto_posting_enabled = models.BooleanField(default=False, verbose_name="자동 포스팅 사용 여부")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
+
+    def __str__(self):
+        return f"{self.user.username} 환경설정"
+
+
+class BlogPostingAccount(models.Model):
+    PLATFORM_CHOICES = [
+        ('WORDPRESS', '워드프레스'),
+        ('TISTORY', '티스토리'),
+        ('NAVER', '네이버 블로그'),
+        ('BLOGGER', '블로거(Blogger)'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posting_accounts", verbose_name="사용자")
+    platform = models.CharField(max_length=10, choices=PLATFORM_CHOICES, verbose_name="포스팅 플랫폼")
+    is_enabled = models.BooleanField(default=False, verbose_name="이 플랫폼으로 자동 포스팅 사용")
+    # 자기 호스팅 워드프레스는 사이트마다 REST API 엔드포인트가 다르므로 필요 (티스토리/네이버는 미사용, blank)
+    # 블로거는 연동된 블로그의 URL을 OAuth 연동 시 자동으로 채워넣음(사용자 직접 입력 아님)
+    site_url = models.URLField(blank=True, verbose_name="사이트 주소(워드프레스/블로거)")
+    # 워드프레스/네이버 블로그는 계정 ID+PW, 티스토리는 API Key(액세스 토큰) 방식이라 하나의 필드로 겸용
+    # 블로거는 OAuth 연동이라 account_id에 블로그 ID를 자동으로 채워넣음(사용자 직접 입력 아님)
+    account_id = models.CharField(max_length=150, blank=True, verbose_name="계정 ID / 블로그 ID")
+    # 블로거는 비밀번호가 아니라 구글 OAuth 리프레시 토큰을 저장(구글 로그인 연동 시 자동으로 채워넣음)
+    credential = models.CharField(max_length=255, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
+
+    class Meta:
+        unique_together = ('user', 'platform')
+        ordering = ['user', 'platform']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_platform_display()}"
+
+
+class PostedArticle(models.Model):
+    """어떤 회원의 어떤 등록 계정(사이트)에 어떤 기사가 이미 발행됐는지 추적.
+
+    AnalyzedArticle.is_posted는 단일 글로벌 사이트 기준의 기존 필드라 다중 회원 사이트를
+    각각 독립적으로 발행/추적하기엔 맞지 않아, 계정×기사 단위로 별도 기록한다.
+    """
+    blog_account = models.ForeignKey(BlogPostingAccount, on_delete=models.CASCADE, related_name="posted_articles", verbose_name="발행 계정")
+    article = models.ForeignKey(AnalyzedArticle, on_delete=models.CASCADE, related_name="postings", verbose_name="기사")
+    external_url = models.URLField(blank=True, verbose_name="발행된 글 주소")
+    posted_at = models.DateTimeField(auto_now_add=True, verbose_name="발행 일시")
+
+    class Meta:
+        unique_together = ('blog_account', 'article')
+        ordering = ['-posted_at']
+
+    def __str__(self):
+        return f"{self.blog_account} -> {self.article.title[:30]}"
+
+
+# ==========================================
+# 7. 로그인 로그 / 메뉴 접속 로그 테이블
+# ==========================================
+class LoginLog(models.Model):
+    LOGIN_METHOD_CHOICES = [
+        ('GENERAL', '일반 로그인'),
+        ('SIGNUP', '회원가입'),
+        ('KAKAO', '카카오'),
+        ('GOOGLE', '구글'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_logs", verbose_name="사용자")
+    login_method = models.CharField(max_length=10, choices=LOGIN_METHOD_CHOICES, verbose_name="로그인 방식")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="접속 IP")
+    user_agent = models.CharField(max_length=255, blank=True, verbose_name="User-Agent")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="로그인 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_login_method_display()} ({self.created_at})"
+
+
+class MenuAccessLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="menu_access_logs", verbose_name="사용자")
+    menu_name = models.CharField(max_length=100, verbose_name="접속 메뉴(URL name)")
+    path = models.CharField(max_length=255, verbose_name="요청 경로")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="접속 IP")
+    accessed_at = models.DateTimeField(auto_now_add=True, verbose_name="접속 일시")
+
+    class Meta:
+        ordering = ['-accessed_at']
+        indexes = [
+            models.Index(fields=['user', '-accessed_at']),
+            models.Index(fields=['menu_name', '-accessed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.menu_name} ({self.accessed_at})"
+
+
+# ==========================================
+# 7. 주식/경제 챗봇 대화 기록 테이블
+# ==========================================
+class ChatMessage(models.Model):
+    ROLE_CHOICES = [
+        ('user', '사용자'),
+        ('assistant', '챗봇'),
+    ]
+
+    # 로그인 사용자는 user로, 비로그인 사용자는 session_key로 대화를 구분
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True,
+        related_name="chat_messages", verbose_name="로그인 사용자(비로그인 시 null)"
+    )
+    session_key = models.CharField(max_length=40, verbose_name="세션 키(비로그인 사용자 구분용)")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, verbose_name="발화자")
+    content = models.TextField(verbose_name="메시지 내용")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="전송 시각")
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['session_key', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"[{self.get_role_display()}] {self.content[:30]}"
 
 
 # ==========================================

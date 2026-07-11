@@ -179,6 +179,147 @@ def get_index_daily_price(market_type, base_date):
     return rows
 
 
+# 국내주식기간별시세(일/주/월/년) TR_ID (v1_국내주식-016) - 한 번에 최대 100건(영업일 기준)
+STOCK_DAILY_PRICE_TR_ID = "FHKST03010100"
+
+
+def get_stock_daily_price(ticker, start_date, end_date):
+    """
+    국내주식기간별시세 API로 개별 종목의 일봉(OHLC)을 조회합니다.
+    start_date/end_date는 'YYYYMMDD' 문자열이며, 한 번에 최대 100영업일치까지 내려옵니다.
+    로컬에 10년치 데이터가 없는(코스피200/코스닥150 밖) 종목의 상세 페이지에서
+    온디맨드로 최근 일봉을 보여주는 용도로 사용합니다.
+    """
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": STOCK_DAILY_PRICE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": ticker,
+        "FID_INPUT_DATE_1": start_date,
+        "FID_INPUT_DATE_2": end_date,
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 종목 일봉 조회 실패: {data.get('msg1')}")
+
+    rows = []
+    for row in data.get('output2', []):
+        if not row.get('stck_bsop_date'):
+            continue
+        rows.append({
+            'date': row['stck_bsop_date'],  # 'YYYYMMDD'
+            'open': float(row['stck_oprc']),
+            'high': float(row['stck_hgpr']),
+            'low': float(row['stck_lwpr']),
+            'close': float(row['stck_clpr']),
+        })
+
+    rows.sort(key=lambda r: r['date'])
+    return rows
+
+
+# 주식당일분봉조회 TR_ID (v1_국내주식-022) - 한 번 호출에 최근 30건(1분 간격)만 내려옴
+MINUTE_PRICE_TR_ID = "FHKST03010200"
+
+
+def get_stock_minute_price(ticker, input_hour):
+    """
+    주식당일분봉조회 API로 input_hour('HHMMSS') 시각 기준 직전 최근 30개 분봉을 조회합니다.
+    (장이 닫혀있으면 가장 최근 거래일의 분봉을 돌려줍니다.)
+    """
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": MINUTE_PRICE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_ETC_CLS_CODE": "",
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": ticker,
+        "FID_INPUT_HOUR_1": input_hour,
+        "FID_PW_DATA_INCU_YN": "Y",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 당일분봉 조회 실패: {data.get('msg1')}")
+
+    rows = []
+    for row in data.get('output2', []):
+        if not row.get('stck_cntg_hour'):
+            continue
+        rows.append({
+            'date': row['stck_bsop_date'],  # 'YYYYMMDD'
+            'time': row['stck_cntg_hour'],  # 'HHMMSS'
+            'open': float(row['stck_oprc']),
+            'high': float(row['stck_hgpr']),
+            'low': float(row['stck_lwpr']),
+            'close': float(row['stck_prpr']),
+        })
+    return rows
+
+
+def get_today_minute_prices(ticker, max_pages=14):
+    """
+    장 시작(09:00)부터 조회 시점까지의 당일 분봉 전체를, 위 API를 여러 번(최대 max_pages회)
+    호출해 이어붙여서 만듭니다. 한 번에 30개씩만 내려오고 매 호출마다 커서를 앞으로
+    당겨가며 조회하는 방식이라, 세션당 API 호출량 부담을 막기 위해 최대 호출 횟수를 둔다.
+    """
+    all_rows = {}
+    target_date = None
+    cursor = None
+
+    for _ in range(max_pages):
+        input_hour = cursor or "153000"  # 첫 호출은 장마감 시각부터 역순으로 최근 데이터를 받음
+        page = get_stock_minute_price(ticker, input_hour)
+        if not page:
+            break
+
+        if target_date is None:
+            target_date = page[0]['date']  # 최초 호출로 받아온 거래일을 기준으로 고정
+
+        # 커서가 09:00을 넘어가면 KIS가 이전 거래일 데이터를 섞어 내려주는 경우가 있어,
+        # 같은 거래일(target_date)의 행만 남긴다.
+        for row in page:
+            if row['date'] == target_date:
+                all_rows[row['time']] = row
+
+        earliest = min(page, key=lambda r: r['time'])
+        if earliest['time'] <= "090000":
+            break
+
+        # 다음 호출은 이번 배치의 가장 이른 시각 이전부터 이어서 조회
+        hh, mm = int(earliest['time'][:2]), int(earliest['time'][2:4])
+        total_minutes = hh * 60 + mm - 1
+        if total_minutes < 9 * 60:
+            break
+        cursor = f"{total_minutes // 60:02d}{total_minutes % 60:02d}00"
+
+    rows = [row for row in all_rows.values() if row['time'] >= "090000"]
+    rows.sort(key=lambda r: r['time'])
+    return rows
+
+
 # 국내휴장일조회 TR_ID (국내주식-040)
 HOLIDAY_TR_ID = "CTCA0903R"
 
@@ -245,6 +386,45 @@ def is_market_open(check_date=None):
 
     # API 응답에 기준일이 포함되지 않는 등 캐싱 실패 시에는 안전하게 개장으로 간주하고 진행
     return cached.is_market_open if cached is not None else True
+
+
+# 주식현재가 시세 TR_ID (국내주식-008)
+CURRENT_PRICE_TR_ID = "FHKST01010100"
+
+
+def get_stock_current_price(ticker):
+    """주식현재가 시세 API로 개별 종목의 실시간 현재가(시가/고가/저가/전일대비/거래량)를 조회합니다."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": CURRENT_PRICE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": ticker,
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 주식현재가 조회 실패: {data.get('msg1')}")
+
+    output = data['output']
+    return {
+        'close': float(output['stck_prpr']),
+        'open': float(output['stck_oprc']),
+        'high': float(output['stck_hgpr']),
+        'low': float(output['stck_lwpr']),
+        'change': float(output['prdy_vrss']),
+        'change_pct': float(output['prdy_ctrt']),
+        'volume': int(output['acml_vol']),
+    }
 
 
 # 종합 시황_공시(제목) TR_ID (국내주식-141)

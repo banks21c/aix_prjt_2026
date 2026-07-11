@@ -31,7 +31,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189']
 
 # Application definition
 
@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'articles.middleware.MenuAccessLogMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -172,11 +173,14 @@ KIS_APP_KEY = os.environ.get('KIS_APP_KEY')
 KIS_APP_SECRET = os.environ.get('KIS_APP_SECRET')
 KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"  # 실전투자 서버
 
-# 워드프레스 Application Password (post_to_wordpress 명령용)
-# https://timelessculturelab.com 관리자 페이지 > 사용자 > 응용 프로그램 비밀번호
-WP_SITE_URL = os.environ.get('WP_SITE_URL')
-WP_USERNAME = os.environ.get('WP_USERNAME')
-WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD')
+# Gmail SMTP (회원가입/마이페이지 이메일 인증 메일 발송용, articles/email_utils.py 참고)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = f'NextFinUp <{EMAIL_HOST_USER}>'
 
 # 앞단 프록시(Cloudflare 등)가 X-Forwarded-Proto 헤더로 원 요청의 스킴을 전달해준다는 전제 하에,
 # request.build_absolute_uri() 등이 https로 올바르게 URL을 생성하도록 함
