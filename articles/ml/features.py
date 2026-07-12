@@ -90,17 +90,42 @@ def add_features_for_one_stock(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_feature_dataframe(min_history_days: int = MIN_HISTORY_DAYS) -> pd.DataFrame:
-    """DB(StockPrediction)에서 코스피200/코스닥150 종목의 일봉 데이터를 읽어
-    종목별로 피처/라벨을 계산한 뒤 하나의 DataFrame으로 합쳐 반환합니다.
+def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=None) -> list:
+    """학습 대상 종목 id 목록을, 일봉 데이터를 메모리에 전혀 올리지 않고 DB 집계(COUNT)만으로 뽑아냅니다.
+
+    메모리가 빠듯한 서버에서 350개 종목(코스피200/코스닥150) x 10년치 일봉을 한 번에 하나의
+    DataFrame으로 합치면(구 build_feature_dataframe) 700만 행 가까이 쌓여 스왑을 다 채우고
+    서버가 멎을 수 있습니다. 그래서 이 함수로 "학습 가능한 종목 id"만 가볍게 먼저 뽑고,
+    run_stock_prediction이 build_feature_dataframe_for_stock()으로 종목을 하나씩 순차 처리합니다.
     """
-    # Django 앱 컨텍스트 밖(단위 테스트 등)에서도 이 파일을 임포트할 수 있도록
-    # 모델 임포트는 함수 안에서 지연 임포트합니다.
+    from django.db.models import Count
+    from articles.models import StockPrediction
+
+    qs = StockPrediction.objects.filter(stock__is_major_index=True, stock__is_active=True)
+    if stock_ids is not None:
+        qs = qs.filter(stock_id__in=stock_ids)
+
+    counts = (
+        qs.values('stock_id')
+        .annotate(cnt=Count('id'))
+        .filter(cnt__gte=min_history_days)
+        .order_by('stock_id')
+    )
+    return [row['stock_id'] for row in counts]
+
+
+def build_feature_dataframe_for_stock(stock_id: int) -> pd.DataFrame:
+    """단일 종목의 일봉(StockPrediction)만 DB에서 읽어 피처/라벨을 계산해 반환합니다.
+
+    이전 build_feature_dataframe()처럼 전체 종목을 한 DataFrame으로 합치지 않는 것이 핵심입니다.
+    호출 측(run_stock_prediction)이 종목 id 하나씩 이 함수를 호출해 학습을 끝낸 뒤 결과를 버리므로,
+    피크 메모리 사용량이 "종목 1개의 10년치 일봉" 규모로 제한됩니다.
+    """
     from articles.models import StockPrediction
 
     qs = (
         StockPrediction.objects
-        .filter(stock__is_major_index=True, stock__is_active=True)
+        .filter(stock_id=stock_id)
         .values(
             'id', 'stock_id', 'stock__ticker', 'stock__name', 'stock__market_type',
             'date', 'open_price', 'high_price', 'low_price', 'close_price', 'volume',
@@ -119,13 +144,41 @@ def build_feature_dataframe(min_history_days: int = MIN_HISTORY_DAYS) -> pd.Data
         raw[col] = raw[col].astype(float)
     raw['volume'] = raw['volume'].astype(float)
 
-    frames = []
-    for stock_id, group in raw.groupby('stock_id'):
-        if len(group) < min_history_days:
-            continue
-        frames.append(add_features_for_one_stock(group))
+    return add_features_for_one_stock(raw)
 
-    if not frames:
-        return pd.DataFrame()
 
-    return pd.concat(frames, ignore_index=True)
+def compute_display_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """종목 상세 페이지 차트/지표 카드에 화면 표시용(원본 값) 기술지표를 계산해 반환합니다.
+    df는 단일 종목의 OHLCV(date, open, high, low, close, volume)만 있으면 됩니다.
+
+    add_features_for_one_stock()의 피처(ma20_gap 등)는 모델 입력용 '비율'이라 화면에 그대로
+    보여주기 어려우므로, RSI/MACD 계산 로직(_rsi/_macd)만 그대로 재사용하고 이동평균·볼린저밴드·
+    거래량비율은 여기서 원본 값(가격/배수 단위)으로 따로 계산합니다.
+    """
+    df = df.sort_values('date').reset_index(drop=True)
+    close = df['close']
+    volume = df['volume']
+
+    out = pd.DataFrame({'date': df['date']})
+    out['ma5'] = close.rolling(5).mean()
+    out['ma20'] = close.rolling(20).mean()
+    out['ma60'] = close.rolling(60).mean()
+
+    bb_std = close.rolling(20).std()
+    out['bb_upper'] = out['ma20'] + 2 * bb_std
+    out['bb_lower'] = out['ma20'] - 2 * bb_std
+
+    out['rsi_14'] = _rsi(close, 14)
+
+    macd, macd_signal, macd_hist = _macd(close)
+    out['macd'] = macd
+    out['macd_signal'] = macd_signal
+    out['macd_hist'] = macd_hist
+
+    vol_ma20 = volume.rolling(20).mean()
+    out['volume_ratio_20'] = volume / vol_ma20.replace(0, np.nan)
+
+    out['ret_1d'] = close.pct_change(1)
+    out['vol_20'] = out['ret_1d'].rolling(20).std()
+
+    return out

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background-color: #f4f6f9;
+            color: #212529;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+        }
+        a { color: #0d47a1; }
+        .doc-header {
+            background: #0d47a1;
+            color: #fff;
+            padding: 36px 20px;
+        }
+        .doc-header .inner { max-width: 760px; margin: 0 auto; }
+        .doc-header a.brand { color: #fff; font-weight: 800; font-size: 18px; text-decoration: none; }
+        .doc-header h1 { margin: 12px 0 4px; font-size: 26px; }
+        .doc-header p { margin: 0; color: #dce8fb; font-size: 13px; }
+        .doc-body {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 32px 20px 80px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 32px 36px;
+        }
+        h2 { font-size: 17px; font-weight: 800; color: #0d47a1; margin: 32px 0 10px; }
+        h2:first-child { margin-top: 0; }
+        p, li { font-size: 14px; color: #343a40; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+        th, td { border: 1px solid #e9ecef; padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: #f4f6f9; width: 28%; }
+        .muted { color: #6c757d; font-size: 13px; }
+        .back-link { display: inline-block; margin-top: 24px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="doc-header">
+        <div class="inner">
+            <a href="/" class="brand">📈 NextFinUp</a>
+            <h1>개인정보처리방침</h1>
+            <p>시행일자: 2026년 7월 12일</p>
+        </div>
+    </div>
+
+    <div class="doc-body">
+        <div class="card">
+            <p>
+                NextFinUp(이하 "회사" 또는 "서비스")는 이용자의 개인정보를 중요시하며,
+                「개인정보 보호법」 등 관련 법령을 준수합니다. 본 방침은 회사가 제공하는
+                서비스 이용 과정에서 수집하는 개인정보의 항목, 수집 및 이용 목적, 보관 기간
+                등을 안내합니다.
+            </p>
+
+            <h2>1. 수집하는 개인정보 항목</h2>
+            <table>
+                <tr><th>구분</th><td>항목</td></tr>
+                <tr>
+                    <th>회원가입 (필수)</th>
+                    <td>아이디, 비밀번호(암호화 저장), 이메일</td>
+                </tr>
+                <tr>
+                    <th>마이페이지 (선택)</th>
+                    <td>이름, 전화번호, 관심 키워드</td>
+                </tr>
+                <tr>
+                    <th>소셜 로그인 (카카오/구글/네이버)</th>
+                    <td>해당 서비스가 제공하는 고유 식별자(ID), 이메일, 닉네임</td>
+                </tr>
+                <tr>
+                    <th>자동 포스팅 기능 이용 시</th>
+                    <td>
+                        이용자가 직접 연동한 블로그 플랫폼(워드프레스/티스토리/네이버 블로그/Blogger)의
+                        계정 ID, API Key 또는 OAuth 인증 토큰
+                    </td>
+                </tr>
+                <tr>
+                    <th>서비스 이용 중 자동 수집</th>
+                    <td>접속 IP, User-Agent, 접속 일시, 서비스 이용(접속) 기록, 챗봇 대화 내용</td>
+                </tr>
+                <tr>
+                    <th>뉴스레터 구독 (비회원 가능)</th>
+                    <td>이메일 (별도 사전 동의 시에만 수집·이용)</td>
+                </tr>
+            </table>
+
+            <h2>2. 개인정보의 수집 방법</h2>
+            <ul>
+                <li>회원가입 및 마이페이지에서 이용자가 직접 입력</li>
+                <li>카카오/구글/네이버 소셜 로그인 연동 시 각 사로부터 제공받음</li>
+                <li>블로그 자동 포스팅(Blogger 등) 연동 시 OAuth 인증을 통해 제공받음</li>
+                <li>서비스 이용 과정에서 자동으로 생성·수집</li>
+            </ul>
+
+            <h2>3. 개인정보의 수집 및 이용 목적</h2>
+            <ul>
+                <li>회원 식별 및 로그인 인증, 회원제 서비스 제공</li>
+                <li>이메일 인증, 비밀번호 재설정 등 본인 확인</li>
+                <li>관심 키워드 기반 뉴스 구독 및 AI 분석 콘텐츠 제공</li>
+                <li>이용자가 요청한 경우, 연동된 블로그 플랫폼으로의 콘텐츠 자동 발행</li>
+                <li>부정 이용 방지 및 서비스 개선을 위한 접속 기록 관리</li>
+                <li>
+                    (사전 동의한 경우에 한함) 이메일을 통한 뉴스레터, 종목 리포트, 이벤트 안내 등
+                    「정보통신망법」상 영리목적의 광고성 정보 전송
+                </li>
+            </ul>
+
+            <h2>4. 개인정보의 보유 및 이용 기간</h2>
+            <p>
+                원칙적으로 회원 탈퇴 시 지체 없이 파기합니다. 단, 관계 법령에서 별도의
+                보관 기간을 정하는 경우(예: 전자상거래법상 계약·결제 기록, 통신비밀보호법상
+                접속 로그 등) 해당 법령이 정한 기간 동안 보관합니다.
+            </p>
+
+            <h2>5. 개인정보의 제3자 제공</h2>
+            <p>
+                회사는 이용자의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 다만
+                이용자가 소셜 로그인 또는 블로그 자동 포스팅 기능을 직접 이용하는 경우,
+                해당 기능 수행에 필요한 최소한의 정보가 카카오/구글/네이버 또는 이용자가
+                연동한 블로그 플랫폼과 송수신될 수 있습니다.
+            </p>
+
+            <h2>6. 이용자의 권리</h2>
+            <p>
+                이용자는 마이페이지에서 언제든지 본인의 개인정보를 열람, 수정할 수 있으며,
+                회원 탈퇴를 통해 삭제를 요청할 수 있습니다. 그 밖의 열람·정정·삭제·처리정지
+                요청은 아래 문의처를 통해 접수합니다.
+            </p>
+            <p>
+                뉴스레터 구독에 동의하신 경우에도 언제든지 동의를 철회(수신거부)할 수 있습니다.
+                발송되는 메일 하단의 수신거부 링크를 이용하시면 즉시 처리됩니다.
+            </p>
+
+            <h2>7. 개인정보 보호책임자 및 문의처</h2>
+            <p>이메일: <a href="mailto:banks21c@gmail.com">banks21c@gmail.com</a></p>
+
+            <h2>8. 고지의 의무</h2>
+            <p class="muted">
+                본 방침의 내용이 변경되는 경우 서비스 내 공지사항 등을 통해 사전 고지합니다.
+            </p>
+
+            <a href="/" class="back-link">← 홈으로 돌아가기</a>
+        </div>
+    </div>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

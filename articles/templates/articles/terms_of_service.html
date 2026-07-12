@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background-color: #f4f6f9;
+            color: #212529;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+        }
+        a { color: #0d47a1; }
+        .doc-header {
+            background: #0d47a1;
+            color: #fff;
+            padding: 36px 20px;
+        }
+        .doc-header .inner { max-width: 760px; margin: 0 auto; }
+        .doc-header a.brand { color: #fff; font-weight: 800; font-size: 18px; text-decoration: none; }
+        .doc-header h1 { margin: 12px 0 4px; font-size: 26px; }
+        .doc-header p { margin: 0; color: #dce8fb; font-size: 13px; }
+        .doc-body {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 32px 20px 80px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 32px 36px;
+        }
+        h2 { font-size: 17px; font-weight: 800; color: #0d47a1; margin: 32px 0 10px; }
+        h2:first-child { margin-top: 0; }
+        p, li { font-size: 14px; color: #343a40; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        .muted { color: #6c757d; font-size: 13px; }
+        .back-link { display: inline-block; margin-top: 24px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="doc-header">
+        <div class="inner">
+            <a href="/" class="brand">📈 NextFinUp</a>
+            <h1>이용약관</h1>
+            <p>시행일자: 2026년 7월 12일</p>
+        </div>
+    </div>
+
+    <div class="doc-body">
+        <div class="card">
+            <h2>제1조 (목적)</h2>
+            <p>
+                본 약관은 NextFinUp(이하 "회사")이 제공하는 AI 주식/경제 분석 서비스(이하 "서비스")의
+                이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+            </p>
+
+            <h2>제2조 (정의)</h2>
+            <ul>
+                <li>"서비스"란 회사가 제공하는 주가 예측, 뉴스 분석, 블로그 자동 포스팅 등 일체의 기능을 말합니다.</li>
+                <li>"회원"이란 본 약관에 동의하고 회사와 이용계약을 체결한 자를 말합니다.</li>
+            </ul>
+
+            <h2>제3조 (약관의 효력 및 변경)</h2>
+            <p>
+                본 약관은 서비스 화면에 게시함으로써 효력이 발생합니다. 회사는 관련 법령을
+                위배하지 않는 범위에서 약관을 개정할 수 있으며, 개정 시 서비스 내 공지를 통해
+                사전 고지합니다.
+            </p>
+
+            <h2>제4조 (회원가입)</h2>
+            <p>
+                이용자는 회사가 정한 절차(아이디/비밀번호 입력 또는 카카오·구글·네이버 소셜 로그인)에 따라
+                회원가입을 신청하며, 회사는 특별한 사유가 없는 한 이를 승낙합니다.
+            </p>
+
+            <h2>제5조 (서비스의 제공 및 변경)</h2>
+            <p>
+                회사는 종목별 AI 예측, 뉴스 브리핑, 관심 키워드 기반 뉴스 구독, 블로그 자동
+                포스팅 등의 기능을 제공합니다. 서비스 내용은 운영상·기술상 필요에 따라 변경될 수
+                있습니다.
+            </p>
+            <p class="muted">
+                본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
+                자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
+                최종 투자 판단과 책임은 회원 본인에게 있습니다.
+            </p>
+
+            <h2>제6조 (자동 포스팅 기능 이용 시 유의사항)</h2>
+            <ul>
+                <li>회원이 직접 본인의 워드프레스/티스토리/네이버 블로그/Blogger 계정을 연동한 경우에만 자동 포스팅이 수행됩니다.</li>
+                <li>연동한 외부 블로그 계정의 관리 책임은 회원 본인에게 있으며, 계정 정보(비밀번호/API Key 등)는 회원이 직접 입력·관리합니다.</li>
+                <li>자동 발행되는 콘텐츠는 AI가 생성한 초안이며, 발행 결과에 대한 최종 확인 책임은 회원에게 있습니다.</li>
+            </ul>
+
+            <h2>제7조 (회원의 의무)</h2>
+            <ul>
+                <li>회원은 회원가입 시 정확한 정보를 제공해야 합니다.</li>
+                <li>회원은 계정 정보를 제3자에게 양도·대여할 수 없습니다.</li>
+                <li>회원은 서비스 이용 시 관련 법령 및 본 약관을 준수해야 합니다.</li>
+            </ul>
+
+            <h2>제8조 (서비스 이용의 제한)</h2>
+            <p>
+                회사는 회원이 본 약관을 위반하거나 서비스의 정상적인 운영을 방해한 경우,
+                사전 통지 없이 서비스 이용을 제한하거나 회원 자격을 정지할 수 있습니다.
+            </p>
+
+            <h2>제9조 (면책조항)</h2>
+            <p>
+                회사는 천재지변, 외부 API(증권사·소셜 로그인·블로그 플랫폼 등)의 장애 등
+                회사의 귀책사유가 아닌 사유로 발생한 서비스 중단에 대해 책임을 지지 않습니다.
+            </p>
+
+            <h2>제10조 (문의처)</h2>
+            <p>이메일: <a href="mailto:banks21c@gmail.com">banks21c@gmail.com</a></p>
+
+            <a href="/" class="back-link">← 홈으로 돌아가기</a>
+        </div>
+    </div>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

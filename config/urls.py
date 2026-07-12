@@ -15,12 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path
+from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
-    landing_page_view, main_dashboard_view,
-    news_board_view, news_detail_view, stock_detail_view, stock_minute_chart_view,
+    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
+    privacy_policy_view, terms_of_service_view, insurance_compare_view, isa_compare_view,
+    news_board_view, news_detail_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
+    market_index_minute_chart_view,
     chatbot_ask_view,
-    signup_view, login_view, logout_view,
+    signup_view, login_view, logout_view, delete_account_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
@@ -28,11 +32,27 @@ from articles.views import (
     my_page_view, verify_email_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
+sitemaps = {
+    'static': StaticViewSitemap,
+    'stocks': StockSitemap,
+    'news': NewsSitemap,
+}
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap'),
     path('', landing_page_view, name='landing_page'),  # ◀ 메인 홈페이지(랜딩 페이지)
+    path('newsletter/subscribe/', newsletter_subscribe_view, name='newsletter_subscribe'),
+    path('newsletter/unsubscribe/<str:token>/', newsletter_unsubscribe_view, name='newsletter_unsubscribe'),
+    path('admin-tools/cron/', cron_status_view, name='cron_status'),
+    path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
+    path('terms/', terms_of_service_view, name='terms_of_service'),
+    path('insurance/', insurance_compare_view, name='insurance_compare'),
+    path('isa/', isa_compare_view, name='isa_compare'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
+    path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
+    path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
@@ -42,6 +62,7 @@ urlpatterns = [
     path('signup/', signup_view, name='signup'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
+    path('accounts/delete/', delete_account_view, name='delete_account'),
     path('mypage/', my_page_view, name='my_page'),  # ◀ 내 정보 관리(뉴스구독/자동포스팅 설정)
     path('verify-email/<uidb64>/<token>/', verify_email_view, name='verify_email'),  # ◀ 이메일 인증 링크
 

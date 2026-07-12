@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site_title }}</title>
+{% include "articles/_favicon.html" %}
+<style>
+  :root {
+    --ink: #1f2e28;
+    --ink-soft: #536056;
+    --paper: #f1ede1;
+    --card: #fffcf5;
+    --card-stub: #e8e2ce;
+    --line: #d8d0ba;
+    --line-strong: #b9b096;
+    --accent: #a13d2e;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef0ea;
+      --ink-soft: #b7bfae;
+      --paper: #12160f;
+      --card: #1c231a;
+      --card-stub: #262f22;
+      --line: #3a4536;
+      --line-strong: #4d5a48;
+      --accent: #e07a5f;
+      --accent-ink: #1f2e28;
+      --success: #7fd19f;
+      --success-bg: #163524;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eef0ea; --ink-soft: #b7bfae; --paper: #12160f; --card: #1c231a; --card-stub: #262f22;
+    --line: #3a4536; --line-strong: #4d5a48; --accent: #e07a5f; --accent-ink: #1f2e28;
+    --success: #7fd19f; --success-bg: #163524; --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+  }
+  :root[data-theme="light"] {
+    --ink: #1f2e28; --ink-soft: #536056; --paper: #f1ede1; --card: #fffcf5; --card-stub: #e8e2ce;
+    --line: #d8d0ba; --line-strong: #b9b096; --accent: #a13d2e; --accent-ink: #ffffff;
+    --success: #2f7a4d; --success-bg: #e6f4ea; --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Menlo', monospace; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  header { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .back-link { font-size: 12.5px; color: var(--ink-soft); }
+  .back-link:hover { color: var(--accent); }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand-mark { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+  .brand-sub { font-size: 12.5px; color: var(--ink-soft); }
+  .demo-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 3px 8px;
+  }
+
+  /* ---------- hero: passbook cover ---------- */
+  .hero { padding: 40px 0; }
+  .passbook {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    overflow: hidden;
+    position: relative;
+  }
+  .passbook-main { padding: 40px 40px 32px; }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 14px;
+  }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
+  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
+
+  .calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .field label {
+    display: block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 10px 11px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: var(--accent-ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(161,61,46,0.28); }
+  .btn:active { transform: translateY(0); }
+  .btn-block { width: 100%; margin-top: 18px; }
+
+  /* passbook cover panel with wax-seal stamp */
+  .passbook-cover {
+    background: var(--card-stub);
+    border-left: 1px solid var(--line);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double var(--accent);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
+    transform: rotate(-8deg);
+  }
+  .cover-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
+
+  @media (max-width: 760px) {
+    .passbook { grid-template-columns: 1fr; }
+    .passbook-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
+    .calc-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  section { padding: 48px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
+
+  .ledger-stub {
+    background: var(--card-stub);
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
+  }
+  .acct-no { margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); }
+
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .ledger-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .ledger-item .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .ledger-item .v { font-size: 14px; font-weight: 600; }
+  .ledger-feature { font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 12px; }
+
+  .ledger-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+  .fee .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+  .fee .v { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .fee .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+
+  @media (max-width: 700px) {
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+    .ledger-grid { grid-template-columns: 1fr 1fr; }
+    .ledger-footer { flex-direction: column; align-items: stretch; }
+  }
+
+  .terms-strip {
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .terms-strip strong { color: var(--ink); }
+
+  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
+  .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .consult-grid .full { grid-column: 1 / -1; }
+  .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .consult-grid input, .consult-grid textarea {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
+  .consult-success { display: none; margin-top: 14px; background: var(--success-bg); color: var(--success); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  @media (max-width: 560px) { .consult { padding: 28px 22px; } .consult-grid { grid-template-columns: 1fr; } }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="wrap">
+      <a href="{% url 'landing_page' %}" class="back-link">← NextFinUp 홈으로</a>
+      <div class="brand-row">
+        <div class="brand">
+          <span class="brand-mark">ISA 원장</span>
+          <span class="brand-sub">개인종합자산관리계좌 비교</span>
+        </div>
+        <span class="demo-chip">Demo · 샘플 데이터</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="passbook rise">
+        <div class="passbook-main">
+          <div class="eyebrow">3년, 비과세로 굴리는 법</div>
+          <h1 class="hero-title">내 ISA, 어디서<br>얼마나 아낄 수 있을까</h1>
+          <p class="hero-desc">연 납입액과 가입 기간만 입력하면 취급기관별 수수료와 비과세 한도를 원장처럼 정리해드려요.</p>
+
+          <div class="calc-grid">
+            <div class="field">
+              <label for="type">유형</label>
+              <select id="type">
+                <option>중개형</option>
+                <option>신탁형</option>
+                <option>일임형</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="amount">연 납입액</label>
+              <input id="amount" type="number" placeholder="예: 1000" min="0">
+            </div>
+            <div class="field">
+              <label for="years">가입 기간(년)</label>
+              <input id="years" type="number" placeholder="3" min="3" max="10">
+            </div>
+          </div>
+          <button type="button" class="btn btn-block" onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})">기관별 비교 보기</button>
+        </div>
+        <div class="passbook-cover">
+          <div class="seal">비과세<br>3년 만기</div>
+          <div class="cover-label">Tax-Free Ledger</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="plans">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">취급기관 비교 원장</h2>
+        <span class="section-note">예시 데이터 4건</span>
+      </div>
+
+      <div class="plans">
+
+        <div class="ledger-entry rise">
+          <div class="ledger-stub">
+            <div>
+              <div class="inst-name">A증권</div>
+              <span class="type-tag">중개형</span>
+            </div>
+            <div class="acct-no mono">ISA-DEMO-01</div>
+          </div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">비과세한도</div><div class="v">200만원</div></div>
+              <div class="ledger-item"><div class="k">의무가입기간</div><div class="v">3년</div></div>
+              <div class="ledger-item"><div class="k">납입한도</div><div class="v">연 2,000만원</div></div>
+              <div class="ledger-item"><div class="k">국내주식 매매</div><div class="v">직접 가능</div></div>
+            </div>
+            <div class="ledger-feature">국내 상장주식·ETF를 계좌 안에서 직접 매매할 수 있는 중개형. 운용보수 없이 매매수수료만 부과.</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">매매수수료</div><div class="v">0.015%<span class="unit">/ 건</span></div></div>
+              <button class="btn" onclick="selectPlan('A증권')">가입 상담</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ledger-entry rise rise-delay-1">
+          <div class="ledger-stub">
+            <div>
+              <div class="inst-name">B은행</div>
+              <span class="type-tag">신탁형</span>
+            </div>
+            <div class="acct-no mono">ISA-DEMO-02</div>
+          </div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">비과세한도</div><div class="v">400만원(서민형)</div></div>
+              <div class="ledger-item"><div class="k">의무가입기간</div><div class="v">3년</div></div>
+              <div class="ledger-item"><div class="k">납입한도</div><div class="v">연 2,000만원</div></div>
+              <div class="ledger-item"><div class="k">국내주식 매매</div><div class="v">불가(예적금·펀드 중심)</div></div>
+            </div>
+            <div class="ledger-feature">예금·적금 비중이 높은 안정형 포트폴리오를 원할 때 적합. 운용지시는 가입자가 직접 결정.</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">신탁보수</div><div class="v">0.30%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('B은행')">가입 상담</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ledger-entry rise rise-delay-2">
+          <div class="ledger-stub">
+            <div>
+              <div class="inst-name">C증권</div>
+              <span class="type-tag">중개형</span>
+            </div>
+            <div class="acct-no mono">ISA-DEMO-03</div>
+          </div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">비과세한도</div><div class="v">200만원</div></div>
+              <div class="ledger-item"><div class="k">의무가입기간</div><div class="v">3년</div></div>
+              <div class="ledger-item"><div class="k">납입한도</div><div class="v">연 2,000만원</div></div>
+              <div class="ledger-item"><div class="k">국내주식 매매</div><div class="v">직접 가능</div></div>
+            </div>
+            <div class="ledger-feature">비대면 개설 이벤트로 첫 1년 매매수수료 할인 프로모션 진행 중(예시).</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">매매수수료</div><div class="v">0.010%<span class="unit">/ 건</span></div></div>
+              <button class="btn" onclick="selectPlan('C증권')">가입 상담</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ledger-entry rise rise-delay-2">
+          <div class="ledger-stub">
+            <div>
+              <div class="inst-name">D증권</div>
+              <span class="type-tag">일임형</span>
+            </div>
+            <div class="acct-no mono">ISA-DEMO-04</div>
+          </div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">비과세한도</div><div class="v">200만원</div></div>
+              <div class="ledger-item"><div class="k">의무가입기간</div><div class="v">3년</div></div>
+              <div class="ledger-item"><div class="k">납입한도</div><div class="v">연 2,000만원</div></div>
+              <div class="ledger-item"><div class="k">국내주식 매매</div><div class="v">불가(일임 운용)</div></div>
+            </div>
+            <div class="ledger-feature">투자일임업자가 모델포트폴리오로 대신 운용. 운용에 신경 쓰기 어려운 가입자에게 적합.</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">일임보수</div><div class="v">0.50%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('D증권')">가입 상담</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="terms-strip">
+        <strong>NOTICE —</strong> 비과세한도·의무가입기간·납입한도는 현행 ISA 제도의 일반적인 기준을 참고했으나, 취급기관명·수수료·프로모션은
+        전부 가상의 예시 데이터입니다. 실 서비스 전환 시 각 기관의 실제 상품공시 데이터 연동 및 금융투자상품 중개 관련 라이선스 확인이 필요합니다.
+      </div>
+    </div>
+  </section>
+
+  <section id="consult">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">전문가 상담 신청</h2>
+        <span class="section-note">데모 화면 — 실제 접수는 되지 않습니다</span>
+      </div>
+
+      <form class="consult" onsubmit="return submitConsult(event)">
+        <div class="consult-grid">
+          <div>
+            <label for="name">이름</label>
+            <input id="name" type="text" required placeholder="홍길동">
+          </div>
+          <div>
+            <label for="phone">연락처</label>
+            <input id="phone" type="tel" required placeholder="010-1234-5678">
+          </div>
+          <div>
+            <label for="planField">관심 기관</label>
+            <input id="planField" type="text" placeholder="예: A증권">
+          </div>
+          <div>
+            <label for="goal">투자 목표</label>
+            <input id="goal" type="text" placeholder="예: 배당주 중심 안정 운용">
+          </div>
+          <div class="full">
+            <label for="msg">문의사항</label>
+            <textarea id="msg" rows="3" placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-block">상담 신청하기</button>
+        <div class="consult-success" id="consultSuccess">신청이 접수되었습니다. 데모 화면이라 실제로 저장되거나 발송되지는 않습니다.</div>
+      </form>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand">ISA 원장</div>
+      <p class="footer-note">
+        본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다. ISA 계좌 비교·추천에는 관련 법령에 따른
+        투자중개업 라이선스 또는 제휴 구조 확인이 필요합니다.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    function selectPlan(name) {
+      document.getElementById('planField').value = name;
+      document.getElementById('consult').scrollIntoView({ behavior: 'smooth' });
+    }
+    function submitConsult(e) {
+      e.preventDefault();
+      document.getElementById('consultSuccess').style.display = 'block';
+      e.target.reset();
+      return false;
+    }
+  </script>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

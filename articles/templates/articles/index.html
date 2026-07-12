@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
-    <meta name="description" content="장고 랜덤포레스트 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
+    {% include "articles/_favicon.html" %}
+    <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -50,6 +51,49 @@
             padding: 4px 10px;
             border-radius: 999px;
         }
+        .provider-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .navbar-toggler-custom {
+            display: none;
+            background: none;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 20px;
+            line-height: 1;
+            padding: 6px 10px;
+            cursor: pointer;
+            color: #212529;
+        }
+        @media (max-width: 768px) {
+            .navbar .container { position: relative; }
+            .navbar-toggler-custom { display: inline-block; }
+            .nav-actions {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: #fff;
+                border-bottom: 1px solid #e9ecef;
+                flex-direction: column;
+                align-items: stretch;
+                padding: 12px 20px 16px;
+                gap: 8px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+            }
+            .nav-actions.open { display: flex; }
+            .nav-actions .badge { align-self: flex-start; }
+            .nav-actions .btn { text-align: center; }
+        }
         .btn {
             display: inline-block;
             font-size: 14px;
@@ -63,7 +107,6 @@
         .btn-outline:hover { background: #f1f3f5; }
         .btn-primary { background: #0d47a1; color: #fff; }
         .btn-primary:hover { background: #0b3c8a; }
-        .nav-username { font-size: 14px; font-weight: 600; color: #495057; margin-right: 2px; }
 
         .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
         .site-messages li {
@@ -110,6 +153,60 @@
         }
         .hero-stat strong { font-size: 26px; font-weight: 800; }
         .hero-stat span { font-size: 14px; color: #dce8fb; }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 40px;
+            align-items: center;
+        }
+        .hero-chart {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.16);
+            border-radius: 16px;
+            padding: 22px 22px 26px;
+            backdrop-filter: blur(6px);
+        }
+        .hero-chart-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #dce8fb;
+            margin-bottom: 4px;
+        }
+        .hero-chart-label .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #6ee7b7;
+            box-shadow: 0 0 0 0 rgba(110,231,183,0.6);
+            animation: heroDotPulse 2s infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-chart-label .dot { animation: none; }
+        }
+        @keyframes heroDotPulse {
+            0% { box-shadow: 0 0 0 0 rgba(110,231,183,0.55); }
+            70% { box-shadow: 0 0 0 7px rgba(110,231,183,0); }
+            100% { box-shadow: 0 0 0 0 rgba(110,231,183,0); }
+        }
+        #heroChart { display: block; width: 100%; height: auto; }
+        .hero-chart-readout {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .hero-chart-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .hero-chart-unit { font-size: 12px; color: #dce8fb; }
+
+        @media (max-width: 900px) {
+            .hero-grid { grid-template-columns: 1fr; }
+            .hero-chart { order: -1; max-width: 460px; margin: 0 auto 8px; }
+        }
 
         /* 섹션 공통 */
         section { padding: 72px 0; }
@@ -186,6 +283,35 @@
         .cta p { font-size: 15px; color: #dce8fb; margin: 0 0 28px; }
         .cta .btn-primary { background: #fff; color: #0d47a1; }
         .cta .btn-primary:hover { background: #eef3fb; }
+
+        /* 뉴스레터 */
+        .newsletter { background: #fff; border-top: 1px solid #e9ecef; text-align: center; }
+        .newsletter h2 { font-size: 22px; font-weight: 800; margin: 0 0 10px; }
+        .newsletter p { font-size: 14px; color: #6c757d; margin: 0 0 24px; }
+        .newsletter-form {
+            display: flex;
+            gap: 10px;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+        .newsletter-form input[type="email"] {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+            font-size: 14px;
+        }
+        .newsletter-form input[type="email"]:focus { outline: none; border-color: #0d47a1; }
+        .newsletter-form .btn-primary { white-space: nowrap; }
+        .newsletter-consent {
+            margin: 0 auto 20px;
+            font-size: 11.5px;
+            line-height: 1.7;
+            color: #adb5bd;
+        }
+        @media (max-width: 480px) {
+            .newsletter-form { flex-direction: column; }
+        }
 
         /* 푸터 */
         footer {
@@ -293,13 +419,28 @@
     <nav class="navbar">
         <div class="container">
             <a class="navbar-brand" href="/">📈 NextFinUp <span>AI 자산 허브</span></a>
-            <div class="nav-actions">
+            <button type="button" class="navbar-toggler-custom" aria-label="메뉴 열기"
+                    onclick="document.getElementById('navActions').classList.toggle('open')">☰</button>
+            <div class="nav-actions" id="navActions">
                 <span class="badge">Beta</span>
-                <a href="{% url 'news_board' %}" class="btn btn-outline">뉴스</a>
+                <a href="{% url 'news_board' %}" class="btn btn-outline">뉴스 게시판</a>
                 <a href="/dashboard/" class="btn btn-outline">대시보드</a>
+                <a href="{% url 'insurance_compare' %}" class="btn btn-outline">보험 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
+                <a href="{% url 'isa_compare' %}" class="btn btn-outline">ISA 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
+                {% if user.is_staff %}
+                    <a href="/admin/" class="btn btn-outline" target="_blank">관리자</a>
+                {% endif %}
                 {% if user.is_authenticated %}
-                    <a href="{% url 'my_page' %}" class="nav-username">{{ user.first_name|default:user.username }}님</a>
+                    {% with provider=user.social_accounts.first.provider %}
+                    <a href="{% url 'my_page' %}" class="btn btn-outline">
+                        {% if provider == 'KAKAO' %}<span class="provider-badge" style="background:#FEE500;color:#191919;">💬</span>
+                        {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
+                        {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:#fff;">N</span>
+                        {% endif %}
+                        {{ user.first_name|default:user.username }}님
+                    </a>
                     <a href="{% url 'logout' %}" class="btn btn-outline">로그아웃</a>
+                    {% endwith %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-outline">로그인</a>
                     <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
@@ -320,20 +461,33 @@
 
     <!-- 히어로 -->
     <div class="hero">
-        <div class="container">
-            <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
-            <p>
-                장고 기반 랜덤포레스트 머신러닝 모델이 KOSPI200·KOSDAQ150 종목의 다음날 종가와
-                상승 확률, 5일 예상 수익률을 예측하고, 실시간 경제 뉴스를 자동으로 분석해
-                투자 판단에 필요한 인사이트를 함께 제공합니다.
-            </p>
-            <div class="hero-actions">
-                <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
-                <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+        <div class="container hero-grid">
+            <div class="hero-text">
+                <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
+                <p>
+                    LightGBM·RandomForest 앙상블 머신러닝 모델이 KOSPI200·KOSDAQ150 종목의 다음날 종가와
+                    상승 확률, 5일 예상 수익률을 예측하고, 실시간 경제 뉴스를 자동으로 분석해
+                    투자 판단에 필요한 인사이트를 함께 제공합니다.
+                </p>
+                <div class="hero-actions">
+                    <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
+                    <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+                </div>
+                <div class="hero-stat">
+                    <strong>{{ active_stock_count }}</strong>
+                    <span>개 종목 AI 모니터링 중</span>
+                </div>
             </div>
-            <div class="hero-stat">
-                <strong>{{ active_stock_count }}</strong>
-                <span>개 종목 AI 모니터링 중</span>
+            <div class="hero-chart">
+                <div class="hero-chart-label">
+                    <span class="dot"></span>
+                    AI 자산 증식 시뮬레이션
+                </div>
+                <canvas id="heroChart" width="520" height="360" aria-hidden="true"></canvas>
+                <div class="hero-chart-readout">
+                    <span class="hero-chart-value" id="heroChartValue">100.0</span>
+                    <span class="hero-chart-unit">자산 지수 (시작 100)</span>
+                </div>
             </div>
         </div>
     </div>
@@ -349,7 +503,7 @@
                 <div class="feature-card">
                     <div class="icon">🤖</div>
                     <h3>AI 주가 예측</h3>
-                    <p>10년치 일봉 데이터를 학습한 랜덤포레스트 모델이 다음날 종가, 상승/하락 확률,
+                    <p>10년치 일봉 데이터를 학습한 LightGBM·RandomForest 앙상블 모델이 다음날 종가, 상승/하락 확률,
                         5일 예상 수익률과 매수·매도·관망 시그널을 산출합니다.</p>
                 </div>
                 <div class="feature-card">
@@ -409,7 +563,7 @@
             </div>
             <div class="news-list">
                 {% for article in latest_articles %}
-                <a href="/dashboard/" class="news-item">
+                <a href="{% url 'news_detail' article.pk %}" class="news-item">
                     <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
                     <span class="title">{{ article.title }}</span>
                 </a>
@@ -429,6 +583,26 @@
         </div>
     </section>
 
+    <!-- 뉴스레터 구독 -->
+    <section class="newsletter" id="newsletter">
+        <div class="container">
+            <h2>NextFinUp의 최신 소식 받아보기</h2>
+            <p class="newsletter-consent">
+                관심 종목 뉴스와 AI 예측 요약을 이메일로 받아보세요. 회원가입 없이 이메일만으로 신청할 수 있습니다.<br>
+                입력해 주신 이메일 주소는 동의 철회 시까지 이메일을 통한 뉴스레터, 종목 리포트,
+                이벤트 안내 등 영리목적 광고성 정보 전달에 활용됩니다.<br>
+                귀하는 이에 동의하지 않으실 수 있으나, 이 경우 NextFinUp이 제공하는 뉴스레터를
+		제공받지 못할 수 있습니다. <br>
+		구독 후에는 매 메일 하단의 링크로 언제든 수신을 거부할 수 있습니다.
+            </p>
+            <form class="newsletter-form" method="post" action="{% url 'newsletter_subscribe' %}">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="이메일 주소" required>
+                <button type="submit" class="btn btn-primary">구독하기</button>
+            </form>
+        </div>
+    </section>
+
     <footer>
         <div class="container">
             <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
@@ -436,6 +610,11 @@
                 본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
                 자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
                 최종 투자 판단과 책임은 이용자 본인에게 있습니다.
+            </p>
+            <p style="margin-top: 14px;">
+                <a href="{% url 'privacy_policy' %}" style="color:#adb5bd;">개인정보처리방침</a>
+                <span style="color:#495057;"> · </span>
+                <a href="{% url 'terms_of_service' %}" style="color:#adb5bd;">이용약관</a>
             </p>
         </div>
     </footer>
@@ -535,5 +714,126 @@
         })();
     </script>
 
+    <script>
+        (function () {
+            const canvas = document.getElementById('heroChart');
+            if (!canvas || !canvas.getContext) return;
+            const ctx = canvas.getContext('2d');
+            const valueEl = document.getElementById('heroChartValue');
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            // 자산 지수(시작=100)가 우상향하며 커가는 과정을 보여주기 위한 합성 데이터.
+            // 실제 시세가 아니라 연출용 시뮬레이션이며, 매 페이지 로드마다 살짝 다른 곡선이 나오도록
+            // 약한 랜덤 노이즈 + 꾸준한 상승 드리프트를 섞어 생성한다.
+            function buildSeries(points) {
+                const series = [100];
+                let value = 100;
+                let momentum = 0;
+                for (let i = 1; i < points; i++) {
+                    const drift = 0.9 + Math.sin(i / 9) * 0.4;
+                    momentum = momentum * 0.7 + (Math.random() - 0.42) * 3.2;
+                    value = Math.max(70, value + drift + momentum);
+                    series.push(value);
+                }
+                return series;
+            }
+
+            const POINTS = 60;
+            let series = buildSeries(POINTS);
+
+            function resizeCanvas() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                return { w: rect.width, h: rect.height };
+            }
+
+            function draw(progressCount) {
+                const { w, h } = resizeCanvas();
+                ctx.clearRect(0, 0, w, h);
+
+                const padTop = 18, padBottom = 10, padX = 4;
+                const visible = series.slice(0, progressCount);
+                const min = Math.min(...series) - 4;
+                const max = Math.max(...series) + 4;
+                const xStep = (w - padX * 2) / (POINTS - 1);
+                const yFor = (v) => padTop + (h - padTop - padBottom) * (1 - (v - min) / (max - min));
+                const xFor = (i) => padX + i * xStep;
+
+                if (visible.length < 2) return;
+
+                // 선 아래 그라디언트 채우기
+                const grad = ctx.createLinearGradient(0, padTop, 0, h);
+                grad.addColorStop(0, 'rgba(255,255,255,0.35)');
+                grad.addColorStop(1, 'rgba(255,255,255,0.02)');
+                ctx.beginPath();
+                ctx.moveTo(xFor(0), yFor(visible[0]));
+                visible.forEach((v, i) => ctx.lineTo(xFor(i), yFor(v)));
+                ctx.lineTo(xFor(visible.length - 1), h);
+                ctx.lineTo(xFor(0), h);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // 선
+                ctx.beginPath();
+                ctx.moveTo(xFor(0), yFor(visible[0]));
+                visible.forEach((v, i) => ctx.lineTo(xFor(i), yFor(v)));
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // 끝점 점(발광)
+                const lastIdx = visible.length - 1;
+                const ex = xFor(lastIdx), ey = yFor(visible[lastIdx]);
+                ctx.beginPath();
+                ctx.arc(ex, ey, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(110,231,183,0.25)';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(ex, ey, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#6ee7b7';
+                ctx.fill();
+
+                if (valueEl) valueEl.textContent = visible[lastIdx].toFixed(1);
+            }
+
+            if (reduceMotion) {
+                draw(POINTS);
+                window.addEventListener('resize', () => draw(POINTS));
+                return;
+            }
+
+            const DRAW_MS = 4200;
+            const PAUSE_MS = 1400;
+            let startTime = null;
+
+            function frame(ts) {
+                if (!startTime) startTime = ts;
+                const elapsed = ts - startTime;
+                const progress = Math.min(1, elapsed / DRAW_MS);
+                const count = Math.max(2, Math.round(2 + progress * (POINTS - 2)));
+                draw(count);
+
+                if (progress < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    setTimeout(() => {
+                        series = buildSeries(POINTS);
+                        startTime = null;
+                        requestAnimationFrame(frame);
+                    }, PAUSE_MS);
+                }
+            }
+            requestAnimationFrame(frame);
+            window.addEventListener('resize', () => draw(POINTS));
+        })();
+    </script>
+
+{% include "articles/_cookie_banner.html" %}
 </body>
 </html>
