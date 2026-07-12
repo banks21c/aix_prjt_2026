@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site_title }}</title>
+{% include "articles/_favicon.html" %}
+<style>
+  :root {
+    --ink: #16213a;
+    --ink-soft: #3c4a68;
+    --paper: #eef1f6;
+    --card: #fbfaf7;
+    --card-stub: #f2ede2;
+    --line: #ccd3de;
+    --line-strong: #aab2c2;
+    --accent: #a5752c;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 1px 2px rgba(22,33,58,0.06), 0 8px 24px rgba(22,33,58,0.08);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef1f6;
+      --ink-soft: #b7c0d4;
+      --paper: #0f1522;
+      --card: #182135;
+      --card-stub: #1e2a44;
+      --line: #34405c;
+      --line-strong: #46536f;
+      --accent: #d7a750;
+      --accent-ink: #16213a;
+      --success: #7fd19f;
+      --success-bg: #163524;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eef1f6;
+    --ink-soft: #b7c0d4;
+    --paper: #0f1522;
+    --card: #182135;
+    --card-stub: #1e2a44;
+    --line: #34405c;
+    --line-strong: #46536f;
+    --accent: #d7a750;
+    --accent-ink: #16213a;
+    --success: #7fd19f;
+    --success-bg: #163524;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+  }
+  :root[data-theme="light"] {
+    --ink: #16213a;
+    --ink-soft: #3c4a68;
+    --paper: #eef1f6;
+    --card: #fbfaf7;
+    --card-stub: #f2ede2;
+    --line: #ccd3de;
+    --line-strong: #aab2c2;
+    --accent: #a5752c;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 1px 2px rgba(22,33,58,0.06), 0 8px 24px rgba(22,33,58,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Menlo', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ---------- header ---------- */
+  header {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .back-link { font-size: 12.5px; color: var(--ink-soft); }
+  .back-link:hover { color: var(--accent); }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand-mark { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+  .brand-sub { font-size: 12.5px; color: var(--ink-soft); }
+  .demo-chip {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 3px 8px;
+  }
+
+  /* ---------- hero: boarding pass ---------- */
+  .hero { padding: 40px 0 40px; }
+  .ticket-hero {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    overflow: hidden;
+  }
+  .ticket-hero-main { padding: 40px 40px 32px; }
+  .eyebrow {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  .hero-title { font-size: 34px; font-weight: 800; letter-spacing: -0.01em; max-width: 20ch; }
+  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 46ch; }
+
+  .field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .field label {
+    display: block;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    padding: 10px 11px;
+    font-size: 14px;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    border-radius: 7px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 12px 20px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(165,117,44,0.28); }
+  .btn:active { transform: translateY(0); }
+  .btn-block { width: 100%; margin-top: 18px; }
+
+  /* perforated stub (tear-off ticket portion of the hero) */
+  .ticket-hero-stub {
+    position: relative;
+    background: var(--card-stub);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-left: 1px dashed var(--line-strong);
+  }
+  .ticket-hero-stub::before,
+  .ticket-hero-stub::after {
+    content: "";
+    position: absolute;
+    left: -9px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+  .ticket-hero-stub::before { top: -9px; }
+  .ticket-hero-stub::after { bottom: -9px; }
+  .stub-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+  .stub-code { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; margin-top: 4px; }
+  .barcode {
+    height: 40px;
+    margin-top: 18px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--ink) 0px, var(--ink) 2px,
+      transparent 2px, transparent 5px,
+      var(--ink) 5px, var(--ink) 6px,
+      transparent 6px, transparent 10px,
+      var(--ink) 10px, var(--ink) 13px,
+      transparent 13px, transparent 15px
+    );
+    opacity: 0.82;
+  }
+
+  @media (max-width: 760px) {
+    .ticket-hero { grid-template-columns: 1fr; }
+    .ticket-hero-stub { border-left: none; border-top: 1px dashed var(--line-strong); flex-direction: row; align-items: center; gap: 20px; }
+    .ticket-hero-stub::before, .ticket-hero-stub::after { left: auto; top: -9px; }
+    .ticket-hero-stub::before { left: -9px; }
+    .ticket-hero-stub::after { right: -9px; left: auto; }
+    .barcode { display: none; }
+    .field-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ---------- section shell ---------- */
+  section { padding: 48px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: boarding-pass style plan cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 16px; }
+  .plan-ticket {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .plan-ticket:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(22,33,58,0.08), 0 16px 32px rgba(22,33,58,0.12); }
+
+  .plan-stub {
+    position: relative;
+    background: var(--card-stub);
+    padding: 22px 20px;
+    border-right: 1px dashed var(--line-strong);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .plan-stub::before, .plan-stub::after {
+    content: "";
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+  .plan-stub::after { top: auto; bottom: -9px; }
+
+  .insurer-name { font-size: 17px; font-weight: 800; }
+  .plan-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 2px 7px;
+  }
+  .plan-barcode {
+    height: 26px;
+    margin-top: 16px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--ink) 0px, var(--ink) 1.5px,
+      transparent 1.5px, transparent 4px,
+      var(--ink) 4px, var(--ink) 4.5px,
+      transparent 4.5px, transparent 8px,
+      var(--ink) 8px, var(--ink) 10px,
+      transparent 10px, transparent 12px
+    );
+    opacity: 0.55;
+  }
+
+  .plan-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
+  .coverage-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .coverage-item .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .coverage-item .v { font-size: 14px; font-weight: 600; }
+
+  .plan-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .plan-price .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+  .plan-price .v { font-size: 22px; font-weight: 800; color: var(--accent); }
+  .plan-price .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+
+  @media (max-width: 700px) {
+    .plan-ticket { grid-template-columns: 1fr; }
+    .plan-stub { border-right: none; border-bottom: 1px dashed var(--line-strong); flex-direction: row; align-items: center; justify-content: space-between; }
+    .plan-stub::before { top: -9px; left: -9px; right: auto; }
+    .plan-stub::after { bottom: -9px; right: -9px; }
+    .plan-barcode { display: none; }
+    .coverage-grid { grid-template-columns: 1fr 1fr; }
+    .plan-footer { flex-direction: column; align-items: stretch; }
+  }
+
+  .terms-strip {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+  }
+  .terms-strip strong { color: var(--ink); }
+
+  /* ---------- consult: check-in counter ---------- */
+  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
+  .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .consult-grid .full { grid-column: 1 / -1; }
+  .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .consult-grid input, .consult-grid textarea {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    padding: 11px 13px;
+    font-size: 14px;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
+  .consult-success {
+    display: none;
+    margin-top: 14px;
+    background: var(--success-bg);
+    color: var(--success);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  @media (max-width: 560px) {
+    .consult { padding: 28px 22px; }
+    .consult-grid { grid-template-columns: 1fr; }
+  }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="wrap">
+      <a href="{% url 'landing_page' %}" class="back-link">← NextFinUp 홈으로</a>
+      <div class="brand-row">
+        <div class="brand">
+          <span class="brand-mark">TRIPINSU</span>
+          <span class="brand-sub">해외여행자보험 비교</span>
+        </div>
+        <span class="demo-chip">Demo · 샘플 데이터</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="ticket-hero rise">
+        <div class="ticket-hero-main">
+          <div class="eyebrow">Boarding Pass to Peace of Mind</div>
+          <h1 class="hero-title">떠나기 전, 3분이면<br>보험 비교가 끝납니다</h1>
+          <p class="hero-desc">여행 일정과 나이만 입력하면 의료비·휴대품·항공기 지연 등 핵심 보장을 티켓처럼 한눈에 비교해드려요.</p>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="dest">Destination</label>
+              <select id="dest">
+                <option>전체(유럽/미주 등)</option>
+                <option>일본 · 동남아</option>
+                <option>미국 · 캐나다</option>
+                <option>유럽</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="dep">Departure</label>
+              <input id="dep" type="date">
+            </div>
+            <div class="field">
+              <label for="ret">Return</label>
+              <input id="ret" type="date">
+            </div>
+            <div class="field">
+              <label for="age">Age</label>
+              <input id="age" type="number" placeholder="30" min="0" max="100">
+            </div>
+          </div>
+          <button type="button" class="btn btn-block" onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})">비교 시작하기</button>
+        </div>
+        <div class="ticket-hero-stub">
+          <div>
+            <div class="stub-label">Reference No.</div>
+            <div class="stub-code mono">TI-DEMO-0001</div>
+          </div>
+          <div class="barcode" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="plans">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">비교 티켓 — 7일 · 30세 성인 1인 기준</h2>
+        <span class="section-note">예시 데이터 4건</span>
+      </div>
+
+      <div class="plans">
+
+        <div class="plan-ticket rise">
+          <div class="plan-stub">
+            <div>
+              <div class="insurer-name">A손해보험</div>
+              <span class="plan-tag">가성비</span>
+            </div>
+            <div class="plan-barcode" aria-hidden="true"></div>
+          </div>
+          <div class="plan-body">
+            <div class="coverage-grid">
+              <div class="coverage-item"><div class="k">의료실비</div><div class="v">3,000만원</div></div>
+              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">20만원</div></div>
+              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">4시간 · 10만원</div></div>
+              <div class="coverage-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+            </div>
+            <div class="plan-footer">
+              <div class="plan-price"><div class="k">Fare</div><div class="v">8,900원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('A손해보험')">상담 신청</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="plan-ticket rise rise-delay-1">
+          <div class="plan-stub">
+            <div>
+              <div class="insurer-name">B화재해상</div>
+              <span class="plan-tag">의료보장 강화</span>
+            </div>
+            <div class="plan-barcode" aria-hidden="true"></div>
+          </div>
+          <div class="plan-body">
+            <div class="coverage-grid">
+              <div class="coverage-item"><div class="k">의료실비</div><div class="v">5,000만원</div></div>
+              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">30만원</div></div>
+              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">3시간 · 15만원</div></div>
+              <div class="coverage-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+            </div>
+            <div class="plan-footer">
+              <div class="plan-price"><div class="k">Fare</div><div class="v">12,400원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('B화재해상')">상담 신청</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="plan-ticket rise rise-delay-2">
+          <div class="plan-stub">
+            <div>
+              <div class="insurer-name">C다이렉트</div>
+              <span class="plan-tag">최저가</span>
+            </div>
+            <div class="plan-barcode" aria-hidden="true"></div>
+          </div>
+          <div class="plan-body">
+            <div class="coverage-grid">
+              <div class="coverage-item"><div class="k">의료실비</div><div class="v">2,000만원</div></div>
+              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">15만원</div></div>
+              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">미보장</div></div>
+              <div class="coverage-item"><div class="k">배상책임</div><div class="v">5,000만원</div></div>
+            </div>
+            <div class="plan-footer">
+              <div class="plan-price"><div class="k">Fare</div><div class="v">6,500원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('C다이렉트')">상담 신청</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="plan-ticket rise rise-delay-2">
+          <div class="plan-stub">
+            <div>
+              <div class="insurer-name">D손해보험</div>
+              <span class="plan-tag">프리미엄</span>
+            </div>
+            <div class="plan-barcode" aria-hidden="true"></div>
+          </div>
+          <div class="plan-body">
+            <div class="coverage-grid">
+              <div class="coverage-item"><div class="k">의료실비</div><div class="v">1억원</div></div>
+              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">50만원</div></div>
+              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">2시간 · 20만원</div></div>
+              <div class="coverage-item"><div class="k">배상책임</div><div class="v">2억원</div></div>
+            </div>
+            <div class="plan-footer">
+              <div class="plan-price"><div class="k">Fare</div><div class="v">18,900원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('D손해보험')">상담 신청</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="terms-strip">
+        <strong>NOTICE —</strong> 위 보험사명·보장내용·보험료는 전부 가상의 예시 데이터입니다. 실 서비스 전환 시 보험협회 공시실 데이터 연동 또는
+        보험사 API 제휴가 필요하며, 비교·추천 서비스 제공을 위해서는 보험대리점(GA) 등록 또는 금융위원회 혁신금융서비스 지정 등
+        법적 요건을 먼저 충족해야 합니다.
+      </div>
+    </div>
+  </section>
+
+  <section id="consult">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">전문가 상담 신청</h2>
+        <span class="section-note">데모 화면 — 실제 접수는 되지 않습니다</span>
+      </div>
+
+      <form class="consult" onsubmit="return submitConsult(event)">
+        <div class="consult-grid">
+          <div>
+            <label for="name">이름</label>
+            <input id="name" type="text" required placeholder="홍길동">
+          </div>
+          <div>
+            <label for="phone">연락처</label>
+            <input id="phone" type="tel" required placeholder="010-1234-5678">
+          </div>
+          <div>
+            <label for="planField">관심 상품</label>
+            <input id="planField" type="text" placeholder="예: A손해보험">
+          </div>
+          <div>
+            <label for="country">여행 국가</label>
+            <input id="country" type="text" placeholder="예: 일본">
+          </div>
+          <div class="full">
+            <label for="msg">문의사항</label>
+            <textarea id="msg" rows="3" placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-block">상담 신청하기</button>
+        <div class="consult-success" id="consultSuccess">신청이 접수되었습니다. 데모 화면이라 실제로 저장되거나 발송되지는 않습니다.</div>
+      </form>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand">TRIPINSU</div>
+      <p class="footer-note">
+        본 사이트는 프로토타입 데모이며 실제 보험 비교·중개 서비스가 아닙니다. 보험 상품 비교·추천에는 관련 법령에 따른
+        보험대리점 등록 또는 금융당국의 승인이 필요합니다.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    function selectPlan(name) {
+      document.getElementById('planField').value = name;
+      document.getElementById('consult').scrollIntoView({ behavior: 'smooth' });
+    }
+    function submitConsult(e) {
+      e.preventDefault();
+      document.getElementById('consultSuccess').style.display = 'block';
+      e.target.reset();
+      return false;
+    }
+  </script>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

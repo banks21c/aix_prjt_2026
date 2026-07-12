@@ -1,13 +1,66 @@
 <!-- 내부 앱 페이지(대시보드/뉴스게시판/뉴스상세/종목상세/마이페이지) 공통 상단 네비게이션 -->
-<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
+<nav class="navbar navbar-light bg-white border-bottom sticky-top app-navbar">
     <div class="container">
         <a class="navbar-brand" href="/">📈 NextFinUp <span class="text-secondary" style="font-size: 14px; font-weight: 400;">AI 자산 허브</span></a>
-        <div class="d-flex align-items-center">
+        <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
+                onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+        <div class="d-flex align-items-center app-nav-menu" id="appNavMenu">
             <span class="badge bg-primary me-2">Beta</span>
             <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
             <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary me-2">뉴스 게시판</a>
             <a href="{% url 'main_dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">대시보드</a>
-            <a href="/admin/" class="btn btn-sm btn-outline-secondary" target="_blank">관리자 센터</a>
+            <a href="{% url 'insurance_compare' %}" class="btn btn-sm btn-outline-secondary me-2">보험 비교<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DEMO</span></a>
+            <a href="{% url 'isa_compare' %}" class="btn btn-sm btn-outline-secondary me-2">ISA 비교<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DEMO</span></a>
+            {% if user.is_staff %}
+                <a href="/admin/" class="btn btn-sm btn-outline-secondary me-2" target="_blank">관리자</a>
+            {% endif %}
+            {% if user.is_authenticated %}
+                {% with provider=user.social_accounts.first.provider %}
+                <a href="{% url 'my_page' %}" class="btn btn-sm btn-outline-secondary me-2 d-inline-flex align-items-center gap-1">
+                    {% if provider == 'KAKAO' %}<span class="badge rounded-pill" style="background:#FEE500;color:#191919;">💬</span>
+                    {% elif provider == 'GOOGLE' %}<span class="badge rounded-pill" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
+                    {% elif provider == 'NAVER' %}<span class="badge rounded-pill" style="background:#03C75A;color:#fff;">N</span>
+                    {% endif %}
+                    {{ user.first_name|default:user.username }}님
+                </a>
+                {% endwith %}
+                <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger">로그아웃</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-sm btn-primary">로그인</a>
+            {% endif %}
         </div>
     </div>
 </nav>
+<style>
+    .app-navbar-toggler {
+        display: none;
+        background: none;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 18px;
+        line-height: 1;
+        padding: 4px 10px;
+        cursor: pointer;
+    }
+    @media (max-width: 768px) {
+        .app-navbar .container { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; }
+        .app-navbar-toggler { display: inline-block; }
+        .app-nav-menu {
+            display: none !important;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid #dee2e6;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 12px 16px 16px;
+            gap: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+        }
+        .app-nav-menu.open { display: flex !important; }
+        .app-nav-menu .btn { margin: 0 !important; width: 100%; text-align: center; }
+        .app-nav-menu .badge { align-self: flex-start; }
+    }
+</style>

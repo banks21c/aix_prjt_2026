@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
     <style>
         * { box-sizing: border-box; }
         body {
@@ -142,15 +143,16 @@
                 {{ form.password }}
             </div>
             <button type="submit" class="btn-submit">로그인</button>
+
+		<div class="divider">또는 간편 로그인</div>
+
+		<a href="{% url 'kakao_login' %}" class="social-btn btn-kakao">💬 카카오톡으로 로그인</a>
+		<a href="{% url 'google_login' %}" class="social-btn btn-google">🔍 구글로 로그인</a>
+		<a href="{% url 'naver_login' %}" class="social-btn btn-naver">N 네이버로 로그인</a>
         </form>
-
-        <div class="divider">또는 간편 로그인</div>
-
-        <a href="{% url 'kakao_login' %}" class="social-btn btn-kakao">💬 카카오톡으로 로그인</a>
-        <a href="{% url 'google_login' %}" class="social-btn btn-google">🔍 구글로 로그인</a>
-        <a href="{% url 'naver_login' %}" class="social-btn btn-naver">N 네이버로 로그인</a>
 
         <p class="auth-footer">아직 계정이 없으신가요? <a href="{% url 'signup' %}">회원가입</a></p>
     </div>
+{% include "articles/_cookie_banner.html" %}
 </body>
 </html>

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'articles',
 ]
 
@@ -61,7 +62,9 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # BASE_DIR/templates가 앱별 템플릿(APP_DIRS)보다 먼저 검색되므로, 여기 있는
+        # admin/index.html이 django.contrib.admin이 제공하는 기본 템플릿을 오버라이드한다.
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,11 +133,19 @@ USE_I18N = True
 
 USE_TZ = True
 
+# 기본 'error' 태그는 부트스트랩에 대응하는 alert-error 클래스가 없어(alert-danger만 존재),
+# 템플릿에서 alert-{{ message.tags }}로 그리면 스타일이 안 먹으므로 danger로 맞춰준다.
+from django.contrib.messages import constants as message_constants
+MESSAGE_TAGS = {
+    message_constants.ERROR: 'danger',
+}
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic 결과물 (nginx가 이 경로를 직접 서빙)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -147,10 +158,19 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.nextfinup.com',
 ]
 
+# 관리 커맨드(cron)처럼 request 객체가 없는 곳에서 절대 URL(예: 뉴스레터 수신거부 링크)을 만들 때 사용
+SITE_URL = 'https://www.nextfinup.com'
+
 # 로그인/로그아웃 후 이동할 기본 경로
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# 기본 ModelBackend는 is_active=False 계정을 authenticate() 단계에서 조용히 걸러버려서,
+# LoginForm.confirm_login_allowed()가 아예 호출되지 않고 "아이디/비밀번호가 틀렸습니다" 같은
+# 부정확한 에러만 뜬다. 이메일 미인증 계정에 정확한 안내 메시지를 보여주기 위해, 활성 여부
+# 판단을 폼(confirm_login_allowed)에 위임하는 공식 백엔드로 교체한다.
+AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.AllowAllUsersModelBackend']
 
 # 카카오/구글 소셜 로그인 연동 키 (각 개발자 콘솔에서 발급받아 실제 값으로 교체하세요)
 # - 카카오: https://developers.kakao.com  (내 애플리케이션 > 앱 키 > REST API 키)

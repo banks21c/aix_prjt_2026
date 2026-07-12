@@ -1,10 +1,11 @@
 import re
 
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
-from .models import UserPreference, BlogPostingAccount
+from .models import UserPreference, BlogPostingAccount, NewsKeyword, NewsletterSubscriber
 
 # 하이픈 유무 모두 허용하는 국내 전화번호 형식 (휴대폰 010~019, 서울 02, 그 외 지역 0XX 유선)
 PHONE_NUMBER_RE = re.compile(r'^0\d{1,2}-?\d{3,4}-?\d{4}$')
@@ -43,12 +44,23 @@ class SignUpForm(forms.Form):
         return cleaned_data
 
 
+class LoginForm(AuthenticationForm):
+    # 이메일 인증 전(is_active=False)에는 로그인을 막고, 원인을 알 수 있게 한국어 메시지로 안내
+    def confirm_login_allowed(self, user):
+        if not user.is_active:
+            raise forms.ValidationError(
+                "이메일 인증이 완료되지 않은 계정입니다. 가입 시 받은 메일에서 인증을 완료해주세요.",
+                code='inactive',
+            )
+
+
 class UserContactForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['email']
-        labels = {'email': '이메일'}
+        fields = ['first_name', 'email']
+        labels = {'first_name': '이름', 'email': '이메일'}
         widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '홍길동'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
 
@@ -60,13 +72,23 @@ class UserContactForm(forms.ModelForm):
 
 
 class UserPreferenceForm(forms.ModelForm):
+    # interested_keywords는 모델상 콤마구분 CharField이지만, 관리자가 등록해둔 NewsKeyword 범위
+    # 밖의 키워드는 애초에 수집되지 않아 뉴스가 하나도 안 잡히므로(=조용한 실패), 자유 입력 대신
+    # 활성 NewsKeyword 중에서만 체크박스로 고르게 한다. Meta.fields에는 넣지 않고 save()에서
+    # 직접 콤마구분 문자열로 변환해서 저장한다.
+    interested_keywords = forms.ModelMultipleChoiceField(
+        queryset=NewsKeyword.objects.filter(is_active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='관심 키워드',
+    )
+
     class Meta:
         model = UserPreference
-        fields = ['phone_number', 'news_subscription', 'interested_keywords', 'post_all_articles', 'auto_posting_enabled']
+        fields = ['phone_number', 'news_subscription', 'post_all_articles', 'auto_posting_enabled']
         labels = {
             'phone_number': '전화번호',
             'news_subscription': '뉴스 구독',
-            'interested_keywords': '관심 키워드',
             'post_all_articles': '전체 발행(관심 키워드 무시하고 모든 기사 발행)',
             'auto_posting_enabled': '자동 포스팅 사용',
         }
@@ -75,17 +97,30 @@ class UserPreferenceForm(forms.ModelForm):
             'post_all_articles': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'auto_posting_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '010-1234-5678'}),
-            'interested_keywords': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': '예: 반도체, 2차전지, 인공지능 (콤마로 구분)',
-            }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            selected = [kw.strip() for kw in self.instance.interested_keywords.split(',') if kw.strip()]
+            self.fields['interested_keywords'].initial = NewsKeyword.objects.filter(
+                is_active=True, keyword__in=selected
+            )
 
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get('phone_number', '').strip()
         if phone_number and not PHONE_NUMBER_RE.match(phone_number):
             raise forms.ValidationError("올바른 전화번호 형식이 아닙니다. 예: 010-1234-5678")
         return phone_number
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.interested_keywords = ','.join(
+            kw.keyword for kw in self.cleaned_data['interested_keywords']
+        )
+        if commit:
+            instance.save()
+        return instance
 
 
 class BlogAccountForm(forms.ModelForm):
@@ -107,3 +142,7 @@ class BlogAccountForm(forms.ModelForm):
                 render_value=False, attrs={'class': 'form-control', 'placeholder': '변경 시에만 입력'}
             ),
         }
+
+
+class NewsletterForm(forms.Form):
+    email = forms.EmailField(label="이메일")

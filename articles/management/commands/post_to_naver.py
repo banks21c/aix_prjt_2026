@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
-from articles.blog_posting import build_post_content, enabled_accounts, select_candidates
-from articles.models import PostedArticle
+from articles.blog_posting import enabled_accounts, publish_article, select_candidates
 
 
 class Command(BaseCommand):
@@ -36,12 +35,13 @@ class Command(BaseCommand):
             ))
 
             for article in candidates:
-                blog_title, _full_html_content, _subject_label = build_post_content(article)
-                # 실제 발행 API가 없어 PostedArticle만 기록(external_url 없음). 필요 시 수동 게시.
-                PostedArticle.objects.create(blog_account=account, article=article, external_url='')
-                self.stdout.write(self.style.WARNING(
-                    f"    ↳ [시뮬레이션] {account.user.username} 계정용 글 빌드 완료: {blog_title} "
-                    f"(네이버 공식 글쓰기 API 부재로 실제 발행은 지원되지 않습니다 - 수동 게시 필요)"
-                ))
+                ok, result = publish_article(account, article)
+                if ok:
+                    self.stdout.write(self.style.WARNING(
+                        f"    ↳ [시뮬레이션] {account.user.username} 계정용 글 빌드 완료: {article.title[:40]} "
+                        f"(네이버 공식 글쓰기 API 부재로 실제 발행은 지원되지 않습니다 - 수동 게시 필요)"
+                    ))
+                else:
+                    self.stdout.write(self.style.ERROR(f"    ↳ [{account.user.username}] {result}"))
 
         self.stdout.write(self.style.SUCCESS("🎉 오늘의 모든 회원 네이버 블로그 콘텐츠 빌드가 종료되었습니다!"))

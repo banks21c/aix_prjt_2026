@@ -1,10 +1,39 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
-    StockRealtimePrice,
+    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue,
 )
+
+# 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
+# 문구 대신 어느 프로젝트 관리자 화면인지 바로 알아볼 수 있게 브랜딩한다.
+admin.site.site_header = "NextFinUp administration"
+admin.site.site_title = "NextFinUp admin"
+admin.site.index_title = "NextFinUp 관리"
+
+
+# 0-0-2. 기본 User admin에 마이페이지에서 등록한 전화번호(UserPreference) 컬럼 추가
+class UserPreferenceInline(admin.StackedInline):
+    model = UserPreference
+    can_delete = False
+    fields = ('phone_number',)
+
+admin.site.unregister(User)
+
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    inlines = (UserPreferenceInline,)
+    list_display = UserAdmin.list_display + ('phone_number',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('preference')
+
+    @admin.display(description='전화번호')
+    def phone_number(self, obj):
+        return getattr(obj.preference, 'phone_number', '') if hasattr(obj, 'preference') else ''
 
 # 0-0. 한국투자증권(KIS) 접근 토큰 캐시 조회용 (읽기 전용)
 @admin.register(KisAccessToken)
@@ -176,4 +205,38 @@ class MenuAccessLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # 메뉴 접속 미들웨어를 통해서만 생성됨
+
+# 9. 홈페이지 뉴스레터 구독자 관리
+@admin.register(NewsletterSubscriber)
+class NewsletterSubscriberAdmin(admin.ModelAdmin):
+    list_display = ('email', 'is_active', 'subscribed_at')
+    list_editable = ('is_active',)
+    search_fields = ('email',)
+    list_filter = ('is_active',)
+    ordering = ('-subscribed_at',)
+
+# 10. 뉴스레터 발행호 관리 — generate_newsletter_draft가 자동으로 초안(DRAFT)을 만들어두면,
+# 여기서 제목/본문을 검토·수정한 뒤 상태를 READY로 바꿔야 send_newsletter가 발송한다.
+@admin.register(NewsletterIssue)
+class NewsletterIssueAdmin(admin.ModelAdmin):
+    list_display = ('subject', 'status', 'article_count', 'created_at', 'sent_at', 'recipient_count')
+    list_filter = ('status',)
+    search_fields = ('subject', 'body')
+    ordering = ('-created_at',)
+    readonly_fields = ('article_count', 'created_at', 'sent_at', 'recipient_count')
+    actions = ['mark_ready']
+
+    def get_readonly_fields(self, request, obj=None):
+        # 이미 발송된 건은 제목/본문도 더 이상 수정할 수 없게 잠근다 (발송 내용과 화면 내용이 어긋나는 것 방지)
+        if obj and obj.status == 'SENT':
+            return self.readonly_fields + ('subject', 'body', 'status')
+        return self.readonly_fields
+
+    def has_add_permission(self, request):
+        return False  # generate_newsletter_draft 커맨드를 통해서만 생성됨
+
+    @admin.action(description="선택한 초안을 발송 대기(READY)로 표시")
+    def mark_ready(self, request, queryset):
+        updated = queryset.filter(status='DRAFT').update(status='READY')
+        self.message_user(request, f"{updated}건을 발송 대기 상태로 변경했습니다.")
 

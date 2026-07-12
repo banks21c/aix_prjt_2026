@@ -1,9 +1,5 @@
-import requests
 from django.core.management.base import BaseCommand
-from articles.blog_posting import build_post_content, enabled_accounts, select_candidates
-from articles.models import PostedArticle
-
-TISTORY_WRITE_URL = "https://www.tistory.com/apis/post/write"
+from articles.blog_posting import enabled_accounts, publish_article, select_candidates
 
 
 class Command(BaseCommand):
@@ -37,33 +33,12 @@ class Command(BaseCommand):
             ))
 
             for article in candidates:
-                blog_title, full_html_content, subject_label = build_post_content(article)
-                payload = {
-                    # 티스토리 오픈 API: account_id=블로그 이름(예: nextfinup), credential=API 액세스 토큰
-                    "access_token": account.credential,
-                    "output": "json",
-                    "blogName": account.account_id,
-                    "title": blog_title,
-                    "content": full_html_content,
-                    "visibility": 3,  # 3: 발행(공개), 0: 비공개
-                    "category": 0,
-                    "tag": f"{subject_label}, 경제뉴스, AI투자, 테크핀",
-                }
-                try:
-                    res = requests.post(TISTORY_WRITE_URL, data=payload, timeout=15).json()
-                    tistory_res = res.get("tistory", {})
-                    if tistory_res.get("status") == "200":
-                        PostedArticle.objects.create(
-                            blog_account=account, article=article, external_url=tistory_res.get('url', ''),
-                        )
-                        self.stdout.write(self.style.SUCCESS(
-                            f"    ↳ [발행 성공] {subject_label} 글이 {account.user.username}의 티스토리에 등록되었습니다: {tistory_res.get('url')}"
-                        ))
-                    else:
-                        self.stdout.write(self.style.ERROR(
-                            f"    ↳ [{account.user.username}] 티스토리 API 응답 에러: {res}"
-                        ))
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f"    ↳ [{account.user.username}] 네트워크 연동 실패: {str(e)}"))
+                ok, result = publish_article(account, article)
+                if ok:
+                    self.stdout.write(self.style.SUCCESS(
+                        f"    ↳ [발행 성공] {article.title[:40]} 글이 {account.user.username}의 티스토리에 등록되었습니다: {result}"
+                    ))
+                else:
+                    self.stdout.write(self.style.ERROR(f"    ↳ [{account.user.username}] {result}"))
 
         self.stdout.write(self.style.SUCCESS("🎉 오늘의 모든 회원 티스토리 발행 프로세스가 종료되었습니다!"))

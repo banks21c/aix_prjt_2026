@@ -1,15 +1,20 @@
 import json
 import logging
+import re
 import secrets
+import subprocess
 from datetime import date, datetime, timedelta, timezone as dt_timezone
+from pathlib import Path
 
+import pandas as pd
 import requests
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
+from django.core import signing
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -20,13 +25,14 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
-from . import chatbot_client, kis_client
+from . import blog_posting, chatbot_client, kis_client
 from .email_utils import TOKEN_VALID_HOURS, send_verification_email
-from .forms import SignUpForm, UserPreferenceForm, BlogAccountForm, UserContactForm
+from .ml.features import compute_display_indicators
+from .forms import SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     MarketIndex, RankedMover, ChatMessage, LoginLog, UserPreference, BlogPostingAccount,
-    StockRealtimePrice,
+    StockRealtimePrice, PostedArticle, NewsletterSubscriber,
 )
 from .utils import get_client_ip
 
@@ -42,6 +48,119 @@ def landing_page_view(request):
         'latest_articles': latest_articles,
     }
     return render(request, 'articles/index.html', context)
+
+
+@require_POST
+def newsletter_subscribe_view(request):
+    form = NewsletterForm(request.POST)
+    if form.is_valid():
+        email = form.cleaned_data['email']
+        _, created = NewsletterSubscriber.objects.get_or_create(email=email)
+        if created:
+            messages.success(request, f"{email} 구독 신청이 완료되었습니다. 감사합니다!")
+        else:
+            messages.info(request, "이미 구독 중인 이메일입니다.")
+    else:
+        messages.error(request, "올바른 이메일 주소를 입력해주세요.")
+    return redirect(f"{reverse('landing_page')}#newsletter")
+
+
+def newsletter_unsubscribe_view(request, token):
+    try:
+        subscriber_id = signing.loads(token, salt='newsletter-unsubscribe')
+        subscriber = NewsletterSubscriber.objects.get(pk=subscriber_id)
+    except (signing.BadSignature, NewsletterSubscriber.DoesNotExist):
+        messages.error(request, "유효하지 않은 수신거부 링크입니다.")
+        return redirect('landing_page')
+
+    subscriber.is_active = False
+    subscriber.save(update_fields=['is_active'])
+    messages.success(request, f"{subscriber.email}의 뉴스레터 수신이 해지되었습니다.")
+    return redirect('landing_page')
+
+
+def _describe_cron_schedule(minute, hour, day, month, weekday):
+    if minute.startswith('*/') and hour == day == month == weekday == '*':
+        return f"{minute[2:]}분마다"
+    if minute.isdigit() and hour.isdigit() and day == month == weekday == '*':
+        return f"매일 {int(hour):02d}:{int(minute):02d}"
+    return f"{minute} {hour} {day} {month} {weekday}"
+
+
+@staff_member_required
+def cron_status_view(request):
+    """서버에 등록된 crontab 내용을 그대로 읽어와 사람이 보기 좋게 표로 보여준다.
+    (읽기 전용 — 여기서 크론을 추가/수정하지는 않음, 수정은 서버에서 crontab -e로 직접)"""
+    jobs = []
+    error = None
+    try:
+        result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
+        raw = result.stdout if result.returncode == 0 else ''
+        if result.returncode != 0 and result.stderr.strip():
+            error = result.stderr.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        raw = ''
+        error = str(e)
+
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split(None, 5)
+        if len(parts) < 6:
+            continue
+        minute, hour, day, month, weekday, command = parts
+
+        cmd_match = re.search(r'manage\.py\s+(\S+)', command)
+        command_name = cmd_match.group(1) if cmd_match else command[:60]
+
+        log_match = re.search(r'>>\s*(\S+)', command)
+        log_path = log_match.group(1) if log_match else None
+
+        last_run = None
+        last_run_ago_minutes = None
+        if log_path:
+            try:
+                log_file = Path(log_path)
+                if log_file.exists():
+                    last_run = datetime.fromtimestamp(log_file.stat().st_mtime, tz=KST)
+                    last_run_ago_minutes = int((datetime.now(KST) - last_run).total_seconds() // 60)
+            except OSError:
+                pass
+
+        jobs.append({
+            'schedule_human': _describe_cron_schedule(minute, hour, day, month, weekday),
+            'schedule_raw': f"{minute} {hour} {day} {month} {weekday}",
+            'command_name': command_name,
+            'log_path': log_path,
+            'last_run': last_run,
+            'last_run_ago_minutes': last_run_ago_minutes,
+        })
+
+    context = {
+        'site_title': 'NextFinUp - 크론 작업 현황',
+        'jobs': jobs,
+        'error': error,
+    }
+    return render(request, 'articles/cron_status.html', context)
+
+
+def privacy_policy_view(request):
+    return render(request, 'articles/privacy_policy.html', {'site_title': 'NextFinUp - 개인정보처리방침'})
+
+
+def terms_of_service_view(request):
+    return render(request, 'articles/terms_of_service.html', {'site_title': 'NextFinUp - 이용약관'})
+
+
+def insurance_compare_view(request):
+    # 해외여행자보험 비교 데모(프로토타입) — 상품/가격은 전부 예시 데이터이며 실 서비스 아님
+    return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
+
+
+def isa_compare_view(request):
+    # ISA(개인종합자산관리계좌) 비교 데모(프로토타입) — 취급기관/수수료는 전부 예시 데이터이며 실 서비스 아님
+    return render(request, 'articles/isa_compare.html', {'site_title': 'NextFinUp - ISA 비교(데모)'})
 
 
 def _build_index_chart(market_type, days=90):
@@ -67,8 +186,10 @@ def _build_index_chart(market_type, days=90):
 
 def main_dashboard_view(request):
     # ---- 1행: 코스피/코스닥 지수 차트(지수/등락/등락%) ----
-    kospi_index = _build_index_chart('KOSPI')
-    kosdaq_index = _build_index_chart('KOSDAQ')
+    # 3년치를 한 번에 내려보내, 클라이언트에서 3개월/1년/3년 버튼을 누르면 다시 조회하지 않고
+    # 이미 받은 배열을 기간만큼 잘라서 그린다. 당일(1일) 분봉은 별도 온디맨드 API로 받는다.
+    kospi_index = _build_index_chart('KOSPI', days=1095)
+    kosdaq_index = _build_index_chart('KOSDAQ', days=1095)
 
     # ---- 2행: 주요뉴스 (전체 종목 통틀어 가장 최근 수집된 기사) ----
     major_news = AnalyzedArticle.objects.select_related('stock', 'matched_keyword').order_by('-scraped_at')[:6]
@@ -130,19 +251,126 @@ def news_board_view(request):
     paginator = Paginator(articles, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    user_blog_accounts = []
+    selected_account = None
+    posted_article_ids = set()
+    posting_stats = None
+    if request.user.is_authenticated:
+        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+        posting_stats = blog_posting.posting_stats(request.user)
+        account_id = request.GET.get('account')
+        if account_id:
+            selected_account = next((a for a in user_blog_accounts if str(a.pk) == account_id), None)
+        if not selected_account and user_blog_accounts:
+            selected_account = user_blog_accounts[0]
+        if selected_account:
+            page_article_ids = [a.pk for a in page_obj.object_list]
+            posted_article_ids = set(
+                PostedArticle.objects
+                .filter(blog_account=selected_account, article_id__in=page_article_ids)
+                .values_list('article_id', flat=True)
+            )
+
+    # 계정 선택이 URL에 없어도(첫 방문 시 기본값으로 골라준 경우 포함) 항상 유지되도록,
+    # 목록/페이지네이션/기사별 포스팅 폼이 공유하는 "현재 조회 조건" URL을 여기서 한 번에 만든다.
+    next_params = request.GET.copy()
+    if selected_account:
+        next_params['account'] = str(selected_account.pk)
+    next_url = f"{request.path}?{next_params.urlencode()}" if next_params else request.path
+
     context = {
         'site_title': 'NextFinUp - 뉴스 게시판',
         'page_obj': page_obj,
         'query': query,
+        'user_blog_accounts': user_blog_accounts,
+        'selected_account': selected_account,
+        'posted_article_ids': posted_article_ids,
+        'next_url': next_url,
+        'posting_stats': posting_stats,
     }
     return render(request, 'articles/news_board.html', context)
 
 
+@login_required
+@require_POST
+def post_articles_view(request):
+    """뉴스 게시판에서 회원이 직접 고른 기사들을 선택한 본인 블로그 계정에 즉시 발행한다."""
+    account = get_object_or_404(BlogPostingAccount, pk=request.POST.get('account_id'), user=request.user)
+    # 개별 행의 '포스팅' 버튼은 체크박스 상태와 무관하게 그 기사 하나만 발행하도록,
+    # 제출 버튼 자체에 실린 solo_article_id를 우선 사용한다 (없으면 체크박스로 고른 전체 발행).
+    solo_article_id = request.POST.get('solo_article_id')
+    article_ids = [solo_article_id] if solo_article_id else request.POST.getlist('article_ids')
+
+    if not account.is_connected():
+        messages.error(request, f"{account.get_platform_display()} 계정이 아직 연동되지 않았습니다. 마이페이지에서 먼저 연동해주세요.")
+        return redirect(request.POST.get('next') or 'news_board')
+
+    if not article_ids:
+        messages.warning(request, "포스팅할 기사를 하나 이상 선택해주세요.")
+        return redirect(request.POST.get('next') or 'news_board')
+
+    remaining = blog_posting.posting_stats(request.user)['remaining']
+    if remaining is not None:
+        if remaining <= 0:
+            messages.error(
+                request,
+                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 프리미엄으로 업그레이드해주세요.",
+            )
+            return redirect(request.POST.get('next') or 'news_board')
+        if len(article_ids) > remaining:
+            messages.warning(
+                request,
+                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
+            )
+            article_ids = article_ids[:remaining]
+
+    articles = AnalyzedArticle.objects.filter(pk__in=article_ids)
+    success_count = 0
+    for article in articles:
+        # 개별 포스팅은 목록 화면의 포스팅완료 버튼 상태로 바로 드러나므로 성공 메시지가 필요 없지만,
+        # '선택 포스팅' 일괄 처리는 몇 건이 실제로 끝났는지 바로 안 보이므로 건수를 안내해준다.
+        ok, result = blog_posting.publish_article(account, article)
+        if ok:
+            success_count += 1
+        else:
+            messages.error(request, f"[{article.title[:30]}] {result}")
+
+    if success_count and not solo_article_id:
+        messages.add_message(
+            request, messages.SUCCESS,
+            f"{success_count}건의 포스팅이 완료되었습니다.",
+            extra_tags='post-count',
+        )
+
+    return redirect(request.POST.get('next') or 'news_board')
+
+
 def news_detail_view(request, pk):
     article = get_object_or_404(AnalyzedArticle.objects.select_related('stock', 'matched_keyword'), pk=pk)
+
+    user_blog_accounts = []
+    selected_account = None
+    is_posted = False
+    posting_stats = None
+    if request.user.is_authenticated:
+        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+        posting_stats = blog_posting.posting_stats(request.user)
+        account_id = request.GET.get('account')
+        if account_id:
+            selected_account = next((a for a in user_blog_accounts if str(a.pk) == account_id), None)
+        if not selected_account and user_blog_accounts:
+            selected_account = user_blog_accounts[0]
+        if selected_account:
+            is_posted = PostedArticle.objects.filter(blog_account=selected_account, article=article).exists()
+
     context = {
         'site_title': f'NextFinUp - {article.title}',
         'article': article,
+        'user_blog_accounts': user_blog_accounts,
+        'selected_account': selected_account,
+        'is_posted': is_posted,
+        'posting_stats': posting_stats,
     }
     return render(request, 'articles/news_detail.html', context)
 
@@ -169,6 +397,40 @@ def stock_detail_view(request, ticker):
         }
         for p in history
     ]
+
+    # 기술적 지표(이동평균/RSI/MACD/볼린저밴드/거래량비율 등)는 거래량이 있는 자체 수집 데이터
+    # (history)가 있을 때만 계산한다. KIS 온디맨드 조회는 거래량을 안 줘서 계산할 수 없다.
+    indicators = None
+    latest_indicators = None
+    if history:
+        ind_df = compute_display_indicators(pd.DataFrame({
+            'date': [p.date for p in history],
+            'close': [float(p.close_price) for p in history],
+            'volume': [p.volume for p in history],
+        }))
+
+        def _series(col):
+            return [
+                {'time': row.date.strftime('%Y-%m-%d'), 'value': round(float(getattr(row, col)), 4)}
+                for row in ind_df.itertuples()
+                if pd.notna(getattr(row, col))
+            ]
+
+        indicators = {col: _series(col) for col in (
+            'ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower',
+            'rsi_14', 'macd', 'macd_signal', 'macd_hist', 'volume_ratio_20',
+        )}
+
+        last = ind_df.iloc[-1]
+        latest_indicators = {
+            col: (None if pd.isna(last[col]) else round(float(last[col]), 4))
+            for col in ('ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower', 'rsi_14',
+                        'macd_hist', 'volume_ratio_20')
+        }
+        # 전일 대비 수익률/20일 변동성은 소수 비율(0.0274=2.74%)이라, 앱 전반의 관례(퍼센트 값 저장)에
+        # 맞춰 100을 곱해 퍼센트 단위로 저장한다.
+        for col in ('ret_1d', 'vol_20'):
+            latest_indicators[col] = None if pd.isna(last[col]) else round(float(last[col]) * 100, 2)
 
     # 코스피200/코스닥150 밖이라 collect_stock_data로 10년치를 수집해두지 않은 종목은,
     # KIS 기간별시세 API로 최근 일봉만 온디맨드로 가져와서 보여준다.
@@ -213,6 +475,8 @@ def stock_detail_view(request, ticker):
         'ohlc': ohlc,
         'news': news,
         'realtime': realtime,
+        'indicators': indicators,
+        'latest_indicators': latest_indicators,
     }
     return render(request, 'articles/stock_detail.html', context)
 
@@ -238,6 +502,25 @@ def stock_minute_chart_view(request, ticker):
             'open': row['open'], 'high': row['high'], 'low': row['low'], 'close': row['close'],
         })
     return JsonResponse({'ohlc': ohlc})
+
+
+def market_index_minute_chart_view(request, market_type):
+    """대시보드 코스피/코스닥 차트의 '1일' 버튼이 눌렸을 때만 호출되는 온디맨드 당일 지수 API.
+    (개별 종목 분봉과 달리 봉별 시가/고가/저가가 없어 시각별 지수값 하나만 내려오므로 라인차트용 데이터로 반환)"""
+    if market_type not in ('KOSPI', 'KOSDAQ'):
+        return JsonResponse({'error': '잘못된 시장 구분입니다.'}, status=400)
+    try:
+        rows = kis_client.get_today_index_minute_prices(market_type)
+    except Exception:
+        logger.exception("KIS 업종 당일 시간별지수 조회 실패: %s", market_type)
+        return JsonResponse({'error': '당일 지수를 불러오지 못했습니다.'}, status=502)
+
+    today = datetime.now(KST).strftime('%Y%m%d')
+    line = []
+    for row in rows:
+        kst_dt = datetime.strptime(f"{today}{row['time']}", '%Y%m%d%H%M%S').replace(tzinfo=KST)
+        line.append({'time': int(kst_dt.timestamp()), 'value': row['value']})
+    return JsonResponse({'line': line})
 
 
 # ==========================================
@@ -325,20 +608,20 @@ def signup_view(request):
 
     form = SignUpForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
+        # 이메일 인증 전까지는 로그인할 수 없도록 비활성 상태로 생성 (인증 완료 시 verify_email_view에서 활성화)
         user = User.objects.create_user(
             username=form.cleaned_data['username'],
             password=form.cleaned_data['password1'],
+            is_active=False,
         )
         _create_subscription_if_missing(user)
-        send_verification_email(request, user, form.cleaned_data['email'])  # 인증 완료 전까지 User.email은 비워둠
-        login(request, user)
-        _log_login(request, user, 'SIGNUP')
+        send_verification_email(request, user, form.cleaned_data['email'])
         messages.success(
             request,
-            f"회원가입이 완료되었습니다. {form.cleaned_data['email']}로 인증 메일을 보냈습니다 — "
-            "메일함에서 링크를 눌러 이메일 인증을 완료해주세요."
+            f"{form.cleaned_data['email']}로 인증 메일을 보냈습니다 — "
+            "메일함에서 링크를 눌러야 회원가입이 완료됩니다."
         )
-        return redirect('landing_page')
+        return redirect('login')
 
     return render(request, 'articles/signup.html', {'form': form, 'site_title': 'NextFinUp - 회원가입'})
 
@@ -347,7 +630,7 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('landing_page')
 
-    form = AuthenticationForm(request, data=request.POST or None)
+    form = LoginForm(request, data=request.POST or None)
     if request.method == 'POST' and form.is_valid():
         login(request, form.get_user())
         _log_login(request, form.get_user(), 'GENERAL')
@@ -359,6 +642,18 @@ def login_view(request):
 
 def logout_view(request):
     logout(request)
+    return redirect('landing_page')
+
+
+@login_required
+@require_POST
+def delete_account_view(request):
+    # User를 지우면 관련 테이블(UserSubscription/UserPreference/BlogPostingAccount/SocialAccount/
+    # LoginLog/MenuAccessLog/ChatMessage)이 전부 on_delete=CASCADE로 함께 삭제된다.
+    user = request.user
+    logout(request)
+    user.delete()
+    messages.success(request, "회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.")
     return redirect('landing_page')
 
 
@@ -398,6 +693,9 @@ def my_page_view(request):
         }
 
         if contact_form.is_valid() and pref_form.is_valid() and all(f.is_valid() for f in account_forms.values()):
+            # construct_instance()가 이미 request.user.first_name을 메모리상에 채워뒀으므로,
+            # 이메일과 달리 인증 절차가 필요 없는 이름은 이 컬럼만 바로 저장한다.
+            request.user.save(update_fields=['first_name'])
             new_email = contact_form.cleaned_data['email']
             if new_email and new_email != original_email:
                 # 이메일은 바로 반영하지 않고, 인증 완료 후에만 실제로 변경됨
@@ -461,14 +759,26 @@ def verify_email_view(request, uidb64, token):
         messages.error(request, "인증 링크가 만료되었거나 유효하지 않습니다. 마이페이지에서 다시 시도해주세요.")
         return redirect('my_page' if request.user.is_authenticated else 'login')
 
+    # 아직 비활성 상태(is_active=False)라면 최초 회원가입 인증 링크 — 이 시점에 계정을 활성화하고 로그인시킨다.
+    is_first_signup_verification = not user.is_active
     user.email = preference.pending_email
-    user.save(update_fields=['email'])
+    if is_first_signup_verification:
+        user.is_active = True
+        user.save(update_fields=['email', 'is_active'])
+    else:
+        user.save(update_fields=['email'])
 
     preference.is_email_verified = True
     preference.pending_email = ''
     preference.email_verification_token = ''
     preference.email_verification_sent_at = None
     preference.save()
+
+    if is_first_signup_verification:
+        login(request, user)
+        _log_login(request, user, 'SIGNUP')
+        messages.success(request, "이메일 인증이 완료되어 회원가입이 완료되었습니다! 환영합니다.")
+        return redirect('landing_page')
 
     messages.success(request, "이메일 인증이 완료되었습니다!")
     return redirect('my_page' if request.user.is_authenticated else 'login')
@@ -529,7 +839,6 @@ def kakao_callback_view(request):
     user = _get_or_create_social_user('KAKAO', provider_uid, email, nickname)
     login(request, user)
     _log_login(request, user, 'KAKAO')
-    messages.success(request, f"{user.first_name or user.username}님, 카카오 계정으로 로그인되었습니다!")
     return redirect('landing_page')
 
 
@@ -582,7 +891,6 @@ def google_callback_view(request):
     user = _get_or_create_social_user('GOOGLE', provider_uid, email, nickname)
     login(request, user)
     _log_login(request, user, 'GOOGLE')
-    messages.success(request, f"{user.first_name or user.username}님, 구글 계정으로 로그인되었습니다!")
     return redirect('landing_page')
 
 
@@ -642,7 +950,6 @@ def naver_callback_view(request):
     user = _get_or_create_social_user('NAVER', provider_uid, email, nickname)
     login(request, user)
     _log_login(request, user, 'NAVER')
-    messages.success(request, f"{user.first_name or user.username}님, 네이버 계정으로 로그인되었습니다!")
     return redirect('landing_page')
 
 
