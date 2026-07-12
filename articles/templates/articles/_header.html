@@ -1,0 +1,13 @@
+<!-- 내부 앱 페이지(대시보드/뉴스게시판/뉴스상세/종목상세/마이페이지) 공통 상단 네비게이션 -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">📈 NextFinUp <span class="text-secondary" style="font-size: 14px; font-weight: 400;">AI 자산 허브</span></a>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-primary me-2">Beta</span>
+            <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
+            <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary me-2">뉴스 게시판</a>
+            <a href="{% url 'main_dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">대시보드</a>
+            <a href="/admin/" class="btn btn-sm btn-outline-secondary" target="_blank">관리자 센터</a>
+        </div>
+    </div>
+</nav>
