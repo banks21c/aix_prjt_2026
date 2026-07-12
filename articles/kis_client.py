@@ -179,6 +179,55 @@ def get_index_daily_price(market_type, base_date):
     return rows
 
 
+# 국내업종 시간별지수(분) TR_ID (국내주식-119) - 저장소에 있는 KIS API 문서 엑셀
+# ("국내업종 시간별지수(분)[국내주식-119].xlsx")로 확인한 값.
+# 이 API는 개별 종목 분봉과 달리 한 번 호출에 당일 09:00~조회시각의 전체 구간을
+# FID_INPUT_HOUR_1에 넣은 간격(초 단위, 60/300/600)으로 몰아서 돌려주므로 페이지네이션이 필요없고,
+# 봉별 시가/고가/저가 없이 해당 시각의 지수 값(bstp_nmix_prpr) 하나만 내려온다 (라인차트용).
+INDEX_MINUTE_PRICE_TR_ID = "FHPUP02110200"
+
+
+def get_today_index_minute_prices(market_type, interval_seconds=60):
+    """
+    국내업종 시간별지수(분) API로 당일 09:00부터 현재까지의 지수 값을 interval_seconds
+    간격으로 한 번에 조회합니다. (오래된 시각 순으로 정렬해서 반환)
+    """
+    index_code = INDEX_CODE_MAP[market_type]
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-timeprice"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INDEX_MINUTE_PRICE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "U",
+        "FID_INPUT_ISCD": index_code,
+        "FID_INPUT_HOUR_1": str(interval_seconds),
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 업종 시간별지수 조회 실패: {data.get('msg1')}")
+
+    rows = []
+    for row in data.get('output', []):
+        # 정규 장시간(09:00~15:30) 밖의 값(응답 끝에 붙는 888888/999999 같은 더미 시각 포함)은 제외
+        if not row.get('bsop_hour') or not ("090000" <= row['bsop_hour'] <= "153000"):
+            continue
+        rows.append({
+            'time': row['bsop_hour'],  # 'HHMMSS'
+            'value': float(row['bstp_nmix_prpr']),
+        })
+    rows.sort(key=lambda r: r['time'])
+    return rows
+
+
 # 국내주식기간별시세(일/주/월/년) TR_ID (v1_국내주식-016) - 한 번에 최대 100건(영업일 기준)
 STOCK_DAILY_PRICE_TR_ID = "FHKST03010100"
 

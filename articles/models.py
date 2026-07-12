@@ -329,6 +329,17 @@ class BlogPostingAccount(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.get_platform_display()}"
 
+    def is_connected(self):
+        """마이페이지 방문 시 모든 플랫폼에 빈 stub 행이 자동 생성되므로(get_or_create),
+        실제로 발행에 쓸 수 있는 계정인지(자격 정보가 채워졌는지)는 따로 확인해야 한다."""
+        if self.platform in ('WORDPRESS', 'BLOGGER'):
+            return bool(self.site_url and self.account_id and self.credential)
+        if self.platform == 'TISTORY':
+            return bool(self.account_id and self.credential)
+        if self.platform == 'NAVER':
+            return bool(self.account_id)
+        return False
+
 
 class PostedArticle(models.Model):
     """어떤 회원의 어떤 등록 계정(사이트)에 어떤 기사가 이미 발행됐는지 추적.
@@ -446,4 +457,44 @@ class SocialAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()}"
+
+
+# ==========================================
+# 8. 홈페이지 뉴스레터 구독 (비회원도 이메일만으로 신청 가능)
+# ==========================================
+class NewsletterSubscriber(models.Model):
+    email = models.EmailField(unique=True, verbose_name="이메일")
+    is_active = models.BooleanField(default=True, verbose_name="구독 활성화 여부")
+    subscribed_at = models.DateTimeField(auto_now_add=True, verbose_name="구독 신청일")
+
+    class Meta:
+        ordering = ['-subscribed_at']
+
+    def __str__(self):
+        return self.email
+
+
+class NewsletterIssue(models.Model):
+    """뉴스레터 발행 1회분. generate_newsletter_draft 커맨드가 최근 기사로 초안(DRAFT)을 자동
+    작성해두면, 관리자가 Admin 화면에서 제목/본문을 직접 확인·수정한 뒤 상태를 READY로 바꾼다.
+    send_newsletter 커맨드는 READY 상태인 건만 골라 발송하고 SENT로 넘긴다."""
+    STATUS_CHOICES = [
+        ('DRAFT', '초안(검토 대기)'),
+        ('READY', '발송 대기(다음 자동발송 때 전송)'),
+        ('SENT', '발송 완료'),
+    ]
+
+    subject = models.CharField(max_length=255, verbose_name="제목")
+    body = models.TextField(verbose_name="본문")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='DRAFT', verbose_name="상태")
+    article_count = models.PositiveIntegerField(default=0, verbose_name="초안 작성 시 포함된 기사 수")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="초안 생성일")
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="발송 일시")
+    recipient_count = models.PositiveIntegerField(default=0, verbose_name="발송 성공 인원")
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.subject}"
 

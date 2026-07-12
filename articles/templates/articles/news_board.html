@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
@@ -15,6 +16,8 @@
         .news-title:hover { color: #0d47a1; }
         .news-meta { font-size: 12px; color: #868e96; }
         .news-summary { font-size: 14px; color: #495057; margin-top: 6px; }
+        .news-post-action { flex-shrink: 0; width: 110px; text-align: right; }
+        .post-toolbar { position: sticky; top: 0; z-index: 5; }
     </style>
 </head>
 <body>
@@ -30,6 +33,16 @@
             </div>
         </div>
 
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            {% if 'post-count' not in message.tags %}
+            <div class="alert alert-{{ message.tags|default:'info' }} py-2">{{ message }}</div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <form method="get" class="mb-4">
             <div class="input-group">
                 <input type="text" name="q" class="form-control" placeholder="제목, 종목명, 키워드로 검색" value="{{ query }}">
@@ -40,35 +53,102 @@
             </div>
         </form>
 
-        <div class="card card-custom bg-white p-4">
-            {% if page_obj.object_list %}
-                {% for article in page_obj %}
-                <div class="news-row">
-                    <a href="{% url 'news_detail' article.pk %}" class="news-title text-decoration-none d-block">
-                        {{ article.title }}
-                    </a>
-                    <div class="news-meta">
-                        {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
-                        {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}</a>{% endif %}
-                        {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
-                        {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
-                    </div>
-                    <div class="news-summary">{{ article.ai_summary|truncatechars:120 }}</div>
-                </div>
+        {% if not user.is_authenticated %}
+            <p class="text-muted small">기사를 골라 내 블로그에 직접 포스팅하려면 <a href="{% url 'login' %}">로그인</a>이 필요합니다.</p>
+        {% elif not user_blog_accounts %}
+            <p class="text-muted small">아직 등록된 블로그 계정이 없습니다. <a href="{% url 'my_page' %}">마이페이지</a>에서 먼저 등록해주세요.</p>
+        {% else %}
+        <form method="get" class="card card-custom bg-white p-3 mb-3 post-toolbar d-flex flex-row align-items-center gap-2">
+            {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+            <label class="fw-semibold small mb-0">포스팅 계정</label>
+            <select name="account" class="form-select form-select-sm" style="max-width: 260px;" onchange="this.form.submit()">
+                {% for account in user_blog_accounts %}
+                <option value="{{ account.pk }}" {% if selected_account.pk == account.pk %}selected{% endif %}>{{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})</option>
                 {% endfor %}
-            {% else %}
-                <p class="text-muted text-center my-4">
-                    {% if query %}"{{ query }}"에 대한 검색 결과가 없습니다.{% else %}수집된 뉴스가 없습니다.{% endif %}
-                </p>
+            </select>
+            <span class="text-muted small">여기서 고른 계정 기준으로 각 기사의 포스팅/포스팅완료 상태가 표시됩니다.</span>
+        </form>
+        {% endif %}
+
+        <form method="post" action="{% url 'post_articles' %}">
+            {% csrf_token %}
+            {% if selected_account %}
+            <input type="hidden" name="account_id" value="{{ selected_account.pk }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <div class="card card-custom bg-white p-3 mb-3 d-flex flex-row align-items-center gap-2">
+                <div class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input" id="selectAll" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
+                    <label class="form-check-label small" for="selectAll">전체 선택</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" {% if posting_stats.remaining == 0 %}disabled{% endif %}>선택 포스팅</button>
+                {% for message in messages %}
+                {% if 'post-count' in message.tags %}
+                <span class="text-success small fw-semibold">{{ message }}</span>
+                {% endif %}
+                {% endfor %}
+                <span class="text-muted small ms-auto">
+                    {% if posting_stats.remaining is None %}
+                        {% if posting_stats.is_admin %}
+                        <span class="badge bg-dark me-2">관리자 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark me-2">프리미엄 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-light text-dark border me-2">무료 회원 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
+                    {% endif %}
+                    <span id="selectedCount">0</span>건 선택됨
+                </span>
+            </div>
             {% endif %}
-        </div>
+
+            <div class="card card-custom bg-white p-4">
+                {% if page_obj.object_list %}
+                    {% for article in page_obj %}
+                    <div class="news-row d-flex align-items-start">
+                        {% if selected_account and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
+                        <div class="form-check pt-1 pe-2">
+                            <input type="checkbox" class="form-check-input article-check" name="article_ids" value="{{ article.pk }}">
+                        </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <a href="{% url 'news_detail' article.pk %}" class="news-title text-decoration-none d-block">
+                                {{ article.title }}
+                            </a>
+                            <div class="news-meta">
+                                {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
+                                {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}</a>{% endif %}
+                                {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
+                                {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
+                            </div>
+                            <div class="news-summary">{{ article.ai_summary|truncatechars:120 }}</div>
+                        </div>
+                        {% if selected_account %}
+                        <div class="news-post-action ps-3">
+                            {% if article.pk in posted_article_ids %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
+                            {% elif posting_stats.remaining == 0 %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
+                            {% else %}
+                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary">포스팅</button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center my-4">
+                        {% if query %}"{{ query }}"에 대한 검색 결과가 없습니다.{% else %}수집된 뉴스가 없습니다.{% endif %}
+                    </p>
+                {% endif %}
+            </div>
+        </form>
 
         {% if page_obj.paginator.num_pages > 1 %}
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
                 {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">이전</a>
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">이전</a>
                 </li>
                 {% endif %}
                 <li class="page-item disabled">
@@ -76,12 +156,35 @@
                 </li>
                 {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">다음</a>
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">다음</a>
                 </li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
     </div>
+
+    <script>
+        const checks = document.querySelectorAll('.article-check');
+        const counter = document.getElementById('selectedCount');
+        const selectAll = document.getElementById('selectAll');
+
+        function updateCount() {
+            if (counter) counter.textContent = document.querySelectorAll('.article-check:checked').length;
+        }
+
+        checks.forEach(cb => cb.addEventListener('change', () => {
+            if (selectAll && !cb.checked) selectAll.checked = false;
+            updateCount();
+        }));
+
+        if (selectAll) {
+            selectAll.addEventListener('change', () => {
+                checks.forEach(cb => { cb.checked = selectAll.checked; });
+                updateCount();
+            });
+        }
+    </script>
+{% include "articles/_cookie_banner.html" %}
 </body>
 </html>
