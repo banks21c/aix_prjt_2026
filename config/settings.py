@@ -164,6 +164,12 @@ KAKAO_CLIENT_SECRET = os.environ.get('KAKAO_CLIENT_SECRET')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 
+# - 네이버: https://developers.naver.com/apps  (애플리케이션 > API 설정)
+#   서비스 URL: https://www.nextfinup.com
+#   허용 Callback URL: https://www.nextfinup.com/api/member/oauth2c
+NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID')
+NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET')
+
 # 챗봇용 OpenAI API 키 (실제 키로 교체 전까지는 시뮬레이션 모드로 동작 - articles/chatbot_client.py 참고)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY_HERE')
 

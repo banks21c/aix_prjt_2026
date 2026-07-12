@@ -23,6 +23,7 @@ from articles.views import (
     signup_view, login_view, logout_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
+    naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
     my_page_view, verify_email_view,
 )  # ◀ 우리가 만든 뷰 임포트
@@ -48,6 +49,9 @@ urlpatterns = [
     path('accounts/kakao/callback/', kakao_callback_view, name='kakao_callback'),
     path('accounts/google/login/', google_login_view, name='google_login'),
     path('accounts/google/callback/', google_callback_view, name='google_callback'),
+    path('accounts/naver/login/', naver_login_view, name='naver_login'),
+    # 네이버 개발자센터에 등록된 Callback URL(https://www.nextfinup.com/api/member/oauth2c)과 정확히 일치해야 함
+    path('api/member/oauth2c', naver_callback_view, name='naver_callback'),
 
     path('accounts/blogger/connect/', blogger_connect_view, name='blogger_connect'),  # ◀ 마이페이지 - 블로거 자동포스팅 연동
     path('accounts/blogger/callback/', blogger_callback_view, name='blogger_callback'),

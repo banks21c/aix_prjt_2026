@@ -358,6 +358,7 @@ class LoginLog(models.Model):
         ('SIGNUP', '회원가입'),
         ('KAKAO', '카카오'),
         ('GOOGLE', '구글'),
+        ('NAVER', '네이버'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_logs", verbose_name="사용자")
@@ -425,12 +426,13 @@ class ChatMessage(models.Model):
 
 
 # ==========================================
-# 5. 소셜 로그인(카카오/구글) 연동 계정 테이블
+# 5. 소셜 로그인(카카오/구글/네이버) 연동 계정 테이블
 # ==========================================
 class SocialAccount(models.Model):
     PROVIDER_CHOICES = [
         ('KAKAO', '카카오톡'),
         ('GOOGLE', '구글'),
+        ('NAVER', '네이버'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="social_accounts", verbose_name="연결된 유저")

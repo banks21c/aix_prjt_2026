@@ -1,5 +1,6 @@
 import json
 import logging
+import secrets
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 import requests
@@ -582,6 +583,66 @@ def google_callback_view(request):
     login(request, user)
     _log_login(request, user, 'GOOGLE')
     messages.success(request, f"{user.first_name or user.username}님, 구글 계정으로 로그인되었습니다!")
+    return redirect('landing_page')
+
+
+def naver_login_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['naver_oauth_state'] = state
+
+    redirect_uri = request.build_absolute_uri(reverse('naver_callback'))
+    authorize_url = (
+        "https://nid.naver.com/oauth2.0/authorize"
+        "?response_type=code"
+        f"&client_id={settings.NAVER_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state}"
+    )
+    return redirect(authorize_url)
+
+
+def naver_callback_view(request):
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    expected_state = request.session.pop('naver_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "네이버 로그인이 취소되었거나 유효하지 않은 요청입니다.")
+        return redirect('login')
+
+    redirect_uri = request.build_absolute_uri(reverse('naver_callback'))
+    token_res = requests.post(
+        "https://nid.naver.com/oauth2.0/token",
+        data={
+            'grant_type': 'authorization_code',
+            'client_id': settings.NAVER_CLIENT_ID,
+            'client_secret': settings.NAVER_CLIENT_SECRET,
+            'redirect_uri': redirect_uri,
+            'code': code,
+            'state': state,
+        },
+        timeout=10,
+    ).json()
+
+    access_token = token_res.get('access_token')
+    if not access_token:
+        messages.error(request, f"네이버 로그인 실패: {token_res.get('error_description', '알 수 없는 오류')}")
+        return redirect('login')
+
+    profile_res = requests.get(
+        "https://openapi.naver.com/v1/nid/me",
+        headers={'Authorization': f'Bearer {access_token}'},
+        timeout=10,
+    ).json()
+    naver_account = profile_res.get('response', {})
+
+    provider_uid = naver_account.get('id')
+    email = naver_account.get('email')
+    nickname = naver_account.get('nickname') or naver_account.get('name')
+
+    user = _get_or_create_social_user('NAVER', provider_uid, email, nickname)
+    login(request, user)
+    _log_login(request, user, 'NAVER')
+    messages.success(request, f"{user.first_name or user.username}님, 네이버 계정으로 로그인되었습니다!")
     return redirect('landing_page')
 
 

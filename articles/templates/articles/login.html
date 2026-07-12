@@ -65,6 +65,8 @@
         .btn-kakao:hover { background: #f5dc00; }
         .btn-google { background: #fff; color: #3c4043; border-color: #dadce0; }
         .btn-google:hover { background: #f8f9fa; }
+        .btn-naver { background: #03C75A; color: #fff; }
+        .btn-naver:hover { background: #02b350; }
 
         .divider {
             display: flex;
@@ -125,11 +127,6 @@
         </ul>
         {% endif %}
 
-        <a href="{% url 'kakao_login' %}" class="social-btn btn-kakao">💬 카카오톡으로 로그인</a>
-        <a href="{% url 'google_login' %}" class="social-btn btn-google">🔍 구글로 로그인</a>
-
-        <div class="divider">또는 아이디로 로그인</div>
-
         {% if form.non_field_errors %}
         <div class="non-field-errors">{{ form.non_field_errors|join:" " }}</div>
         {% endif %}
@@ -146,6 +143,12 @@
             </div>
             <button type="submit" class="btn-submit">로그인</button>
         </form>
+
+        <div class="divider">또는 간편 로그인</div>
+
+        <a href="{% url 'kakao_login' %}" class="social-btn btn-kakao">💬 카카오톡으로 로그인</a>
+        <a href="{% url 'google_login' %}" class="social-btn btn-google">🔍 구글로 로그인</a>
+        <a href="{% url 'naver_login' %}" class="social-btn btn-naver">N 네이버로 로그인</a>
 
         <p class="auth-footer">아직 계정이 없으신가요? <a href="{% url 'signup' %}">회원가입</a></p>
     </div>
