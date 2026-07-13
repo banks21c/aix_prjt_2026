@@ -161,21 +161,6 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
-def isa_compare_view(request):
-    # ISA(개인종합자산관리계좌) 비교 데모(프로토타입) — 취급기관/수수료는 전부 예시 데이터이며 실 서비스 아님
-    return render(request, 'articles/isa_compare.html', {'site_title': 'NextFinUp - ISA 비교(데모)'})
-
-
-def pension_compare_view(request):
-    # 연금저축(연금저축펀드/연금저축보험) 비교 데모(프로토타입) — 취급기관/보수/사업비는 전부 예시 데이터이며 실 서비스 아님
-    return render(request, 'articles/pension_compare.html', {'site_title': 'NextFinUp - 연금저축 비교(데모)'})
-
-
-def irp_compare_view(request):
-    # IRP(개인형퇴직연금) 비교 데모(프로토타입) — 취급기관/보수/상품구성은 전부 예시 데이터이며 실 서비스 아님
-    return render(request, 'articles/irp_compare.html', {'site_title': 'NextFinUp - IRP 비교(데모)'})
-
-
 def _build_index_chart(market_type, days=90):
     """코스피/코스닥 지수 일봉 차트용 데이터: 최근 N일 OHLC 시계열 + 최신 지수/등락/등락% 값"""
     rows = list(MarketIndex.objects.filter(market_type=market_type).order_by('-date')[:days])
