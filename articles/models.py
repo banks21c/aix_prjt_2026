@@ -519,3 +519,35 @@ class Menu(models.Model):
                 return '#'
         return self.external_url or '#'
 
+
+# ==========================================
+# 10. 상담 신청 (ISA/IRP/연금저축 등 독립 정적 비교 페이지 공용)
+# ==========================================
+class ConsultRequest(models.Model):
+    """IRP/ISA/연금저축 비교 페이지(nextfinup에서 분리된 정적 사이트)의 상담 신청 폼 제출을
+    저장한다. 페이지 자체는 Django 밖에 있지만, 같은 도메인(nextfinup.com)에서 이 API로
+    fetch 요청을 보내 저장한다."""
+    PRODUCT_CHOICES = [
+        ('ISA', 'ISA'),
+        ('IRP', 'IRP'),
+        ('PENSION', '연금저축'),
+        ('INSURANCE', '보험'),
+    ]
+
+    product = models.CharField(max_length=20, choices=PRODUCT_CHOICES, verbose_name="상품 유형")
+    name = models.CharField(max_length=50, verbose_name="이름")
+    phone = models.CharField(max_length=20, verbose_name="연락처")
+    interest = models.CharField(max_length=100, blank=True, verbose_name="관심 기관/상품")
+    goal = models.CharField(max_length=200, blank=True, verbose_name="목표")
+    message = models.TextField(blank=True, verbose_name="문의사항")
+    source_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="접수 IP")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="접수 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "상담 신청"
+        verbose_name_plural = "상담 신청 관리"
+
+    def __str__(self):
+        return f"[{self.get_product_display()}] {self.name} ({self.created_at:%Y-%m-%d %H:%M})"
+

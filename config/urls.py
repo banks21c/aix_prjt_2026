@@ -20,7 +20,7 @@ from django.urls import path
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, insurance_compare_view,
+    privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view,
     news_board_view, news_detail_view, news_edit_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
@@ -48,6 +48,7 @@ urlpatterns = [
     path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
+    path('api/consult/', consult_request_view, name='consult_request'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판

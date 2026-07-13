@@ -15,6 +15,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core import signing
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -23,6 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from . import blog_posting, chatbot_client, kis_client
@@ -35,7 +37,7 @@ from .forms import (
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     MarketIndex, RankedMover, ChatMessage, LoginLog, UserPreference, BlogPostingAccount,
-    StockRealtimePrice, PostedArticle, NewsletterSubscriber,
+    StockRealtimePrice, PostedArticle, NewsletterSubscriber, ConsultRequest,
 )
 from .utils import get_client_ip
 
@@ -159,6 +161,66 @@ def terms_of_service_view(request):
 def insurance_compare_view(request):
     # 해외여행자보험 비교 데모(프로토타입) — 상품/가격은 전부 예시 데이터이며 실 서비스 아님
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
+
+
+@csrf_exempt
+@require_POST
+def consult_request_view(request):
+    """IRP/ISA/연금저축(nextfinup에서 분리된 정적 페이지) 상담 신청 폼을 저장한다.
+    호출부가 Django가 렌더링하지 않는 별도 정적 HTML이라 CSRF 토큰을 발급할 수 없어 csrf_exempt로
+    열어둔 대신, 봇 스팸 방지용 허니팟 필드(website)로 최소한의 필터링만 한다."""
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+    else:
+        data = request.POST
+
+    if (data.get('website') or '').strip():
+        # 허니팟에 값이 채워졌으면 봇으로 간주 — 저장하지 않고 정상 응답만 돌려준다
+        return JsonResponse({'ok': True})
+
+    product = (data.get('product') or '').strip().upper()
+    name = (data.get('name') or '').strip()
+    phone = (data.get('phone') or '').strip()
+
+    if product not in dict(ConsultRequest.PRODUCT_CHOICES):
+        return JsonResponse({'ok': False, 'error': 'invalid_product'}, status=400)
+    if not name or not phone:
+        return JsonResponse({'ok': False, 'error': 'name_phone_required'}, status=400)
+
+    consult = ConsultRequest.objects.create(
+        product=product,
+        name=name[:50],
+        phone=phone[:20],
+        interest=(data.get('interest') or '').strip()[:100],
+        goal=(data.get('goal') or '').strip()[:200],
+        message=(data.get('message') or '').strip(),
+        source_ip=get_client_ip(request),
+    )
+
+    try:
+        send_mail(
+            subject=f"[NextFinUp] {consult.get_product_display()} 상담 신청 - {consult.name}",
+            message=(
+                f"상품: {consult.get_product_display()}\n"
+                f"이름: {consult.name}\n"
+                f"연락처: {consult.phone}\n"
+                f"관심 기관/상품: {consult.interest or '-'}\n"
+                f"목표: {consult.goal or '-'}\n"
+                f"문의사항: {consult.message or '-'}\n"
+                f"접수 IP: {consult.source_ip or '-'}\n"
+                f"접수 일시: {consult.created_at:%Y-%m-%d %H:%M}\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.EMAIL_HOST_USER],
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception("상담 신청 알림 메일 발송 실패 (신청 자체는 저장됨, consult id=%s)", consult.id)
+
+    return JsonResponse({'ok': True})
 
 
 def _build_index_chart(market_type, days=90):

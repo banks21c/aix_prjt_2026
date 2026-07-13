@@ -5,7 +5,7 @@ from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
-    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu,
+    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -248,4 +248,13 @@ class MenuAdmin(admin.ModelAdmin):
     list_filter = ('menu_type', 'is_active')
     search_fields = ('name', 'url_name', 'external_url')
     ordering = ('menu_type', 'order')
+
+# 12. 상담 신청 (ISA/IRP/연금저축 등 분리된 정적 페이지에서 들어오는 리드)
+@admin.register(ConsultRequest)
+class ConsultRequestAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'product', 'name', 'phone', 'interest', 'goal')
+    list_filter = ('product', 'created_at')
+    search_fields = ('name', 'phone', 'interest', 'goal', 'message')
+    readonly_fields = ('product', 'name', 'phone', 'interest', 'goal', 'message', 'source_ip', 'created_at')
+    ordering = ('-created_at',)
 
