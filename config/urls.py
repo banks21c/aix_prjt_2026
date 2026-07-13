@@ -20,8 +20,9 @@ from django.urls import path
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, insurance_compare_view, isa_compare_view,
-    news_board_view, news_detail_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
+    privacy_policy_view, terms_of_service_view, insurance_compare_view, isa_compare_view, pension_compare_view,
+    irp_compare_view,
+    news_board_view, news_detail_view, news_edit_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -49,11 +50,14 @@ urlpatterns = [
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
     path('isa/', isa_compare_view, name='isa_compare'),
+    path('pension/', pension_compare_view, name='pension_compare'),
+    path('irp/', irp_compare_view, name='irp_compare'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
+    path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
 

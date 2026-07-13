@@ -1,25 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-class AnalyzedArticle(models.Model):
-    # 1. 원본 뉴스 정보
-    title = models.CharField(max_length=255, verbose_name="원본 제목")
-    original_url = models.URLField(unique=True, verbose_name="원본 기사 링크")
-    source_media = models.CharField(max_length=50, verbose_name="언론사")
-    scraped_at = models.DateTimeField(auto_now_add=True, verbose_name="수집 일시")
-
-    # 2. AI 에이전트 재가공 데이터 (텍스트 분석 결과)
-    ai_summary = models.TextField(verbose_name="AI 3줄 요약")
-    ai_analysis = models.TextField(verbose_name="AI 투자 관점 분석")
-    blog_content = models.TextField(verbose_name="블로그 포스팅용 원고")
-
-    # 3. 비즈니스 모델(BM) 및 자동화 관리 트리거
-    is_premium = models.BooleanField(default=False, verbose_name="유료 구독자 전용 여부")
-    is_posted = models.BooleanField(default=False, verbose_name="블로그 자동 발행 완료 여부")
-
-    def __str__(self):
-        return f"[{self.source_media}] {self.title}"
-
 
 # ==========================================
 # 1. 주식 종목 테이블 (KOSPI 200, KOSDAQ 200 관리)
@@ -497,4 +478,44 @@ class NewsletterIssue(models.Model):
 
     def __str__(self):
         return f"[{self.get_status_display()}] {self.subject}"
+
+
+# ==========================================
+# 9. 메뉴(내비게이션) 관리 테이블
+# ==========================================
+class Menu(models.Model):
+    """상단 내비게이션에 노출되는 메뉴 항목. 랜딩 페이지(index)와 내부 앱 공통 헤더(header)는
+    노출되는 메뉴 구성이 달라서 menu_type으로 구분한다 — 새 화면이 생기면 MENU_TYPE_CHOICES에
+    값만 추가하면 확장된다. 로그인/로그아웃/마이페이지/관리자 링크처럼 로그인 상태에 따라
+    달라지는 항목은 이 테이블이 아니라 템플릿에 그대로 남겨둔다."""
+    MENU_TYPE_CHOICES = [
+        ('INDEX', '랜딩 페이지(index)'),
+        ('HEADER', '내부 앱 공통 헤더'),
+    ]
+
+    name = models.CharField(max_length=50, verbose_name="메뉴명")
+    url_name = models.CharField(max_length=100, blank=True, verbose_name="URL name(urls.py의 name)")
+    external_url = models.CharField(max_length=255, blank=True, verbose_name="직접 URL (url_name이 없을 때 사용)")
+    badge_text = models.CharField(max_length=20, blank=True, verbose_name="배지 텍스트 (예: DEMO)")
+    menu_type = models.CharField(max_length=10, choices=MENU_TYPE_CHOICES, verbose_name="노출 화면")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    is_active = models.BooleanField(default=True, verbose_name="사용 여부(숨김 처리)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['menu_type', 'order', 'id']
+        verbose_name = "메뉴"
+        verbose_name_plural = "메뉴 관리"
+
+    def __str__(self):
+        return f"[{self.get_menu_type_display()}] {self.name}"
+
+    def get_url(self):
+        if self.url_name:
+            try:
+                from django.urls import reverse
+                return reverse(self.url_name)
+            except Exception:
+                return '#'
+        return self.external_url or '#'
 

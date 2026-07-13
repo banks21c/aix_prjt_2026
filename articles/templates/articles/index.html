@@ -423,10 +423,9 @@
                     onclick="document.getElementById('navActions').classList.toggle('open')">☰</button>
             <div class="nav-actions" id="navActions">
                 <span class="badge">Beta</span>
-                <a href="{% url 'news_board' %}" class="btn btn-outline">뉴스 게시판</a>
-                <a href="/dashboard/" class="btn btn-outline">대시보드</a>
-                <a href="{% url 'insurance_compare' %}" class="btn btn-outline">보험 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
-                <a href="{% url 'isa_compare' %}" class="btn btn-outline">ISA 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
+                {% for menu in index_menus %}
+                <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                {% endfor %}
                 {% if user.is_staff %}
                     <a href="/admin/" class="btn btn-outline" target="_blank">관리자</a>
                 {% endif %}

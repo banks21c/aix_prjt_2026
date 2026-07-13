@@ -102,7 +102,7 @@
   .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
   .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
 
-  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .field label {
     display: block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
@@ -233,8 +233,8 @@
       <a href="{% url 'landing_page' %}" class="back-link">← NextFinUp 홈으로</a>
       <div class="brand-row">
         <div class="brand">
-          <span class="brand-mark">여행자보험 원장</span>
-          <span class="brand-sub">해외여행자보험 비교</span>
+          <span class="brand-mark">IRP 원장</span>
+          <span class="brand-sub">개인형퇴직연금 비교</span>
         </div>
         <span class="demo-chip">Demo · 샘플 데이터</span>
       </div>
@@ -245,38 +245,36 @@
     <div class="wrap">
       <div class="passbook rise">
         <div class="passbook-main">
-          <div class="eyebrow">떠나기 전, 놓치지 말아야 할 보장</div>
-          <h1 class="hero-title">떠나기 전, 3분이면<br>보험 비교가 끝납니다</h1>
-          <p class="hero-desc">여행 일정과 나이만 입력하면 의료비·휴대품·항공기 지연 등 핵심 보장을 원장처럼 한눈에 비교해드려요.</p>
+          <div class="eyebrow">퇴직금과 노후자금, 한 계좌로</div>
+          <h1 class="hero-title">내 IRP, 어디서<br>얼마나 돌려받을 수 있을까</h1>
+          <p class="hero-desc">연 납입액과 총급여 구간만 입력하면 취급기관별 수수료와 세액공제 한도를 원장처럼 정리해드려요.</p>
 
           <div class="calc-grid">
             <div class="field">
-              <label for="dest">여행지</label>
-              <select id="dest">
-                <option>전체(유럽/미주 등)</option>
-                <option>일본 · 동남아</option>
-                <option>미국 · 캐나다</option>
-                <option>유럽</option>
+              <label for="type">유형</label>
+              <select id="type">
+                <option>증권형(실적배당)</option>
+                <option>은행형(원리금보장)</option>
+                <option>보험형(원리금보장)</option>
               </select>
             </div>
             <div class="field">
-              <label for="dep">출국일</label>
-              <input id="dep" type="date">
+              <label for="amount">연 납입액</label>
+              <input id="amount" type="number" placeholder="예: 900" min="0">
             </div>
             <div class="field">
-              <label for="ret">귀국일</label>
-              <input id="ret" type="date">
-            </div>
-            <div class="field">
-              <label for="age">나이</label>
-              <input id="age" type="number" placeholder="30" min="0" max="100">
+              <label for="salary">총급여 구간</label>
+              <select id="salary">
+                <option>5,500만원 이하</option>
+                <option>5,500만원 초과</option>
+              </select>
             </div>
           </div>
           <button type="button" class="btn btn-block" onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})">기관별 비교 보기</button>
         </div>
         <div class="passbook-cover">
-          <div class="seal">의료실비<br>최대 1억원</div>
-          <div class="cover-label">Travel Ledger</div>
+          <div class="seal">세액공제<br>최대 900만원</div>
+          <div class="cover-label">Retirement Ledger</div>
         </div>
       </div>
     </div>
@@ -285,7 +283,7 @@
   <section id="plans">
     <div class="wrap">
       <div class="section-head">
-        <h2 class="section-title">보험사 비교 원장 — 7일 · 30세 성인 1인 기준</h2>
+        <h2 class="section-title">취급기관 비교 원장</h2>
         <span class="section-note">예시 데이터 4건</span>
       </div>
 
@@ -294,22 +292,22 @@
         <div class="ledger-entry rise">
           <div class="ledger-stub">
             <div>
-              <div class="inst-name">A손해보험</div>
-              <span class="type-tag">가성비</span>
+              <div class="inst-name">A증권</div>
+              <span class="type-tag">증권형</span>
             </div>
-            <div class="acct-no mono">TRAVEL-DEMO-01</div>
+            <div class="acct-no mono">IRP-DEMO-01</div>
           </div>
           <div class="ledger-body">
             <div class="ledger-grid">
-              <div class="ledger-item"><div class="k">의료실비</div><div class="v">3,000만원</div></div>
-              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">20만원</div></div>
-              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">4시간 · 10만원</div></div>
-              <div class="ledger-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+              <div class="ledger-item"><div class="k">세액공제한도</div><div class="v">연금저축 합산 900만원</div></div>
+              <div class="ledger-item"><div class="k">최소유지기간</div><div class="v">5년 + 만55세</div></div>
+              <div class="ledger-item"><div class="k">위험자산한도</div><div class="v">적립금의 70%</div></div>
+              <div class="ledger-item"><div class="k">국내상장 ETF</div><div class="v">직접 매매 가능</div></div>
             </div>
-            <div class="ledger-feature">기본 보장만 알차게 담은 실속형. 단기 여행객에게 가장 많이 선택되는 구성(예시).</div>
+            <div class="ledger-feature">국내 상장 ETF·리츠를 계좌 안에서 직접 매매할 수 있는 증권형. 안전자산 30%는 예금·채권형으로 별도 편입해야 한다.</div>
             <div class="ledger-footer">
-              <div class="fee"><div class="k">보험료</div><div class="v">8,900원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('A손해보험')">가입 상담</button>
+              <div class="fee"><div class="k">운용관리수수료</div><div class="v">0.25%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('A증권')">가입 상담</button>
             </div>
           </div>
         </div>
@@ -317,22 +315,22 @@
         <div class="ledger-entry rise rise-delay-1">
           <div class="ledger-stub">
             <div>
-              <div class="inst-name">B화재해상</div>
-              <span class="type-tag">의료보장 강화</span>
+              <div class="inst-name">B은행</div>
+              <span class="type-tag">은행형</span>
             </div>
-            <div class="acct-no mono">TRAVEL-DEMO-02</div>
+            <div class="acct-no mono">IRP-DEMO-02</div>
           </div>
           <div class="ledger-body">
             <div class="ledger-grid">
-              <div class="ledger-item"><div class="k">의료실비</div><div class="v">5,000만원</div></div>
-              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">30만원</div></div>
-              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">3시간 · 15만원</div></div>
-              <div class="ledger-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+              <div class="ledger-item"><div class="k">세액공제한도</div><div class="v">연금저축 합산 900만원</div></div>
+              <div class="ledger-item"><div class="k">최소유지기간</div><div class="v">5년 + 만55세</div></div>
+              <div class="ledger-item"><div class="k">위험자산한도</div><div class="v">해당 없음(전액 원리금보장)</div></div>
+              <div class="ledger-item"><div class="k">국내상장 ETF</div><div class="v">불가(예금형 상품 중심)</div></div>
             </div>
-            <div class="ledger-feature">해외 의료비 부담이 큰 지역 여행자를 위해 실비 한도를 상향한 구성(예시).</div>
+            <div class="ledger-feature">정기예금형 원리금보장 상품 위주로 구성. 5,000만원까지 예금자보호가 적용되어 안정성을 우선하는 가입자에게 적합.</div>
             <div class="ledger-footer">
-              <div class="fee"><div class="k">보험료</div><div class="v">12,400원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('B화재해상')">가입 상담</button>
+              <div class="fee"><div class="k">운용관리수수료</div><div class="v">0.30%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('B은행')">가입 상담</button>
             </div>
           </div>
         </div>
@@ -340,22 +338,22 @@
         <div class="ledger-entry rise rise-delay-2">
           <div class="ledger-stub">
             <div>
-              <div class="inst-name">C다이렉트</div>
-              <span class="type-tag">최저가</span>
+              <div class="inst-name">C증권</div>
+              <span class="type-tag">증권형</span>
             </div>
-            <div class="acct-no mono">TRAVEL-DEMO-03</div>
+            <div class="acct-no mono">IRP-DEMO-03</div>
           </div>
           <div class="ledger-body">
             <div class="ledger-grid">
-              <div class="ledger-item"><div class="k">의료실비</div><div class="v">2,000만원</div></div>
-              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">15만원</div></div>
-              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">미보장</div></div>
-              <div class="ledger-item"><div class="k">배상책임</div><div class="v">5,000만원</div></div>
+              <div class="ledger-item"><div class="k">세액공제한도</div><div class="v">연금저축 합산 900만원</div></div>
+              <div class="ledger-item"><div class="k">최소유지기간</div><div class="v">5년 + 만55세</div></div>
+              <div class="ledger-item"><div class="k">위험자산한도</div><div class="v">적립금의 70%</div></div>
+              <div class="ledger-item"><div class="k">국내상장 ETF</div><div class="v">직접 매매 가능</div></div>
             </div>
-            <div class="ledger-feature">비대면 다이렉트 가입으로 사업비를 낮춘 최저가 구성(예시). 부가 보장은 최소화.</div>
+            <div class="ledger-feature">TDF(타겟데이트펀드)로 은퇴 시점에 맞춰 위험자산 비중을 자동 조정하는 로보어드바이저형. 비대면 개설 시 보수 할인(예시).</div>
             <div class="ledger-footer">
-              <div class="fee"><div class="k">보험료</div><div class="v">6,500원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('C다이렉트')">가입 상담</button>
+              <div class="fee"><div class="k">운용관리수수료</div><div class="v">0.18%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('C증권')">가입 상담</button>
             </div>
           </div>
         </div>
@@ -363,22 +361,22 @@
         <div class="ledger-entry rise rise-delay-2">
           <div class="ledger-stub">
             <div>
-              <div class="inst-name">D손해보험</div>
-              <span class="type-tag">프리미엄</span>
+              <div class="inst-name">D생명</div>
+              <span class="type-tag">보험형</span>
             </div>
-            <div class="acct-no mono">TRAVEL-DEMO-04</div>
+            <div class="acct-no mono">IRP-DEMO-04</div>
           </div>
           <div class="ledger-body">
             <div class="ledger-grid">
-              <div class="ledger-item"><div class="k">의료실비</div><div class="v">1억원</div></div>
-              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">50만원</div></div>
-              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">2시간 · 20만원</div></div>
-              <div class="ledger-item"><div class="k">배상책임</div><div class="v">2억원</div></div>
+              <div class="ledger-item"><div class="k">세액공제한도</div><div class="v">연금저축 합산 900만원</div></div>
+              <div class="ledger-item"><div class="k">최소유지기간</div><div class="v">5년 + 만55세</div></div>
+              <div class="ledger-item"><div class="k">위험자산한도</div><div class="v">해당 없음(전액 원리금보장)</div></div>
+              <div class="ledger-item"><div class="k">국내상장 ETF</div><div class="v">불가(공시이율 적용)</div></div>
             </div>
-            <div class="ledger-feature">장기·고위험 지역 여행이나 레저 액티비티가 많은 일정에 적합한 전 항목 최상위 보장(예시).</div>
+            <div class="ledger-feature">퇴직금을 이전받아 공시이율형 상품으로 운용하는 안정형 구성. 중도인출은 법정 사유(무주택자 주택구입 등)에 한해서만 가능.</div>
             <div class="ledger-footer">
-              <div class="fee"><div class="k">보험료</div><div class="v">18,900원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('D손해보험')">가입 상담</button>
+              <div class="fee"><div class="k">운용관리수수료</div><div class="v">0.35%<span class="unit">/ 연</span></div></div>
+              <button class="btn" onclick="selectPlan('D생명')">가입 상담</button>
             </div>
           </div>
         </div>
@@ -386,9 +384,8 @@
       </div>
 
       <div class="terms-strip">
-        <strong>NOTICE —</strong> 위 보험사명·보장내용·보험료는 전부 가상의 예시 데이터입니다. 실 서비스 전환 시 보험협회 공시실 데이터 연동 또는
-        보험사 API 제휴가 필요하며, 비교·추천 서비스 제공을 위해서는 보험대리점(GA) 등록 또는 금융위원회 혁신금융서비스 지정 등
-        법적 요건을 먼저 충족해야 합니다.
+        <strong>NOTICE —</strong> 세액공제한도·최소유지기간·위험자산한도는 현행 IRP 제도의 일반적인 기준을 참고했으나, 취급기관명·수수료·프로모션은
+        전부 가상의 예시 데이터입니다. 실 서비스 전환 시 각 기관의 실제 상품공시 데이터 연동 및 금융상품 중개 관련 라이선스 확인이 필요합니다.
       </div>
     </div>
   </section>
@@ -411,12 +408,12 @@
             <input id="phone" type="tel" required placeholder="010-1234-5678">
           </div>
           <div>
-            <label for="planField">관심 상품</label>
-            <input id="planField" type="text" placeholder="예: A손해보험">
+            <label for="planField">관심 기관</label>
+            <input id="planField" type="text" placeholder="예: A증권">
           </div>
           <div>
-            <label for="country">여행 국가</label>
-            <input id="country" type="text" placeholder="예: 일본">
+            <label for="goal">투자 목표</label>
+            <input id="goal" type="text" placeholder="예: 퇴직금 이전 후 안정적 운용">
           </div>
           <div class="full">
             <label for="msg">문의사항</label>
@@ -431,10 +428,10 @@
 
   <footer>
     <div class="wrap footer-row">
-      <div class="footer-brand">여행자보험 원장</div>
+      <div class="footer-brand">IRP 원장</div>
       <p class="footer-note">
-        본 사이트는 프로토타입 데모이며 실제 보험 비교·중개 서비스가 아닙니다. 보험 상품 비교·추천에는 관련 법령에 따른
-        보험대리점 등록 또는 금융당국의 승인이 필요합니다.
+        본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다. IRP 계좌 비교·추천에는 관련 법령에 따른
+        금융상품자문업 또는 판매대리·중개업 라이선스 혹은 제휴 구조 확인이 필요합니다.
       </p>
     </div>
   </footer>

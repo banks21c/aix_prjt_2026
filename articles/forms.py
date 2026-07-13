@@ -5,7 +5,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
-from .models import UserPreference, BlogPostingAccount, NewsKeyword, NewsletterSubscriber
+from .models import UserPreference, BlogPostingAccount, NewsKeyword, NewsletterSubscriber, AnalyzedArticle
 
 # 하이픈 유무 모두 허용하는 국내 전화번호 형식 (휴대폰 010~019, 서울 02, 그 외 지역 0XX 유선)
 PHONE_NUMBER_RE = re.compile(r'^0\d{1,2}-?\d{3,4}-?\d{4}$')
@@ -146,3 +146,30 @@ class BlogAccountForm(forms.ModelForm):
 
 class NewsletterForm(forms.Form):
     email = forms.EmailField(label="이메일")
+
+
+class NewsArticleEditForm(forms.ModelForm):
+    class Meta:
+        model = AnalyzedArticle
+        fields = [
+            'title', 'source_media', 'ai_summary', 'ai_analysis', 'blog_content',
+            'applied_template', 'is_premium',
+        ]
+        labels = {
+            'title': '원본 제목',
+            'source_media': '언론사',
+            'ai_summary': 'AI 3줄 요약',
+            'ai_analysis': 'AI 투자 관점 분석',
+            'blog_content': '블로그/티스토리 포스팅용 원고',
+            'applied_template': '적용된 템플릿',
+            'is_premium': '유료 회원 전용 콘텐츠',
+        }
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'source_media': forms.TextInput(attrs={'class': 'form-control'}),
+            'ai_summary': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'ai_analysis': forms.Textarea(attrs={'class': 'form-control', 'rows': 6}),
+            'blog_content': forms.Textarea(attrs={'class': 'form-control', 'rows': 10}),
+            'applied_template': forms.Select(attrs={'class': 'form-select'}),
+            'is_premium': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

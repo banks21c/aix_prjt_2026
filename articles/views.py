@@ -28,7 +28,10 @@ from django.views.decorators.http import require_POST
 from . import blog_posting, chatbot_client, kis_client
 from .email_utils import TOKEN_VALID_HOURS, send_verification_email
 from .ml.features import compute_display_indicators
-from .forms import SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm
+from .forms import (
+    SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm,
+    NewsArticleEditForm,
+)
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     MarketIndex, RankedMover, ChatMessage, LoginLog, UserPreference, BlogPostingAccount,
@@ -161,6 +164,16 @@ def insurance_compare_view(request):
 def isa_compare_view(request):
     # ISA(개인종합자산관리계좌) 비교 데모(프로토타입) — 취급기관/수수료는 전부 예시 데이터이며 실 서비스 아님
     return render(request, 'articles/isa_compare.html', {'site_title': 'NextFinUp - ISA 비교(데모)'})
+
+
+def pension_compare_view(request):
+    # 연금저축(연금저축펀드/연금저축보험) 비교 데모(프로토타입) — 취급기관/보수/사업비는 전부 예시 데이터이며 실 서비스 아님
+    return render(request, 'articles/pension_compare.html', {'site_title': 'NextFinUp - 연금저축 비교(데모)'})
+
+
+def irp_compare_view(request):
+    # IRP(개인형퇴직연금) 비교 데모(프로토타입) — 취급기관/보수/상품구성은 전부 예시 데이터이며 실 서비스 아님
+    return render(request, 'articles/irp_compare.html', {'site_title': 'NextFinUp - IRP 비교(데모)'})
 
 
 def _build_index_chart(market_type, days=90):
@@ -373,6 +386,27 @@ def news_detail_view(request, pk):
         'posting_stats': posting_stats,
     }
     return render(request, 'articles/news_detail.html', context)
+
+
+@staff_member_required
+def news_edit_view(request, pk):
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+
+    if request.method == 'POST':
+        form = NewsArticleEditForm(request.POST, instance=article)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "기사가 수정되었습니다.")
+            return redirect('news_detail', pk=article.pk)
+    else:
+        form = NewsArticleEditForm(instance=article)
+
+    context = {
+        'site_title': f'NextFinUp - {article.title} 수정',
+        'article': article,
+        'form': form,
+    }
+    return render(request, 'articles/news_edit.html', context)
 
 
 # ==========================================

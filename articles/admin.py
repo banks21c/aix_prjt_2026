@@ -5,7 +5,7 @@ from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
-    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue,
+    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -239,4 +239,13 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
     def mark_ready(self, request, queryset):
         updated = queryset.filter(status='DRAFT').update(status='READY')
         self.message_user(request, f"{updated}건을 발송 대기 상태로 변경했습니다.")
+
+# 11. 상단 내비게이션 메뉴 관리
+@admin.register(Menu)
+class MenuAdmin(admin.ModelAdmin):
+    list_display = ('name', 'menu_type', 'order', 'is_active', 'url_name', 'external_url', 'badge_text')
+    list_editable = ('order', 'is_active')
+    list_filter = ('menu_type', 'is_active')
+    search_fields = ('name', 'url_name', 'external_url')
+    ordering = ('menu_type', 'order')
 

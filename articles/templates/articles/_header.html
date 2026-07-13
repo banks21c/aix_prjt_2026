@@ -7,10 +7,9 @@
         <div class="d-flex align-items-center app-nav-menu" id="appNavMenu">
             <span class="badge bg-primary me-2">Beta</span>
             <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
-            <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary me-2">뉴스 게시판</a>
-            <a href="{% url 'main_dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">대시보드</a>
-            <a href="{% url 'insurance_compare' %}" class="btn btn-sm btn-outline-secondary me-2">보험 비교<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DEMO</span></a>
-            <a href="{% url 'isa_compare' %}" class="btn btn-sm btn-outline-secondary me-2">ISA 비교<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DEMO</span></a>
+            {% for menu in header_menus %}
+            <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
+            {% endfor %}
             {% if user.is_staff %}
                 <a href="/admin/" class="btn btn-sm btn-outline-secondary me-2" target="_blank">관리자</a>
             {% endif %}
