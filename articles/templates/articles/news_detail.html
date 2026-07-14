@@ -61,6 +61,9 @@
                         <option value="{{ account.pk }}" {% if selected_account.pk == account.pk %}selected{% endif %}>{{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})</option>
                         {% endfor %}
                     </select>
+                    {% if selected_account.site_url %}
+                    <a href="{{ selected_account.site_url }}" target="_new" rel="noopener noreferrer" class="small">사이트 방문 ↗</a>
+                    {% endif %}
                 </form>
                 <form method="post" action="{% url 'post_articles' %}" class="mb-0 ms-auto">
                     {% csrf_token %}
