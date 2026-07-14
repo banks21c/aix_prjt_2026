@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.db.models import Q
+from django.utils.html import format_html
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
@@ -134,14 +136,48 @@ class UserPreferenceAdmin(admin.ModelAdmin):
     list_filter = ('news_subscription', 'auto_posting_enabled', 'post_all_articles')
     search_fields = ('user__username', 'interested_keywords')
 
-# 4-2. 마이페이지 - 블로그 자동 포스팅 계정 관리
+# 4-2. 마이페이지 - 회원이 SNS/블로그 업로드용으로 등록한 계정 목록 관리
+class BlogAccountConnectionFilter(admin.SimpleListFilter):
+    """BlogPostingAccount.is_connected()는 플랫폼별로 필요한 필드 조합이 달라 DB 컬럼 하나로
+    판단할 수 없는 파이썬 로직이라, 목록 필터에서 쓰려면 같은 조건을 쿼리셋으로 옮겨와야 한다."""
+    title = '연동 상태'
+    parameter_name = 'connected'
+
+    def lookups(self, request, model_admin):
+        return (('yes', '연동됨(자격정보 등록 완료)'), ('no', '미연동(등록 전/불완전)'))
+
+    def queryset(self, request, queryset):
+        if self.value() not in ('yes', 'no'):
+            return queryset
+        connected_q = (
+            (Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential=''))
+            | (Q(platform='TISTORY') & ~Q(account_id='') & ~Q(credential=''))
+            | (Q(platform='NAVER') & ~Q(account_id=''))
+        )
+        return queryset.filter(connected_q) if self.value() == 'yes' else queryset.exclude(connected_q)
+
+
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'platform', 'is_enabled', 'site_url', 'account_id', 'updated_at')
-    list_filter = ('platform', 'is_enabled')
-    search_fields = ('user__username', 'account_id', 'site_url')
-    # credential(비밀번호/API Key)은 목록/폼 어디에도 평문 노출하지 않고, 재입력할 때만 갱신
+    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url', 'account_id', 'updated_at')
+    list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
+    search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
+    list_select_related = ('user',)
+    ordering = ('user', 'platform')
+    # credential(비밀번호/API Key/OAuth 리프레시 토큰)은 목록/폼 어디에도 평문 노출하지 않고,
+    # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
     exclude = ('credential',)
+    readonly_fields = ('has_credential',)
+
+    @admin.display(description='연동 상태')
+    def connection_status(self, obj):
+        if obj.is_connected():
+            return format_html('<span style="color:#2e7d32;font-weight:bold;">연동됨</span>')
+        return format_html('<span style="color:#999;">미연동</span>')
+
+    @admin.display(description='자격정보(비밀번호/API Key) 등록 여부')
+    def has_credential(self, obj):
+        return '등록됨' if obj.credential else '미등록'
 
 # 4-3. 회원별 발행 이력 조회용 (읽기 전용)
 @admin.register(PostedArticle)
