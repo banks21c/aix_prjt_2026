@@ -159,7 +159,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
 
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url', 'account_id', 'updated_at')
+    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
     list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
     search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
     list_select_related = ('user',)
@@ -178,6 +178,12 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
     @admin.display(description='자격정보(비밀번호/API Key) 등록 여부')
     def has_credential(self, obj):
         return '등록됨' if obj.credential else '미등록'
+
+    @admin.display(description='사이트 주소')
+    def site_url_link(self, obj):
+        if not obj.site_url:
+            return '-'
+        return format_html('<a href="{0}" target="_new" rel="noopener noreferrer">{0}</a>', obj.site_url)
 
 # 4-3. 회원별 발행 이력 조회용 (읽기 전용)
 @admin.register(PostedArticle)
