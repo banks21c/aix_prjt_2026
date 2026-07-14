@@ -163,6 +163,13 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
+@staff_member_required
+def financial_consult_sheet_view(request):
+    # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트 — 브라우저에서만 작성되고
+    # 서버로 제출되지 않는 순수 클라이언트 사이드 양식(인쇄/PDF 저장으로 기록을 남김)
+    return render(request, 'articles/financial_consult_sheet.html', {'site_title': 'NextFinUp - 종합 재무상담 시트'})
+
+
 @csrf_exempt
 @require_POST
 def consult_request_view(request):

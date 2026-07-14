@@ -12,6 +12,7 @@
             {% endfor %}
             {% if user.is_staff %}
                 <a href="/admin/" class="btn btn-sm btn-outline-secondary me-2" target="_blank">관리자</a>
+                <a href="{% url 'financial_consult_sheet' %}" class="btn btn-sm btn-outline-secondary me-2" target="_blank">재무상담 시트</a>
             {% endif %}
             {% if user.is_authenticated %}
                 {% with provider=user.social_accounts.first.provider %}
