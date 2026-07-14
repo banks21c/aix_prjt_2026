@@ -866,6 +866,9 @@ def verify_email_view(request, uidb64, token):
 
 
 def kakao_login_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['kakao_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('kakao_callback'))
     authorize_url = (
         "https://kauth.kakao.com/oauth/authorize"
@@ -873,14 +876,17 @@ def kakao_login_view(request):
         f"&redirect_uri={redirect_uri}"
         "&response_type=code"
         "&scope=profile_nickname"
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
 
 def kakao_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "카카오 로그인이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('kakao_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "카카오 로그인이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('login')
 
     redirect_uri = request.build_absolute_uri(reverse('kakao_callback'))
@@ -924,6 +930,9 @@ def kakao_callback_view(request):
 
 
 def google_login_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['google_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('google_callback'))
     authorize_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -931,14 +940,17 @@ def google_login_view(request):
         f"&redirect_uri={redirect_uri}"
         "&response_type=code"
         "&scope=openid%20email%20profile"
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
 
 def google_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "구글 로그인이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('google_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "구글 로그인이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('login')
 
     redirect_uri = request.build_absolute_uri(reverse('google_callback'))
@@ -1042,6 +1054,9 @@ def naver_callback_view(request):
 
 @login_required
 def blogger_connect_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['blogger_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('blogger_callback'))
     authorize_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -1051,6 +1066,7 @@ def blogger_connect_view(request):
         "&scope=https://www.googleapis.com/auth/blogger"
         "&access_type=offline"
         "&prompt=consent"  # 리프레시 토큰을 매번 새로 받기 위해 재동의 강제
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
@@ -1058,8 +1074,10 @@ def blogger_connect_view(request):
 @login_required
 def blogger_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "블로거 연동이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('blogger_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "블로거 연동이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('my_page')
 
     redirect_uri = request.build_absolute_uri(reverse('blogger_callback'))
