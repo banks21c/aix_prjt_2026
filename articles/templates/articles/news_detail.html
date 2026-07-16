@@ -43,10 +43,11 @@
                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}({{ article.stock.ticker }})</a>{% endif %}
                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
                 {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
-                {% if article.original_url|slice:":11" != "kis-news://" %}
-                · <a href="{{ article.original_url }}" target="_blank" rel="noopener">원문 보기 ↗</a>
-                {% endif %}
             </div>
+
+            {% if article.original_url|slice:":11" != "kis-news://" %}
+            <a href="{{ article.original_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm mb-3">원문 보기 ↗</a>
+            {% endif %}
 
             {% if not user.is_authenticated %}
             <p class="text-muted small">이 기사를 내 블로그에 포스팅하려면 <a href="{% url 'login' %}">로그인</a>이 필요합니다.</p>
