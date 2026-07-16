@@ -163,6 +163,12 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
+def header_fragment_view(request):
+    """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
+    최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
+    return render(request, 'articles/_header.html')
+
+
 @staff_member_required
 def financial_consult_sheet_view(request):
     # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트 — 브라우저에서만 작성되고
