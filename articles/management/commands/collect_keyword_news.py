@@ -2,6 +2,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from articles.models import NewsSource, NewsKeyword, AnalyzedArticle
+from articles.utils import fetch_article_content
 
 
 class Command(BaseCommand):
@@ -76,6 +77,7 @@ class Command(BaseCommand):
                         ai_summary=description[:300] if description else title,
                         ai_analysis=f"'{keyword.keyword}' 키워드로 {source.name}에서 수집된 기사입니다.",
                         blog_content=f'{title}\n\n원문 보기: <a href="{link}" target="_blank" rel="noopener noreferrer">{link}</a>',
+                        original_content=fetch_article_content(link),
                         applied_template='T1',
                         is_premium=False,
                         is_posted=False,

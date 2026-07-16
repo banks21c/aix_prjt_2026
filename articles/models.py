@@ -224,6 +224,7 @@ class AnalyzedArticle(models.Model):
     ai_summary = models.TextField(verbose_name="AI 3줄 요약")
     ai_analysis = models.TextField(verbose_name="AI 투자 관점 분석")
     blog_content = models.TextField(verbose_name="블로그/티스토리 포스팅용 원고")
+    original_content = models.TextField(blank=True, default='', verbose_name="원문 본문(스크래핑)")
 
     TEMPLATE_CHOICES = [
         ('T1', '템플릿 1 (뉴스 요약형)'),
