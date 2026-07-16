@@ -5,7 +5,6 @@
         <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
                 onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
         <div class="d-flex align-items-center app-nav-menu" id="appNavMenu">
-            <span class="badge bg-primary me-2">Beta</span>
             <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
             {% for menu in header_menus %}
                 {% if menu.external_url == '/insurance-guide/' %}
