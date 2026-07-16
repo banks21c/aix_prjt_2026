@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.urls import reverse
 from django.utils.html import format_html
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
@@ -294,9 +295,17 @@ class MenuAdmin(admin.ModelAdmin):
 # 12. 상담 신청 (ISA/IRP/연금저축 등 분리된 정적 페이지에서 들어오는 리드)
 @admin.register(ConsultRequest)
 class ConsultRequestAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'product', 'name', 'phone', 'interest', 'goal')
+    list_display = ('created_at', 'product', 'name_with_sheet_link', 'phone', 'interest', 'goal')
     list_filter = ('product', 'created_at')
     search_fields = ('name', 'phone', 'interest', 'goal', 'message')
     readonly_fields = ('product', 'name', 'phone', 'interest', 'goal', 'message', 'source_ip', 'created_at')
     ordering = ('-created_at',)
+
+    @admin.display(description='이름')
+    def name_with_sheet_link(self, obj):
+        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결
+        return format_html(
+            '<a href="{}" target="_blank">{}</a>',
+            reverse('financial_consult_sheet'), obj.name,
+        )
 
