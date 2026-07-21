@@ -148,7 +148,24 @@ class NewsletterForm(forms.Form):
     email = forms.EmailField(label="이메일")
 
 
+class NewsScrapeForm(forms.Form):
+    url = forms.URLField(
+        label="기사 URL",
+        widget=forms.URLInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'https://example.com/news/12345',
+        }),
+    )
+
+
 class NewsArticleEditForm(forms.ModelForm):
+    def __init__(self, *args, is_staff=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        # is_premium(유료 회원 전용 콘텐츠 지정)은 콘텐츠 큐레이션 성격의 관리자 전용 필드라,
+        # 본인 스크래핑 글을 편집하는 일반 회원에게는 아예 숨긴다.
+        if not is_staff:
+            self.fields.pop('is_premium', None)
+
     class Meta:
         model = AnalyzedArticle
         fields = [

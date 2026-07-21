@@ -27,12 +27,12 @@ from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from . import blog_posting, chatbot_client, kis_client
+from . import article_ai, blog_posting, chatbot_client, kis_client
 from .email_utils import TOKEN_VALID_HOURS, send_verification_email
 from .ml.features import compute_display_indicators
 from .forms import (
     SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm,
-    NewsArticleEditForm,
+    NewsArticleEditForm, NewsScrapeForm,
 )
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
@@ -40,7 +40,7 @@ from .models import (
     StockRealtimePrice, PostedArticle, NewsletterSubscriber, ConsultRequest,
     FinancialConsultSheet,
 )
-from .utils import get_client_ip
+from .utils import get_client_ip, fetch_article_metadata, scraping_stats
 
 logger = logging.getLogger(__name__)
 
@@ -419,19 +419,22 @@ def post_articles_view(request):
         messages.warning(request, "포스팅할 기사를 하나 이상 선택해주세요.")
         return redirect(request.POST.get('next') or 'news_board')
 
-    remaining = blog_posting.posting_stats(request.user)['remaining']
+    stats = blog_posting.posting_stats(request.user)
+    remaining = stats['remaining']
     if remaining is not None:
+        grade_name = stats['grade'].name if stats['grade'] else '일반'
+        daily_limit = stats['grade'].daily_post_limit if stats['grade'] else 0
         if remaining <= 0:
             messages.error(
                 request,
-                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 포스팅할 수 있습니다. "
-                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 프리미엄으로 업그레이드해주세요.",
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
             )
             return redirect(request.POST.get('next') or 'news_board')
         if len(article_ids) > remaining:
             messages.warning(
                 request,
-                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
             )
             article_ids = article_ids[:remaining]
 
@@ -485,18 +488,76 @@ def news_detail_view(request, pk):
     return render(request, 'articles/news_detail.html', context)
 
 
-@staff_member_required
+@login_required
+def news_scrape_view(request):
+    """회원이 임의의 기사 URL을 입력하면 (1) trafilatura로 본문을 스크래핑하고,
+    (2) OpenAI로 3줄 요약/투자 분석/블로그 초안을 생성한 뒤, (3) 바로 편집 화면(news_edit)으로
+    넘겨 검토·수정 후 저장하게 하는 수동 등록 진입점. RSS 자동 수집(scraped_ai_news 등)과 달리
+    회원이 임의 사이트를 직접 골라 등록할 때 쓴다. 등급별 일일 한도(MemberGrade.daily_scrape_limit)
+    로 제한되며, 관리자(is_staff/is_superuser)는 무제한이다."""
+    form = NewsScrapeForm(request.POST or None)
+    stats = scraping_stats(request.user)
+
+    if request.method == 'POST' and form.is_valid():
+        url = form.cleaned_data['url']
+
+        existing = AnalyzedArticle.objects.filter(original_url=url).first()
+        if existing:
+            messages.info(request, "이미 등록된 URL입니다. 기존 기사를 편집합니다.")
+            return redirect('news_edit', pk=existing.pk)
+
+        if stats['remaining'] == 0:
+            grade_name = stats['grade'].name if stats['grade'] else '일반'
+            messages.error(
+                request,
+                f"{grade_name} 등급은 하루 {stats['grade'].daily_scrape_limit}건까지만 등록할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
+            )
+            return redirect('news_scrape')
+
+        scraped = fetch_article_metadata(url)
+        if not scraped['content']:
+            messages.error(request, "본문을 스크래핑하지 못했습니다. URL을 확인하거나 다른 기사로 시도해주세요.")
+        else:
+            draft = article_ai.generate_draft(scraped['title'], scraped['content'])
+            article = AnalyzedArticle.objects.create(
+                title=scraped['title'] or url,
+                original_url=url,
+                source_media=scraped['source_media'] or '수동 등록',
+                original_content=scraped['content'],
+                ai_summary=draft['ai_summary'],
+                ai_analysis=draft['ai_analysis'],
+                blog_content=draft['blog_content'],
+                applied_template='T1',
+                scraped_by=request.user,
+            )
+            messages.success(request, "스크래핑 및 AI 초안 생성이 완료되었습니다. 내용을 검토하고 저장해주세요.")
+            return redirect('news_edit', pk=article.pk)
+
+    context = {
+        'site_title': 'NextFinUp - URL로 기사 등록',
+        'form': form,
+        'scraping_stats': stats,
+    }
+    return render(request, 'articles/news_scrape.html', context)
+
+
+@login_required
 def news_edit_view(request, pk):
+    """staff는 모든 기사를, 일반 회원은 본인이 news_scrape_view로 직접 등록한 기사만 편집할 수 있다."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
+    if not (request.user.is_staff or article.scraped_by_id == request.user.id):
+        messages.error(request, "본인이 등록한 기사만 수정할 수 있습니다.")
+        return redirect('news_board')
 
     if request.method == 'POST':
-        form = NewsArticleEditForm(request.POST, instance=article)
+        form = NewsArticleEditForm(request.POST, instance=article, is_staff=request.user.is_staff)
         if form.is_valid():
             form.save()
             messages.success(request, "기사가 수정되었습니다.")
             return redirect('news_detail', pk=article.pk)
     else:
-        form = NewsArticleEditForm(instance=article)
+        form = NewsArticleEditForm(instance=article, is_staff=request.user.is_staff)
 
     context = {
         'site_title': f'NextFinUp - {article.title} 수정',

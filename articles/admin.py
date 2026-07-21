@@ -9,7 +9,7 @@ from .models import (
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
-    FinancialConsultSheet,
+    FinancialConsultSheet, MemberGrade,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -19,25 +19,43 @@ admin.site.site_title = "NextFinUp admin"
 admin.site.index_title = "NextFinUp 관리"
 
 
-# 0-0-2. 기본 User admin에 마이페이지에서 등록한 전화번호(UserPreference) 컬럼 추가
+# 0-0-3. 회원 권한 등급 생성/수정/삭제 화면 (5단계로 시작, Admin에서 자유롭게 추가·수정·삭제 가능)
+@admin.register(MemberGrade)
+class MemberGradeAdmin(admin.ModelAdmin):
+    list_display = ('level', 'name', 'daily_scrape_limit', 'daily_post_limit', 'description', 'member_count')
+    ordering = ('level',)
+    search_fields = ('name',)
+
+    @admin.display(description='보유 회원 수')
+    def member_count(self, obj):
+        return obj.members.count()
+
+# 0-0-2. 기본 User admin에 마이페이지에서 등록한 전화번호(UserPreference)와 권한 등급 컬럼 추가.
+# grade는 ForeignKey라 Django가 자동으로 콤보박스(단일 선택 <select>)로 렌더링한다.
 class UserPreferenceInline(admin.StackedInline):
     model = UserPreference
     can_delete = False
-    fields = ('phone_number',)
+    fields = ('phone_number', 'grade')
 
 admin.site.unregister(User)
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     inlines = (UserPreferenceInline,)
-    list_display = UserAdmin.list_display + ('phone_number',)
+    list_display = UserAdmin.list_display + ('phone_number', 'member_grade')
+    list_filter = UserAdmin.list_filter + ('preference__grade',)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('preference')
+        return super().get_queryset(request).select_related('preference', 'preference__grade')
 
     @admin.display(description='전화번호')
     def phone_number(self, obj):
         return getattr(obj.preference, 'phone_number', '') if hasattr(obj, 'preference') else ''
+
+    @admin.display(description='권한 등급')
+    def member_grade(self, obj):
+        grade = getattr(obj.preference, 'grade', None) if hasattr(obj, 'preference') else None
+        return grade if grade else '-'
 
 # 0-0. 한국투자증권(KIS) 접근 토큰 캐시 조회용 (읽기 전용)
 @admin.register(KisAccessToken)
@@ -125,7 +143,7 @@ class StockPredictionAdmin(admin.ModelAdmin):
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_at')
+    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
     list_filter = ('source_media', 'is_premium', 'is_posted', 'applied_template')
     search_fields = ('title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
@@ -134,8 +152,8 @@ class AnalyzedArticleAdmin(admin.ModelAdmin):
 # 4-1. 마이페이지 - 뉴스구독/자동포스팅 환경설정 관리
 @admin.register(UserPreference)
 class UserPreferenceAdmin(admin.ModelAdmin):
-    list_display = ('user', 'news_subscription', 'auto_posting_enabled', 'post_all_articles', 'interested_keywords', 'updated_at')
-    list_filter = ('news_subscription', 'auto_posting_enabled', 'post_all_articles')
+    list_display = ('user', 'grade', 'news_subscription', 'auto_posting_enabled', 'post_all_articles', 'interested_keywords', 'updated_at')
+    list_filter = ('grade', 'news_subscription', 'auto_posting_enabled', 'post_all_articles')
     search_fields = ('user__username', 'interested_keywords')
 
 # 4-2. 마이페이지 - 회원이 SNS/블로그 업로드용으로 등록한 계정 목록 관리

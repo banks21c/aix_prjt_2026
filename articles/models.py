@@ -237,6 +237,13 @@ class AnalyzedArticle(models.Model):
     is_premium = models.BooleanField(default=False, verbose_name="유료 회원 전용 콘텐츠")
     is_posted = models.BooleanField(default=False, verbose_name="블로그 자동 발행 완료")
 
+    # RSS 자동 수집(scraped_ai_news 등)은 채우지 않고 비워둔다. news_scrape_view에서 회원이
+    # 직접 URL을 등록한 경우에만 채워져, 등급별 일일 스크래핑 한도 계산에 쓰인다.
+    scraped_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="manual_scrapes", verbose_name="수동 스크래핑 등록 회원",
+    )
+
     def __str__(self):
         return f"[{self.source_media}] {self.title}"
 
@@ -259,11 +266,37 @@ class UserSubscription(models.Model):
 
 
 # ==========================================
+# 5. 회원 권한 등급 (Admin 화면에서 자유롭게 생성·수정·삭제하는 등급 체계)
+# ==========================================
+class MemberGrade(models.Model):
+    name = models.CharField(max_length=50, unique=True, verbose_name="등급명")
+    level = models.PositiveSmallIntegerField(unique=True, verbose_name="등급 순위(숫자가 클수록 상위 등급)")
+    description = models.CharField(max_length=255, blank=True, verbose_name="설명")
+    # 비워두면(NULL) 무제한. 관리자 등급은 두 값 모두 비워서 무제한으로 둔다.
+    daily_scrape_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 스크래핑 가능 건수(공란=무제한)")
+    daily_post_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 포스팅 가능 건수(공란=무제한)")
+
+    class Meta:
+        ordering = ['level']
+        verbose_name = "회원 등급"
+        verbose_name_plural = "회원 등급"
+
+    def __str__(self):
+        return f"{self.level}. {self.name}"
+
+
+# ==========================================
 # 6. 마이페이지 - 뉴스 구독 / 자동 포스팅 설정 테이블
 # ==========================================
 class UserPreference(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference", verbose_name="사용자")
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="전화번호")
+    # UserSubscription(무료/프리미엄 결제 상태)과는 별개의 권한 체계. 회원 목록(Admin User 화면)에서
+    # 콤보박스로 하나만 골라 부여하며, 등급 자체는 MemberGrade 화면에서 자유롭게 추가/수정/삭제한다.
+    grade = models.ForeignKey(
+        MemberGrade, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="members", verbose_name="권한 등급",
+    )
 
     # 이메일 인증 (회원가입/마이페이지에서 직접 입력·수정한 이메일만 대상. 카카오/구글 소셜 로그인으로
     # 자동 채워지는 이메일은 해당 없음). 인증 전에는 User.email을 바로 바꾸지 않고 pending_email에 보관한다.

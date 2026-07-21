@@ -13,6 +13,9 @@
         .news-meta { font-size: 13px; color: #868e96; }
         .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
         .content-block { white-space: pre-line; line-height: 1.8; color: #343a40; }
+        /* blog_content는 에디터에서 만든 <p> 태그가 그대로 들어있다 — 브라우저 기본 <p> 여백(1em)을
+           없애 에디터에서 보던 것과 동일하게, 줄바꿈처럼 자연스러운 간격으로 보이게 한다. */
+        .content-block p { margin: 0; }
     </style>
 </head>
 <body>
@@ -86,6 +89,11 @@
 
             <h6 class="section-title">💡 AI 투자 관점 분석</h6>
             <div class="content-block">{{ article.ai_analysis }}</div>
+
+            {% if article.blog_content %}
+            <h6 class="section-title">📝 블로그/티스토리 포스팅용 원고</h6>
+            <div class="content-block">{{ article.blog_content|safe }}</div>
+            {% endif %}
 
             {% if article.original_content %}
             <h6 class="section-title">📄 원문 전문</h6>
