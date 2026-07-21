@@ -21,7 +21,7 @@ from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
     privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view, header_fragment_view,
-    financial_consult_sheet_view,
+    financial_consult_sheet_view, financial_consult_sheet_save_view,
     news_board_view, news_detail_view, news_edit_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
@@ -47,6 +47,7 @@ urlpatterns = [
     path('newsletter/unsubscribe/<str:token>/', newsletter_unsubscribe_view, name='newsletter_unsubscribe'),
     path('admin-tools/cron/', cron_status_view, name='cron_status'),
     path('admin-tools/consult-sheet/', financial_consult_sheet_view, name='financial_consult_sheet'),
+    path('admin-tools/consult-sheet/save/', financial_consult_sheet_save_view, name='financial_consult_sheet_save'),
     path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),

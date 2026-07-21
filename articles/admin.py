@@ -9,6 +9,7 @@ from .models import (
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
+    FinancialConsultSheet,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -308,4 +309,14 @@ class ConsultRequestAdmin(admin.ModelAdmin):
             '<a href="{}" target="_blank">{}</a>',
             reverse('financial_consult_sheet'), obj.name,
         )
+
+
+# 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)
+@admin.register(FinancialConsultSheet)
+class FinancialConsultSheetAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_filter = ('created_at', 'consult_date')
+    search_fields = ('customer_name', 'customer_phone', 'consultant_name')
+    readonly_fields = ('customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'data', 'created_by', 'created_at')
+    ordering = ('-created_at',)
 

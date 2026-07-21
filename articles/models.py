@@ -552,3 +552,27 @@ class ConsultRequest(models.Model):
     def __str__(self):
         return f"[{self.get_product_display()}] {self.name} ({self.created_at:%Y-%m-%d %H:%M})"
 
+
+# ==========================================
+# 11. 종합 재무상담 시트 (FC/PB 내부 전용 상담 기록)
+# ==========================================
+class FinancialConsultSheet(models.Model):
+    """financial_consult_sheet.html(14개 섹션, 가변 행 표 다수)의 제출 데이터를 저장한다.
+    섹션/표 구조가 자주 바뀔 수 있어 원본 전체는 JSONField(data)에 통째로 보관하고,
+    목록 조회·검색에 필요한 핵심 항목만 별도 컬럼으로 뽑아둔다."""
+    customer_name = models.CharField(max_length=50, blank=True, verbose_name="고객 성명")
+    customer_phone = models.CharField(max_length=20, blank=True, verbose_name="고객 연락처")
+    consultant_name = models.CharField(max_length=50, blank=True, verbose_name="상담자 (FC/PB)")
+    consult_date = models.DateField(null=True, blank=True, verbose_name="상담일자")
+    data = models.JSONField(verbose_name="상담 시트 데이터")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="작성자 계정")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="저장 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "재무상담 시트"
+        verbose_name_plural = "재무상담 시트 관리"
+
+    def __str__(self):
+        return f"{self.customer_name or '(무기명)'} ({self.created_at:%Y-%m-%d %H:%M})"
+

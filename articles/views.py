@@ -38,6 +38,7 @@ from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     MarketIndex, RankedMover, ChatMessage, LoginLog, UserPreference, BlogPostingAccount,
     StockRealtimePrice, PostedArticle, NewsletterSubscriber, ConsultRequest,
+    FinancialConsultSheet,
 )
 from .utils import get_client_ip
 
@@ -171,9 +172,45 @@ def header_fragment_view(request):
 
 @staff_member_required
 def financial_consult_sheet_view(request):
-    # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트 — 브라우저에서만 작성되고
-    # 서버로 제출되지 않는 순수 클라이언트 사이드 양식(인쇄/PDF 저장으로 기록을 남김)
+    # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트.
+    # "저장" 버튼을 누르면 financial_consult_sheet_save_view로 전체 입력값을 JSON으로 전송해
+    # FinancialConsultSheet에 기록하고, 별도로 인쇄/PDF 저장도 가능하다.
     return render(request, 'articles/financial_consult_sheet.html', {'site_title': 'NextFinUp - 종합 재무상담 시트'})
+
+
+@staff_member_required
+@require_POST
+def financial_consult_sheet_save_view(request):
+    """financial_consult_sheet.html에서 저장 버튼 클릭 시 fetch로 전송하는 전체 시트 데이터를
+    FinancialConsultSheet에 저장한다. 목록/검색용 핵심 컬럼(고객명·연락처·상담자·상담일자)만
+    최상위로 뽑고, 나머지 세부 항목은 원본 그대로 JSONField에 보관한다."""
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+    if not isinstance(payload, dict):
+        return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
+
+    meta = payload.get('meta') or {}
+    s1 = payload.get('s1') or {}
+
+    consult_date = meta.get('consult_date') or None
+    if consult_date:
+        try:
+            datetime.strptime(consult_date, '%Y-%m-%d')
+        except ValueError:
+            consult_date = None
+
+    sheet = FinancialConsultSheet.objects.create(
+        customer_name=(s1.get('name') or '')[:50],
+        customer_phone=(s1.get('phone') or '')[:20],
+        consultant_name=(meta.get('consultant') or '')[:50],
+        consult_date=consult_date,
+        data=payload,
+        created_by=request.user,
+    )
+    return JsonResponse({'ok': True, 'id': sheet.id})
 
 
 @csrf_exempt

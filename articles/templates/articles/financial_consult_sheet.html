@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ site_title }}</title>
 {% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
   :root{
     --paper:#F2F4F5;
@@ -18,6 +19,8 @@
     --muted:#5C6773;
     --seal:#B23A2E;
     --focus:#1B3A5C;
+    --input-bg:#FBFAF4;
+    --input-border:#C9A227;
   }
   @media (prefers-color-scheme: dark){
     :root{
@@ -32,15 +35,19 @@
       --muted:#8B95A1;
       --seal:#E2695C;
       --focus:#7FA5C7;
+      --input-bg:#232A22;
+      --input-border:#D8B84A;
     }
   }
   :root[data-theme="dark"]{
     --paper:#12161C; --card:#171D25; --ink:#E7ECF0; --rule:#2B333C; --rule-strong:#3A434D;
     --accent:#7FA5C7; --accent-2:#6C93B8; --accent-soft:#1E2A35; --muted:#8B95A1; --seal:#E2695C; --focus:#7FA5C7;
+    --input-bg:#232A22; --input-border:#D8B84A;
   }
   :root[data-theme="light"]{
     --paper:#F2F4F5; --card:#FFFFFF; --ink:#1D232B; --rule:#D6DCE1; --rule-strong:#B9C3CB;
     --accent:#1B3A5C; --accent-2:#2E5578; --accent-soft:#E7EDF2; --muted:#5C6773; --seal:#B23A2E; --focus:#1B3A5C;
+    --input-bg:#FBFAF4; --input-border:#C9A227;
   }
 
   *{box-sizing:border-box;}
@@ -68,7 +75,7 @@
 
   /* ---- sticky quick-nav ---- */
   .quicknav{
-    position:sticky; top:0; z-index:20;
+    position:sticky; top:var(--header-h, 60px); z-index:20;
     background:var(--paper);
     border-bottom:1px solid var(--rule);
     padding:10px 0;
@@ -93,6 +100,18 @@
     font-size:12px; font-weight:700; padding:7px 14px; border-radius:6px; cursor:pointer;
   }
   .quicknav .print-btn:hover{ background:var(--accent-2); }
+  /* ---- bottom save bar (normal document flow, not sticky/fixed) ---- */
+  .bottom-save{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    margin-top:28px; padding:22px 0; border-top:1px solid var(--rule);
+  }
+  .bottom-save .save-btn{
+    background:var(--accent); color:#fff; border:1px solid var(--accent);
+    font-size:14.5px; font-weight:700; padding:10px 30px; border-radius:6px; cursor:pointer;
+  }
+  .bottom-save .save-btn:hover{ background:var(--accent-2); }
+  .bottom-save .save-btn:disabled{ opacity:.6; cursor:default; }
+  .bottom-save .save-status{ font-size:12.5px; color:var(--muted); white-space:nowrap; }
 
   /* ---- header / masthead ---- */
   .masthead{
@@ -121,12 +140,13 @@
     color:rgba(255,255,255,.62); margin-bottom:5px; font-weight:600;
   }
   .masthead .doc-meta input, .masthead .doc-meta select{
-    width:100%; background:transparent; border:none; border-bottom:1px solid rgba(255,255,255,.45);
-    color:#fff; font-size:14.5px; padding:4px 2px; font-family:inherit;
+    width:100%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.5); border-radius:6px;
+    color:#fff; font-size:14.5px; padding:6px 8px; font-family:inherit;
   }
-  .masthead .doc-meta input::placeholder{ color:rgba(255,255,255,.45); }
+  .masthead .doc-meta input::placeholder{ color:rgba(255,255,255,.6); }
+  .masthead .doc-meta input:hover, .masthead .doc-meta select:hover{ border-color:#fff; }
   .masthead .doc-meta input:focus, .masthead .doc-meta select:focus{
-    outline:none; border-bottom-color:#fff;
+    outline:none; border-color:#fff; background:rgba(255,255,255,.22);
   }
   .masthead .doc-meta select option{ color:#111; }
   .purpose-row{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:4px; }
@@ -148,7 +168,7 @@
     border-radius:10px;
     margin-bottom:22px;
     overflow:hidden;
-    scroll-margin-top:64px;
+    scroll-margin-top:calc(var(--header-h, 60px) + var(--quicknav-h, 52px) + 8px);
     break-inside:avoid;
   }
   .card-head{
@@ -174,16 +194,20 @@
   }
   .field label .req{ color:var(--seal); margin-left:2px; }
   .field input[type="text"], .field input[type="date"], .field input[type="number"], .field select, .field textarea{
-    width:100%; border:none; border-bottom:1.5px solid var(--rule-strong);
-    background:transparent; color:var(--ink); font-size:14.5px; padding:5px 2px;
-    font-family:inherit;
+    width:100%; border:1.5px solid var(--input-border); border-radius:6px;
+    background:var(--input-bg); color:var(--ink); font-size:14.5px; padding:7px 9px;
+    font-family:inherit; box-shadow:0 1px 0 rgba(0,0,0,.02);
   }
-  .field textarea{ border:1.5px solid var(--rule-strong); border-radius:6px; padding:10px; resize:vertical; }
+  .field textarea{ border-radius:6px; padding:10px; resize:vertical; }
+  .field input:hover, .field select:hover, .field textarea:hover{ border-color:var(--focus); }
   .field input:focus, .field select:focus, .field textarea:focus{
-    outline:none; border-color:var(--focus);
+    outline:none; border-color:var(--focus); box-shadow:0 0 0 3px var(--accent-soft);
   }
+  .field input::placeholder, .field textarea::placeholder{ color:var(--muted); opacity:.75; }
   .money{ font-variant-numeric:tabular-nums; }
-  .unit{ font-size:11.5px; color:var(--muted); margin-left:4px; }
+  .field .input-unit{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; }
+  .field .input-unit input{ flex:1 1 auto; min-width:0; }
+  .unit{ font-size:11.5px; color:var(--muted); white-space:nowrap; flex:0 0 auto; }
 
   .check-group{ display:flex; flex-wrap:wrap; gap:10px 20px; margin:4px 0 16px; }
   .check-group label{
@@ -205,11 +229,15 @@
     padding:6px 8px; border-bottom:1px solid var(--rule); vertical-align:middle;
   }
   table.grid td input, table.grid td select{
-    width:100%; border:none; background:transparent; color:var(--ink); font-size:13.5px;
-    padding:6px 4px; font-family:inherit; border-radius:4px;
+    width:100%; border:1.5px solid var(--input-border); background:var(--input-bg); color:var(--ink); font-size:13.5px;
+    padding:6px 7px; font-family:inherit; border-radius:5px;
   }
-  table.grid td input:focus, table.grid td select:focus{ outline:none; background:var(--accent-soft); }
-  table.grid td input[readonly]{ color:var(--accent-2); font-weight:700; cursor:default; }
+  table.grid td input:hover, table.grid td select:hover{ border-color:var(--focus); }
+  table.grid td input:focus, table.grid td select:focus{ outline:none; border-color:var(--focus); box-shadow:0 0 0 3px var(--accent-soft); }
+  table.grid td input[readonly]{
+    color:var(--accent-2); font-weight:700; cursor:default;
+    background:var(--accent-soft); border-color:var(--rule-strong);
+  }
   table.grid tr:last-child td{ border-bottom:none; }
   .addrow{
     margin-top:10px; font-size:12.5px; font-weight:700; color:var(--accent-2);
@@ -260,15 +288,21 @@
     body{ padding:0; }
     .masthead{ background:#fff !important; color:#000; padding:14px 0; }
     .masthead .eyebrow, .masthead p.sub, .masthead .doc-meta label{ color:#444 !important; }
-    .masthead .doc-meta input, .masthead .doc-meta select{ color:#000; border-bottom-color:#999; }
+    .masthead .doc-meta input, .masthead .doc-meta select{ color:#000; background:#fff; border-color:#999; }
     .purpose-row label{ color:#000; }
     section.card{ break-inside:avoid; border:1px solid #ccc; }
     .card-head{ background:#f0f0f0 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     a.quicknav, .quicknav{ display:none; }
+    .app-navbar{ display:none !important; }
+    .field input, .field select, .field textarea, table.grid td input, table.grid td select{
+      background:#fff !important; border-color:#999 !important;
+    }
   }
 </style>
 </head>
 <body>
+
+{% include "articles/_header.html" %}
 
 <div class="quicknav no-print">
   <div class="quicknav-inner">
@@ -299,22 +333,22 @@
       <p class="sub">국민연금 · 퇴직연금(IRP) · 연금저축 · ISA를 한 장에서 통합 점검하는 상담용 양식</p>
     </div>
     <div class="doc-meta">
-      <div><label>상담일자</label><input type="date" /></div>
-      <div><label>상담자 (FC/PB)</label><input type="text" placeholder="이름 입력" /></div>
+      <div><label>상담일자</label><input type="date" name="meta_consult_date" /></div>
+      <div><label>상담자 (FC/PB)</label><input type="text" placeholder="이름 입력" name="meta_consultant" /></div>
       <div><label>신청 경로</label>
-        <select><option value="">선택</option><option>전화 상담신청</option><option>온라인 상담신청</option><option>방문 상담신청</option><option>소개/추천</option><option>기타</option></select>
+        <select name="meta_channel"><option value="">선택</option><option>전화 상담신청</option><option>온라인 상담신청</option><option>방문 상담신청</option><option>소개/추천</option><option>기타</option></select>
       </div>
-      <div><label>신청일</label><input type="date" /></div>
+      <div><label>신청일</label><input type="date" name="meta_apply_date" /></div>
     </div>
     <fieldset style="border:none;margin:0;padding:0;">
       <legend style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">상담 목적 (해당 항목 모두 선택)</legend>
       <div class="purpose-row">
-        <label><input type="checkbox" />은퇴설계 전반</label>
-        <label><input type="checkbox" />절세 전략</label>
-        <label><input type="checkbox" />연금 통합관리</label>
-        <label><input type="checkbox" />자산배분 점검</label>
-        <label><input type="checkbox" />상품 리모델링</label>
-        <label><input type="checkbox" />기타</label>
+        <label><input type="checkbox" name="meta_purpose" value="은퇴설계 전반" />은퇴설계 전반</label>
+        <label><input type="checkbox" name="meta_purpose" value="절세 전략" />절세 전략</label>
+        <label><input type="checkbox" name="meta_purpose" value="연금 통합관리" />연금 통합관리</label>
+        <label><input type="checkbox" name="meta_purpose" value="자산배분 점검" />자산배분 점검</label>
+        <label><input type="checkbox" name="meta_purpose" value="상품 리모델링" />상품 리모델링</label>
+        <label><input type="checkbox" name="meta_purpose" value="기타" />기타</label>
       </div>
     </fieldset>
   </div>
@@ -322,19 +356,20 @@
 
 <div class="wrap">
 
-  <p class="note no-print">※ 이 시트는 브라우저에서만 임시로 작성됩니다. 상담 종료 후 <b>인쇄 / PDF 저장</b> 버튼으로 기록을 남겨 두세요.</p>
+  {% csrf_token %}
+  <p class="note no-print">※ 작성 중인 내용은 자동 저장되지 않습니다. 상담 종료 후 하단의 <b>저장</b> 버튼으로 서버에 기록을 남기고, 필요 시 <b>인쇄 / PDF 저장</b>으로도 보관하세요.</p>
 
   <!-- 1. 기본정보 -->
   <section class="card" id="s1">
     <div class="card-head"><span class="num">01</span><h2>고객 기본정보</h2><span class="en">Client Profile</span></div>
     <div class="card-body">
       <div class="field-grid">
-        <div class="field"><label>성명<span class="req">*</span></label><input type="text" /></div>
-        <div class="field"><label>생년월일 (만 나이)</label><input type="date" /></div>
-        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" /></div>
-        <div class="field"><label>이메일</label><input type="text" /></div>
-        <div class="field"><label>직업 / 직장</label><input type="text" /></div>
-        <div class="field"><label>결혼 여부 / 배우자 직업</label><input type="text" /></div>
+        <div class="field"><label>성명<span class="req">*</span></label><input type="text" name="s1_name" /></div>
+        <div class="field"><label>생년월일 (만 나이)</label><input type="date" name="s1_birth" /></div>
+        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" name="s1_phone" /></div>
+        <div class="field"><label>이메일</label><input type="text" name="s1_email" /></div>
+        <div class="field"><label>직업 / 직장</label><input type="text" name="s1_job" /></div>
+        <div class="field"><label>결혼 여부 / 배우자 직업</label><input type="text" name="s1_marital" /></div>
       </div>
     </div>
   </section>
@@ -363,20 +398,20 @@
       <fieldset>
         <legend>월 소득 (만원)</legend>
         <div class="field-grid" data-group="income">
-          <div class="field"><label>근로소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" /></div>
-          <div class="field"><label>사업소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" /></div>
-          <div class="field"><label>금융소득 (이자·배당)</label><input class="money" type="text" inputmode="numeric" data-calc="income" /></div>
-          <div class="field"><label>연금소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" /></div>
-          <div class="field"><label>기타소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" /></div>
+          <div class="field"><label>근로소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" name="s3_income_labor" /></div>
+          <div class="field"><label>사업소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" name="s3_income_business" /></div>
+          <div class="field"><label>금융소득 (이자·배당)</label><input class="money" type="text" inputmode="numeric" data-calc="income" name="s3_income_financial" /></div>
+          <div class="field"><label>연금소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" name="s3_income_pension" /></div>
+          <div class="field"><label>기타소득</label><input class="money" type="text" inputmode="numeric" data-calc="income" name="s3_income_other" /></div>
         </div>
       </fieldset>
       <fieldset>
         <legend>월 지출 (만원)</legend>
         <div class="field-grid" data-group="expense">
-          <div class="field"><label>고정지출 (주거·통신 등)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" /></div>
-          <div class="field"><label>변동지출 (생활비 등)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" /></div>
-          <div class="field"><label>부채 상환액</label><input class="money" type="text" inputmode="numeric" data-calc="expense" /></div>
-          <div class="field"><label>보험료 (보장성)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" /></div>
+          <div class="field"><label>고정지출 (주거·통신 등)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" name="s3_expense_fixed" /></div>
+          <div class="field"><label>변동지출 (생활비 등)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" name="s3_expense_variable" /></div>
+          <div class="field"><label>부채 상환액</label><input class="money" type="text" inputmode="numeric" data-calc="expense" name="s3_expense_debt" /></div>
+          <div class="field"><label>보험료 (보장성)</label><input class="money" type="text" inputmode="numeric" data-calc="expense" name="s3_expense_insurance" /></div>
         </div>
       </fieldset>
       <div class="sum-row">
@@ -394,20 +429,20 @@
       <fieldset>
         <legend>가입 유형</legend>
         <div class="check-group">
-          <label><input type="radio" name="np-type" />사업장가입자</label>
-          <label><input type="radio" name="np-type" />지역가입자</label>
-          <label><input type="radio" name="np-type" />임의가입자</label>
-          <label><input type="radio" name="np-type" />임의계속가입자</label>
-          <label><input type="radio" name="np-type" />수급 중</label>
+          <label><input type="radio" name="s4_type" value="사업장가입자" />사업장가입자</label>
+          <label><input type="radio" name="s4_type" value="지역가입자" />지역가입자</label>
+          <label><input type="radio" name="s4_type" value="임의가입자" />임의가입자</label>
+          <label><input type="radio" name="s4_type" value="임의계속가입자" />임의계속가입자</label>
+          <label><input type="radio" name="s4_type" value="수급 중" />수급 중</label>
         </div>
       </fieldset>
       <div class="field-grid">
-        <div class="field"><label>가입기간</label><input type="text" placeholder="예: 18년 4개월" /></div>
-        <div class="field"><label>예상 수급 개시 연령</label><input type="text" placeholder="예: 65세" /></div>
-        <div class="field"><label>예상 월 수령액 (현재가치)</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>추납 대상기간</label><input type="text" /></div>
-        <div class="field"><label>연기연금 검토 여부</label><input type="text" placeholder="예/아니오/검토중" /></div>
-        <div class="field"><label>비고</label><input type="text" /></div>
+        <div class="field"><label>가입기간</label><input type="text" placeholder="예: 18년 4개월" name="s4_period" /></div>
+        <div class="field"><label>예상 수급 개시 연령</label><input type="text" placeholder="예: 65세" name="s4_start_age" /></div>
+        <div class="field"><label>예상 월 수령액 (현재가치)</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s4_monthly_amount" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>추납 대상기간</label><input type="text" name="s4_makeup_period" /></div>
+        <div class="field"><label>연기연금 검토 여부</label><input type="text" placeholder="예/아니오/검토중" name="s4_deferred" /></div>
+        <div class="field"><label>비고</label><input type="text" name="s4_note" /></div>
       </div>
     </div>
   </section>
@@ -419,19 +454,19 @@
       <fieldset>
         <legend>제도 구분 (해당 모두 선택)</legend>
         <div class="check-group">
-          <label><input type="checkbox" />DB형 (확정급여)</label>
-          <label><input type="checkbox" />DC형 (확정기여)</label>
-          <label><input type="checkbox" />IRP (개인형)</label>
-          <label><input type="checkbox" />미가입</label>
+          <label><input type="checkbox" name="s5_types" value="DB형 (확정급여)" />DB형 (확정급여)</label>
+          <label><input type="checkbox" name="s5_types" value="DC형 (확정기여)" />DC형 (확정기여)</label>
+          <label><input type="checkbox" name="s5_types" value="IRP (개인형)" />IRP (개인형)</label>
+          <label><input type="checkbox" name="s5_types" value="미가입" />미가입</label>
         </div>
       </fieldset>
       <div class="field-grid">
-        <div class="field"><label>운용 금융기관</label><input type="text" /></div>
-        <div class="field"><label>현재 적립금</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>원리금보장형 비중</label><input type="text" inputmode="numeric" /><span class="unit">%</span></div>
-        <div class="field"><label>실적배당형 비중</label><input type="text" inputmode="numeric" /><span class="unit">%</span></div>
-        <div class="field"><label>IRP 연간 추가 납입액</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>IRP 세액공제 활용 여부</label><input type="text" placeholder="예/아니오" /></div>
+        <div class="field"><label>운용 금융기관</label><input type="text" name="s5_institution" /></div>
+        <div class="field"><label>현재 적립금</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s5_balance" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>원리금보장형 비중</label><div class="input-unit"><input type="text" inputmode="numeric" name="s5_guaranteed_ratio" /><span class="unit">%</span></div></div>
+        <div class="field"><label>실적배당형 비중</label><div class="input-unit"><input type="text" inputmode="numeric" name="s5_performance_ratio" /><span class="unit">%</span></div></div>
+        <div class="field"><label>IRP 연간 추가 납입액</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s5_irp_annual_contribution" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>IRP 세액공제 활용 여부</label><input type="text" placeholder="예/아니오" name="s5_irp_tax_credit" /></div>
       </div>
       <p class="hint">퇴직 시 일시금 수령 대신 IRP 이전 · 연금 전환 여부를 함께 안내하세요.</p>
     </div>
@@ -444,17 +479,17 @@
       <fieldset>
         <legend>상품 구분 (해당 모두 선택)</legend>
         <div class="check-group">
-          <label><input type="checkbox" />연금저축보험</label>
-          <label><input type="checkbox" />연금저축펀드</label>
-          <label><input type="checkbox" />연금저축신탁</label>
-          <label><input type="checkbox" />미가입</label>
+          <label><input type="checkbox" name="s6_types" value="연금저축보험" />연금저축보험</label>
+          <label><input type="checkbox" name="s6_types" value="연금저축펀드" />연금저축펀드</label>
+          <label><input type="checkbox" name="s6_types" value="연금저축신탁" />연금저축신탁</label>
+          <label><input type="checkbox" name="s6_types" value="미가입" />미가입</label>
         </div>
       </fieldset>
       <div class="field-grid">
-        <div class="field"><label>보유 계좌 수</label><input type="text" inputmode="numeric" /></div>
-        <div class="field"><label>총 잔고</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>연간 납입액</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>수령 개시(예정) 연령</label><input type="text" /></div>
+        <div class="field"><label>보유 계좌 수</label><input type="text" inputmode="numeric" name="s6_accounts_count" /></div>
+        <div class="field"><label>총 잔고</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s6_total_balance" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>연간 납입액</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s6_annual_contribution" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>수령 개시(예정) 연령</label><input type="text" name="s6_start_age" /></div>
       </div>
       <div class="ref-box">세액공제 한도(참고) — 연금저축 <b>연 600만원</b> + IRP 합산 <b>연 900만원</b>까지 세액공제 적용. 실제 납입/공제 현황은 12번 세제혜택 체크리스트에서 통합 확인.</div>
     </div>
@@ -467,19 +502,19 @@
       <fieldset>
         <legend>가입 유형</legend>
         <div class="check-group">
-          <label><input type="radio" name="isa-type" />일반형</label>
-          <label><input type="radio" name="isa-type" />서민형</label>
-          <label><input type="radio" name="isa-type" />농어민형</label>
-          <label><input type="radio" name="isa-type" />미가입</label>
+          <label><input type="radio" name="s7_type" value="일반형" />일반형</label>
+          <label><input type="radio" name="s7_type" value="서민형" />서민형</label>
+          <label><input type="radio" name="s7_type" value="농어민형" />농어민형</label>
+          <label><input type="radio" name="s7_type" value="미가입" />미가입</label>
         </div>
       </fieldset>
       <div class="field-grid">
-        <div class="field"><label>가입일</label><input type="date" /></div>
-        <div class="field"><label>만기일</label><input type="date" /></div>
-        <div class="field"><label>현재 잔고</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>비과세 한도 활용액</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>만기 후 연금계좌 전환 계획</label><input type="text" placeholder="예/아니오/검토중" /></div>
-        <div class="field"><label>비고</label><input type="text" /></div>
+        <div class="field"><label>가입일</label><input type="date" name="s7_join_date" /></div>
+        <div class="field"><label>만기일</label><input type="date" name="s7_maturity_date" /></div>
+        <div class="field"><label>현재 잔고</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s7_balance" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>비과세 한도 활용액</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s7_tax_free_used" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>만기 후 연금계좌 전환 계획</label><input type="text" placeholder="예/아니오/검토중" name="s7_conversion_plan" /></div>
+        <div class="field"><label>비고</label><input type="text" name="s7_note" /></div>
       </div>
     </div>
   </section>
@@ -527,17 +562,17 @@
       <fieldset>
         <legend>투자성향 등급</legend>
         <div class="check-group">
-          <label><input type="radio" name="risk" />안정형</label>
-          <label><input type="radio" name="risk" />안정추구형</label>
-          <label><input type="radio" name="risk" />위험중립형</label>
-          <label><input type="radio" name="risk" />적극투자형</label>
-          <label><input type="radio" name="risk" />공격투자형</label>
+          <label><input type="radio" name="s10_risk" value="안정형" />안정형</label>
+          <label><input type="radio" name="s10_risk" value="안정추구형" />안정추구형</label>
+          <label><input type="radio" name="s10_risk" value="위험중립형" />위험중립형</label>
+          <label><input type="radio" name="s10_risk" value="적극투자형" />적극투자형</label>
+          <label><input type="radio" name="s10_risk" value="공격투자형" />공격투자형</label>
         </div>
       </fieldset>
       <div class="field-grid">
-        <div class="field"><label>투자 경험 연수</label><input type="text" inputmode="numeric" /></div>
-        <div class="field"><label>손실 감내 수준 (원금 대비)</label><input type="text" placeholder="예: -10%까지 감내" /></div>
-        <div class="field"><label>희망 투자 기간</label><input type="text" /></div>
+        <div class="field"><label>투자 경험 연수</label><input type="text" inputmode="numeric" name="s10_experience_years" /></div>
+        <div class="field"><label>손실 감내 수준 (원금 대비)</label><input type="text" placeholder="예: -10%까지 감내" name="s10_loss_tolerance" /></div>
+        <div class="field"><label>희망 투자 기간</label><input type="text" name="s10_investment_period" /></div>
       </div>
     </div>
   </section>
@@ -547,17 +582,17 @@
     <div class="card-head"><span class="num">11</span><h2>은퇴 및 재무 목표</h2><span class="en">Retirement Goals</span></div>
     <div class="card-body">
       <div class="field-grid">
-        <div class="field"><label>은퇴 희망 연령</label><input type="text" /></div>
-        <div class="field"><label>필요 은퇴자금 (추정)</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
-        <div class="field"><label>은퇴 후 월 필요생활비 (현재가치)</label><input class="money" type="text" inputmode="numeric" /><span class="unit">만원</span></div>
+        <div class="field"><label>은퇴 희망 연령</label><input type="text" name="s11_retire_age" /></div>
+        <div class="field"><label>필요 은퇴자금 (추정)</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s11_required_fund" /><span class="unit">만원</span></div></div>
+        <div class="field"><label>은퇴 후 월 필요생활비 (현재가치)</label><div class="input-unit"><input class="money" type="text" inputmode="numeric" name="s11_monthly_living_cost" /><span class="unit">만원</span></div></div>
       </div>
       <fieldset style="margin-top:10px;">
         <legend>기타 목표 (해당 항목 선택 및 금액 기재)</legend>
         <div class="field-grid">
-          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" />주택 마련 / 확장</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" /></div>
-          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" />자녀 교육 / 결혼</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" /></div>
-          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" />증여 / 상속 계획</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" /></div>
-          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" />기타</label><input type="text" placeholder="내용" /></div>
+          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" name="s11_goal_housing_checked" />주택 마련 / 확장</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" name="s11_goal_housing_amount" /></div>
+          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" name="s11_goal_education_checked" />자녀 교육 / 결혼</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" name="s11_goal_education_amount" /></div>
+          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" name="s11_goal_gift_checked" />증여 / 상속 계획</label><input class="money" type="text" inputmode="numeric" placeholder="목표금액 (만원)" name="s11_goal_gift_amount" /></div>
+          <div class="field"><label><input type="checkbox" style="accent-color:var(--accent);margin-right:6px;" name="s11_goal_etc_checked" />기타</label><input type="text" placeholder="내용" name="s11_goal_etc_note" /></div>
         </div>
       </fieldset>
     </div>
@@ -589,13 +624,13 @@
     <div class="card-head"><span class="num">13</span><h2>상담 결과 및 제안</h2><span class="en">Advisor Summary</span></div>
     <div class="card-body">
       <div class="field-grid" style="grid-template-columns:1fr;">
-        <div class="field"><label>상담사 종합 의견</label><textarea rows="3"></textarea></div>
-        <div class="field"><label>제안 상품 / 전략</label><textarea rows="3"></textarea></div>
-        <div class="field"><label>Action Item / 후속 조치</label><textarea rows="3"></textarea></div>
+        <div class="field"><label>상담사 종합 의견</label><textarea rows="3" name="s13_opinion"></textarea></div>
+        <div class="field"><label>제안 상품 / 전략</label><textarea rows="3" name="s13_proposal"></textarea></div>
+        <div class="field"><label>Action Item / 후속 조치</label><textarea rows="3" name="s13_action_item"></textarea></div>
       </div>
       <div class="field-grid" style="margin-top:16px;">
-        <div class="field"><label>다음 상담 예정일</label><input type="date" /></div>
-        <div class="field"><label>상담 방식</label><input type="text" placeholder="대면/전화/화상" /></div>
+        <div class="field"><label>다음 상담 예정일</label><input type="date" name="s13_next_date" /></div>
+        <div class="field"><label>상담 방식</label><input type="text" placeholder="대면/전화/화상" name="s13_method" /></div>
       </div>
     </div>
   </section>
@@ -605,7 +640,7 @@
     <div class="card-head"><span class="num">14</span><h2>상담 확인</h2><span class="en">Confirmation</span></div>
     <div class="card-body">
       <div class="consent">
-        <input type="checkbox" id="consent" />
+        <input type="checkbox" id="consent" name="s14_consent" />
         <label for="consent">본인은 재무상담 목적으로 제공한 개인정보(재무·건강·가족 정보 포함)가 상담 및 사후 관리 목적으로 수집·이용되는 것에 동의합니다.</label>
       </div>
       <div class="sig-grid">
@@ -622,10 +657,27 @@
     </div>
   </section>
 
+  <div class="bottom-save no-print">
+    <span class="save-status" id="save-status"></span>
+    <button type="button" class="save-btn" id="save-btn">저장</button>
+  </div>
+
   <footer>종합 재무상담 시트 · 국민연금 · 퇴직연금(IRP) · 연금저축 · ISA 통합 상담용 내부 양식</footer>
 </div>
 
 <script>
+  // 상단 앱 헤더 + quicknav 실제 높이를 측정해 CSS 변수로 반영 (헤더에 quicknav가 가리지 않도록)
+  function syncStickyOffsets(){
+    var header = document.querySelector('.app-navbar');
+    var quicknav = document.querySelector('.quicknav');
+    var headerH = header ? header.offsetHeight : 60;
+    document.documentElement.style.setProperty('--header-h', headerH + 'px');
+    if(quicknav) document.documentElement.style.setProperty('--quicknav-h', quicknav.offsetHeight + 'px');
+  }
+  syncStickyOffsets();
+  window.addEventListener('resize', syncStickyOffsets);
+  window.addEventListener('load', syncStickyOffsets);
+
   document.querySelectorAll('.addrow').forEach(function(btn){
     btn.addEventListener('click', function(){
       var table = document.getElementById(btn.dataset.target);
@@ -668,6 +720,102 @@
     var paidInput = row.querySelector('[data-tax-paid]');
     if(paidInput) paidInput.addEventListener('input', function(){ recalcTaxRow(row); });
     recalcTaxRow(row);
+  });
+
+  // ---- 저장: 전체 입력값을 JSON으로 모아 서버에 fetch로 전송 ----
+  function val(name){ var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
+  function isChecked(name){ var el = document.querySelector('[name="' + name + '"]'); return !!(el && el.checked); }
+  function checkedVal(name){ var el = document.querySelector('[name="' + name + '"]:checked'); return el ? el.value : ''; }
+  function checkedVals(name){
+    return Array.prototype.map.call(document.querySelectorAll('[name="' + name + '"]:checked'), function(el){ return el.value; });
+  }
+  function collectTable(tableId){
+    var table = document.getElementById(tableId);
+    var headers = Array.prototype.map.call(table.querySelectorAll('thead th'), function(th){ return th.textContent.trim(); });
+    var rows = [];
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      var obj = {};
+      var hasValue = false;
+      tr.querySelectorAll('td').forEach(function(td, i){
+        var key = headers[i] || ('col' + i);
+        var input = td.querySelector('input, select');
+        var v = input ? input.value : td.textContent.trim();
+        if(v) hasValue = true;
+        obj[key] = v;
+      });
+      if(hasValue) rows.push(obj);
+    });
+    return rows;
+  }
+
+  function collectFormData(){
+    return {
+      meta: {
+        consult_date: val('meta_consult_date'),
+        consultant: val('meta_consultant'),
+        channel: val('meta_channel'),
+        apply_date: val('meta_apply_date'),
+        purpose: checkedVals('meta_purpose'),
+      },
+      s1: { name: val('s1_name'), birth: val('s1_birth'), phone: val('s1_phone'), email: val('s1_email'), job: val('s1_job'), marital: val('s1_marital') },
+      s2_family: collectTable('tbl-family'),
+      s3: {
+        income: { labor: val('s3_income_labor'), business: val('s3_income_business'), financial: val('s3_income_financial'), pension: val('s3_income_pension'), other: val('s3_income_other') },
+        expense: { fixed: val('s3_expense_fixed'), variable: val('s3_expense_variable'), debt: val('s3_expense_debt'), insurance: val('s3_expense_insurance') },
+      },
+      s4: { type: checkedVal('s4_type'), period: val('s4_period'), start_age: val('s4_start_age'), monthly_amount: val('s4_monthly_amount'), makeup_period: val('s4_makeup_period'), deferred: val('s4_deferred'), note: val('s4_note') },
+      s5: { types: checkedVals('s5_types'), institution: val('s5_institution'), balance: val('s5_balance'), guaranteed_ratio: val('s5_guaranteed_ratio'), performance_ratio: val('s5_performance_ratio'), irp_annual_contribution: val('s5_irp_annual_contribution'), irp_tax_credit: val('s5_irp_tax_credit') },
+      s6: { types: checkedVals('s6_types'), accounts_count: val('s6_accounts_count'), total_balance: val('s6_total_balance'), annual_contribution: val('s6_annual_contribution'), start_age: val('s6_start_age') },
+      s7: { type: checkedVal('s7_type'), join_date: val('s7_join_date'), maturity_date: val('s7_maturity_date'), balance: val('s7_balance'), tax_free_used: val('s7_tax_free_used'), conversion_plan: val('s7_conversion_plan'), note: val('s7_note') },
+      s8_assets: collectTable('tbl-assets'),
+      s9_debt: collectTable('tbl-debt'),
+      s10: { risk: checkedVal('s10_risk'), experience_years: val('s10_experience_years'), loss_tolerance: val('s10_loss_tolerance'), investment_period: val('s10_investment_period') },
+      s11: {
+        retire_age: val('s11_retire_age'), required_fund: val('s11_required_fund'), monthly_living_cost: val('s11_monthly_living_cost'),
+        goals: {
+          housing: { checked: isChecked('s11_goal_housing_checked'), amount: val('s11_goal_housing_amount') },
+          education: { checked: isChecked('s11_goal_education_checked'), amount: val('s11_goal_education_amount') },
+          gift: { checked: isChecked('s11_goal_gift_checked'), amount: val('s11_goal_gift_amount') },
+          etc: { checked: isChecked('s11_goal_etc_checked'), note: val('s11_goal_etc_note') },
+        },
+      },
+      s12_tax: collectTable('tbl-tax'),
+      s13: { opinion: val('s13_opinion'), proposal: val('s13_proposal'), action_item: val('s13_action_item'), next_date: val('s13_next_date'), method: val('s13_method') },
+      s14: { consent: isChecked('s14_consent') },
+    };
+  }
+
+  function getCookie(name){
+    var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return match ? decodeURIComponent(match.pop()) : '';
+  }
+
+  document.getElementById('save-btn').addEventListener('click', function(){
+    var btn = this;
+    var statusEl = document.getElementById('save-status');
+    btn.disabled = true;
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = '저장 중...';
+    fetch("{% url 'financial_consult_sheet_save' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(collectFormData()),
+    })
+      .then(function(res){ return res.json().then(function(data){ return { ok: res.ok, data: data }; }); })
+      .then(function(result){
+        if(result.ok && result.data.ok){
+          statusEl.style.color = 'var(--accent-2)';
+          statusEl.textContent = '저장 완료 (' + new Date().toLocaleTimeString() + ')';
+        } else {
+          statusEl.style.color = 'var(--seal)';
+          statusEl.textContent = '저장 실패: ' + (result.data.error || '오류');
+        }
+      })
+      .catch(function(){
+        statusEl.style.color = 'var(--seal)';
+        statusEl.textContent = '저장 실패 (네트워크 오류)';
+      })
+      .finally(function(){ btn.disabled = false; });
   });
 </script>
 {% include "articles/_cookie_banner.html" %}
