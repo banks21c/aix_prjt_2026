@@ -29,7 +29,8 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# .env(또는 서버 환경변수)에 DEBUG를 명시하지 않으면 기본값은 False(운영 안전 기본값)로 동작합니다.
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189']
 
@@ -71,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'articles.context_processors.menu_items',
             ],
         },
     },
@@ -212,3 +214,13 @@ DEFAULT_FROM_EMAIL = f'NextFinUp <{EMAIL_HOST_USER}>'
 # request.build_absolute_uri() 등이 https로 올바르게 URL을 생성하도록 함
 # (소셜 로그인 redirect_uri가 http://로 잘못 생성되어 KOE006/redirect_uri_mismatch가 나던 문제)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# DEBUG=True인 로컬 개발(http://localhost)에서는 비활성화하고, DEBUG=False로 배포될 때만
+# 강제한다 — 위 SECURE_PROXY_SSL_HEADER 덕분에 프록시 뒤에서도 요청 스킴이 https로 올바르게
+# 인식되므로, 세션/CSRF 쿠키를 https에서만 전송하고 http 요청은 https로 리다이렉트해도 안전하다.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG

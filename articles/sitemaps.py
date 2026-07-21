@@ -15,7 +15,6 @@ class StaticViewSitemap(Sitemap):
         ('main_dashboard', 0.9),
         ('news_board', 0.8),
         ('insurance_compare', 0.4),
-        ('isa_compare', 0.4),
         ('privacy_policy', 0.2),
         ('terms_of_service', 0.2),
     ]

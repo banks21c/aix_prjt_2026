@@ -1,25 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-class AnalyzedArticle(models.Model):
-    # 1. 원본 뉴스 정보
-    title = models.CharField(max_length=255, verbose_name="원본 제목")
-    original_url = models.URLField(unique=True, verbose_name="원본 기사 링크")
-    source_media = models.CharField(max_length=50, verbose_name="언론사")
-    scraped_at = models.DateTimeField(auto_now_add=True, verbose_name="수집 일시")
-
-    # 2. AI 에이전트 재가공 데이터 (텍스트 분석 결과)
-    ai_summary = models.TextField(verbose_name="AI 3줄 요약")
-    ai_analysis = models.TextField(verbose_name="AI 투자 관점 분석")
-    blog_content = models.TextField(verbose_name="블로그 포스팅용 원고")
-
-    # 3. 비즈니스 모델(BM) 및 자동화 관리 트리거
-    is_premium = models.BooleanField(default=False, verbose_name="유료 구독자 전용 여부")
-    is_posted = models.BooleanField(default=False, verbose_name="블로그 자동 발행 완료 여부")
-
-    def __str__(self):
-        return f"[{self.source_media}] {self.title}"
-
 
 # ==========================================
 # 1. 주식 종목 테이블 (KOSPI 200, KOSDAQ 200 관리)
@@ -243,6 +224,7 @@ class AnalyzedArticle(models.Model):
     ai_summary = models.TextField(verbose_name="AI 3줄 요약")
     ai_analysis = models.TextField(verbose_name="AI 투자 관점 분석")
     blog_content = models.TextField(verbose_name="블로그/티스토리 포스팅용 원고")
+    original_content = models.TextField(blank=True, default='', verbose_name="원문 본문(스크래핑)")
 
     TEMPLATE_CHOICES = [
         ('T1', '템플릿 1 (뉴스 요약형)'),
@@ -254,6 +236,13 @@ class AnalyzedArticle(models.Model):
     # 시스템 관리용 트리거
     is_premium = models.BooleanField(default=False, verbose_name="유료 회원 전용 콘텐츠")
     is_posted = models.BooleanField(default=False, verbose_name="블로그 자동 발행 완료")
+
+    # RSS 자동 수집(scraped_ai_news 등)은 채우지 않고 비워둔다. news_scrape_view에서 회원이
+    # 직접 URL을 등록한 경우에만 채워져, 등급별 일일 스크래핑 한도 계산에 쓰인다.
+    scraped_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="manual_scrapes", verbose_name="수동 스크래핑 등록 회원",
+    )
 
     def __str__(self):
         return f"[{self.source_media}] {self.title}"
@@ -277,11 +266,37 @@ class UserSubscription(models.Model):
 
 
 # ==========================================
+# 5. 회원 권한 등급 (Admin 화면에서 자유롭게 생성·수정·삭제하는 등급 체계)
+# ==========================================
+class MemberGrade(models.Model):
+    name = models.CharField(max_length=50, unique=True, verbose_name="등급명")
+    level = models.PositiveSmallIntegerField(unique=True, verbose_name="등급 순위(숫자가 클수록 상위 등급)")
+    description = models.CharField(max_length=255, blank=True, verbose_name="설명")
+    # 비워두면(NULL) 무제한. 관리자 등급은 두 값 모두 비워서 무제한으로 둔다.
+    daily_scrape_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 스크래핑 가능 건수(공란=무제한)")
+    daily_post_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 포스팅 가능 건수(공란=무제한)")
+
+    class Meta:
+        ordering = ['level']
+        verbose_name = "회원 등급"
+        verbose_name_plural = "회원 등급"
+
+    def __str__(self):
+        return f"{self.level}. {self.name}"
+
+
+# ==========================================
 # 6. 마이페이지 - 뉴스 구독 / 자동 포스팅 설정 테이블
 # ==========================================
 class UserPreference(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference", verbose_name="사용자")
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="전화번호")
+    # UserSubscription(무료/프리미엄 결제 상태)과는 별개의 권한 체계. 회원 목록(Admin User 화면)에서
+    # 콤보박스로 하나만 골라 부여하며, 등급 자체는 MemberGrade 화면에서 자유롭게 추가/수정/삭제한다.
+    grade = models.ForeignKey(
+        MemberGrade, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="members", verbose_name="권한 등급",
+    )
 
     # 이메일 인증 (회원가입/마이페이지에서 직접 입력·수정한 이메일만 대상. 카카오/구글 소셜 로그인으로
     # 자동 채워지는 이메일은 해당 없음). 인증 전에는 User.email을 바로 바꾸지 않고 pending_email에 보관한다.
@@ -497,4 +512,100 @@ class NewsletterIssue(models.Model):
 
     def __str__(self):
         return f"[{self.get_status_display()}] {self.subject}"
+
+
+# ==========================================
+# 9. 메뉴(내비게이션) 관리 테이블
+# ==========================================
+class Menu(models.Model):
+    """상단 내비게이션에 노출되는 메뉴 항목. 랜딩 페이지(index)와 내부 앱 공통 헤더(header)는
+    노출되는 메뉴 구성이 달라서 menu_type으로 구분한다 — 새 화면이 생기면 MENU_TYPE_CHOICES에
+    값만 추가하면 확장된다. 로그인/로그아웃/마이페이지/관리자 링크처럼 로그인 상태에 따라
+    달라지는 항목은 이 테이블이 아니라 템플릿에 그대로 남겨둔다."""
+    MENU_TYPE_CHOICES = [
+        ('INDEX', '랜딩 페이지(index)'),
+        ('HEADER', '내부 앱 공통 헤더'),
+    ]
+
+    name = models.CharField(max_length=50, verbose_name="메뉴명")
+    url_name = models.CharField(max_length=100, blank=True, verbose_name="URL name(urls.py의 name)")
+    external_url = models.CharField(max_length=255, blank=True, verbose_name="직접 URL (url_name이 없을 때 사용)")
+    badge_text = models.CharField(max_length=20, blank=True, verbose_name="배지 텍스트 (예: DEMO)")
+    menu_type = models.CharField(max_length=10, choices=MENU_TYPE_CHOICES, verbose_name="노출 화면")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    is_active = models.BooleanField(default=True, verbose_name="사용 여부(숨김 처리)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['menu_type', 'order', 'id']
+        verbose_name = "메뉴"
+        verbose_name_plural = "메뉴 관리"
+
+    def __str__(self):
+        return f"[{self.get_menu_type_display()}] {self.name}"
+
+    def get_url(self):
+        if self.url_name:
+            try:
+                from django.urls import reverse
+                return reverse(self.url_name)
+            except Exception:
+                return '#'
+        return self.external_url or '#'
+
+
+# ==========================================
+# 10. 상담 신청 (ISA/IRP/연금저축 등 독립 정적 비교 페이지 공용)
+# ==========================================
+class ConsultRequest(models.Model):
+    """IRP/ISA/연금저축 비교 페이지(nextfinup에서 분리된 정적 사이트)의 상담 신청 폼 제출을
+    저장한다. 페이지 자체는 Django 밖에 있지만, 같은 도메인(nextfinup.com)에서 이 API로
+    fetch 요청을 보내 저장한다."""
+    PRODUCT_CHOICES = [
+        ('ISA', 'ISA'),
+        ('IRP', 'IRP'),
+        ('PENSION', '연금저축'),
+        ('INSURANCE', '보험'),
+    ]
+
+    product = models.CharField(max_length=20, choices=PRODUCT_CHOICES, verbose_name="상품 유형")
+    name = models.CharField(max_length=50, verbose_name="이름")
+    phone = models.CharField(max_length=20, verbose_name="연락처")
+    interest = models.CharField(max_length=100, blank=True, verbose_name="관심 기관/상품")
+    goal = models.CharField(max_length=200, blank=True, verbose_name="목표")
+    message = models.TextField(blank=True, verbose_name="문의사항")
+    source_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="접수 IP")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="접수 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "상담 신청"
+        verbose_name_plural = "상담 신청 관리"
+
+    def __str__(self):
+        return f"[{self.get_product_display()}] {self.name} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+# ==========================================
+# 11. 종합 재무상담 시트 (FC/PB 내부 전용 상담 기록)
+# ==========================================
+class FinancialConsultSheet(models.Model):
+    """financial_consult_sheet.html(14개 섹션, 가변 행 표 다수)의 제출 데이터를 저장한다.
+    섹션/표 구조가 자주 바뀔 수 있어 원본 전체는 JSONField(data)에 통째로 보관하고,
+    목록 조회·검색에 필요한 핵심 항목만 별도 컬럼으로 뽑아둔다."""
+    customer_name = models.CharField(max_length=50, blank=True, verbose_name="고객 성명")
+    customer_phone = models.CharField(max_length=20, blank=True, verbose_name="고객 연락처")
+    consultant_name = models.CharField(max_length=50, blank=True, verbose_name="상담자 (FC/PB)")
+    consult_date = models.DateField(null=True, blank=True, verbose_name="상담일자")
+    data = models.JSONField(verbose_name="상담 시트 데이터")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="작성자 계정")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="저장 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "재무상담 시트"
+        verbose_name_plural = "재무상담 시트 관리"
+
+    def __str__(self):
+        return f"{self.customer_name or '(무기명)'} ({self.created_at:%Y-%m-%d %H:%M})"
 

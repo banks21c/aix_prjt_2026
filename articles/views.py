@@ -15,6 +15,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core import signing
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -23,18 +24,23 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from . import blog_posting, chatbot_client, kis_client
+from . import article_ai, blog_posting, chatbot_client, kis_client
 from .email_utils import TOKEN_VALID_HOURS, send_verification_email
 from .ml.features import compute_display_indicators
-from .forms import SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm
+from .forms import (
+    SignUpForm, LoginForm, UserPreferenceForm, BlogAccountForm, UserContactForm, NewsletterForm,
+    NewsArticleEditForm, NewsScrapeForm,
+)
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     MarketIndex, RankedMover, ChatMessage, LoginLog, UserPreference, BlogPostingAccount,
-    StockRealtimePrice, PostedArticle, NewsletterSubscriber,
+    StockRealtimePrice, PostedArticle, NewsletterSubscriber, ConsultRequest,
+    FinancialConsultSheet,
 )
-from .utils import get_client_ip
+from .utils import get_client_ip, fetch_article_metadata, scraping_stats
 
 logger = logging.getLogger(__name__)
 
@@ -158,9 +164,113 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
-def isa_compare_view(request):
-    # ISA(개인종합자산관리계좌) 비교 데모(프로토타입) — 취급기관/수수료는 전부 예시 데이터이며 실 서비스 아님
-    return render(request, 'articles/isa_compare.html', {'site_title': 'NextFinUp - ISA 비교(데모)'})
+def header_fragment_view(request):
+    """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
+    최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
+    return render(request, 'articles/_header.html')
+
+
+@staff_member_required
+def financial_consult_sheet_view(request):
+    # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트.
+    # "저장" 버튼을 누르면 financial_consult_sheet_save_view로 전체 입력값을 JSON으로 전송해
+    # FinancialConsultSheet에 기록하고, 별도로 인쇄/PDF 저장도 가능하다.
+    return render(request, 'articles/financial_consult_sheet.html', {'site_title': 'NextFinUp - 종합 재무상담 시트'})
+
+
+@staff_member_required
+@require_POST
+def financial_consult_sheet_save_view(request):
+    """financial_consult_sheet.html에서 저장 버튼 클릭 시 fetch로 전송하는 전체 시트 데이터를
+    FinancialConsultSheet에 저장한다. 목록/검색용 핵심 컬럼(고객명·연락처·상담자·상담일자)만
+    최상위로 뽑고, 나머지 세부 항목은 원본 그대로 JSONField에 보관한다."""
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+    if not isinstance(payload, dict):
+        return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
+
+    meta = payload.get('meta') or {}
+    s1 = payload.get('s1') or {}
+
+    consult_date = meta.get('consult_date') or None
+    if consult_date:
+        try:
+            datetime.strptime(consult_date, '%Y-%m-%d')
+        except ValueError:
+            consult_date = None
+
+    sheet = FinancialConsultSheet.objects.create(
+        customer_name=(s1.get('name') or '')[:50],
+        customer_phone=(s1.get('phone') or '')[:20],
+        consultant_name=(meta.get('consultant') or '')[:50],
+        consult_date=consult_date,
+        data=payload,
+        created_by=request.user,
+    )
+    return JsonResponse({'ok': True, 'id': sheet.id})
+
+
+@csrf_exempt
+@require_POST
+def consult_request_view(request):
+    """IRP/ISA/연금저축(nextfinup에서 분리된 정적 페이지) 상담 신청 폼을 저장한다.
+    호출부가 Django가 렌더링하지 않는 별도 정적 HTML이라 CSRF 토큰을 발급할 수 없어 csrf_exempt로
+    열어둔 대신, 봇 스팸 방지용 허니팟 필드(website)로 최소한의 필터링만 한다."""
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+    else:
+        data = request.POST
+
+    if (data.get('website') or '').strip():
+        # 허니팟에 값이 채워졌으면 봇으로 간주 — 저장하지 않고 정상 응답만 돌려준다
+        return JsonResponse({'ok': True})
+
+    product = (data.get('product') or '').strip().upper()
+    name = (data.get('name') or '').strip()
+    phone = (data.get('phone') or '').strip()
+
+    if product not in dict(ConsultRequest.PRODUCT_CHOICES):
+        return JsonResponse({'ok': False, 'error': 'invalid_product'}, status=400)
+    if not name or not phone:
+        return JsonResponse({'ok': False, 'error': 'name_phone_required'}, status=400)
+
+    consult = ConsultRequest.objects.create(
+        product=product,
+        name=name[:50],
+        phone=phone[:20],
+        interest=(data.get('interest') or '').strip()[:100],
+        goal=(data.get('goal') or '').strip()[:200],
+        message=(data.get('message') or '').strip(),
+        source_ip=get_client_ip(request),
+    )
+
+    try:
+        send_mail(
+            subject=f"[NextFinUp] {consult.get_product_display()} 상담 신청 - {consult.name}",
+            message=(
+                f"상품: {consult.get_product_display()}\n"
+                f"이름: {consult.name}\n"
+                f"연락처: {consult.phone}\n"
+                f"관심 기관/상품: {consult.interest or '-'}\n"
+                f"목표: {consult.goal or '-'}\n"
+                f"문의사항: {consult.message or '-'}\n"
+                f"접수 IP: {consult.source_ip or '-'}\n"
+                f"접수 일시: {consult.created_at:%Y-%m-%d %H:%M}\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.EMAIL_HOST_USER],
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception("상담 신청 알림 메일 발송 실패 (신청 자체는 저장됨, consult id=%s)", consult.id)
+
+    return JsonResponse({'ok': True})
 
 
 def _build_index_chart(market_type, days=90):
@@ -309,19 +419,22 @@ def post_articles_view(request):
         messages.warning(request, "포스팅할 기사를 하나 이상 선택해주세요.")
         return redirect(request.POST.get('next') or 'news_board')
 
-    remaining = blog_posting.posting_stats(request.user)['remaining']
+    stats = blog_posting.posting_stats(request.user)
+    remaining = stats['remaining']
     if remaining is not None:
+        grade_name = stats['grade'].name if stats['grade'] else '일반'
+        daily_limit = stats['grade'].daily_post_limit if stats['grade'] else 0
         if remaining <= 0:
             messages.error(
                 request,
-                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 포스팅할 수 있습니다. "
-                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 프리미엄으로 업그레이드해주세요.",
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
             )
             return redirect(request.POST.get('next') or 'news_board')
         if len(article_ids) > remaining:
             messages.warning(
                 request,
-                f"무료 회원은 하루 {blog_posting.DAILY_FREE_POST_LIMIT}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
             )
             article_ids = article_ids[:remaining]
 
@@ -373,6 +486,85 @@ def news_detail_view(request, pk):
         'posting_stats': posting_stats,
     }
     return render(request, 'articles/news_detail.html', context)
+
+
+@login_required
+def news_scrape_view(request):
+    """회원이 임의의 기사 URL을 입력하면 (1) trafilatura로 본문을 스크래핑하고,
+    (2) OpenAI로 3줄 요약/투자 분석/블로그 초안을 생성한 뒤, (3) 바로 편집 화면(news_edit)으로
+    넘겨 검토·수정 후 저장하게 하는 수동 등록 진입점. RSS 자동 수집(scraped_ai_news 등)과 달리
+    회원이 임의 사이트를 직접 골라 등록할 때 쓴다. 등급별 일일 한도(MemberGrade.daily_scrape_limit)
+    로 제한되며, 관리자(is_staff/is_superuser)는 무제한이다."""
+    form = NewsScrapeForm(request.POST or None)
+    stats = scraping_stats(request.user)
+
+    if request.method == 'POST' and form.is_valid():
+        url = form.cleaned_data['url']
+
+        existing = AnalyzedArticle.objects.filter(original_url=url).first()
+        if existing:
+            messages.info(request, "이미 등록된 URL입니다. 기존 기사를 편집합니다.")
+            return redirect('news_edit', pk=existing.pk)
+
+        if stats['remaining'] == 0:
+            grade_name = stats['grade'].name if stats['grade'] else '일반'
+            messages.error(
+                request,
+                f"{grade_name} 등급은 하루 {stats['grade'].daily_scrape_limit}건까지만 등록할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
+            )
+            return redirect('news_scrape')
+
+        scraped = fetch_article_metadata(url)
+        if not scraped['content']:
+            messages.error(request, "본문을 스크래핑하지 못했습니다. URL을 확인하거나 다른 기사로 시도해주세요.")
+        else:
+            draft = article_ai.generate_draft(scraped['title'], scraped['content'])
+            article = AnalyzedArticle.objects.create(
+                title=scraped['title'] or url,
+                original_url=url,
+                source_media=scraped['source_media'] or '수동 등록',
+                original_content=scraped['content'],
+                ai_summary=draft['ai_summary'],
+                ai_analysis=draft['ai_analysis'],
+                blog_content=draft['blog_content'],
+                applied_template='T1',
+                scraped_by=request.user,
+            )
+            messages.success(request, "스크래핑 및 AI 초안 생성이 완료되었습니다. 내용을 검토하고 저장해주세요.")
+            return redirect('news_edit', pk=article.pk)
+
+    context = {
+        'site_title': 'NextFinUp - URL로 기사 등록',
+        'form': form,
+        'scraping_stats': stats,
+    }
+    return render(request, 'articles/news_scrape.html', context)
+
+
+@login_required
+def news_edit_view(request, pk):
+    """staff는 모든 기사를, 일반 회원은 본인이 news_scrape_view로 직접 등록한 기사만 편집할 수 있다."""
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+    if not (request.user.is_staff or article.scraped_by_id == request.user.id):
+        messages.error(request, "본인이 등록한 기사만 수정할 수 있습니다.")
+        return redirect('news_board')
+
+    if request.method == 'POST':
+        form = NewsArticleEditForm(request.POST, instance=article, is_staff=request.user.is_staff)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "기사가 수정되었습니다.")
+            return redirect('news_detail', pk=article.pk)
+    else:
+        form = NewsArticleEditForm(instance=article, is_staff=request.user.is_staff)
+
+    context = {
+        'site_title': f'NextFinUp - {article.title} 수정',
+        'article': article,
+        'form': form,
+    }
+    return render(request, 'articles/news_edit.html', context)
 
 
 # ==========================================
@@ -785,6 +977,9 @@ def verify_email_view(request, uidb64, token):
 
 
 def kakao_login_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['kakao_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('kakao_callback'))
     authorize_url = (
         "https://kauth.kakao.com/oauth/authorize"
@@ -792,14 +987,17 @@ def kakao_login_view(request):
         f"&redirect_uri={redirect_uri}"
         "&response_type=code"
         "&scope=profile_nickname"
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
 
 def kakao_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "카카오 로그인이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('kakao_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "카카오 로그인이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('login')
 
     redirect_uri = request.build_absolute_uri(reverse('kakao_callback'))
@@ -843,6 +1041,9 @@ def kakao_callback_view(request):
 
 
 def google_login_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['google_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('google_callback'))
     authorize_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -850,14 +1051,17 @@ def google_login_view(request):
         f"&redirect_uri={redirect_uri}"
         "&response_type=code"
         "&scope=openid%20email%20profile"
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
 
 def google_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "구글 로그인이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('google_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "구글 로그인이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('login')
 
     redirect_uri = request.build_absolute_uri(reverse('google_callback'))
@@ -961,6 +1165,9 @@ def naver_callback_view(request):
 
 @login_required
 def blogger_connect_view(request):
+    state = secrets.token_urlsafe(16)
+    request.session['blogger_oauth_state'] = state
+
     redirect_uri = request.build_absolute_uri(reverse('blogger_callback'))
     authorize_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
@@ -970,6 +1177,7 @@ def blogger_connect_view(request):
         "&scope=https://www.googleapis.com/auth/blogger"
         "&access_type=offline"
         "&prompt=consent"  # 리프레시 토큰을 매번 새로 받기 위해 재동의 강제
+        f"&state={state}"
     )
     return redirect(authorize_url)
 
@@ -977,8 +1185,10 @@ def blogger_connect_view(request):
 @login_required
 def blogger_callback_view(request):
     code = request.GET.get('code')
-    if not code:
-        messages.error(request, "블로거 연동이 취소되었습니다.")
+    state = request.GET.get('state')
+    expected_state = request.session.pop('blogger_oauth_state', None)
+    if not code or not state or state != expected_state:
+        messages.error(request, "블로거 연동이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('my_page')
 
     redirect_uri = request.build_absolute_uri(reverse('blogger_callback'))

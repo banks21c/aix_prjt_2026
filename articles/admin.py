@@ -1,11 +1,15 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.db.models import Q
+from django.urls import reverse
+from django.utils.html import format_html
 from .models import (
     StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
-    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue,
+    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
+    FinancialConsultSheet, MemberGrade,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -15,25 +19,43 @@ admin.site.site_title = "NextFinUp admin"
 admin.site.index_title = "NextFinUp 관리"
 
 
-# 0-0-2. 기본 User admin에 마이페이지에서 등록한 전화번호(UserPreference) 컬럼 추가
+# 0-0-3. 회원 권한 등급 생성/수정/삭제 화면 (5단계로 시작, Admin에서 자유롭게 추가·수정·삭제 가능)
+@admin.register(MemberGrade)
+class MemberGradeAdmin(admin.ModelAdmin):
+    list_display = ('level', 'name', 'daily_scrape_limit', 'daily_post_limit', 'description', 'member_count')
+    ordering = ('level',)
+    search_fields = ('name',)
+
+    @admin.display(description='보유 회원 수')
+    def member_count(self, obj):
+        return obj.members.count()
+
+# 0-0-2. 기본 User admin에 마이페이지에서 등록한 전화번호(UserPreference)와 권한 등급 컬럼 추가.
+# grade는 ForeignKey라 Django가 자동으로 콤보박스(단일 선택 <select>)로 렌더링한다.
 class UserPreferenceInline(admin.StackedInline):
     model = UserPreference
     can_delete = False
-    fields = ('phone_number',)
+    fields = ('phone_number', 'grade')
 
 admin.site.unregister(User)
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     inlines = (UserPreferenceInline,)
-    list_display = UserAdmin.list_display + ('phone_number',)
+    list_display = UserAdmin.list_display + ('phone_number', 'member_grade')
+    list_filter = UserAdmin.list_filter + ('preference__grade',)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('preference')
+        return super().get_queryset(request).select_related('preference', 'preference__grade')
 
     @admin.display(description='전화번호')
     def phone_number(self, obj):
         return getattr(obj.preference, 'phone_number', '') if hasattr(obj, 'preference') else ''
+
+    @admin.display(description='권한 등급')
+    def member_grade(self, obj):
+        grade = getattr(obj.preference, 'grade', None) if hasattr(obj, 'preference') else None
+        return grade if grade else '-'
 
 # 0-0. 한국투자증권(KIS) 접근 토큰 캐시 조회용 (읽기 전용)
 @admin.register(KisAccessToken)
@@ -121,7 +143,7 @@ class StockPredictionAdmin(admin.ModelAdmin):
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_at')
+    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
     list_filter = ('source_media', 'is_premium', 'is_posted', 'applied_template')
     search_fields = ('title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
@@ -130,18 +152,58 @@ class AnalyzedArticleAdmin(admin.ModelAdmin):
 # 4-1. 마이페이지 - 뉴스구독/자동포스팅 환경설정 관리
 @admin.register(UserPreference)
 class UserPreferenceAdmin(admin.ModelAdmin):
-    list_display = ('user', 'news_subscription', 'auto_posting_enabled', 'post_all_articles', 'interested_keywords', 'updated_at')
-    list_filter = ('news_subscription', 'auto_posting_enabled', 'post_all_articles')
+    list_display = ('user', 'grade', 'news_subscription', 'auto_posting_enabled', 'post_all_articles', 'interested_keywords', 'updated_at')
+    list_filter = ('grade', 'news_subscription', 'auto_posting_enabled', 'post_all_articles')
     search_fields = ('user__username', 'interested_keywords')
 
-# 4-2. 마이페이지 - 블로그 자동 포스팅 계정 관리
+# 4-2. 마이페이지 - 회원이 SNS/블로그 업로드용으로 등록한 계정 목록 관리
+class BlogAccountConnectionFilter(admin.SimpleListFilter):
+    """BlogPostingAccount.is_connected()는 플랫폼별로 필요한 필드 조합이 달라 DB 컬럼 하나로
+    판단할 수 없는 파이썬 로직이라, 목록 필터에서 쓰려면 같은 조건을 쿼리셋으로 옮겨와야 한다."""
+    title = '연동 상태'
+    parameter_name = 'connected'
+
+    def lookups(self, request, model_admin):
+        return (('yes', '연동됨(자격정보 등록 완료)'), ('no', '미연동(등록 전/불완전)'))
+
+    def queryset(self, request, queryset):
+        if self.value() not in ('yes', 'no'):
+            return queryset
+        connected_q = (
+            (Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential=''))
+            | (Q(platform='TISTORY') & ~Q(account_id='') & ~Q(credential=''))
+            | (Q(platform='NAVER') & ~Q(account_id=''))
+        )
+        return queryset.filter(connected_q) if self.value() == 'yes' else queryset.exclude(connected_q)
+
+
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'platform', 'is_enabled', 'site_url', 'account_id', 'updated_at')
-    list_filter = ('platform', 'is_enabled')
-    search_fields = ('user__username', 'account_id', 'site_url')
-    # credential(비밀번호/API Key)은 목록/폼 어디에도 평문 노출하지 않고, 재입력할 때만 갱신
+    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
+    list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
+    search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
+    list_select_related = ('user',)
+    ordering = ('user', 'platform')
+    # credential(비밀번호/API Key/OAuth 리프레시 토큰)은 목록/폼 어디에도 평문 노출하지 않고,
+    # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
     exclude = ('credential',)
+    readonly_fields = ('has_credential',)
+
+    @admin.display(description='연동 상태')
+    def connection_status(self, obj):
+        if obj.is_connected():
+            return format_html('<span style="color:#2e7d32;font-weight:bold;">연동됨</span>')
+        return format_html('<span style="color:#999;">미연동</span>')
+
+    @admin.display(description='자격정보(비밀번호/API Key) 등록 여부')
+    def has_credential(self, obj):
+        return '등록됨' if obj.credential else '미등록'
+
+    @admin.display(description='사이트 주소')
+    def site_url_link(self, obj):
+        if not obj.site_url:
+            return '-'
+        return format_html('<a href="{0}" target="_new" rel="noopener noreferrer">{0}</a>', obj.site_url)
 
 # 4-3. 회원별 발행 이력 조회용 (읽기 전용)
 @admin.register(PostedArticle)
@@ -239,4 +301,40 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
     def mark_ready(self, request, queryset):
         updated = queryset.filter(status='DRAFT').update(status='READY')
         self.message_user(request, f"{updated}건을 발송 대기 상태로 변경했습니다.")
+
+# 11. 상단 내비게이션 메뉴 관리
+@admin.register(Menu)
+class MenuAdmin(admin.ModelAdmin):
+    list_display = ('name', 'menu_type', 'order', 'is_active', 'url_name', 'external_url', 'badge_text')
+    list_editable = ('order', 'is_active')
+    list_filter = ('menu_type', 'is_active')
+    search_fields = ('name', 'url_name', 'external_url')
+    ordering = ('menu_type', 'order')
+
+# 12. 상담 신청 (ISA/IRP/연금저축 등 분리된 정적 페이지에서 들어오는 리드)
+@admin.register(ConsultRequest)
+class ConsultRequestAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'product', 'name_with_sheet_link', 'phone', 'interest', 'goal')
+    list_filter = ('product', 'created_at')
+    search_fields = ('name', 'phone', 'interest', 'goal', 'message')
+    readonly_fields = ('product', 'name', 'phone', 'interest', 'goal', 'message', 'source_ip', 'created_at')
+    ordering = ('-created_at',)
+
+    @admin.display(description='이름')
+    def name_with_sheet_link(self, obj):
+        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결
+        return format_html(
+            '<a href="{}" target="_blank">{}</a>',
+            reverse('financial_consult_sheet'), obj.name,
+        )
+
+
+# 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)
+@admin.register(FinancialConsultSheet)
+class FinancialConsultSheetAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_filter = ('created_at', 'consult_date')
+    search_fields = ('customer_name', 'customer_phone', 'consultant_name')
+    readonly_fields = ('customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'data', 'created_by', 'created_at')
+    ordering = ('-created_at',)
 
