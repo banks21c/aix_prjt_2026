@@ -1,4 +1,7 @@
+{% load static %}
 <!-- 내부 앱 페이지(대시보드/뉴스게시판/뉴스상세/종목상세/마이페이지) 공통 상단 네비게이션 -->
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
 <nav class="navbar navbar-light bg-white border-bottom sticky-top app-navbar">
     <div class="container">
         <a class="navbar-brand" href="/">📈 NextFinUp <span class="text-secondary" style="font-size: 14px; font-weight: 400;">AI 자산 허브</span></a>
@@ -17,13 +20,24 @@
                         <a href="/insurance-guide/non-life-insurance/">실손손해보험</a>
                     </div>
                 </div>
+                {% elif menu.name == '저축' %}
+                <div class="nav-dropdown">
+                    <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                    <div class="nav-dropdown-menu">
+                        <a href="/isa/">ISA</a>
+                        <a href="/pension/">연금저축</a>
+                        <a href="/irp/">IRP</a>
+                    </div>
+                </div>
                 {% else %}
                 <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
                 {% endif %}
             {% endfor %}
+            {% if user.is_authenticated %}
+                <a href="{% url 'news_scrape' %}" class="btn btn-sm btn-outline-secondary me-2">🔗 URL로 기사 등록</a>
+            {% endif %}
             {% if user.is_staff %}
                 <a href="/admin/" class="btn btn-sm btn-outline-secondary me-2" target="_blank">관리자</a>
-                <a href="{% url 'financial_consult_sheet' %}" class="btn btn-sm btn-outline-secondary me-2" target="_blank">재무상담 시트</a>
             {% endif %}
             {% if user.is_authenticated %}
                 {% with provider=user.social_accounts.first.provider %}
@@ -35,9 +49,9 @@
                     {{ user.first_name|default:user.username }}님
                 </a>
                 {% endwith %}
-                <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger">로그아웃</a>
+                <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger" title="로그아웃" aria-label="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></a>
             {% else %}
-                <a href="{% url 'login' %}" class="btn btn-sm btn-primary">로그인</a>
+                <a href="{% url 'login' %}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"><i class="fa-solid fa-right-to-bracket"></i> 로그인</a>
             {% endif %}
         </div>
     </div>

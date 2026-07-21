@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,6 +7,8 @@
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
+    <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+    <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -462,6 +465,15 @@
                             <a href="/insurance-guide/non-life-insurance/">실손손해보험</a>
                         </div>
                     </div>
+                    {% elif menu.name == '저축' %}
+                    <div class="nav-dropdown">
+                        <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                        <div class="nav-dropdown-menu">
+                            <a href="/isa/">ISA</a>
+                            <a href="/pension/">연금저축</a>
+                            <a href="/irp/">IRP</a>
+                        </div>
+                    </div>
                     {% else %}
                     <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
                     {% endif %}
@@ -479,10 +491,10 @@
                         {% endif %}
                         {{ user.first_name|default:user.username }}님
                     </a>
-                    <a href="{% url 'logout' %}" class="btn btn-outline">로그아웃</a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>로그아웃</a>
                     {% endwith %}
                 {% else %}
-                    <a href="{% url 'login' %}" class="btn btn-outline">로그인</a>
+                    <a href="{% url 'login' %}" class="btn btn-outline"><i class="fa-solid fa-right-to-bracket" style="margin-right:6px;"></i>로그인</a>
                     <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
                 {% endif %}
             </div>
