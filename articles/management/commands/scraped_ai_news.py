@@ -2,6 +2,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from articles.models import StockItem, AnalyzedArticle
+from articles.utils import fetch_article_content
 
 class Command(BaseCommand):
     help = '한국경제 및 매일경제 실시간 증권 뉴스 통합 수집 및 AI 에이전트 가공 파이프라인'
@@ -79,6 +80,7 @@ class Command(BaseCommand):
                             ai_summary=ai_summary,
                             ai_analysis=ai_analysis,
                             blog_content=blog_content,
+                            original_content=fetch_article_content(link),
                             applied_template='T1',
                             is_premium=False,
                             is_posted=False

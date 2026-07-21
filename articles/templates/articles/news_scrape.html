@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+
+    <div class="container my-5" style="max-width: 780px;">
+        <a href="{% url 'news_board' %}" class="text-decoration-none small">← 뉴스 게시판으로 돌아가기</a>
+
+        {% if messages %}
+        <div class="mt-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} py-2">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card card-custom bg-white p-4 mt-3">
+            <h3 class="fw-bold mb-2">🔗 URL로 기사 등록</h3>
+            <p class="text-muted small mb-4">
+                기사 원문 URL을 입력하면 본문을 자동으로 스크래핑하고, AI가 3줄 요약·투자 관점 분석·
+                블로그 초안을 생성합니다. 생성 후에는 바로 편집 화면으로 이동해 내용을 검토·수정할 수 있습니다.
+            </p>
+
+            <p class="mb-4">
+                {% if scraping_stats.remaining is None %}
+                    {% if scraping_stats.is_admin %}
+                    <span class="badge bg-dark">관리자 · 무제한 · 오늘 {{ scraping_stats.today_count }}건 등록</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">{{ scraping_stats.grade.name|default:"일반" }} · 무제한 · 오늘 {{ scraping_stats.today_count }}건 등록</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-light text-dark border">{{ scraping_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ scraping_stats.remaining }}건 남음 · {{ scraping_stats.today_count }}건 등록</span>
+                {% endif %}
+            </p>
+
+            <form method="post" novalidate id="scrapeForm">
+                {% csrf_token %}
+
+                {% for field in form %}
+                <div class="mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="{% url 'news_board' %}" class="btn btn-outline-secondary">취소</a>
+                    <button type="submit" class="btn btn-primary" id="scrapeSubmitBtn" {% if scraping_stats.remaining == 0 %}disabled{% endif %}>
+                        스크래핑 + AI 초안 생성
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 스크래핑 + AI 요약 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
+        document.getElementById('scrapeForm').addEventListener('submit', function () {
+            const btn = document.getElementById('scrapeSubmitBtn');
+            btn.disabled = true;
+            btn.textContent = '스크래핑 및 AI 분석 중... (최대 30초 소요)';
+        });
+    </script>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

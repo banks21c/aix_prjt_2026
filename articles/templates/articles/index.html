@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,6 +7,8 @@
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
+    <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+    <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -107,6 +110,35 @@
         .btn-outline:hover { background: #f1f3f5; }
         .btn-primary { background: #0d47a1; color: #fff; }
         .btn-primary:hover { background: #0b3c8a; }
+        .nav-dropdown { position: relative; display: inline-block; }
+        .nav-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            min-width: 140px;
+            z-index: 1000;
+            padding: 6px;
+        }
+        .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+        .nav-dropdown-menu a {
+            display: block;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #333;
+            text-decoration: none;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .nav-dropdown-menu a:hover { background: #f1f3f5; }
+        @media (max-width: 768px) {
+            .nav-dropdown-menu { position: static; display: block; box-shadow: none; border: none; padding-left: 12px; margin-top: 0; }
+        }
 
         .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
         .site-messages li {
@@ -422,13 +454,33 @@
             <button type="button" class="navbar-toggler-custom" aria-label="메뉴 열기"
                     onclick="document.getElementById('navActions').classList.toggle('open')">☰</button>
             <div class="nav-actions" id="navActions">
-                <span class="badge">Beta</span>
-                <a href="{% url 'news_board' %}" class="btn btn-outline">뉴스 게시판</a>
-                <a href="/dashboard/" class="btn btn-outline">대시보드</a>
-                <a href="{% url 'insurance_compare' %}" class="btn btn-outline">보험 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
-                <a href="{% url 'isa_compare' %}" class="btn btn-outline">ISA 비교 <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">DEMO</span></a>
+                {% for menu in index_menus %}
+                    {% if menu.external_url == '/insurance-guide/' %}
+                    <div class="nav-dropdown">
+                        <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                        <div class="nav-dropdown-menu">
+                            <a href="/insurance-guide/whole-life-insurance/">종신보험</a>
+                            <a href="/insurance-guide/term-life-insurance/">정기보험</a>
+                            <a href="/insurance-guide/variable-life-insurance/">변액보험</a>
+                            <a href="/insurance-guide/non-life-insurance/">실손손해보험</a>
+                        </div>
+                    </div>
+                    {% elif menu.name == '저축' %}
+                    <div class="nav-dropdown">
+                        <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                        <div class="nav-dropdown-menu">
+                            <a href="/isa/">ISA</a>
+                            <a href="/pension/">연금저축</a>
+                            <a href="/irp/">IRP</a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
+                    {% endif %}
+                {% endfor %}
                 {% if user.is_staff %}
                     <a href="/admin/" class="btn btn-outline" target="_blank">관리자</a>
+                    <a href="{% url 'financial_consult_sheet' %}" class="btn btn-outline" target="_blank">재무상담 시트</a>
                 {% endif %}
                 {% if user.is_authenticated %}
                     {% with provider=user.social_accounts.first.provider %}
@@ -439,10 +491,10 @@
                         {% endif %}
                         {{ user.first_name|default:user.username }}님
                     </a>
-                    <a href="{% url 'logout' %}" class="btn btn-outline">로그아웃</a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>로그아웃</a>
                     {% endwith %}
                 {% else %}
-                    <a href="{% url 'login' %}" class="btn btn-outline">로그인</a>
+                    <a href="{% url 'login' %}" class="btn btn-outline"><i class="fa-solid fa-right-to-bracket" style="margin-right:6px;"></i>로그인</a>
                     <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
                 {% endif %}
             </div>
@@ -491,6 +543,26 @@
             </div>
         </div>
     </div>
+
+    <!-- 최신 뉴스 -->
+    <section>
+        <div class="container">
+            <div class="section-title">
+                <h2>최신 AI 분석 브리핑</h2>
+                <p>가장 최근에 수집·분석된 종목 뉴스입니다.</p>
+            </div>
+            <div class="news-list">
+                {% for article in latest_articles %}
+                <a href="{% url 'news_detail' article.pk %}" class="news-item">
+                    <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
+                    <span class="title">{{ article.title }}</span>
+                </a>
+                {% empty %}
+                <div class="news-empty">아직 수집된 분석 브리핑이 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
 
     <!-- 핵심 기능 -->
     <section id="features">
@@ -550,26 +622,6 @@
                     <h4>대시보드 제공</h4>
                     <p>예측 결과와 뉴스를 결합해 대시보드와 블로그 콘텐츠로 제공합니다.</p>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 최신 뉴스 -->
-    <section>
-        <div class="container">
-            <div class="section-title">
-                <h2>최신 AI 분석 브리핑</h2>
-                <p>가장 최근에 수집·분석된 종목 뉴스입니다.</p>
-            </div>
-            <div class="news-list">
-                {% for article in latest_articles %}
-                <a href="{% url 'news_detail' article.pk %}" class="news-item">
-                    <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
-                    <span class="title">{{ article.title }}</span>
-                </a>
-                {% empty %}
-                <div class="news-empty">아직 수집된 분석 브리핑이 없습니다.</div>
-                {% endfor %}
             </div>
         </div>
     </section>

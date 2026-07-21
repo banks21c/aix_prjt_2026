@@ -4,35 +4,43 @@
 공유하는 "발행 대상 기사 선정", "포스팅용 콘텐츠 빌드", "실제 플랫폼별 발행 API 호출"을
 한 곳에 모아, 자동/수동 두 경로에서 발행 로직이 서로 다르게 갈라지지 않도록 한다.
 """
+import re
+
 import requests
 from django.conf import settings
 from django.utils import timezone
 
 from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPrediction, UserSubscription
 
+# blog_content는 두 가지 출처가 섞여 있다: (1) RSS 자동 수집 파이프라인(collect_keyword_news 등)이
+# 만드는 개행(\n) 기반 평문, (2) news_scrape → news_edit에서 Toast UI Editor(WYSIWYG)로 작성/수정한
+# <h3>/<p>/<ul> 등 블록 태그 포함 HTML. 이미 블록 태그가 있으면 에디터가 만든 구조를 그대로 신뢰하고,
+# 없으면 평문으로 간주해 기존처럼 줄바꿈만 <br>로 살린다.
+_BLOCK_HTML_RE = re.compile(r'<(p|h[1-6]|ul|ol|li|div|blockquote|table|img|br)\b', re.IGNORECASE)
+
 TISTORY_WRITE_URL = "https://www.tistory.com/apis/post/write"
 WP_POST_STATUS = "draft"  # 첫 포스팅이라 바로 공개되지 않도록 임시저장으로 올림. 검증 끝나면 "publish"로 변경.
 BLOGGER_IS_DRAFT = True  # 검증 전까지는 바로 공개되지 않도록 임시저장(비공개 초안)으로 올림
 
-DAILY_FREE_POST_LIMIT = 1  # 무료 회원이 하루에 발행할 수 있는 최대 건수 (전체 블로그 계정 통틀어서)
-
-
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
-    무료 회원은 오늘자 발행 건수 기준 잔여량(remaining)을, 프리미엄 회원은 remaining=None(무제한)과
-    함께 지금까지의 누적 발행 건수(total_count)를 반환한다.
-    관리자(is_staff/is_superuser)는 구독 상태와 무관하게 무제한으로 취급한다."""
+    하루 발행 가능 건수는 회원 등급(MemberGrade.daily_post_limit)을 기준으로 계산한다 — 등급이
+    없거나 한도가 비어있으면(NULL) 무제한. 프리미엄 구독(UserSubscription.is_active_premium)과
+    관리자(is_staff/is_superuser)는 등급과 무관하게 항상 무제한으로 취급한다."""
     subscription, _ = UserSubscription.objects.get_or_create(user=user)
+    grade = getattr(getattr(user, 'preference', None), 'grade', None)
     is_admin = user.is_staff or user.is_superuser
-    is_unlimited = subscription.is_active_premium or is_admin
+    limit = grade.daily_post_limit if grade else None
+    is_unlimited = subscription.is_active_premium or is_admin or limit is None
     today_count = PostedArticle.objects.filter(
         blog_account__user=user, posted_at__date=timezone.localdate()
     ).count()
     total_count = PostedArticle.objects.filter(blog_account__user=user).count()
-    remaining = None if is_unlimited else max(0, DAILY_FREE_POST_LIMIT - today_count)
+    remaining = None if is_unlimited else max(0, limit - today_count)
     return {
         'is_premium': subscription.is_active_premium,
         'is_admin': is_admin,
+        'grade': grade,
         'remaining': remaining,
         'today_count': today_count,
         'total_count': total_count,
@@ -82,7 +90,16 @@ def build_post_content(article):
     latest_pred = StockPrediction.objects.filter(stock=article.stock).order_by('-date').first() if article.stock else None
 
     safe_summary = article.ai_summary.replace('\n', '<br>')
-    safe_blog_content = article.blog_content.replace('\n', '<br>')
+    blog_content = article.blog_content or ''
+    if _BLOCK_HTML_RE.search(blog_content):
+        # 이미 블록 태그가 있는 HTML은 그대로 삽입한다 — <br> 치환은 태그 사이 서식용 개행까지
+        # 눈에 보이는 줄바꿈으로 바꿔버리고, <p>로 감싸면 안에 있는 <h3>/<p> 등이 <p> 안에
+        # 중첩되는 잘못된 마크업이 되기 때문이다.
+        blog_content_body = blog_content
+    else:
+        # 평문(레거시 RSS 수집분)은 기존처럼 줄바꿈만 <br>로 살리고 <p>로 감싼다.
+        safe_blog_content = blog_content.replace('\n', '<br>')
+        blog_content_body = f"<p>{safe_blog_content}</p>"
 
     pred_html = ""
     if latest_pred and latest_pred.pred_next_close is not None:
@@ -115,7 +132,7 @@ def build_post_content(article):
         <hr style="border: 0; height: 1px; background: #CCC; margin: 30px 0;">
 
         <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">🚀 실전 투자 가이드 브리핑</h3>
-        <p>{safe_blog_content}</p>
+        {blog_content_body}
 
         <p style="font-size: 12px; color: #888; margin-top: 5px;">본 포스팅은 NextFinUp 시스템의 머신러닝 알고리즘과 AI 에이전트가 자동으로 가공한 경제 정보 콘텐츠이며, 투자 참고용으로만 사용하시기 바랍니다.</p>
     </div>

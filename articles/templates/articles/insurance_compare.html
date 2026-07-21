@@ -7,63 +7,44 @@
 {% include "articles/_favicon.html" %}
 <style>
   :root {
-    --ink: #16213a;
-    --ink-soft: #3c4a68;
-    --paper: #eef1f6;
-    --card: #fbfaf7;
-    --card-stub: #f2ede2;
-    --line: #ccd3de;
-    --line-strong: #aab2c2;
-    --accent: #a5752c;
+    --ink: #1f2e28;
+    --ink-soft: #536056;
+    --paper: #f1ede1;
+    --card: #fffcf5;
+    --card-stub: #e8e2ce;
+    --line: #d8d0ba;
+    --line-strong: #b9b096;
+    --accent: #a13d2e;
     --accent-ink: #ffffff;
     --success: #2f7a4d;
     --success-bg: #e6f4ea;
-    --shadow: 0 1px 2px rgba(22,33,58,0.06), 0 8px 24px rgba(22,33,58,0.08);
+    --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
   }
-
   @media (prefers-color-scheme: dark) {
     :root {
-      --ink: #eef1f6;
-      --ink-soft: #b7c0d4;
-      --paper: #0f1522;
-      --card: #182135;
-      --card-stub: #1e2a44;
-      --line: #34405c;
-      --line-strong: #46536f;
-      --accent: #d7a750;
-      --accent-ink: #16213a;
+      --ink: #eef0ea;
+      --ink-soft: #b7bfae;
+      --paper: #12160f;
+      --card: #1c231a;
+      --card-stub: #262f22;
+      --line: #3a4536;
+      --line-strong: #4d5a48;
+      --accent: #e07a5f;
+      --accent-ink: #1f2e28;
       --success: #7fd19f;
       --success-bg: #163524;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
     }
   }
   :root[data-theme="dark"] {
-    --ink: #eef1f6;
-    --ink-soft: #b7c0d4;
-    --paper: #0f1522;
-    --card: #182135;
-    --card-stub: #1e2a44;
-    --line: #34405c;
-    --line-strong: #46536f;
-    --accent: #d7a750;
-    --accent-ink: #16213a;
-    --success: #7fd19f;
-    --success-bg: #163524;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+    --ink: #eef0ea; --ink-soft: #b7bfae; --paper: #12160f; --card: #1c231a; --card-stub: #262f22;
+    --line: #3a4536; --line-strong: #4d5a48; --accent: #e07a5f; --accent-ink: #1f2e28;
+    --success: #7fd19f; --success-bg: #163524; --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
   }
   :root[data-theme="light"] {
-    --ink: #16213a;
-    --ink-soft: #3c4a68;
-    --paper: #eef1f6;
-    --card: #fbfaf7;
-    --card-stub: #f2ede2;
-    --line: #ccd3de;
-    --line-strong: #aab2c2;
-    --accent: #a5752c;
-    --accent-ink: #ffffff;
-    --success: #2f7a4d;
-    --success-bg: #e6f4ea;
-    --shadow: 0 1px 2px rgba(22,33,58,0.06), 0 8px 24px rgba(22,33,58,0.08);
+    --ink: #1f2e28; --ink-soft: #536056; --paper: #f1ede1; --card: #fffcf5; --card-stub: #e8e2ce;
+    --line: #d8d0ba; --line-strong: #b9b096; --accent: #a13d2e; --accent-ink: #ffffff;
+    --success: #2f7a4d; --success-bg: #e6f4ea; --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
   }
 
   * { box-sizing: border-box; }
@@ -76,10 +57,7 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  .mono {
-    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Menlo', monospace;
-    font-variant-numeric: tabular-nums;
-  }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Menlo', monospace; font-variant-numeric: tabular-nums; }
   a { color: inherit; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
   h1, h2, h3 { text-wrap: balance; margin: 0; }
@@ -92,285 +70,155 @@
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   }
 
-  /* ---------- header ---------- */
-  header {
-    padding: 16px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header { padding: 16px 0; border-bottom: 1px solid var(--line); }
   .back-link { font-size: 12.5px; color: var(--ink-soft); }
   .back-link:hover { color: var(--accent); }
-  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
   .brand { display: flex; align-items: baseline; gap: 8px; }
   .brand-mark { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
   .brand-sub { font-size: 12.5px; color: var(--ink-soft); }
   .demo-chip {
-    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 3px;
-    padding: 3px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 3px 8px;
   }
 
-  /* ---------- hero: boarding pass ---------- */
-  .hero { padding: 40px 0 40px; }
-  .ticket-hero {
+  /* ---------- hero: passbook cover ---------- */
+  .hero { padding: 40px 0; }
+  .passbook {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
     display: grid;
-    grid-template-columns: 1fr 260px;
+    grid-template-columns: 1fr 220px;
     overflow: hidden;
+    position: relative;
   }
-  .ticket-hero-main { padding: 40px 40px 32px; }
+  .passbook-main { padding: 40px 40px 32px; }
   .eyebrow {
-    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-    font-size: 11.5px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 14px;
   }
-  .hero-title { font-size: 34px; font-weight: 800; letter-spacing: -0.01em; max-width: 20ch; }
-  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 46ch; }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
+  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
 
-  .field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .field label {
-    display: block;
-    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 6px;
+    display: block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
   }
   .field input, .field select {
-    width: 100%;
-    background: var(--paper);
-    border: 1px solid var(--line-strong);
-    border-radius: 6px;
-    padding: 10px 11px;
-    font-size: 14px;
-    color: var(--ink);
-    font-family: inherit;
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 10px 11px; font-size: 14px; color: var(--ink); font-family: inherit;
   }
   .field input:focus, .field select:focus { border-color: var(--accent); }
 
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border: none;
-    border-radius: 7px;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 12px 20px;
-    background: var(--accent);
-    color: var(--accent-ink);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: var(--accent-ink);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(165,117,44,0.28); }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(161,61,46,0.28); }
   .btn:active { transform: translateY(0); }
   .btn-block { width: 100%; margin-top: 18px; }
 
-  /* perforated stub (tear-off ticket portion of the hero) */
-  .ticket-hero-stub {
-    position: relative;
+  /* passbook cover panel with wax-seal stamp */
+  .passbook-cover {
     background: var(--card-stub);
-    padding: 32px 28px;
+    border-left: 1px solid var(--line);
+    padding: 28px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    border-left: 1px dashed var(--line-strong);
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
   }
-  .ticket-hero-stub::before,
-  .ticket-hero-stub::after {
-    content: "";
-    position: absolute;
-    left: -9px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--paper);
-    border: 1px solid var(--line);
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double var(--accent);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
+    transform: rotate(-8deg);
   }
-  .ticket-hero-stub::before { top: -9px; }
-  .ticket-hero-stub::after { bottom: -9px; }
-  .stub-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
-  .stub-code { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; margin-top: 4px; }
-  .barcode {
-    height: 40px;
-    margin-top: 18px;
-    background: repeating-linear-gradient(
-      90deg,
-      var(--ink) 0px, var(--ink) 2px,
-      transparent 2px, transparent 5px,
-      var(--ink) 5px, var(--ink) 6px,
-      transparent 6px, transparent 10px,
-      var(--ink) 10px, var(--ink) 13px,
-      transparent 13px, transparent 15px
-    );
-    opacity: 0.82;
-  }
+  .cover-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
 
   @media (max-width: 760px) {
-    .ticket-hero { grid-template-columns: 1fr; }
-    .ticket-hero-stub { border-left: none; border-top: 1px dashed var(--line-strong); flex-direction: row; align-items: center; gap: 20px; }
-    .ticket-hero-stub::before, .ticket-hero-stub::after { left: auto; top: -9px; }
-    .ticket-hero-stub::before { left: -9px; }
-    .ticket-hero-stub::after { right: -9px; left: auto; }
-    .barcode { display: none; }
-    .field-grid { grid-template-columns: 1fr 1fr; }
+    .passbook { grid-template-columns: 1fr; }
+    .passbook-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
+    .calc-grid { grid-template-columns: 1fr 1fr; }
   }
 
-  /* ---------- section shell ---------- */
   section { padding: 48px 0; }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
   .section-title { font-size: 22px; font-weight: 800; }
   .section-note { font-size: 13px; color: var(--ink-soft); }
 
-  /* ---------- comparison: boarding-pass style plan cards ---------- */
-  .plans { display: flex; flex-direction: column; gap: 16px; }
-  .plan-ticket {
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
     box-shadow: var(--shadow);
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 190px 1fr;
     overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .plan-ticket:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(22,33,58,0.08), 0 16px 32px rgba(22,33,58,0.12); }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
 
-  .plan-stub {
-    position: relative;
+  .ledger-stub {
     background: var(--card-stub);
-    padding: 22px 20px;
-    border-right: 1px dashed var(--line-strong);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
   }
-  .plan-stub::before, .plan-stub::after {
-    content: "";
-    position: absolute;
-    top: -9px;
-    right: -9px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--paper);
-    border: 1px solid var(--line);
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
   }
-  .plan-stub::after { top: auto; bottom: -9px; }
+  .acct-no { margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); }
 
-  .insurer-name { font-size: 17px; font-weight: 800; }
-  .plan-tag {
-    display: inline-block;
-    margin-top: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 3px;
-    padding: 2px 7px;
-  }
-  .plan-barcode {
-    height: 26px;
-    margin-top: 16px;
-    background: repeating-linear-gradient(
-      90deg,
-      var(--ink) 0px, var(--ink) 1.5px,
-      transparent 1.5px, transparent 4px,
-      var(--ink) 4px, var(--ink) 4.5px,
-      transparent 4.5px, transparent 8px,
-      var(--ink) 8px, var(--ink) 10px,
-      transparent 10px, transparent 12px
-    );
-    opacity: 0.55;
-  }
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .ledger-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .ledger-item .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .ledger-item .v { font-size: 14px; font-weight: 600; }
+  .ledger-feature { font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 12px; }
 
-  .plan-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
-  .coverage-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-  }
-  .coverage-item .k {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 4px;
-  }
-  .coverage-item .v { font-size: 14px; font-weight: 600; }
-
-  .plan-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px dashed var(--line); }
-  .plan-price .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
-  .plan-price .v { font-size: 22px; font-weight: 800; color: var(--accent); }
-  .plan-price .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+  .ledger-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+  .fee .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+  .fee .v { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .fee .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
 
   @media (max-width: 700px) {
-    .plan-ticket { grid-template-columns: 1fr; }
-    .plan-stub { border-right: none; border-bottom: 1px dashed var(--line-strong); flex-direction: row; align-items: center; justify-content: space-between; }
-    .plan-stub::before { top: -9px; left: -9px; right: auto; }
-    .plan-stub::after { bottom: -9px; right: -9px; }
-    .plan-barcode { display: none; }
-    .coverage-grid { grid-template-columns: 1fr 1fr; }
-    .plan-footer { flex-direction: column; align-items: stretch; }
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+    .ledger-grid { grid-template-columns: 1fr 1fr; }
+    .ledger-footer { flex-direction: column; align-items: stretch; }
   }
 
   .terms-strip {
-    margin-top: 20px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    line-height: 1.7;
-    color: var(--ink-soft);
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
   }
   .terms-strip strong { color: var(--ink); }
 
-  /* ---------- consult: check-in counter ---------- */
-  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
+  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
   .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .consult-grid .full { grid-column: 1 / -1; }
   .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
   .consult-grid input, .consult-grid textarea {
-    width: 100%;
-    background: var(--paper);
-    border: 1px solid var(--line-strong);
-    border-radius: 7px;
-    padding: 11px 13px;
-    font-size: 14px;
-    color: var(--ink);
-    font-family: inherit;
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit;
   }
   .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
-  .consult-success {
-    display: none;
-    margin-top: 14px;
-    background: var(--success-bg);
-    color: var(--success);
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  @media (max-width: 560px) {
-    .consult { padding: 28px 22px; }
-    .consult-grid { grid-template-columns: 1fr; }
-  }
+  .consult-success { display: none; margin-top: 14px; background: var(--success-bg); color: var(--success); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  @media (max-width: 560px) { .consult { padding: 28px 22px; } .consult-grid { grid-template-columns: 1fr; } }
 
   footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
   .footer-row { display: flex; flex-direction: column; gap: 8px; }
@@ -385,7 +233,7 @@
       <a href="{% url 'landing_page' %}" class="back-link">← NextFinUp 홈으로</a>
       <div class="brand-row">
         <div class="brand">
-          <span class="brand-mark">TRIPINSU</span>
+          <span class="brand-mark">여행자보험 원장</span>
           <span class="brand-sub">해외여행자보험 비교</span>
         </div>
         <span class="demo-chip">Demo · 샘플 데이터</span>
@@ -395,15 +243,15 @@
 
   <section class="hero">
     <div class="wrap">
-      <div class="ticket-hero rise">
-        <div class="ticket-hero-main">
-          <div class="eyebrow">Boarding Pass to Peace of Mind</div>
+      <div class="passbook rise">
+        <div class="passbook-main">
+          <div class="eyebrow">떠나기 전, 놓치지 말아야 할 보장</div>
           <h1 class="hero-title">떠나기 전, 3분이면<br>보험 비교가 끝납니다</h1>
-          <p class="hero-desc">여행 일정과 나이만 입력하면 의료비·휴대품·항공기 지연 등 핵심 보장을 티켓처럼 한눈에 비교해드려요.</p>
+          <p class="hero-desc">여행 일정과 나이만 입력하면 의료비·휴대품·항공기 지연 등 핵심 보장을 원장처럼 한눈에 비교해드려요.</p>
 
-          <div class="field-grid">
+          <div class="calc-grid">
             <div class="field">
-              <label for="dest">Destination</label>
+              <label for="dest">여행지</label>
               <select id="dest">
                 <option>전체(유럽/미주 등)</option>
                 <option>일본 · 동남아</option>
@@ -412,26 +260,23 @@
               </select>
             </div>
             <div class="field">
-              <label for="dep">Departure</label>
+              <label for="dep">출국일</label>
               <input id="dep" type="date">
             </div>
             <div class="field">
-              <label for="ret">Return</label>
+              <label for="ret">귀국일</label>
               <input id="ret" type="date">
             </div>
             <div class="field">
-              <label for="age">Age</label>
+              <label for="age">나이</label>
               <input id="age" type="number" placeholder="30" min="0" max="100">
             </div>
           </div>
-          <button type="button" class="btn btn-block" onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})">비교 시작하기</button>
+          <button type="button" class="btn btn-block" onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})">기관별 비교 보기</button>
         </div>
-        <div class="ticket-hero-stub">
-          <div>
-            <div class="stub-label">Reference No.</div>
-            <div class="stub-code mono">TI-DEMO-0001</div>
-          </div>
-          <div class="barcode" aria-hidden="true"></div>
+        <div class="passbook-cover">
+          <div class="seal">의료실비<br>최대 1억원</div>
+          <div class="cover-label">Travel Ledger</div>
         </div>
       </div>
     </div>
@@ -440,96 +285,100 @@
   <section id="plans">
     <div class="wrap">
       <div class="section-head">
-        <h2 class="section-title">비교 티켓 — 7일 · 30세 성인 1인 기준</h2>
+        <h2 class="section-title">보험사 비교 원장 — 7일 · 30세 성인 1인 기준</h2>
         <span class="section-note">예시 데이터 4건</span>
       </div>
 
       <div class="plans">
 
-        <div class="plan-ticket rise">
-          <div class="plan-stub">
+        <div class="ledger-entry rise">
+          <div class="ledger-stub">
             <div>
-              <div class="insurer-name">A손해보험</div>
-              <span class="plan-tag">가성비</span>
+              <div class="inst-name">A손해보험</div>
+              <span class="type-tag">가성비</span>
             </div>
-            <div class="plan-barcode" aria-hidden="true"></div>
+            <div class="acct-no mono">TRAVEL-DEMO-01</div>
           </div>
-          <div class="plan-body">
-            <div class="coverage-grid">
-              <div class="coverage-item"><div class="k">의료실비</div><div class="v">3,000만원</div></div>
-              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">20만원</div></div>
-              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">4시간 · 10만원</div></div>
-              <div class="coverage-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">의료실비</div><div class="v">3,000만원</div></div>
+              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">20만원</div></div>
+              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">4시간 · 10만원</div></div>
+              <div class="ledger-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
             </div>
-            <div class="plan-footer">
-              <div class="plan-price"><div class="k">Fare</div><div class="v">8,900원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('A손해보험')">상담 신청</button>
+            <div class="ledger-feature">기본 보장만 알차게 담은 실속형. 단기 여행객에게 가장 많이 선택되는 구성(예시).</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">보험료</div><div class="v">8,900원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('A손해보험')">가입 상담</button>
             </div>
           </div>
         </div>
 
-        <div class="plan-ticket rise rise-delay-1">
-          <div class="plan-stub">
+        <div class="ledger-entry rise rise-delay-1">
+          <div class="ledger-stub">
             <div>
-              <div class="insurer-name">B화재해상</div>
-              <span class="plan-tag">의료보장 강화</span>
+              <div class="inst-name">B화재해상</div>
+              <span class="type-tag">의료보장 강화</span>
             </div>
-            <div class="plan-barcode" aria-hidden="true"></div>
+            <div class="acct-no mono">TRAVEL-DEMO-02</div>
           </div>
-          <div class="plan-body">
-            <div class="coverage-grid">
-              <div class="coverage-item"><div class="k">의료실비</div><div class="v">5,000만원</div></div>
-              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">30만원</div></div>
-              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">3시간 · 15만원</div></div>
-              <div class="coverage-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">의료실비</div><div class="v">5,000만원</div></div>
+              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">30만원</div></div>
+              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">3시간 · 15만원</div></div>
+              <div class="ledger-item"><div class="k">배상책임</div><div class="v">1억원</div></div>
             </div>
-            <div class="plan-footer">
-              <div class="plan-price"><div class="k">Fare</div><div class="v">12,400원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('B화재해상')">상담 신청</button>
+            <div class="ledger-feature">해외 의료비 부담이 큰 지역 여행자를 위해 실비 한도를 상향한 구성(예시).</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">보험료</div><div class="v">12,400원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('B화재해상')">가입 상담</button>
             </div>
           </div>
         </div>
 
-        <div class="plan-ticket rise rise-delay-2">
-          <div class="plan-stub">
+        <div class="ledger-entry rise rise-delay-2">
+          <div class="ledger-stub">
             <div>
-              <div class="insurer-name">C다이렉트</div>
-              <span class="plan-tag">최저가</span>
+              <div class="inst-name">C다이렉트</div>
+              <span class="type-tag">최저가</span>
             </div>
-            <div class="plan-barcode" aria-hidden="true"></div>
+            <div class="acct-no mono">TRAVEL-DEMO-03</div>
           </div>
-          <div class="plan-body">
-            <div class="coverage-grid">
-              <div class="coverage-item"><div class="k">의료실비</div><div class="v">2,000만원</div></div>
-              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">15만원</div></div>
-              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">미보장</div></div>
-              <div class="coverage-item"><div class="k">배상책임</div><div class="v">5,000만원</div></div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">의료실비</div><div class="v">2,000만원</div></div>
+              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">15만원</div></div>
+              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">미보장</div></div>
+              <div class="ledger-item"><div class="k">배상책임</div><div class="v">5,000만원</div></div>
             </div>
-            <div class="plan-footer">
-              <div class="plan-price"><div class="k">Fare</div><div class="v">6,500원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('C다이렉트')">상담 신청</button>
+            <div class="ledger-feature">비대면 다이렉트 가입으로 사업비를 낮춘 최저가 구성(예시). 부가 보장은 최소화.</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">보험료</div><div class="v">6,500원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('C다이렉트')">가입 상담</button>
             </div>
           </div>
         </div>
 
-        <div class="plan-ticket rise rise-delay-2">
-          <div class="plan-stub">
+        <div class="ledger-entry rise rise-delay-2">
+          <div class="ledger-stub">
             <div>
-              <div class="insurer-name">D손해보험</div>
-              <span class="plan-tag">프리미엄</span>
+              <div class="inst-name">D손해보험</div>
+              <span class="type-tag">프리미엄</span>
             </div>
-            <div class="plan-barcode" aria-hidden="true"></div>
+            <div class="acct-no mono">TRAVEL-DEMO-04</div>
           </div>
-          <div class="plan-body">
-            <div class="coverage-grid">
-              <div class="coverage-item"><div class="k">의료실비</div><div class="v">1억원</div></div>
-              <div class="coverage-item"><div class="k">휴대품손해</div><div class="v">50만원</div></div>
-              <div class="coverage-item"><div class="k">항공기지연</div><div class="v">2시간 · 20만원</div></div>
-              <div class="coverage-item"><div class="k">배상책임</div><div class="v">2억원</div></div>
+          <div class="ledger-body">
+            <div class="ledger-grid">
+              <div class="ledger-item"><div class="k">의료실비</div><div class="v">1억원</div></div>
+              <div class="ledger-item"><div class="k">휴대품손해</div><div class="v">50만원</div></div>
+              <div class="ledger-item"><div class="k">항공기지연</div><div class="v">2시간 · 20만원</div></div>
+              <div class="ledger-item"><div class="k">배상책임</div><div class="v">2억원</div></div>
             </div>
-            <div class="plan-footer">
-              <div class="plan-price"><div class="k">Fare</div><div class="v">18,900원<span class="unit">/ 7일</span></div></div>
-              <button class="btn" onclick="selectPlan('D손해보험')">상담 신청</button>
+            <div class="ledger-feature">장기·고위험 지역 여행이나 레저 액티비티가 많은 일정에 적합한 전 항목 최상위 보장(예시).</div>
+            <div class="ledger-footer">
+              <div class="fee"><div class="k">보험료</div><div class="v">18,900원<span class="unit">/ 7일</span></div></div>
+              <button class="btn" onclick="selectPlan('D손해보험')">가입 상담</button>
             </div>
           </div>
         </div>
@@ -582,7 +431,7 @@
 
   <footer>
     <div class="wrap footer-row">
-      <div class="footer-brand">TRIPINSU</div>
+      <div class="footer-brand">여행자보험 원장</div>
       <p class="footer-note">
         본 사이트는 프로토타입 데모이며 실제 보험 비교·중개 서비스가 아닙니다. 보험 상품 비교·추천에는 관련 법령에 따른
         보험대리점 등록 또는 금융당국의 승인이 필요합니다.

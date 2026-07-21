@@ -202,6 +202,39 @@
         let overlaySeries = null;  // { ma5, ma20, ma60, bbUpper, bbLower }
         let overlayVisible = true;
 
+        // 분봉 X축은 KIS가 내려준 KST 벽시계 시각을 올바른 UTC 유닉스 타임스탬프로 변환해 서버에서
+        // 내려주는데(articles/views.py stock_minute_chart_view), lightweight-charts는 축/크로스헤어
+        // 시각을 항상 UTC 기준으로 표시하므로 그대로 쓰면 실제 시각보다 9시간 이르게 보인다(예: 09:00
+        // 개장이 00:00으로 표시됨). 그래서 표시할 때만 +9시간을 더한 뒤 getUTC*()로 읽어 KST 벽시계
+        // 값을 복원한다. 일봉(time이 {year,month,day} 형태의 BusinessDay)은 타임존 영향이 없으므로
+        // 그대로 쓰되, 같은 포매터 안에서 tickMarkType에 맞춰 같이 처리해 daily/minute 전환 때마다
+        // applyOptions로 포매터를 껐다 켤 필요가 없도록 한다.
+        const pad2 = n => String(n).padStart(2, '0');
+
+        function kstDateParts(utcSeconds) {
+            const d = new Date((utcSeconds + 9 * 3600) * 1000);
+            return {
+                year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(),
+                hours: d.getUTCHours(), minutes: d.getUTCMinutes(),
+            };
+        }
+
+        function chartTickFormatter(time, tickMarkType) {
+            const p = typeof time === 'number' ? kstDateParts(time) : time;
+            if (tickMarkType === LightweightCharts.TickMarkType.Year) return `${p.year}`;
+            if (tickMarkType === LightweightCharts.TickMarkType.Month) return `${p.month}월`;
+            if (tickMarkType === LightweightCharts.TickMarkType.DayOfMonth) return `${pad2(p.month)}/${pad2(p.day)}`;
+            return `${pad2(p.hours)}:${pad2(p.minutes)}`;
+        }
+
+        function chartCrosshairFormatter(time) {
+            if (typeof time === 'number') {
+                const p = kstDateParts(time);
+                return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hours)}:${pad2(p.minutes)}`;
+            }
+            return `${time.year}-${pad2(time.month)}-${pad2(time.day)}`;
+        }
+
         function addOverlaySeries() {
             if (!indicatorData || overlaySeries) return;
             overlaySeries = {
@@ -237,7 +270,8 @@
                 height: el.clientHeight,
                 layout: { textColor: '#495057', background: { type: 'solid', color: 'transparent' } },
                 grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
-                timeScale: { borderColor: '#e0e0e0' },
+                timeScale: { borderColor: '#e0e0e0', tickMarkFormatter: chartTickFormatter },
+                localization: { timeFormatter: chartCrosshairFormatter },
                 rightPriceScale: { borderColor: '#e0e0e0' },
             });
             series = chart.addCandlestickSeries({
@@ -272,6 +306,7 @@
             document.getElementById('chartTitle').textContent = '⏱️ 당일 분봉 (1분)';
             setActiveButton(false);
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
+            // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });
             // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨긴다
             setOverlayVisible(false);

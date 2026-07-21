@@ -166,7 +166,11 @@
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         {% if account_form.instance.credential %}
                             <span class="badge bg-success">연결됨</span>
-                            <span class="small text-muted">{{ account_form.instance.site_url|default:account_form.instance.account_id }}</span>
+                            {% if account_form.instance.site_url %}
+                                <a href="{{ account_form.instance.site_url }}" target="_new" rel="noopener noreferrer" class="small">{{ account_form.instance.site_url }}</a>
+                            {% else %}
+                                <span class="small text-muted">{{ account_form.instance.account_id }}</span>
+                            {% endif %}
                         {% else %}
                             <span class="badge bg-secondary">연결 안 됨</span>
                         {% endif %}
@@ -178,7 +182,12 @@
                     <div class="row g-3">
                         {% if platform_code == 'WORDPRESS' %}
                         <div class="col-12">
-                            <label class="form-label small text-muted" for="{{ account_form.site_url.id_for_label }}">사이트 주소</label>
+                            <label class="form-label small text-muted" for="{{ account_form.site_url.id_for_label }}">
+                                사이트 주소
+                                {% if account_form.instance.site_url %}
+                                    <a href="{{ account_form.instance.site_url }}" target="_new" rel="noopener noreferrer">(방문하기)</a>
+                                {% endif %}
+                            </label>
                             {{ account_form.site_url }}
                         </div>
                         {% endif %}
