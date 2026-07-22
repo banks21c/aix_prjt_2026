@@ -33,11 +33,16 @@ Run the dev server:
 python manage.py runserver
 ```
 
-Run tests (Django's test runner; `articles/tests.py` is currently empty scaffolding):
+Run tests (Django's test runner; `articles/tests.py` covers auth flow, core public views, and
+grade-based daily-limit logic — not yet the pipeline commands or OAuth views, see file header):
 ```
 python manage.py test
 python manage.py test articles.tests.<TestClass>.<test_method>   # single test
 ```
+`.github/workflows/ci.yml` runs the same `manage.py test` on every push/PR against a `mysql:8.0`
+service container (not sqlite — the app is MySQL-only, see below). Requires a MySQL user with
+`CREATE`/`DROP` privileges on `test_<DB_NAME>` to let Django spin up the ephemeral test DB (the
+workflow uses the container's root user for this).
 
 Migrations:
 ```
