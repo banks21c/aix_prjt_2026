@@ -14,8 +14,8 @@ usage limits by member grade, a news board with manual scrape/edit, a stock deta
 day/minute charts, a KIS-powered realtime ranking/index feed, an OpenAI-backed chatbot widget,
 and a daily email newsletter.
 
-There is one Django app, `articles`, containing all models/views/commands. There is no
-`requirements.txt` — installed packages live only in `venv/` (see Environment below).
+There is one Django app, `articles`, containing all models/views/commands. Dependencies are
+pinned in `requirements.txt` (generated via `pip freeze` from `venv/`).
 
 ## Commands
 
@@ -85,9 +85,10 @@ Legacy/one-off collectors not on the cron schedule: `collect_fluctuation_ranking
 `scraped_ai_news.py` (original 한국경제/매일경제 RSS-only collector, superseded by
 `collect_keyword_news` for most flows but still functional).
 
-Dump/export current package versions (no requirements.txt exists to diff against):
+Install/refresh dependencies:
 ```
-venv/bin/pip freeze
+venv/bin/pip install -r requirements.txt
+venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package, re-pin
 ```
 
 ## Architecture
