@@ -1,0 +1,16 @@
+# NextFinUp production crontab — source of truth for the server's cron jobs.
+#
+# The live crontab on the server can drift from this file if someone edits it directly with
+# `crontab -e`. After changing this file, apply it on the server with:
+#   crontab deploy/crontab
+# and after editing on the server, sync it back here with:
+#   crontab -l > deploy/crontab
+#
+# Read-only view of whatever is currently live: /admin-tools/cron/ (articles.views.cron_status_view).
+
+*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_keyword_news >> /home/ubuntu/nextfinup/logs/collect_keyword_news.log 2>&1
+*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_market_index >> /home/ubuntu/nextfinup/logs/collect_market_index.log 2>&1
+*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_kis_news >> /home/ubuntu/nextfinup/logs/collect_kis_news.log 2>&1
+*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_stock_realtime_price >> /home/ubuntu/nextfinup/logs/collect_stock_realtime_price.log 2>&1
+0 8 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_newsletter_draft >> /home/ubuntu/nextfinup/logs/generate_newsletter_draft.log 2>&1
+0 18 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py send_newsletter >> /home/ubuntu/nextfinup/logs/send_newsletter.log 2>&1

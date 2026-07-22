@@ -57,8 +57,10 @@ python manage.py run_stock_prediction                                      # tra
 `collect_stock_data_back.py` is an earlier, superseded version of `collect_stock_data` (no
 rate-limit backoff/retry) — kept in the tree but not part of the intended pipeline.
 
-Recurring jobs (the production crontab, `crontab -l`, runs these; also viewable read-only at
-`/admin-tools/cron/` via `cron_status_view`):
+Recurring jobs are defined in `deploy/crontab` (source of truth, checked into the repo — the
+live server crontab can drift if edited directly with `crontab -e`; see the file header for how
+to sync in either direction). Also viewable read-only at `/admin-tools/cron/` via
+`cron_status_view`:
 ```
 */5 * * * *  collect_keyword_news            # RSS scrape by NewsKeyword, AI-summarize, create AnalyzedArticle rows
 */5 * * * *  collect_market_index            # KOSPI/KOSDAQ index snapshot (MarketIndex)
