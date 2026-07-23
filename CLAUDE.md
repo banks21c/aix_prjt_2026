@@ -101,36 +101,50 @@ venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package,
 ## Architecture
 
 - `config/` — Django project (settings, root urls, wsgi/asgi). Single app `articles` is installed.
-- `articles/models.py` — all domain models. Roughly four groups:
-  - **Market data**: `StockItem` (ticker master; `is_active` gates most pipeline commands,
+- `articles/models/` — package of domain models, split by group (was a single `models.py`; every
+  name is re-exported from `articles/models/__init__.py` so `from .models import X` /
+  `from articles.models import X` work unchanged everywhere else in the codebase):
+  - **`market.py`**: `StockItem` (ticker master; `is_active` gates most pipeline commands,
     `is_major_index` gates `collect_stock_data`/prediction scope to KOSPI200/KOSDAQ150),
     `StockPrediction` (one row per `(stock, date)`, unique together; raw OHLCV populated by
     `collect_stock_data`, then ML fields — `pred_next_close`, `pred_5day_return`,
     `up_probability`, `down_probability`, `trading_signal` — updated in place by
     `run_stock_prediction`), `MarketIndex`, `MarketHoliday`, `KisAccessToken` (cached KIS OAuth
     token, see `kis_client.get_access_token`), `RankedMover`, `StockRealtimePrice`.
-  - **News/content**: `NewsSource`, `NewsKeyword`, `AnalyzedArticle` (scraped article + AI
+  - **`news.py`**: `NewsSource`, `NewsKeyword`, `AnalyzedArticle` (scraped article + AI
     summary/analysis/blog draft + optional `stock`/`matched_keyword` FK; `scraped_by` is set only
     for member-submitted URLs and drives per-grade daily scrape limits), `PostedArticle` (records
-    of what's been published where, keyed by `(blog_account, article)` to prevent double-posting).
-  - **Members/auth**: Django `User` plus `UserSubscription` (premium flag), `MemberGrade`
+    of what's been published where, keyed by `(blog_account, article)` to prevent double-posting;
+    imports `StockItem` from `.market` and `BlogPostingAccount` from `.members`).
+  - **`members.py`**: Django `User` plus `UserSubscription` (premium flag), `MemberGrade`
     (admin-defined tiers with `daily_scrape_limit`/`daily_post_limit`, NULL = unlimited),
     `UserPreference` (1:1, holds `interested_keywords`/`post_all_articles`/
     `auto_posting_enabled`/grade FK), `BlogPostingAccount` (per-user, per-platform credentials —
     WordPress/Tistory/Blogger/Naver; replaces the old single global blog config),
     `SocialAccount` (Kakao/Google/Naver login links), `LoginLog`, `MenuAccessLog` (written by
     `MenuAccessLogMiddleware`), `ChatMessage`.
-  - **Site content**: `NewsletterSubscriber`, `NewsletterIssue`, `Menu` (admin-editable nav,
+  - **`content.py`**: `NewsletterSubscriber`, `NewsletterIssue`, `Menu` (admin-editable nav,
     surfaced via `context_processors.menu_items`), `ConsultRequest`, `FinancialConsultSheet`.
-- `articles/views.py` — one large views module (no per-feature split). Notable groups: public
-  pages (`landing_page_view`, `main_dashboard_view`, `stock_detail_view` +
-  `stock_minute_chart_view`/`market_index_minute_chart_view` on-demand chart APIs), news board
-  CRUD (`news_board_view`, `news_detail_view`, `news_scrape_view` — member URL-submit → scrape →
-  AI draft, `news_edit_view` — staff-only edit, `post_articles_view` — manual publish), auth
-  (`signup_view`/`login_view`/`logout_view`/`delete_account_view`/`verify_email_view` plus
-  `kakao_*`/`google_*`/`naver_*` login+callback pairs), `my_page_view` (preferences, blog account
-  connections, `blogger_connect_view`/`blogger_callback_view` OAuth), `chatbot_ask_view`,
-  `cron_status_view` (admin-only, reads live crontab), `financial_consult_sheet_view`/`_save_view`.
+- `articles/views/` — package of view functions, split by domain (was a single `views.py`; every
+  name `config/urls.py` imports is re-exported from `articles/views/__init__.py`, so `urls.py`
+  needed no changes):
+  - **`public.py`**: `landing_page_view`, `main_dashboard_view` (+ `_build_index_chart`),
+    newsletter subscribe/unsubscribe, privacy/terms/insurance static pages, `consult_request_view`,
+    `header_fragment_view`.
+  - **`admin_tools.py`**: `cron_status_view` (staff-only, reads live crontab), the financial
+    consult sheet view/save pair.
+  - **`news.py`**: news board CRUD — `news_board_view`, `news_detail_view`, `news_scrape_view`
+    (member URL-submit → scrape → AI draft), `news_edit_view` (staff or original-submitter only),
+    `post_articles_view` (manual publish).
+  - **`stocks.py`**: `stock_detail_view` + `stock_minute_chart_view`/
+    `market_index_minute_chart_view` on-demand chart APIs.
+  - **`chatbot.py`**: `chatbot_ask_view`.
+  - **`auth.py`**: signup/login/logout/delete-account/email-verify plus `kakao_*`/`google_*`/
+    `naver_*` login+callback pairs, and the shared `_log_login`/`_get_or_create_social_user`
+    helpers.
+  - **`mypage.py`**: `my_page_view` (preferences, blog account connections) and
+    `blogger_connect_view`/`blogger_callback_view` OAuth (Blogger auto-posting connect, distinct
+    from the Google *login* flow in `auth.py`).
 - `articles/management/commands/` — the actual pipeline/collector logic lives here, not in
   views/models. Each command is a standalone, idempotent step intended to run on a schedule
   (dedup'd against existing DB rows — `existing_dates`, `original_url` uniqueness — so safe to
