@@ -1,0 +1,38 @@
+# articles/views.py였던 것을 도메인별로 쪼갠 패키지. config/urls.py가 기존에 `from articles.views
+# import (...)`로 가져오던 이름들을 여기서 그대로 재수출해, urls.py는 손댈 필요가 없다.
+from .public import (
+    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
+    privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view,
+    header_fragment_view,
+)
+from .admin_tools import (
+    cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
+)
+from .news import (
+    news_board_view, news_detail_view, news_edit_view, news_scrape_view, post_articles_view,
+)
+from .stocks import stock_detail_view, stock_minute_chart_view, market_index_minute_chart_view
+from .chatbot import chatbot_ask_view
+from .auth import (
+    signup_view, login_view, logout_view, delete_account_view, verify_email_view,
+    kakao_login_view, kakao_callback_view,
+    google_login_view, google_callback_view,
+    naver_login_view, naver_callback_view,
+)
+from .mypage import my_page_view, blogger_connect_view, blogger_callback_view
+
+__all__ = [
+    'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
+    'newsletter_unsubscribe_view', 'cron_status_view', 'privacy_policy_view',
+    'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
+    'header_fragment_view', 'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
+    'news_board_view', 'news_detail_view', 'news_edit_view', 'news_scrape_view',
+    'post_articles_view', 'stock_detail_view', 'stock_minute_chart_view',
+    'market_index_minute_chart_view', 'chatbot_ask_view',
+    'signup_view', 'login_view', 'logout_view', 'delete_account_view',
+    'kakao_login_view', 'kakao_callback_view',
+    'google_login_view', 'google_callback_view',
+    'naver_login_view', 'naver_callback_view',
+    'blogger_connect_view', 'blogger_callback_view',
+    'my_page_view', 'verify_email_view',
+]
