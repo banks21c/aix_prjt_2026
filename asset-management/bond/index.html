@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>채권 — 빌려주고 이자를 받는 자산</title>
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일.
+     신용등급 램프(--grade-*)는 위험 순서를 나타내는 기능색이라 그대로 둔다. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink: #212529;
+    --ink-soft: #868e96;
+    --paper: #f4f6f9;
+    --card: #ffffff;
+    --card-stub: #f1f3f5;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --accent: #0d47a1;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --warn: #8a6a1f;
+    --warn-bg: #f6efdc;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05);
+    --grade-1: #7fa08a;
+    --grade-2: #cb9a54;
+    --grade-3: #cb6854;
+    --grade-4: #a0412e;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA 페이지와 같은 구조·높이) ── */
+  header { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
+    transform: rotate(-6deg);
+  }
+  #nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 820px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+  /* ---------- hero: 채권 증서 ---------- */
+  .hero { padding: 44px 0; }
+  .cert {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    overflow: hidden;
+  }
+  .cert-main { padding: 40px 40px 32px; }
+  .eyebrow {
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 14px;
+  }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
+  .hero-desc { margin: 14px 0 0; color: var(--ink-soft); font-size: 15px; max-width: 50ch; }
+  .hero-points { margin: 20px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .hero-points li { font-size: 14px; padding-left: 18px; position: relative; }
+  .hero-points li::before {
+    content: ""; position: absolute; left: 0; top: 9px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  }
+  .cert-cover {
+    background: var(--card-stub);
+    border-left: 1px solid var(--line);
+    padding: 28px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  }
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double var(--accent);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
+    transform: rotate(-8deg);
+  }
+  .cover-label { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
+
+  @media (max-width: 760px) {
+    .cert { grid-template-columns: 1fr; }
+    .cert-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
+    .cert-main { padding: 28px 24px 24px; }
+    .hero-title { font-size: 26px; }
+  }
+
+  /* ---------- 섹션 공통 ---------- */
+  section { padding: 56px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+  .lede { font-size: 15px; color: var(--ink-soft); max-width: 62ch; margin: -8px 0 24px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: var(--shadow); padding: 20px 22px;
+  }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
+  .v { font-size: 15px; font-weight: 700; }
+  .desc { font-size: 13px; color: var(--ink-soft); margin-top: 7px; }
+  @media (max-width: 820px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .grid-4, .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ---------- 계산 예시 ---------- */
+  .calc { display: grid; grid-template-columns: 1fr 220px; gap: 14px; align-items: stretch; }
+  .calc-steps { display: flex; flex-direction: column; gap: 0; }
+  .calc-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    padding: 12px 0; border-bottom: 1px dashed var(--line); font-size: 14px;
+  }
+  .calc-row:last-child { border-bottom: none; }
+  .calc-row .label { color: var(--ink-soft); }
+  .calc-row .val { font-weight: 700; white-space: nowrap; }
+  .calc-total {
+    background: var(--card-stub); border: 1px solid var(--line); border-radius: 8px;
+    padding: 24px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  }
+  .calc-total .amount { font-size: 30px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+  @media (max-width: 700px) { .calc { grid-template-columns: 1fr; } }
+
+  /* ---------- 표 ---------- */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 8px; background: var(--card); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { background: var(--card-stub); font-size: 12.5px; color: var(--ink-soft); font-weight: 700; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody th { font-weight: 700; white-space: nowrap; }
+  .col-head { width: 1%; white-space: nowrap; color: var(--ink-soft); font-weight: 700; }
+
+  /* ---------- 금리 ↔ 가격 반비례 ---------- */
+  .seesaw {
+    background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 8px; box-shadow: var(--shadow); padding: 28px 24px;
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; text-align: center;
+  }
+  .seesaw-side .arrow { font-size: 34px; line-height: 1; font-weight: 800; }
+  .seesaw-side .name { font-size: 15px; font-weight: 700; margin-top: 6px; }
+  .seesaw-side .note { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+  .seesaw-side.up .arrow { color: var(--accent); }
+  .seesaw-side.down .arrow { color: var(--success); }
+  .seesaw-mid { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .seesaw-cap { margin-top: 14px; font-size: 13.5px; color: var(--ink-soft); }
+  @media (max-width: 560px) { .seesaw { grid-template-columns: 1fr; gap: 12px; } }
+
+  /* ---------- 리스크 카드 ---------- */
+  .risk-major { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  .risk-card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; box-shadow: var(--shadow); padding: 20px 22px; }
+  .risk-card h3 { font-size: 16px; font-weight: 800; }
+  .risk-card .num { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11px; color: var(--accent); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .risk-card p { margin: 8px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+  @media (max-width: 640px) { .risk-major { grid-template-columns: 1fr; } }
+
+  /* ---------- 신용등급 ---------- */
+  .grade-chip { display: inline-block; padding: 3px 9px; border-radius: 4px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 12px; font-weight: 700; color: var(--accent-ink); }
+  .g1 { background: var(--grade-1); } .g2 { background: var(--grade-2); }
+  .g3 { background: var(--grade-3); } .g4 { background: var(--grade-4); }
+
+  /* ---------- 판단 배지 ---------- */
+  .verdict { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; white-space: nowrap; }
+  .verdict.best { color: var(--success); }
+  .verdict.good { color: var(--success); opacity: .85; }
+  .verdict.care { color: var(--warn); }
+  .verdict.bad  { color: var(--accent); }
+
+  /* ---------- 강조 박스 ---------- */
+  .callout {
+    background: var(--warn-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; font-size: 13.5px; color: var(--ink); display: flex; gap: 11px; align-items: flex-start;
+  }
+  .callout .mark { color: var(--warn); font-weight: 800; flex-shrink: 0; }
+  .summary-box {
+    background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 32px 34px;
+  }
+  .summary-box .headline { font-size: 20px; font-weight: 800; }
+  .summary-box .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+  @media (max-width: 560px) { .summary-box { padding: 24px 20px; } .summary-box .two { grid-template-columns: 1fr; } }
+
+  .terms-strip {
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .terms-strip strong { color: var(--ink); }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab">보험</a>
+    <a href="/asset-management/bond/" class="am-tab is-active">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+
+
+
+  <header>
+    <div class="nav-inner">
+      <div class="brand"><span class="seal">📜</span>채권의 이해</div>
+      <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+      <nav id="nav">
+        <ul>
+          <li><a href="#basics">채권이란</a></li>
+          <li><a href="#example">계산 예시</a></li>
+          <li><a href="#types">종류·투자</a></li>
+          <li><a href="#compare">주식 vs 채권</a></li>
+          <li><a href="#risk">리스크</a></li>
+          <li><a href="#timing">투자 타이밍</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ========================================================= 채권이란 -->
+  <div class="pt-hero">
+    <div class="pt-eyebrow">Bond · 채권이란</div>
+    <h1 class="pt-title"><span class="pt-icon">📜</span>채권을 산다는 건 돈을 빌려준다는 뜻입니다</h1>
+    <p class="pt-desc">정부·기업·금융기관이 자금을 빌리기 위해 발행하는 <strong>차용증서</strong>가 채권입니다. 주식이 회사의 <em>지분</em>을 사는 것이라면, 채권은 회사에 <em>돈을 빌려주고</em> 그 대가를 받는 것입니다.</p>
+  </div>
+
+  <section class="hero" id="basics">
+    <div class="wrap">
+      <div class="cert rise" style="grid-template-columns: 1fr;">
+        <div class="cert-main">
+          <ul class="hero-points">
+            <li>정해진 이자를 정기적으로 받는다</li>
+            <li>만기가 되면 원금을 돌려받는다</li>
+            <li>발행자가 망하지 않는 한 수익이 확정되어 있다</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 핵심 구성 요소 -->
+  <section id="components">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">채권의 핵심 구성 요소</h2>
+        <span class="section-note">이 네 가지가 채권 하나를 정의한다</span>
+      </div>
+
+      <div class="grid-4">
+        <div class="card rise">
+          <div class="k">액면가 · Face Value</div>
+          <div class="v">만기에 돌려받는 원금</div>
+          <p class="desc">채권에 적힌 원금 금액. 시장에서 거래되는 가격과는 다를 수 있습니다.</p>
+        </div>
+        <div class="card rise rise-delay-1">
+          <div class="k">표면금리 · Coupon Rate</div>
+          <div class="v">정기적으로 받는 이자율</div>
+          <p class="desc">액면가에 곱해 이자를 계산합니다. 발행 시점에 고정되는 것이 일반적입니다.</p>
+        </div>
+        <div class="card rise rise-delay-1">
+          <div class="k">만기 · Maturity</div>
+          <div class="v">원금을 돌려받는 시점</div>
+          <p class="desc">만기가 길수록 금리 변동에 따른 가격 흔들림이 커집니다.</p>
+        </div>
+        <div class="card rise rise-delay-2">
+          <div class="k">발행자 · Issuer</div>
+          <div class="v">돈을 빌리는 주체</div>
+          <p class="desc">국가·지자체·기업·금융기관. 누가 발행했느냐가 안전성을 좌우합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== 계산 예시 -->
+  <section id="example">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">이자와 원금은 얼마가 될까</h2>
+        <span class="section-note">액면가 100만원 · 표면금리 4% · 만기 3년</span>
+      </div>
+
+      <div class="calc">
+        <div class="card calc-steps">
+          <div class="calc-row">
+            <span class="label">매년 이자</span>
+            <span class="val mono">100만원 × 4% = 4만원</span>
+          </div>
+          <div class="calc-row">
+            <span class="label">3년간 총 이자</span>
+            <span class="val mono">4만원 × 3년 = 12만원</span>
+          </div>
+          <div class="calc-row">
+            <span class="label">만기 시 원금 상환</span>
+            <span class="val mono">100만원</span>
+          </div>
+          <div class="calc-row">
+            <span class="label">총 수령액</span>
+            <span class="val mono">100만원 + 12만원</span>
+          </div>
+        </div>
+        <div class="calc-total">
+          <div class="k">총 수령액</div>
+          <div class="amount mono">112만원</div>
+          <div class="desc">원금 100 + 이자 12</div>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:16px;">
+        <span class="mark">!</span>
+        <span>만기까지 보유하면 이 금액이 확정됩니다. 다만 <strong>중간에 팔면</strong> 그 시점의 시장 가격을 따르므로 손익이 달라집니다 — 이것이 아래에서 다룰 금리 리스크입니다.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= 종류와 투자 -->
+  <section id="types">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">채권의 종류</h2>
+        <span class="section-note">발행자에 따라 안전성과 이자가 갈린다</span>
+      </div>
+
+      <div class="grid-4">
+        <div class="card">
+          <div class="k">국채</div>
+          <div class="v">국가가 발행</div>
+          <p class="desc">가장 안전한 축. 그만큼 이자는 낮습니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">지방채</div>
+          <div class="v">지방자치단체가 발행</div>
+          <p class="desc">국채에 준하는 안정성을 갖습니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">회사채</div>
+          <div class="v">기업이 발행</div>
+          <p class="desc">이자가 높은 대신 부도 위험도 함께 커집니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">금융채</div>
+          <div class="v">은행 등 금융기관이 발행</div>
+          <p class="desc">국채와 회사채 중간 수준으로 보는 것이 보통입니다.</p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">어떻게 투자할까</h2>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="k">직접 투자</div>
+          <div class="v">증권사에서 개별 채권 매수</div>
+          <p class="desc">표면금리와 만기를 직접 골라 만기까지 보유하면 이자와 원금을 그대로 수령합니다. 종목을 스스로 고르고 관리해야 합니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">간접 투자</div>
+          <div class="v">채권형 펀드 · 채권 ETF</div>
+          <p class="desc">소액으로 여러 채권에 분산되고 매매가 간편합니다. 대신 만기 개념이 없어 가격 변동에 계속 노출됩니다.</p>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:16px;">
+        <span class="mark">→</span>
+        <span>처음이라면 <strong>국채나 우량 채권 ETF</strong>부터 시작하는 것이 일반적인 권고입니다.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== 주식 vs 채권 -->
+  <section id="compare">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">주식 vs 채권</h2>
+        <span class="section-note">소유권이냐, 빌려준 돈이냐</span>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>구분</th><th>주식</th><th>채권</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="col-head">성격</th><td>회사의 소유권(지분)</td><td>회사에 대한 채권(빚)</td></tr>
+            <tr><th class="col-head">수익</th><td>배당 + 시세차익 (변동)</td><td>정해진 이자 (고정)</td></tr>
+            <tr><th class="col-head">위험</th><td>높음</td><td>상대적으로 낮음</td></tr>
+            <tr><th class="col-head">만기</th><td>없음</td><td>있음</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== 리스크 -->
+  <section id="risk">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">채권의 주요 리스크</h2>
+        <span class="section-note">채권도 '무위험'은 아니다</span>
+      </div>
+      <p class="lede">
+        채권은 주식보다 안전하다고들 하지만 원금이 보장되는 상품은 아닙니다.
+        금리 · 신용 · 유동성 · 인플레이션 · 재투자 · 환율 — 여섯 가지 위험이 따라붙습니다.
+        이 중 <strong>금리</strong>와 <strong>신용</strong> 두 가지가 압도적으로 중요합니다.
+      </p>
+
+      <!-- 금리 ↔ 가격 반비례 -->
+      <div class="seesaw rise">
+        <div class="seesaw-side up">
+          <div class="arrow">↑</div>
+          <div class="name">시장 금리</div>
+          <div class="note">오르면</div>
+        </div>
+        <div class="seesaw-mid">반비례</div>
+        <div class="seesaw-side down">
+          <div class="arrow">↓</div>
+          <div class="name">기존 채권 가격</div>
+          <div class="note">떨어진다</div>
+        </div>
+      </div>
+      <p class="seesaw-cap">
+        새로 나온 채권이 더 높은 이자를 준다면, 낮은 이자가 박혀 있는 기존 채권은 값을 깎아야 팔립니다.
+        채권 투자에서 가장 먼저 이해해야 할 원리입니다.
+      </p>
+
+      <!-- 2대 리스크 -->
+      <div class="risk-major">
+        <div class="risk-card">
+          <div class="num">① RATE RISK</div>
+          <h3>금리 리스크</h3>
+          <p>시장 금리가 오르면 이미 보유한 채권의 가격이 떨어집니다. <strong>만기가 길수록</strong> 타격이 커지고, 만기 전에 팔면 손실이 확정될 수 있습니다.</p>
+        </div>
+        <div class="risk-card">
+          <div class="num">② CREDIT RISK</div>
+          <h3>신용 리스크</h3>
+          <p>발행자가 이자나 원금을 갚지 못하는 위험, 즉 부도입니다. <strong>신용등급(AAA~D)</strong>으로 위험도를 가늠합니다.</p>
+        </div>
+      </div>
+
+      <!-- 기타 4종 -->
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">③~⑥ 나머지 리스크</h2>
+      </div>
+      <div class="grid-4">
+        <div class="card">
+          <div class="k">③ 유동성</div>
+          <div class="v">제값에 못 파는 위험</div>
+          <p class="desc">거래가 뜸한 채권은 팔고 싶을 때 사줄 사람이 없습니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">④ 인플레이션</div>
+          <div class="v">실질 가치 하락</div>
+          <p class="desc">물가가 오르면 고정된 이자와 원금의 구매력이 줄어듭니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">⑤ 재투자</div>
+          <div class="v">더 낮은 금리로 재투자</div>
+          <p class="desc">받은 이자를 다시 굴릴 때 금리가 내려가 있으면 수익이 줄어듭니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">⑥ 환율</div>
+          <div class="v">외화 채권의 환 손실</div>
+          <p class="desc">이자를 벌어도 환율이 불리하게 움직이면 원화 기준 손실이 납니다.</p>
+        </div>
+      </div>
+
+      <!-- 리스크 종합표 -->
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">리스크 한눈에 보기</h2>
+        <span class="section-note">어떤 채권이 어떤 위험에 약한가</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>리스크</th><th>핵심 원인</th><th>취약한 채권</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="col-head">금리</th><td>시장 금리 상승</td><td>장기채 · 고정금리</td></tr>
+            <tr><th class="col-head">신용</th><td>발행자 부도</td><td>회사채 · 저신용</td></tr>
+            <tr><th class="col-head">유동성</th><td>거래 부진</td><td>비인기 채권</td></tr>
+            <tr><th class="col-head">인플레이션</th><td>물가 상승</td><td>고정금리 장기채</td></tr>
+            <tr><th class="col-head">재투자</th><td>금리 하락</td><td>콜옵션 채권</td></tr>
+            <tr><th class="col-head">환율</th><td>환율 변동</td><td>외화표시 채권</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 신용등급 -->
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">신용등급으로 보는 신용 리스크</h2>
+        <span class="section-note">이자가 높다면 그만한 이유가 있다</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>등급</th><th>의미</th><th>특징</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="grade-chip g1 mono">AAA~AA</span></td><td>최우량</td><td>부도 위험이 매우 낮은 대신 이자가 낮습니다</td></tr>
+            <tr><td><span class="grade-chip g2 mono">A~BBB</span></td><td>우량 (투자등급)</td><td>안정적이면서 적정한 이자를 줍니다</td></tr>
+            <tr><td><span class="grade-chip g3 mono">BB~B</span></td><td>투기등급</td><td>위험이 높은 만큼 이자가 높습니다</td></tr>
+            <tr><td><span class="grade-chip g4 mono">CCC~D</span></td><td>부실 · 부도</td><td>원금 손실 가능성이 큽니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== 타이밍 -->
+  <section id="timing">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">채권, 언제 쓰는 게 가장 좋을까</h2>
+        <span class="section-note">금리 국면이 절반을 결정한다</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="k">가장 중요한 타이밍</div>
+          <div class="v">금리 인하가 예상될 때</div>
+          <p class="desc">높은 이자를 확정해두고, 이후 금리가 내려가면 채권 가격 상승 차익까지 함께 얻습니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">현금 흐름</div>
+          <div class="v">안정적 수입이 필요할 때</div>
+          <p class="desc">은퇴자의 생활비, 목돈 만기 대비 등 정해진 시점에 정해진 금액이 필요한 경우.</p>
+        </div>
+        <div class="card">
+          <div class="k">포트폴리오</div>
+          <div class="v">주식의 방어막이 필요할 때</div>
+          <p class="desc">주식과 반대로 움직이는 경향이 있어 전체 변동성을 낮추는 역할을 합니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">예금 대안</div>
+          <div class="v">예금보다 높은 수익을 원할 때</div>
+          <p class="desc">우량 채권이라면 예금 금리를 웃도는 수익을 노려볼 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">금리 사이클별 투자 전략</h2>
+        <span class="section-note">지금이 어느 국면인가</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>금리 국면</th><th>판단</th><th>이유</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th class="col-head">고점 · 인하 직전</th>
+              <td><span class="verdict best">최적기 ◎</span></td>
+              <td>높은 이자를 확정하고 가격 상승까지 기대할 수 있습니다</td>
+            </tr>
+            <tr>
+              <th class="col-head">금리 하락 중</th>
+              <td><span class="verdict good">양호 ○</span></td>
+              <td>가격 상승은 이어지지만 새로 받는 이자는 점차 낮아집니다</td>
+            </tr>
+            <tr>
+              <th class="col-head">금리 저점</th>
+              <td><span class="verdict care">신중 △</span></td>
+              <td>오를 일만 남은 구간 — 가격 하락 위험이 큽니다</td>
+            </tr>
+            <tr>
+              <th class="col-head">금리 상승 중</th>
+              <td><span class="verdict bad">불리 ✕</span></td>
+              <td>보유한 기존 채권의 가격이 계속 떨어집니다</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-head" style="margin-top:44px;">
+        <h2 class="section-title">반대로, 채권이 불리한 때</h2>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="k">금리 상승기</div>
+          <div class="v">기존 채권 가격 하락</div>
+          <p class="desc">보유 중인 채권의 평가액이 깎여 중도 매도 시 손실이 납니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">고물가 국면</div>
+          <div class="v">고정 이자의 실질 가치 하락</div>
+          <p class="desc">받는 이자는 그대로인데 물가가 올라 실질 수익이 줄어듭니다.</p>
+        </div>
+        <div class="card">
+          <div class="k">높은 수익을 노릴 때</div>
+          <div class="v">주식 · 부동산 대비 기대수익 낮음</div>
+          <p class="desc">안정성과 맞바꾼 것이 수익률입니다. 공격적 자산 증식에는 맞지 않습니다.</p>
+        </div>
+        <div class="card" style="border-left:3px solid var(--accent);">
+          <div class="k">한 줄 요약</div>
+          <div class="v">금리 고점 + 안정적 이자</div>
+          <p class="desc">이 두 조건이 필요할 때가 채권의 적기입니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================= 핵심 정리 -->
+  <section id="summary">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">핵심 정리</h2>
+      </div>
+
+      <div class="summary-box">
+        <div class="headline">가장 중요한 두 가지 리스크만 기억하세요</div>
+        <div class="two">
+          <div>
+            <div class="k">첫째</div>
+            <div class="v">금리 리스크 — 가격 변동</div>
+            <p class="desc">금리가 오르면 내 채권 값이 떨어진다. 만기가 길수록 심하다.</p>
+          </div>
+          <div>
+            <div class="k">둘째</div>
+            <div class="v">신용 리스크 — 부도</div>
+            <p class="desc">발행자가 못 갚을 수 있다. 신용등급으로 가늠한다.</p>
+          </div>
+        </div>
+        <p class="desc" style="margin-top:20px; font-size:14px;">
+          이 둘만 이해해도 채권 투자의 큰 그림은 잡힙니다. 나머지 네 가지 리스크는
+          어떤 채권을 고르느냐에 따라 선택적으로 따라붙는 부가 항목에 가깝습니다.
+        </p>
+      </div>
+
+      <div class="terms-strip">
+        <strong>NOTICE —</strong> 본 페이지는 채권의 일반적인 구조와 위험 요인을 설명한 교육용 자료이며, 특정 채권이나 상품의 매수를 권유하지 않습니다.
+        계산 예시의 종목명·금리·만기는 이해를 돕기 위한 가상의 수치입니다. 실제 투자 전에는 발행자의 신용등급, 잔존 만기, 세금, 매매 수수료를
+        직접 확인하시고 필요 시 전문가와 상담하시기 바랍니다.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand">NextFinUp 종합자산관리</div>
+      <p class="footer-note">
+        채권의 이해 · 교육용 참고 자료. 본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴
+    (function () {
+      var navEl = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      if (!navEl || !toggle) return;
+      toggle.addEventListener('click', function () { navEl.classList.toggle('open'); });
+      navEl.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { navEl.classList.remove('open'); });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NextFinUp - 개인정보처리방침</title>
+<style>
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink:#212529; --paper:#f4f6f9; --card:#ffffff; --line:#e9ecef; --accent:#0d47a1; --muted:#868e96;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); line-height:1.75;
+         font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:8px 24px 72px; }
+  .updated { color:var(--muted); font-size:13px; margin:0 0 40px; }
+  h2 { font-size:18px; margin:40px 0 12px; color:var(--accent); letter-spacing:-.01em; }
+  p, li { font-size:15px; }
+  ul { padding-left:20px; margin:0 0 12px; }
+  li { margin-bottom:6px; }
+  table { width:100%; border-collapse:collapse; margin:12px 0 4px; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top; }
+  th { background:var(--card); font-weight:700; white-space:nowrap; }
+  .note { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent);
+          border-radius:0 10px 10px 0; padding:16px 20px; margin:16px 0; font-size:14px; color:var(--muted); }
+  footer { margin-top:56px; padding-top:20px; border-top:1px solid var(--line);
+           font-size:13px; color:var(--muted); }
+  a { color:var(--accent); }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+</style>
+</head>
+<body>
+  <nav id="nfu-header-fallback" style="background:#fff;border-bottom:1px solid #e9ecef;position:sticky;top:0;z-index:1020;">
+    <div style="max-width:1140px;margin:0 auto;padding:0 20px;height:64px;display:flex;align-items:center;">
+      <a href="/" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;letter-spacing:-0.5px;color:#0d47a1;font-size:20px;text-decoration:none;">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var fallback = document.getElementById('nfu-header-fallback');
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        fallback.replaceWith.apply(fallback, Array.from(wrapper.childNodes));
+      })
+      .catch(function () {});
+  </script>
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">정책 안내</div>
+    <h1 class="pt-title"><span class="pt-icon">📄</span>개인정보처리방침</h1>
+    <p class="pt-desc">NextFinUp 종합자산관리(이하 &ldquo;서비스&rdquo;)가 이용자의 개인정보를 어떻게 수집하고 다루는지 안내합니다.</p>
+  </div>
+
+  <div class="wrap">
+    <p class="updated">시행일 2026년 7월 27일</p>
+
+    <div class="note">
+      이 사이트는 노후 자산 제도를 설명하는 <strong>교육용 데모</strong>입니다. 특정 금융상품의
+      가입을 권유하지 않으며, 상담신청 외에는 개인정보를 수집하지 않습니다.
+    </div>
+
+    <h2>1. 수집하는 개인정보 항목</h2>
+    <p>상담신청 폼을 제출하실 때에 한해 아래 항목을 수집합니다. 회원가입 절차는 없습니다.</p>
+    <table>
+      <tr><th>구분</th><th>항목</th></tr>
+      <tr><td>필수</td><td>이름, 연락처</td></tr>
+      <tr><td>선택</td><td>이메일, 연 소득, 납입 예정 금액, 관심 전략, 관심 분야, 문의사항</td></tr>
+      <tr><td>자동 생성</td><td>신청 일시, 신청한 페이지(연금저축 · IRP · ISA 중 어디에서 접수했는지)</td></tr>
+    </table>
+
+    <h2>2. 수집 및 이용 목적</h2>
+    <ul>
+      <li>상담신청 접수 확인 및 담당자 안내 연락</li>
+      <li>문의하신 내용에 대한 답변</li>
+    </ul>
+    <p>수집한 정보를 위 목적 외의 용도로 이용하지 않습니다. 광고성 정보 전송에는 사용하지 않습니다.</p>
+
+    <h2>3. 보유 및 파기</h2>
+    <ul>
+      <li>상담이 종료된 날부터 <strong>1년간</strong> 보관한 뒤 지체 없이 파기합니다.</li>
+      <li>이용자가 삭제를 요청하시면 즉시 파기합니다.</li>
+      <li>전자적 파일 형태로 보관되며, 파기 시 복구할 수 없는 방법으로 삭제합니다.</li>
+    </ul>
+
+    <h2>4. 제3자 제공 및 처리 위탁</h2>
+    <p>이용자의 개인정보를 제3자에게 제공하거나 외부에 처리를 위탁하지 않습니다.
+       법령에 따라 수사기관이 적법한 절차로 요구하는 경우에만 예외로 합니다.</p>
+
+    <h2>5. 쿠키</h2>
+    <p>서비스는 화면 표시 설정을 기억하는 등 이용에 꼭 필요한 범위에서만 쿠키를 사용합니다.
+       광고 목적의 추적 쿠키나 제3자 분석 도구는 사용하지 않습니다.</p>
+    <p>쿠키 저장을 원하지 않으시면 브라우저 설정에서 거부하실 수 있습니다. 다만 일부 설정이
+       유지되지 않을 수 있습니다.</p>
+
+    <h2>6. 이용자의 권리</h2>
+    <p>이용자는 언제든지 본인의 개인정보에 대해 열람 · 정정 · 삭제 · 처리정지를 요청하실 수 있습니다.
+       아래 연락처로 요청하시면 지체 없이 처리합니다.</p>
+
+    <h2>7. 안전성 확보 조치</h2>
+    <ul>
+      <li>접수된 상담 내역은 관리자 인증을 거친 경우에만 조회할 수 있습니다.</li>
+      <li>개인정보를 취급하는 인원을 최소한으로 제한합니다.</li>
+    </ul>
+
+    <h2>8. 문의처</h2>
+    <p>개인정보 관련 문의 및 요청은 상담신청 폼의 문의사항란으로 남겨 주시기 바랍니다.</p>
+
+    <h2>9. 방침의 변경</h2>
+    <p>이 방침이 변경되는 경우 시행일과 변경 내용을 이 페이지에 게시합니다.</p>
+
+    <footer>
+      <strong>NextFinUp</strong> · 교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다.
+    </footer>
+  </div>
+</body>
+</html>

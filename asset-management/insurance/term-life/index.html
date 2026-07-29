@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정기보험 — 필요한 기간에만 보장을 사는 보험</title>
+<!-- 아래 스타일은 irp/index.html과 시각적 일관성을 위해 그대로 복사한 것이라 사용하지 않는 선택자가 포함되어 있다 -->
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink: #212529;
+    --ink-soft: #868e96;
+    --paper: #f4f6f9;
+    --card: #ffffff;
+    --card-stub: #f1f3f5;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --accent: #0d47a1;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA 페이지와 같은 구조·높이) ── */
+  header { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
+    transform: rotate(-6deg);
+  }
+  #nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 820px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+
+  /* ---------- hero: passbook cover ---------- */
+  .hero { padding: 40px 0; }
+  .passbook {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    overflow: hidden;
+    position: relative;
+  }
+  .passbook-main { padding: 40px 40px 32px; }
+  .eyebrow {
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 14px;
+  }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
+  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
+
+  .calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .field label {
+    display: block; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 10px 11px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: var(--accent-ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(13,71,161,0.28); }
+  .btn:active { transform: translateY(0); }
+  .btn-block { width: 100%; margin-top: 18px; }
+
+  /* passbook cover panel with wax-seal stamp */
+  .passbook-cover {
+    background: var(--card-stub);
+    border-left: 1px solid var(--line);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double var(--accent);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
+    transform: rotate(-8deg);
+  }
+  .cover-label { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
+
+  @media (max-width: 760px) {
+    .passbook { grid-template-columns: 1fr; }
+    .passbook-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
+    .calc-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  section { padding: 56px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
+
+  .ledger-stub {
+    background: var(--card-stub);
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
+  }
+  .acct-no { margin-top: 14px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11px; color: var(--ink-soft); }
+
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .ledger-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .ledger-item .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .ledger-item .v { font-size: 14px; font-weight: 600; }
+  .ledger-feature { font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 12px; }
+
+  .ledger-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+  .fee .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+  .fee .v { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .fee .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+
+  @media (max-width: 700px) {
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+    .ledger-grid { grid-template-columns: 1fr 1fr; }
+    .ledger-footer { flex-direction: column; align-items: stretch; }
+  }
+
+  .terms-strip {
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .terms-strip strong { color: var(--ink); }
+
+  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
+  .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .consult-grid .full { grid-column: 1 / -1; }
+  .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .consult-grid input, .consult-grid textarea {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
+  .consult-success { display: none; margin-top: 14px; background: var(--success-bg); color: var(--success); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  @media (max-width: 560px) { .consult { padding: 28px 22px; } .consult-grid { grid-template-columns: 1fr; } }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  .cmp th { background: var(--card); font-weight: 700; }
+  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-sub { background:#f8f9fb; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab is-active">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+<div class="am-tabs am-tabs-sub">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/insurance/" class="am-tab">개요</a>
+    <a href="/asset-management/insurance/life/" class="am-tab">생명보험</a>
+    <a href="/asset-management/insurance/damage/" class="am-tab">손해보험</a>
+    <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
+    <a href="/asset-management/insurance/term-life/" class="am-tab is-active">정기보험</a>
+    <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
+  </div>
+</div>
+
+
+  <header>
+    <div class="nav-inner">
+      <div class="brand"><span class="seal">🛡️</span>정기보험</div>
+      <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+      <nav id="nav">
+        <ul>
+          <li><a href="#basics">핵심 원리</a></li>
+          <li><a href="#vs-whole">종신보험과 비교</a></li>
+          <li><a href="#renew">갱신형 비교</a></li>
+          <li><a href="#pros-cons">장단점</a></li>
+          <li><a href="#checklist">가입 전 확인</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">定期保險</div>
+    <h1 class="pt-title"><span class="pt-icon">🛡️</span>필요한 기간에만 보장을 사는 보험</h1>
+    <p class="pt-desc">정해진 기간 동안만 사망을 보장합니다. 기간 안에 사망하면 보험금이 나가고, 만기까지 살아 있으면 보장은 그대로 끝납니다. 돌려받는 돈이 없거나 매우 적은 대신 보험료가 가장 저렴합니다.</p>
+  </div>
+
+  <main>
+    <section id="basics">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">핵심 원리</h2>
+          <span class="section-note">구조가 단순한 것이 특징</span>
+        </div>
+        <div class="plans">
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">보장기간을 정한다</div>
+              <span class="type-tag">20년 · 60세 · 70세 만기</span>
+            </div>
+            <div class="ledger-body">
+              <p>"20년 만기", "60세 만기", "70세 만기"처럼 보장받을 기간을 계약 시점에 미리 정합니다. 이 기간이 상품의 전부라고 해도 될 만큼 핵심입니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">기간 안에 사망하면 지급</div>
+              <span class="type-tag">유가족 생활 보장</span>
+            </div>
+            <div class="ledger-body">
+              <p>보험기간 중 사망하면 유가족에게 사망보험금이 지급됩니다. 남은 가족의 생활비 · 교육비 · 대출 상환을 메우는 것이 본래 목적입니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">만기가 지나면 끝</div>
+              <span class="type-tag">순수보장형</span>
+            </div>
+            <div class="ledger-body">
+              <p>만기까지 사망하지 않으면 보장은 종료되고 돌려받는 돈은 없거나 매우 적습니다. 이것이 손해처럼 보이지만, 그 대신 같은 보장을 훨씬 싼값에 산 것입니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="vs-whole">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">정기보험 vs 종신보험</h2>
+          <span class="section-note">같은 사망보장, 다른 가격</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>항목</th><th>정기보험</th><th>종신보험</th></tr></thead>
+            <tbody>
+              <tr><td>보장기간</td><td>정해진 기간</td><td>평생</td></tr>
+              <tr><td>보험료</td><td>상대적으로 저렴</td><td>상대적으로 비쌈</td></tr>
+              <tr><td>만기 후</td><td>보장 종료</td><td>사망 시까지 보장</td></tr>
+              <tr><td>환급금</td><td>없거나 적은 경우 많음</td><td>해지환급금 있는 경우 많음</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>종신보험은 사망이 언젠가 반드시 일어나므로 지급이 확정된 보험입니다. 정기보험은 기간 안에 사망해야 지급되므로 보험사가 지는 위험이 작고, 그만큼 보험료가 쌉니다.
+          <a href="../../insurance/whole-life/index.html">종신보험 페이지에서 반대편 관점 보기 &rarr;</a></p>
+      </div>
+    </section>
+
+    <section id="renew">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">갱신형 vs 비갱신형</h2>
+          <span class="section-note">보험료가 오르느냐 마느냐</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>갱신형</th><th>비갱신형</th></tr></thead>
+            <tbody>
+              <tr><td>초기 보험료</td><td>낮음</td><td>상대적으로 높음</td></tr>
+              <tr><td>이후 보험료</td><td>갱신 때 오를 수 있음</td><td>처음 정한 보험료가 유지되는 경우가 많음</td></tr>
+              <tr><td>부담이 커지는 시점</td><td>나이 들수록</td><td>없음</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>초기 보험료만 보고 갱신형을 고르면 정작 보장이 절실해지는 나이에 부담이 커집니다. 총 납입액 기준으로 비교해야 합니다.</p>
+      </div>
+    </section>
+
+    <section id="pros-cons">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">장점과 단점</h2>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>장점</th><th>단점</th></tr></thead>
+            <tbody>
+              <tr><td>보험료가 저렴하다 — 가장 큰 장점</td><td>만기 후 보장이 사라진다</td></tr>
+              <tr><td>특정 기간만 보장받을 수 있다</td><td>만기환급금이 없거나 적을 수 있다</td></tr>
+              <tr><td>보장 구조가 단순하다</td><td>나이가 많아지거나 건강이 나빠지면 재가입이 어렵거나 보험료가 비싸질 수 있다</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="checklist">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">가입 전 확인할 것</h2>
+          <span class="section-note">순서대로 정하면 상품이 좁혀집니다</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>#</th><th>확인 항목</th><th>기준</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>보장기간</td><td>자녀 독립 · 대출 만기 · 은퇴 시점 중 무엇에 맞출지</td></tr>
+              <tr><td>2</td><td>사망보험금 규모</td><td>남은 가족의 생활비 · 교육비 · 갚아야 할 대출금</td></tr>
+              <tr><td>3</td><td>순수보장형 / 환급형</td><td>환급형은 보험료가 오릅니다</td></tr>
+              <tr><td>4</td><td>갱신형 / 비갱신형</td><td>총 납입액으로 비교</td></tr>
+              <tr><td>5</td><td>특약 구성</td><td>질병 · 재해 · 후유장해 특약 등</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>보장이 필요한 기간이 뚜렷하다면 — 예를 들어 막내가 독립할 때까지, 또는 주택담보대출을 다 갚을 때까지 — 정기보험이 같은 돈으로 가장 큰 보장을 살 수 있는 선택입니다.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <span class="footer-brand">NextFinUp</span>
+      <span class="footer-note">교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다.</span>
+    </div>
+  </footer>
+
+  <script>
+    // 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴
+    (function () {
+      var navEl = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      if (!navEl || !toggle) return;
+      toggle.addEventListener('click', function () { navEl.classList.toggle('open'); });
+      navEl.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { navEl.classList.remove('open'); });
+      });
+    })();
+  </script>
+</body>
+</html>
