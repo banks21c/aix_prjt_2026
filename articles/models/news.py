@@ -15,8 +15,8 @@ class NewsSource(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "RSS 언론사"
-        verbose_name_plural = "RSS 언론사"
+        verbose_name = "RSS 언론사 (NewsSource)"
+        verbose_name_plural = "RSS 언론사 (NewsSource)"
 
     def __str__(self):
         return self.name
@@ -31,8 +31,8 @@ class MediaOutlet(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "언론사 도메인 매핑"
-        verbose_name_plural = "언론사 도메인 매핑"
+        verbose_name = "언론사 도메인 매핑 (MediaOutlet)"
+        verbose_name_plural = "언론사 도메인 매핑 (MediaOutlet)"
 
     def __str__(self):
         return f"{self.domain} → {self.name}"
@@ -49,8 +49,8 @@ class NewsKeyword(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "감지 키워드"
-        verbose_name_plural = "감지 키워드"
+        verbose_name = "감지 키워드 (NewsKeyword)"
+        verbose_name_plural = "감지 키워드 (NewsKeyword)"
 
     def __str__(self):
         return self.keyword
@@ -128,8 +128,8 @@ class AnalyzedArticle(models.Model):
     ai_summarized_at = models.DateTimeField(null=True, blank=True, verbose_name="AI 요약 실행 일시")
 
     class Meta:
-        verbose_name = "수집 기사"
-        verbose_name_plural = "수집 기사"
+        verbose_name = "수집 기사 (AnalyzedArticle)"
+        verbose_name_plural = "수집 기사 (AnalyzedArticle)"
 
     def __str__(self):
         return f"[{self.source_media}] {self.title}"
@@ -151,8 +151,8 @@ class PostedArticle(models.Model):
     class Meta:
         unique_together = ('blog_account', 'article')
         ordering = ['-posted_at']
-        verbose_name = "발행 기록"
-        verbose_name_plural = "발행 기록"
+        verbose_name = "발행 기록 (PostedArticle)"
+        verbose_name_plural = "발행 기록 (PostedArticle)"
 
     def __str__(self):
         return f"{self.blog_account} -> {self.article.title[:30]}"

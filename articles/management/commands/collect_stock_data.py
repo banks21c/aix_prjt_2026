@@ -3,7 +3,7 @@ import time
 
 import yfinance as yf
 from django.core.management.base import BaseCommand
-from articles.models import StockItem, StockPrediction
+from articles.models import StockItem, StockDailyPrice
 
 # 시장 구분 -> 야후 파이낸스 티커 접미사
 SUFFIX_MAP = {'KOSPI': '.KS', 'KOSDAQ': '.KQ'}
@@ -163,14 +163,14 @@ class Command(BaseCommand):
         raise last_exc
 
     def _save_history(self, stock, df):
-        """OHLCV 데이터프레임을 검증 후 StockPrediction으로 벌크 적재합니다."""
+        """OHLCV 데이터프레임을 검증 후 StockDailyPrice로 벌크 적재합니다."""
         # 결측치가 있는 행은 DB 제약(NOT NULL) 위반이나 잘못된 값 저장을 막기 위해 제외
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
         if df.empty:
             return 0
 
         existing_dates = set(
-            StockPrediction.objects.filter(stock=stock).values_list('date', flat=True)
+            StockDailyPrice.objects.filter(stock=stock).values_list('date', flat=True)
         )
 
         bulk_list = []
@@ -181,7 +181,7 @@ class Command(BaseCommand):
 
             try:
                 bulk_list.append(
-                    StockPrediction(
+                    StockDailyPrice(
                         stock=stock,
                         date=record_date,
                         open_price=round(float(row['Open']), 2),
@@ -200,7 +200,7 @@ class Command(BaseCommand):
             return 0
 
         # unique_together=(stock, date) 위반분은 조용히 무시 (existing_dates와 이중 방어)
-        StockPrediction.objects.bulk_create(bulk_list, batch_size=500, ignore_conflicts=True)
+        StockDailyPrice.objects.bulk_create(bulk_list, batch_size=500, ignore_conflicts=True)
         return len(bulk_list)
 
     @staticmethod

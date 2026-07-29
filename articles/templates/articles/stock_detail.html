@@ -44,12 +44,12 @@
                     </span>
                 </div>
                 <div class="text-muted" style="font-size: 11px;">🟢 한국투자증권 · {{ realtime.updated_at|date:"H:i" }} 기준</div>
-                {% elif latest %}
-                <div class="fs-3 fw-bold">{{ latest.close_price|floatformat:0 }}원</div>
-                <div class="text-muted" style="font-size: 11px;">{{ latest.date|date:"Y-m-d" }} 종가</div>
+                {% elif latest_price %}
+                <div class="fs-3 fw-bold">{{ latest_price.close_price|floatformat:0 }}원</div>
+                <div class="text-muted" style="font-size: 11px;">{{ latest_price.date|date:"Y-m-d" }} 종가</div>
                 {% endif %}
-                {% if latest %}
-                <span class="signal-{{ latest.trading_signal }}">{{ latest.get_trading_signal_display }}</span>
+                {% if latest_pred %}
+                <span class="signal-{{ latest_pred.trading_signal }}">{{ latest_pred.get_trading_signal_display }}</span>
                 {% endif %}
             </div>
         </div>
@@ -139,24 +139,24 @@
 
         <!-- AI 예측 -->
         <div class="card card-custom bg-white p-4 mb-4">
-            <h5 class="section-title">🤖 AI 예측 ({{ latest.date|date:"Y-m-d"|default:"-" }} 기준)</h5>
-            {% if latest and latest.pred_next_close is not None %}
+            <h5 class="section-title">🤖 AI 예측 ({{ latest_pred.date|date:"Y-m-d"|default:"-" }} 기준)</h5>
+            {% if latest_pred and latest_pred.pred_next_close is not None %}
             <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
                 <div class="col">
                     <div class="text-muted small">내일 예상 종가</div>
-                    <div class="fw-bold fs-5">{{ latest.pred_next_close|floatformat:0 }}원</div>
+                    <div class="fw-bold fs-5">{{ latest_pred.pred_next_close|floatformat:0 }}원</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">상승 확률</div>
-                    <div class="fw-bold fs-5 up-value">{{ latest.up_probability|floatformat:1 }}%</div>
+                    <div class="fw-bold fs-5 up-value">{{ latest_pred.up_probability_pct|floatformat:1 }}%</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">향후 5일 예상수익률</div>
-                    <div class="fw-bold fs-5">{{ latest.pred_5day_return|floatformat:2 }}%</div>
+                    <div class="fw-bold fs-5">{{ latest_pred.pred_5day_return|floatformat:2 }}%</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">매매 신호</div>
-                    <div><span class="signal-{{ latest.trading_signal }}">{{ latest.get_trading_signal_display }}</span></div>
+                    <div><span class="signal-{{ latest_pred.trading_signal }}">{{ latest_pred.get_trading_signal_display }}</span></div>
                 </div>
             </div>
             {% else %}

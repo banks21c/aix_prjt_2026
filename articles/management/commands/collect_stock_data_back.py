@@ -1,6 +1,6 @@
 import yfinance as yf
 from django.core.management.base import BaseCommand
-from articles.models import StockItem, StockPrediction
+from articles.models import StockItem, StockDailyPrice
 
 class Command(BaseCommand):
     help = 'DB의 StockItem 테이블을 읽어서 활성화된 모든 종목의 10년 치 일봉 데이터를 초고속 벌크 적재합니다.'
@@ -35,7 +35,7 @@ class Command(BaseCommand):
                 
                 # 이미 이 종목에 대해 저장된 날짜셋을 가져와 중복 삽입을 완벽 무력화 차단합니다.
                 existing_dates = set(
-                    StockPrediction.objects.filter(stock=stock).values_list('date', flat=True)
+                    StockDailyPrice.objects.filter(stock=stock).values_list('date', flat=True)
                 )
 
                 for index, row in df.iterrows():
@@ -45,7 +45,7 @@ class Command(BaseCommand):
 
                     # 객체만 생성하여 리스트에 축적
                     bulk_list.append(
-                        StockPrediction(
+                        StockDailyPrice(
                             stock=stock,
                             date=record_date,
                             open_price=round(row['Open'], 2),
@@ -59,7 +59,7 @@ class Command(BaseCommand):
 
                 # 단 한 번의 커밋으로 2,400일 치 일봉 밀어 넣기
                 if bulk_list:
-                    StockPrediction.objects.bulk_create(bulk_list, batch_size=500)
+                    StockDailyPrice.objects.bulk_create(bulk_list, batch_size=500)
                     self.stdout.write(self.style.SUCCESS(f"    ↳ 성공: 신규 일봉 {len(bulk_list)}개 초고속 벌크 적재 완료"))
                 else:
                     self.stdout.write(f"    ↳ 동기화 상태 완벽 (추가 데이터 없음)")
