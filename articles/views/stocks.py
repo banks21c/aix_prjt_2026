@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404
 
 from .. import kis_client
 from ..ml.features import compute_display_indicators
-from ..models import AnalyzedArticle, StockItem, StockPrediction, StockRealtimePrice
+from ..models import AnalyzedArticle, StockDailyPrice, StockItem, StockPrediction, StockRealtimePrice
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,15 @@ KST = dt_timezone(timedelta(hours=9))
 def stock_detail_view(request, ticker):
     stock = get_object_or_404(StockItem, ticker=ticker)
 
-    predictions = StockPrediction.objects.filter(stock=stock).order_by('-date')
-    latest = predictions.first()
+    prices = StockDailyPrice.objects.filter(stock=stock).order_by('-date')
+    latest_price = prices.first()
+    latest_pred = StockPrediction.objects.filter(stock=stock).order_by('-date').first()
+    if latest_pred and latest_pred.up_probability is not None:
+        # up_probability는 0.0~1.0 소수로 저장되므로, 화면 표시용(퍼센트)은 여기서 미리 계산해둔다
+        # (blog_posting.py/chatbot_client.py도 같은 관례로 ×100해서 보여준다).
+        latest_pred.up_probability_pct = round(latest_pred.up_probability * 100, 1)
 
-    history = list(predictions[:180])  # 최근 180거래일 정도만 차트에 표시
+    history = list(prices[:180])  # 최근 180거래일 정도만 차트에 표시
     history.reverse()
     ohlc = [
         {
@@ -106,7 +111,8 @@ def stock_detail_view(request, ticker):
     context = {
         'site_title': f'NextFinUp - {stock.name}',
         'stock': stock,
-        'latest': latest,
+        'latest_price': latest_price,
+        'latest_pred': latest_pred,
         'ohlc': ohlc,
         'news': news,
         'realtime': realtime,

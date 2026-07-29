@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils.html import format_html
 from .models import (
-    StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
+    StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
@@ -147,15 +147,26 @@ class StockRealtimePriceAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False  # collect_stock_realtime_price 명령을 통해서만 생성됨
 
-# 2. 일봉 가격 및 AI 주가 예측 결과 관리
+# 2-1. 일봉 가격(실제 OHLCV) 관리
+@admin.register(StockDailyPrice)
+class StockDailyPriceAdmin(admin.ModelAdmin):
+    list_display = ('stock', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'volume')
+    list_filter = ('date', 'stock__name')
+    search_fields = ('stock__name', 'stock__ticker')
+    ordering = ('-date', 'stock')
+    list_select_related = ('stock',)  # list_display의 stock 표시가 매 행마다 추가 쿼리 안 나가게
+    show_full_result_count = False    # "전체 N건" 카운트 쿼리 생략 (90만+ 행에서 매우 느림)
+    list_per_page = 100
+
+# 2-2. AI 주가 예측 결과 관리
 @admin.register(StockPrediction)
 class StockPredictionAdmin(admin.ModelAdmin):
-    list_display = ('stock', 'date', 'close_price', 'pred_next_close', 'trading_signal', 'up_probability')
+    list_display = ('stock', 'date', 'pred_next_close', 'trading_signal', 'up_probability')
     list_filter = ('trading_signal', 'date', 'stock__name')
     search_fields = ('stock__name', 'stock__ticker')
     ordering = ('-date', 'stock')
     list_select_related = ('stock',)  # list_display의 stock 표시가 매 행마다 추가 쿼리 안 나가게
-    show_full_result_count = False    # "전체 N건" 카운트 쿼리 생략 (75만+ 행에서 매우 느림)
+    show_full_result_count = False
     list_per_page = 100
 
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리

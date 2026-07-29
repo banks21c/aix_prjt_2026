@@ -15,8 +15,8 @@ class UserSubscription(models.Model):
     expired_at = models.DateTimeField(null=True, blank=True, verbose_name="구독 만료일")
 
     class Meta:
-        verbose_name = "프리미엄 구독"
-        verbose_name_plural = "프리미엄 구독"
+        verbose_name = "프리미엄 구독 (UserSubscription)"
+        verbose_name_plural = "프리미엄 구독 (UserSubscription)"
 
     def __str__(self):
         status = "유료회원" if self.is_active_premium else "일반회원"
@@ -37,8 +37,8 @@ class MemberGrade(models.Model):
 
     class Meta:
         ordering = ['level']
-        verbose_name = "회원 등급"
-        verbose_name_plural = "회원 등급"
+        verbose_name = "회원 등급 (MemberGrade)"
+        verbose_name_plural = "회원 등급 (MemberGrade)"
 
     def __str__(self):
         return f"{self.level}. {self.name}"
@@ -72,8 +72,8 @@ class UserPreference(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
     class Meta:
-        verbose_name = "회원 환경설정"
-        verbose_name_plural = "회원 환경설정"
+        verbose_name = "회원 환경설정 (UserPreference)"
+        verbose_name_plural = "회원 환경설정 (UserPreference)"
 
     def __str__(self):
         return f"{self.user.username} 환경설정"
@@ -101,8 +101,8 @@ class BlogPostingAccount(models.Model):
     class Meta:
         unique_together = ('user', 'platform')
         ordering = ['user', 'platform']
-        verbose_name = "블로그 발행 계정"
-        verbose_name_plural = "블로그 발행 계정"
+        verbose_name = "블로그 발행 계정 (BlogPostingAccount)"
+        verbose_name_plural = "블로그 발행 계정 (BlogPostingAccount)"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_platform_display()}"
@@ -138,8 +138,8 @@ class LoginLog(models.Model):
         indexes = [
             models.Index(fields=['user', '-created_at']),
         ]
-        verbose_name = "로그인 기록"
-        verbose_name_plural = "로그인 기록"
+        verbose_name = "로그인 기록 (LoginLog)"
+        verbose_name_plural = "로그인 기록 (LoginLog)"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_login_method_display()} ({self.created_at})"
@@ -158,8 +158,8 @@ class MenuAccessLog(models.Model):
             models.Index(fields=['user', '-accessed_at']),
             models.Index(fields=['menu_name', '-accessed_at']),
         ]
-        verbose_name = "메뉴 접속 기록"
-        verbose_name_plural = "메뉴 접속 기록"
+        verbose_name = "메뉴 접속 기록 (MenuAccessLog)"
+        verbose_name_plural = "메뉴 접속 기록 (MenuAccessLog)"
 
     def __str__(self):
         return f"{self.user.username} - {self.menu_name} ({self.accessed_at})"
@@ -190,8 +190,8 @@ class ChatMessage(models.Model):
             models.Index(fields=['session_key', 'created_at']),
             models.Index(fields=['user', 'created_at']),
         ]
-        verbose_name = "챗봇 대화"
-        verbose_name_plural = "챗봇 대화"
+        verbose_name = "챗봇 대화 (ChatMessage)"
+        verbose_name_plural = "챗봇 대화 (ChatMessage)"
 
     def __str__(self):
         return f"[{self.get_role_display()}] {self.content[:30]}"
@@ -215,8 +215,8 @@ class SocialAccount(models.Model):
 
     class Meta:
         unique_together = ('provider', 'provider_uid')
-        verbose_name = "소셜 로그인 계정"
-        verbose_name_plural = "소셜 로그인 계정"
+        verbose_name = "소셜 로그인 계정 (SocialAccount)"
+        verbose_name_plural = "소셜 로그인 계정 (SocialAccount)"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()}"
