@@ -8,7 +8,7 @@ NextFinUp: a Django site built around an automated pipeline for Korean stock mar
 (KOSPI/KOSDAQ) — sync ticker master data → collect 10y daily OHLCV via yfinance → train
 per-stock RandomForest models to predict next-day close/direction/5-day return → scrape/collect
 finance news and match it to tickers → AI-summarize it → let members auto- or manually-publish a
-combined writeup to their own blogs (WordPress/Tistory/Blogger/Naver). On top of the pipeline
+combined writeup to their own blogs (WordPress/Blogger). On top of the pipeline
 there's a member site: email+social (Kakao/Google/Naver) login, per-user preferences and daily
 usage limits by member grade, a news board with manual scrape/edit, a stock detail page with
 day/minute charts, a KIS-powered realtime ranking/index feed, an OpenAI-backed chatbot widget,
@@ -80,11 +80,13 @@ retraining) and are run manually/less frequently, not on the 5-minute cron caden
 Publishing (per-user, driven by each member's `BlogPostingAccount` + `UserPreference`, not global
 config — see Architecture):
 ```
-python manage.py post_to_tistory     # real Tistory Open API publish
-python manage.py post_to_wordpress   # real WordPress REST API publish
-python manage.py post_to_blogger     # real Blogger v3 API publish (OAuth refresh token per account)
-python manage.py post_to_naver       # simulation only — Naver has no public blog-post API, builds content but never actually posts
+python manage.py post_to_wordpress   # real WordPress REST API publish, publishes live (status=publish)
+python manage.py post_to_blogger     # real Blogger v3 API publish (OAuth refresh token per account), publishes live (isDraft=false)
 ```
+Tistory and Naver are no longer supported publishing platforms — Tistory shut down its Open API
+(post-write endpoint) entirely by February 2024, and Naver never had a public blog-posting API to
+begin with. Both `post_to_tistory`/`post_to_naver` commands and the `TISTORY`/`NAVER`
+`BlogPostingAccount.PLATFORM_CHOICES` options have been removed accordingly.
 Members can also publish manually/selectively from the news board (`post_articles_view`,
 `news/post/`) using the same `articles/blog_posting.py` logic.
 
@@ -120,7 +122,7 @@ venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package,
     (admin-defined tiers with `daily_scrape_limit`/`daily_post_limit`, NULL = unlimited),
     `UserPreference` (1:1, holds `interested_keywords`/`post_all_articles`/
     `auto_posting_enabled`/grade FK), `BlogPostingAccount` (per-user, per-platform credentials —
-    WordPress/Tistory/Blogger/Naver; replaces the old single global blog config),
+    WordPress/Blogger; replaces the old single global blog config),
     `SocialAccount` (Kakao/Google/Naver login links), `LoginLog`, `MenuAccessLog` (written by
     `MenuAccessLogMiddleware`), `ChatMessage`.
   - **`content.py`**: `NewsletterSubscriber`, `NewsletterIssue`, `Menu` (admin-editable nav,
@@ -187,8 +189,8 @@ venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package,
   precise "email not verified" message instead of Django's default silent-reject "wrong
   credentials" behavior.
 - Blog publishing credentials are no longer global/hardcoded — each member registers their own
-  `BlogPostingAccount` (per platform) from `/mypage/`; `post_to_naver` remains simulation-only
-  because Naver has no public blog-posting API.
+  `BlogPostingAccount` (WordPress or Blogger) from `/mypage/`. Both publish live (not draft) —
+  `WP_POST_STATUS`/`BLOGGER_IS_DRAFT` in `articles/blog_posting.py`.
 - `collect_stock_data` intentionally rate-limits itself (randomized sleep between tickers,
   exponential backoff on failure, abort after N consecutive failures) to avoid yfinance/Yahoo IP
   blocks — preserve this behavior if you touch that command.

@@ -98,6 +98,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '3306'),
+        # MySQL의 skip_name_resolve가 꺼져 있어 신규 연결마다 역DNS 조회로 ~1초가 걸린다.
+        # CONN_MAX_AGE로 워커 프로세스 안에서 커넥션을 재사용해 매 요청마다 새로 맺지 않게 한다.
+        'CONN_MAX_AGE': 60,
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         }

@@ -14,6 +14,10 @@ class UserSubscription(models.Model):
     subscribed_at = models.DateTimeField(null=True, blank=True, verbose_name="구독 시작일")
     expired_at = models.DateTimeField(null=True, blank=True, verbose_name="구독 만료일")
 
+    class Meta:
+        verbose_name = "프리미엄 구독"
+        verbose_name_plural = "프리미엄 구독"
+
     def __str__(self):
         status = "유료회원" if self.is_active_premium else "일반회원"
         return f"{self.user.username} ({status})"
@@ -29,6 +33,7 @@ class MemberGrade(models.Model):
     # 비워두면(NULL) 무제한. 관리자 등급은 두 값 모두 비워서 무제한으로 둔다.
     daily_scrape_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 스크래핑 가능 건수(공란=무제한)")
     daily_post_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 포스팅 가능 건수(공란=무제한)")
+    daily_ai_summarize_limit = models.PositiveIntegerField(null=True, blank=True, verbose_name="일일 AI 요약 가능 건수(공란=무제한)")
 
     class Meta:
         ordering = ['level']
@@ -66,6 +71,10 @@ class UserPreference(models.Model):
     auto_posting_enabled = models.BooleanField(default=False, verbose_name="자동 포스팅 사용 여부")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
+    class Meta:
+        verbose_name = "회원 환경설정"
+        verbose_name_plural = "회원 환경설정"
+
     def __str__(self):
         return f"{self.user.username} 환경설정"
 
@@ -73,18 +82,16 @@ class UserPreference(models.Model):
 class BlogPostingAccount(models.Model):
     PLATFORM_CHOICES = [
         ('WORDPRESS', '워드프레스'),
-        ('TISTORY', '티스토리'),
-        ('NAVER', '네이버 블로그'),
         ('BLOGGER', '블로거(Blogger)'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posting_accounts", verbose_name="사용자")
     platform = models.CharField(max_length=10, choices=PLATFORM_CHOICES, verbose_name="포스팅 플랫폼")
     is_enabled = models.BooleanField(default=False, verbose_name="이 플랫폼으로 자동 포스팅 사용")
-    # 자기 호스팅 워드프레스는 사이트마다 REST API 엔드포인트가 다르므로 필요 (티스토리/네이버는 미사용, blank)
+    # 자기 호스팅 워드프레스는 사이트마다 REST API 엔드포인트가 다르므로 필요
     # 블로거는 연동된 블로그의 URL을 OAuth 연동 시 자동으로 채워넣음(사용자 직접 입력 아님)
     site_url = models.URLField(blank=True, verbose_name="사이트 주소(워드프레스/블로거)")
-    # 워드프레스/네이버 블로그는 계정 ID+PW, 티스토리는 API Key(액세스 토큰) 방식이라 하나의 필드로 겸용
+    # 워드프레스는 계정 ID+PW 방식
     # 블로거는 OAuth 연동이라 account_id에 블로그 ID를 자동으로 채워넣음(사용자 직접 입력 아님)
     account_id = models.CharField(max_length=150, blank=True, verbose_name="계정 ID / 블로그 ID")
     # 블로거는 비밀번호가 아니라 구글 OAuth 리프레시 토큰을 저장(구글 로그인 연동 시 자동으로 채워넣음)
@@ -94,6 +101,8 @@ class BlogPostingAccount(models.Model):
     class Meta:
         unique_together = ('user', 'platform')
         ordering = ['user', 'platform']
+        verbose_name = "블로그 발행 계정"
+        verbose_name_plural = "블로그 발행 계정"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_platform_display()}"
@@ -103,10 +112,6 @@ class BlogPostingAccount(models.Model):
         실제로 발행에 쓸 수 있는 계정인지(자격 정보가 채워졌는지)는 따로 확인해야 한다."""
         if self.platform in ('WORDPRESS', 'BLOGGER'):
             return bool(self.site_url and self.account_id and self.credential)
-        if self.platform == 'TISTORY':
-            return bool(self.account_id and self.credential)
-        if self.platform == 'NAVER':
-            return bool(self.account_id)
         return False
 
 
@@ -133,6 +138,8 @@ class LoginLog(models.Model):
         indexes = [
             models.Index(fields=['user', '-created_at']),
         ]
+        verbose_name = "로그인 기록"
+        verbose_name_plural = "로그인 기록"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_login_method_display()} ({self.created_at})"
@@ -151,6 +158,8 @@ class MenuAccessLog(models.Model):
             models.Index(fields=['user', '-accessed_at']),
             models.Index(fields=['menu_name', '-accessed_at']),
         ]
+        verbose_name = "메뉴 접속 기록"
+        verbose_name_plural = "메뉴 접속 기록"
 
     def __str__(self):
         return f"{self.user.username} - {self.menu_name} ({self.accessed_at})"
@@ -181,6 +190,8 @@ class ChatMessage(models.Model):
             models.Index(fields=['session_key', 'created_at']),
             models.Index(fields=['user', 'created_at']),
         ]
+        verbose_name = "챗봇 대화"
+        verbose_name_plural = "챗봇 대화"
 
     def __str__(self):
         return f"[{self.get_role_display()}] {self.content[:30]}"
@@ -204,6 +215,8 @@ class SocialAccount(models.Model):
 
     class Meta:
         unique_together = ('provider', 'provider_uid')
+        verbose_name = "소셜 로그인 계정"
+        verbose_name_plural = "소셜 로그인 계정"
 
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()}"

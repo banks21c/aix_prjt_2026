@@ -20,83 +20,8 @@
         a { text-decoration: none; }
         .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
 
-        /* 네비게이션 */
-        .navbar {
-            background: #ffffff;
-            border-bottom: 1px solid #e9ecef;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .navbar .container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-        }
-        .navbar-brand {
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            color: #0d47a1;
-            font-size: 20px;
-        }
-        .navbar-brand span {
-            color: #6c757d;
-            font-size: 14px;
-            font-weight: 400;
-        }
-        .nav-actions { display: flex; align-items: center; gap: 8px; }
-        .badge {
-            background: #0d47a1;
-            color: #fff;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 999px;
-        }
-        .provider-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            font-size: 11px;
-            font-weight: 700;
-            border-radius: 50%;
-            margin-right: 4px;
-        }
-        .navbar-toggler-custom {
-            display: none;
-            background: none;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            font-size: 20px;
-            line-height: 1;
-            padding: 6px 10px;
-            cursor: pointer;
-            color: #212529;
-        }
-        @media (max-width: 768px) {
-            .navbar .container { position: relative; }
-            .navbar-toggler-custom { display: inline-block; }
-            .nav-actions {
-                display: none;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: #fff;
-                border-bottom: 1px solid #e9ecef;
-                flex-direction: column;
-                align-items: stretch;
-                padding: 12px 20px 16px;
-                gap: 8px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.06);
-            }
-            .nav-actions.open { display: flex; }
-            .nav-actions .badge { align-self: flex-start; }
-            .nav-actions .btn { text-align: center; }
-        }
+        /* 상단 네비게이션은 articles/_header.html 공용 컴포넌트가 자체 스타일을 갖고 온다 */
+
         .btn {
             display: inline-block;
             font-size: 14px;
@@ -110,35 +35,6 @@
         .btn-outline:hover { background: #f1f3f5; }
         .btn-primary { background: #0d47a1; color: #fff; }
         .btn-primary:hover { background: #0b3c8a; }
-        .nav-dropdown { position: relative; display: inline-block; }
-        .nav-dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            margin-top: 4px;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            min-width: 140px;
-            z-index: 1000;
-            padding: 6px;
-        }
-        .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-        .nav-dropdown-menu a {
-            display: block;
-            padding: 8px 12px;
-            font-size: 13px;
-            color: #333;
-            text-decoration: none;
-            border-radius: 6px;
-            white-space: nowrap;
-        }
-        .nav-dropdown-menu a:hover { background: #f1f3f5; }
-        @media (max-width: 768px) {
-            .nav-dropdown-menu { position: static; display: block; box-shadow: none; border: none; padding-left: 12px; margin-top: 0; }
-        }
 
         .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
         .site-messages li {
@@ -447,59 +343,7 @@
 </head>
 <body>
 
-    <!-- 상단 네비게이션 바 -->
-    <nav class="navbar">
-        <div class="container">
-            <a class="navbar-brand" href="/">📈 NextFinUp <span>AI 자산 허브</span></a>
-            <button type="button" class="navbar-toggler-custom" aria-label="메뉴 열기"
-                    onclick="document.getElementById('navActions').classList.toggle('open')">☰</button>
-            <div class="nav-actions" id="navActions">
-                {% for menu in index_menus %}
-                    {% if menu.external_url == '/insurance-guide/' %}
-                    <div class="nav-dropdown">
-                        <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                        <div class="nav-dropdown-menu">
-                            <a href="/insurance-guide/whole-life-insurance/">종신보험</a>
-                            <a href="/insurance-guide/term-life-insurance/">정기보험</a>
-                            <a href="/insurance-guide/variable-life-insurance/">변액보험</a>
-                            <a href="/insurance-guide/non-life-insurance/">실손손해보험</a>
-                        </div>
-                    </div>
-                    {% elif menu.name == '저축' %}
-                    <div class="nav-dropdown">
-                        <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                        <div class="nav-dropdown-menu">
-                            <a href="/isa/">ISA</a>
-                            <a href="/pension/">연금저축</a>
-                            <a href="/irp/">IRP</a>
-                        </div>
-                    </div>
-                    {% else %}
-                    <a href="{{ menu.get_url }}" class="btn btn-outline">{{ menu.name }}{% if menu.badge_text %} <span style="background:#fff3cd;color:#856404;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:2px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                    {% endif %}
-                {% endfor %}
-                {% if user.is_staff %}
-                    <a href="/admin/" class="btn btn-outline" target="_blank">관리자</a>
-                    <a href="{% url 'financial_consult_sheet' %}" class="btn btn-outline" target="_blank">재무상담 시트</a>
-                {% endif %}
-                {% if user.is_authenticated %}
-                    {% with provider=user.social_accounts.first.provider %}
-                    <a href="{% url 'my_page' %}" class="btn btn-outline">
-                        {% if provider == 'KAKAO' %}<span class="provider-badge" style="background:#FEE500;color:#191919;">💬</span>
-                        {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
-                        {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:#fff;">N</span>
-                        {% endif %}
-                        {{ user.first_name|default:user.username }}님
-                    </a>
-                    <a href="{% url 'logout' %}" class="btn btn-outline"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>로그아웃</a>
-                    {% endwith %}
-                {% else %}
-                    <a href="{% url 'login' %}" class="btn btn-outline"><i class="fa-solid fa-right-to-bracket" style="margin-right:6px;"></i>로그인</a>
-                    <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
+    {% include "articles/_header.html" with is_index_page=True %}
 
     {% if messages %}
     <div class="container">
@@ -683,7 +527,7 @@
             <button type="button" class="chatbot-close" id="chatbotClose" aria-label="챗봇 닫기">✕</button>
         </div>
         <div class="chatbot-messages" id="chatbotMessages">
-            <div class="chatbot-msg bot">안녕하세요! 종목 예측, 시황, 경제 뉴스 등 주식·경제 관련 질문을 편하게 물어보세요.</div>
+            <div class="chatbot-msg bot">어서오세요. 무엇을 도와드릴까요?</div>
         </div>
         <div class="chatbot-input-row">
             <input type="text" id="chatbotInput" placeholder="예) 삼성전자 전망 어때?" maxlength="500">
@@ -709,6 +553,9 @@
                 if (panel.classList.contains('open')) input.focus();
             });
             closeBtn.addEventListener('click', () => panel.classList.remove('open'));
+
+            // 랜딩 페이지에 들어오면 챗봇을 바로 열어 인사말을 보여준다.
+            panel.classList.add('open');
 
             function appendMessage(text, role) {
                 const el = document.createElement('div');

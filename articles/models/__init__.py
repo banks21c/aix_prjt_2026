@@ -10,7 +10,7 @@ from .members import (
     UserSubscription, MemberGrade, UserPreference, BlogPostingAccount, LoginLog, MenuAccessLog,
     ChatMessage, SocialAccount,
 )
-from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle
+from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet
 
 __all__ = [
@@ -18,6 +18,6 @@ __all__ = [
     'MarketIndex', 'StockPrediction',
     'UserSubscription', 'MemberGrade', 'UserPreference', 'BlogPostingAccount', 'LoginLog',
     'MenuAccessLog', 'ChatMessage', 'SocialAccount',
-    'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle',
+    'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest', 'FinancialConsultSheet',
 ]

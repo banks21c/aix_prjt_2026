@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NextFinUp — 시안 1 (기존)</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background-color: #f4f6f9;
+        color: #212529;
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding-top: 40px;
+    }
+    a { text-decoration: none; }
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+
+    /* 시안 비교 스위처 */
+    .mockup-nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+        background: #1a1a1a; color: #fff; font-size: 12px;
+        padding: 9px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .mockup-nav strong { opacity: .55; font-weight: 600; }
+    .mockup-nav a { color: #fff; opacity: .75; padding: 4px 9px; border-radius: 5px; }
+    .mockup-nav a:hover { opacity: 1; background: rgba(255,255,255,0.12); }
+    .mockup-nav a.active { opacity: 1; background: #0d47a1; font-weight: 700; }
+    .mockup-nav .note { margin-left: auto; opacity: .45; }
+
+    .site-header { background: #fff; border-bottom: 1px solid #e9ecef; padding: 14px 0; }
+    .site-header .container { display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 800; font-size: 18px; color: #0d47a1; }
+    .site-nav { display: flex; gap: 22px; font-size: 14px; font-weight: 600; color: #495057; }
+
+    .btn { display: inline-block; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+    .btn-outline { border-color: #ced4da; color: #495057; background: #fff; }
+    .btn-primary { background: #0d47a1; color: #fff; }
+
+    .hero { background: linear-gradient(135deg, #0d47a1 0%, #1565c0 60%, #1e88e5 100%); color: #fff; padding: 96px 0 80px; }
+    .hero h1 { font-size: 40px; font-weight: 800; line-height: 1.35; margin: 0 0 20px; }
+    .hero p { font-size: 17px; line-height: 1.7; color: #dce8fb; max-width: 640px; margin: 0 0 32px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero .btn-primary { background: #ffffff; color: #0d47a1; }
+    .hero .btn-outline { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
+    .hero-stat { margin-top: 48px; display: inline-flex; align-items: baseline; gap: 10px; background: rgba(255,255,255,0.12); padding: 12px 20px; border-radius: 12px; }
+    .hero-stat strong { font-size: 26px; font-weight: 800; }
+    .hero-stat span { font-size: 14px; color: #dce8fb; }
+    .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; }
+    .hero-chart { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 22px; height: 200px; display: flex; align-items: center; justify-content: center; color: #dce8fb; font-size: 13px; }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+
+    section { padding: 72px 0; }
+    .section-title { text-align: center; margin-bottom: 48px; }
+    .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; }
+    .section-title p { font-size: 15px; color: #6c757d; margin: 0; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .feature-card { background: #fff; border-radius: 12px; padding: 32px 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .feature-card .icon { font-size: 30px; margin-bottom: 16px; }
+    .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: #0d47a1; }
+    .feature-card p { font-size: 14px; line-height: 1.65; color: #6c757d; margin: 0; }
+
+    .flow { background: #fff; }
+    .flow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .flow-step { text-align: center; padding: 24px 16px; }
+    .flow-step .num { width: 36px; height: 36px; line-height: 36px; border-radius: 50%; background: #0d47a1; color: #fff; font-weight: 700; margin: 0 auto 14px; font-size: 14px; }
+    .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+    .flow-step p { font-size: 13px; color: #6c757d; margin: 0; line-height: 1.6; }
+
+    .news-list { display: flex; flex-direction: column; gap: 14px; }
+    .news-item { display: block; background: #fff; border-radius: 10px; padding: 18px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); color: inherit; }
+    .news-item .stock { font-size: 12px; font-weight: 700; color: #0d47a1; margin-bottom: 6px; display: block; }
+    .news-item .title { font-size: 15px; font-weight: 600; }
+
+    .cta { background: #0d47a1; color: #fff; text-align: center; }
+    .cta h2 { font-size: 26px; font-weight: 800; margin: 0 0 14px; }
+    .cta p { font-size: 15px; color: #dce8fb; margin: 0 0 28px; }
+    .cta .btn-primary { background: #fff; color: #0d47a1; }
+
+    .newsletter { background: #fff; border-top: 1px solid #e9ecef; text-align: center; }
+    .newsletter h2 { font-size: 22px; font-weight: 800; margin: 0 0 10px; }
+    .newsletter p { font-size: 14px; color: #6c757d; margin: 0 0 24px; }
+    .newsletter-form { display: flex; gap: 10px; max-width: 420px; margin: 0 auto; }
+    .newsletter-form input[type="email"] { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid #ced4da; font-size: 14px; }
+
+    footer { background: #10131a; color: #adb5bd; padding: 32px 0; font-size: 13px; text-align: center; }
+    footer strong { color: #fff; }
+    .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: #6c757d; }
+
+    @media (max-width: 900px) {
+        .feature-grid { grid-template-columns: 1fr; }
+        .flow-grid { grid-template-columns: repeat(2, 1fr); }
+        .hero h1 { font-size: 30px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="mockup-nav">
+    <strong>시안 비교</strong>
+    <a href="index.html" class="active">1 · 기존 원본</a>
+    <a href="index2.html">2 · 다크 트레이딩 터미널</a>
+    <a href="index3.html">3 · 미니멀 화이트</a>
+    <a href="index4.html">4 · 대시보드 프리뷰</a>
+    <a href="index5.html">5 · 친근한 리테일</a>
+    <span class="note">※ 정적 목업 — 표시된 수치/뉴스는 예시 데이터입니다</span>
+</div>
+
+<header class="site-header">
+    <div class="container">
+        <div class="logo">NextFinUp</div>
+        <nav class="site-nav">
+            <a href="#" style="color:#495057;">대시보드</a>
+            <a href="#" style="color:#495057;">뉴스</a>
+            <a href="#" style="color:#495057;">로그인</a>
+        </nav>
+    </div>
+</header>
+
+<div class="hero">
+    <div class="container hero-grid">
+        <div>
+            <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
+            <p>
+                LightGBM·RandomForest 앙상블 머신러닝 모델이 KOSPI200·KOSDAQ150 종목의 다음날 종가와
+                상승 확률, 5일 예상 수익률을 예측하고, 실시간 경제 뉴스를 자동으로 분석해
+                투자 판단에 필요한 인사이트를 함께 제공합니다.
+            </p>
+            <div class="hero-actions">
+                <a href="#" class="btn btn-primary">AI 예측 대시보드 보기</a>
+                <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+            </div>
+            <div class="hero-stat">
+                <strong>350</strong>
+                <span>개 종목 AI 모니터링 중</span>
+            </div>
+        </div>
+        <div class="hero-chart">자산 증식 시뮬레이션 차트 영역</div>
+    </div>
+</div>
+
+<section>
+    <div class="container">
+        <div class="section-title">
+            <h2>최신 AI 분석 브리핑</h2>
+            <p>가장 최근에 수집·분석된 종목 뉴스입니다.</p>
+        </div>
+        <div class="news-list">
+            <a href="#" class="news-item"><span class="stock">삼성전자 · 한국경제</span><span class="title">삼성전자, 3나노 파운드리 수율 개선... AI 반도체 수혜 기대</span></a>
+            <a href="#" class="news-item"><span class="stock">SK하이닉스 · 매일경제</span><span class="title">SK하이닉스, HBM4 양산 앞당긴다... 엔비디아向 공급 확대</span></a>
+            <a href="#" class="news-item"><span class="stock">카카오 · 한국경제</span><span class="title">카카오, 신규 AI 서비스 발표에 주가 강세</span></a>
+            <a href="#" class="news-item"><span class="stock">NAVER · 매일경제</span><span class="title">네이버, 클라우드 부문 실적 개선... 목표주가 상향</span></a>
+        </div>
+    </div>
+</section>
+
+<section id="features">
+    <div class="container">
+        <div class="section-title">
+            <h2>NextFinUp이 제공하는 것</h2>
+            <p>데이터 수집부터 예측, 뉴스 분석까지 전 과정을 자동화했습니다.</p>
+        </div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon">🤖</div>
+                <h3>AI 주가 예측</h3>
+                <p>10년치 일봉 데이터를 학습한 앙상블 모델이 다음날 종가, 상승/하락 확률, 5일 예상 수익률과 매매 시그널을 산출합니다.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📰</div>
+                <h3>실시간 뉴스 매칭</h3>
+                <p>주요 경제지 피드를 실시간 수집해 관심 종목과 연관된 기사를 자동으로 골라 3줄 요약과 투자 관점 분석을 제공합니다.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📊</div>
+                <h3>종목별 통합 브리핑</h3>
+                <p>KOSPI200·KOSDAQ150 편입 종목을 중심으로 가격 데이터, AI 예측, 최신 뉴스를 한 화면에서 확인할 수 있습니다.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="flow">
+    <div class="container">
+        <div class="section-title">
+            <h2>어떻게 동작하나요</h2>
+            <p>백엔드 파이프라인이 매일 자동으로 데이터를 갱신합니다.</p>
+        </div>
+        <div class="flow-grid">
+            <div class="flow-step"><div class="num">1</div><h4>종목 데이터 수집</h4><p>KOSPI200·KOSDAQ150 편입 종목의 10년치 일봉 데이터를 수집합니다.</p></div>
+            <div class="flow-step"><div class="num">2</div><h4>AI 모델 학습·예측</h4><p>종목별 머신러닝 모델을 학습시켜 다음날 가격과 매매 시그널을 산출합니다.</p></div>
+            <div class="flow-step"><div class="num">3</div><h4>뉴스 수집·분석</h4><p>실시간 경제 뉴스를 수집해 관련 종목과 매칭하고 AI로 요약·분석합니다.</p></div>
+            <div class="flow-step"><div class="num">4</div><h4>대시보드 제공</h4><p>예측 결과와 뉴스를 결합해 대시보드와 블로그 콘텐츠로 제공합니다.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="cta">
+    <div class="container">
+        <h2>지금 바로 AI 예측 대시보드를 확인하세요</h2>
+        <p>관심 종목의 실시간 AI 예측과 뉴스 브리핑을 무료로 확인할 수 있습니다.</p>
+        <a href="#" class="btn btn-primary">대시보드 바로가기</a>
+    </div>
+</section>
+
+<section class="newsletter">
+    <div class="container">
+        <h2>NextFinUp의 최신 소식 받아보기</h2>
+        <p>관심 종목 뉴스와 AI 예측 요약을 이메일로 받아보세요.</p>
+        <form class="newsletter-form" onsubmit="return false;">
+            <input type="email" placeholder="이메일 주소" required>
+            <button type="submit" class="btn btn-primary">구독하기</button>
+        </form>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
+        <p class="disclaimer">
+            본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
+            자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

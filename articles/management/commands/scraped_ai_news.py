@@ -65,21 +65,12 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.SUCCESS(f"    ↳ [경제지 기사 발견] {stock.name} ➔ {title[:22]}..."))
 
                         # ----------------------------------------------------
-                        # AI 에이전트 텍스트 분석 프리미엄 데이터셋 레이아웃 빌드
-                        # ----------------------------------------------------
-                        ai_summary = f"1. {stock.name} 관련 메인 경제지 단독 핵심 모멘텀 발생\n2. 거래대금 상위 스코어 기록 및 매물대 소화 진행\n3. 메이저 기관 및 외국인 동수급 유입 포착에 따른 상방 압력 우세"
-                        ai_analysis = f"본 기사는 국내 최대 경제지인 {feed['media']}에 집중 보도된 건으로 시장 신뢰도가 높습니다. 장고 랜덤포레스트 예측 결과인 바이 시그널 점수와 싱크하여 정밀 대응을 추천합니다."
-                        blog_content = f"🚀 안녕하세요! 차세대 지능형 자산 분석 미디어 NextFinUp 에이전트입니다.\n\n금일 {feed['media']} 메인망에서 정밀 포착된 {stock.name} 관련 종합 분석 포스팅입니다.\n\n📌 헤드라인 뉴스: {title}\n\n원문 보기: <a href=\"{link}\" target=\"_blank\" rel=\"noopener noreferrer\">{link}</a>"
-
-                        # 영구 데이터베이스 무결성 데이터 적재 처리 완료
                         AnalyzedArticle.objects.create(
                             stock=stock,
                             title=title,
                             original_url=link,
                             source_media=feed['media'],
-                            ai_summary=ai_summary,
-                            ai_analysis=ai_analysis,
-                            blog_content=blog_content,
+                            source_type=AnalyzedArticle.SOURCE_RSS,
                             original_content=fetch_article_content(link),
                             applied_template='T1',
                             is_premium=False,

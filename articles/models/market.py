@@ -19,6 +19,10 @@ class StockItem(models.Model):
     # KRX CSV의 '상장시가총액' 원본 값을 그대로 저장 (정렬/랭킹 용도, 단위는 KRX 원본 표기 기준)
     market_cap = models.BigIntegerField(null=True, blank=True, verbose_name="상장시가총액")
 
+    class Meta:
+        verbose_name = "종목"
+        verbose_name_plural = "종목 마스터"
+
     def __str__(self):
         return f"[{self.ticker}] {self.name}"
 
@@ -32,6 +36,10 @@ class KisAccessToken(models.Model):
     access_token = models.TextField(verbose_name="접근 토큰")
     expires_at = models.DateTimeField(verbose_name="만료 시각")
     issued_at = models.DateTimeField(auto_now_add=True, verbose_name="발급 시각")
+
+    class Meta:
+        verbose_name = "KIS 접근 토큰"
+        verbose_name_plural = "KIS 접근 토큰"
 
     def __str__(self):
         return f"KIS 토큰 (만료: {self.expires_at})"
@@ -59,6 +67,8 @@ class RankedMover(models.Model):
     class Meta:
         unique_together = ('rank_type', 'rank')
         ordering = ['rank_type', 'rank']
+        verbose_name = "급등락 순위"
+        verbose_name_plural = "급등락 순위"
 
     def __str__(self):
         return f"[{self.get_rank_type_display()} {self.rank}위] {self.name} ({self.change_pct}%)"
@@ -81,6 +91,10 @@ class StockRealtimePrice(models.Model):
     volume = models.BigIntegerField(verbose_name="누적 거래량")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
 
+    class Meta:
+        verbose_name = "실시간 시세"
+        verbose_name_plural = "실시간 시세"
+
     def __str__(self):
         return f"{self.stock.name} 현재가 {self.close_price} ({self.updated_at})"
 
@@ -99,6 +113,8 @@ class MarketHoliday(models.Model):
 
     class Meta:
         ordering = ['date']
+        verbose_name = "휴장일"
+        verbose_name_plural = "휴장일"
 
     def __str__(self):
         status = "개장" if self.is_market_open else "휴장"
@@ -126,6 +142,8 @@ class MarketIndex(models.Model):
     class Meta:
         unique_together = ('market_type', 'date')
         ordering = ['-date']
+        verbose_name = "시장 지수"
+        verbose_name_plural = "시장 지수"
 
     def __str__(self):
         return f"{self.get_market_type_display()} {self.date} ({self.close_price})"
@@ -169,6 +187,8 @@ class StockPrediction(models.Model):
         indexes = [
             models.Index(fields=['-date', 'stock', '-id'], name='stockpred_date_stock_idx'),
         ]
+        verbose_name = "AI 예측"
+        verbose_name_plural = "AI 예측"
 
     def __str__(self):
         return f"{self.stock.name} - {self.date} 예측"

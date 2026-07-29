@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NextFinUp — 시안 4 (대시보드 프리뷰 히어로)</title>
+<style>
+    * { box-sizing: border-box; }
+    :root { --ink: #161a2e; --dim: #6b7186; --line: #e7e8f2; --violet: #6d5ef8; --teal: #14b8a6; --pink: #f472b6; }
+    body {
+        margin: 0; background: #fbfbfe; color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding-top: 40px;
+    }
+    a { text-decoration: none; color: inherit; }
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .mockup-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: var(--ink); color: #fff; font-size: 12px; padding: 9px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .mockup-nav strong { opacity: .55; font-weight: 600; }
+    .mockup-nav a { color: #fff; opacity: .75; padding: 4px 9px; border-radius: 5px; }
+    .mockup-nav a:hover { opacity: 1; background: rgba(255,255,255,0.12); }
+    .mockup-nav a.active { opacity: 1; background: var(--violet); font-weight: 700; }
+    .mockup-nav .note { margin-left: auto; opacity: .45; }
+
+    .site-header { padding: 20px 0; }
+    .site-header .container { display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 800; font-size: 18px; }
+    .site-nav { display: flex; gap: 26px; font-size: 14px; font-weight: 600; color: var(--dim); align-items: center; }
+    .btn { display: inline-block; font-size: 14.5px; font-weight: 700; padding: 12px 22px; border-radius: 12px; border: 1px solid transparent; cursor: pointer; }
+    .btn-primary { background: linear-gradient(120deg, var(--violet), #8b7bfa); color: #fff; box-shadow: 0 10px 24px -8px rgba(109,94,248,0.55); }
+    .btn-outline { border-color: var(--line); color: var(--ink); background: #fff; }
+    .btn-sm { padding: 9px 16px; font-size: 13.5px; border-radius: 999px; }
+
+    .hero { position: relative; padding: 70px 0 100px; text-align: center; overflow: hidden; }
+    .mesh { position: absolute; inset: -80px -80px auto -80px; height: 620px; z-index: -1; filter: blur(50px); opacity: .55; }
+    .blob { position: absolute; border-radius: 50%; }
+    .b1 { width: 420px; height: 420px; background: var(--violet); top: -140px; left: 10%; }
+    .b2 { width: 360px; height: 360px; background: var(--teal); top: -60px; right: 8%; }
+    .b3 { width: 300px; height: 300px; background: var(--pink); top: 160px; left: 42%; }
+
+    .badge-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 22px; }
+    .pill { font-size: 12.5px; font-weight: 700; padding: 6px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(20,20,50,0.04); }
+    .hero h1 { font-size: 46px; font-weight: 800; line-height: 1.28; letter-spacing: -0.02em; margin: 0 0 20px; }
+    .hero h1 .grad { background: linear-gradient(120deg, var(--violet), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero p { font-size: 16.5px; line-height: 1.75; color: var(--dim); max-width: 580px; margin: 0 auto 32px; }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 56px; }
+
+    .dash-frame { max-width: 920px; margin: 0 auto; border-radius: 18px; border: 1px solid var(--line); background: #fff; box-shadow: 0 40px 80px -30px rgba(30,20,80,0.28); overflow: hidden; text-align: left; }
+    .dash-topbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fafaff; }
+    .dash-topbar span { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+    .dash-body { display: grid; grid-template-columns: 190px 1fr; }
+    .dash-side { border-right: 1px solid var(--line); padding: 18px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .dash-side .item { font-size: 12.5px; font-weight: 600; color: var(--dim); padding: 9px 10px; border-radius: 8px; }
+    .dash-side .item.active { background: #f1effe; color: var(--violet); }
+    .dash-main { padding: 22px; }
+    .dash-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .dash-stat { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .dash-stat .label { font-size: 11px; color: var(--dim); margin-bottom: 6px; }
+    .dash-stat .value { font-size: 19px; font-weight: 800; }
+    .dash-stat .value.up { color: var(--teal); }
+    .dash-chart { border: 1px solid var(--line); border-radius: 12px; padding: 14px; height: 120px; margin-bottom: 16px; position: relative; }
+    .dash-table { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .dash-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; padding: 10px 14px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+    .dash-row:last-child { border-bottom: none; }
+    .dash-row.head { color: var(--dim); font-weight: 700; background: #fafaff; }
+    .dash-row .up { color: var(--teal); font-weight: 700; }
+    .dash-row .down { color: #f43f5e; font-weight: 700; }
+
+    section { padding: 88px 0; }
+    .section-title { text-align: center; margin-bottom: 52px; }
+    .section-title h2 { font-size: 30px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em; }
+    .section-title p { font-size: 15.5px; color: var(--dim); margin: 0; }
+
+    .bento { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 150px; gap: 16px; }
+    .bento-card { border-radius: 16px; padding: 24px; border: 1px solid var(--line); background: #fff; position: relative; overflow: hidden; }
+    .bento-card.big { grid-column: span 2; grid-row: span 2; background: linear-gradient(150deg, #f1effe, #fff); }
+    .bento-card .icon { font-size: 26px; margin-bottom: 12px; }
+    .bento-card h3 { font-size: 15.5px; font-weight: 700; margin: 0 0 8px; }
+    .bento-card.big h3 { font-size: 20px; }
+    .bento-card p { font-size: 13px; line-height: 1.6; color: var(--dim); margin: 0; }
+
+    .timeline { max-width: 720px; margin: 0 auto; position: relative; }
+    .timeline::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: var(--line); transform: translateX(-50%); }
+    .t-item { display: grid; grid-template-columns: 1fr 46px 1fr; gap: 20px; align-items: center; margin-bottom: 36px; }
+    .t-item:last-child { margin-bottom: 0; }
+    .t-item .num { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid var(--violet); color: var(--violet); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+    .t-item .card { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: #fff; }
+    .t-item .card h4 { font-size: 14.5px; font-weight: 700; margin: 0 0 6px; }
+    .t-item .card p { font-size: 13px; color: var(--dim); margin: 0; line-height: 1.55; }
+    .t-item:nth-child(even) .card { grid-column: 1; }
+    .t-item:nth-child(even) { grid-template-columns: 1fr 46px 1fr; }
+    .t-item:nth-child(even) .spacer { grid-column: 3; }
+    .t-item:nth-child(odd) .spacer { grid-column: 1; }
+
+    .news-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .news-card { border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: #fff; border-top: 4px solid var(--teal); }
+    .news-card.neg { border-top-color: #f43f5e; }
+    .news-card .stock { font-size: 12px; font-weight: 700; color: var(--violet); margin-bottom: 8px; display: block; }
+    .news-card .title { font-size: 15px; font-weight: 700; line-height: 1.5; }
+
+    .cta { text-align: center; border-radius: 24px; padding: 64px 40px; background: linear-gradient(120deg, var(--violet), #8b7bfa 50%, var(--pink)); color: #fff; }
+    .cta h2 { font-size: 28px; font-weight: 800; margin: 0 0 14px; }
+    .cta p { font-size: 15.5px; opacity: .9; margin: 0 0 28px; }
+    .cta .btn-primary { background: #fff; color: var(--violet); box-shadow: none; }
+
+    .newsletter { text-align: center; }
+    .newsletter h2 { font-size: 22px; font-weight: 800; margin: 0 0 10px; }
+    .newsletter p { font-size: 14px; color: var(--dim); margin: 0 0 26px; }
+    .newsletter-form { display: flex; gap: 10px; max-width: 420px; margin: 0 auto; }
+    .newsletter-form input { flex: 1; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--line); font-size: 14px; }
+
+    footer { padding: 34px 0; font-size: 13px; color: var(--dim); text-align: center; border-top: 1px solid var(--line); }
+    footer strong { color: var(--ink); }
+    .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; }
+
+    @media (max-width: 900px) {
+        .hero h1 { font-size: 32px; }
+        .dash-body { grid-template-columns: 1fr; }
+        .dash-side { display: none; }
+        .bento { grid-template-columns: repeat(2, 1fr); }
+        .bento-card.big { grid-column: span 2; grid-row: span 1; }
+        .news-grid { grid-template-columns: 1fr; }
+        .timeline::before { left: 22px; }
+        .t-item, .t-item:nth-child(even) { grid-template-columns: 46px 1fr; }
+        .t-item .spacer, .t-item:nth-child(even) .spacer { display: none; }
+        .t-item:nth-child(even) .card { grid-column: 2; }
+    }
+</style>
+</head>
+<body>
+
+<div class="mockup-nav">
+    <strong>시안 비교</strong>
+    <a href="index.html">1 · 기존 원본</a>
+    <a href="index2.html">2 · 다크 트레이딩 터미널</a>
+    <a href="index3.html">3 · 미니멀 화이트</a>
+    <a href="index4.html" class="active">4 · 대시보드 프리뷰</a>
+    <a href="index5.html">5 · 친근한 리테일</a>
+    <span class="note">※ 정적 목업 — 표시된 수치/뉴스는 예시 데이터입니다</span>
+</div>
+
+<header class="site-header">
+    <div class="container">
+        <div class="logo">NextFinUp</div>
+        <nav class="site-nav">
+            <a href="#">대시보드</a>
+            <a href="#">뉴스</a>
+            <a href="#">로그인</a>
+            <a href="#" class="btn btn-outline btn-sm">무료로 시작</a>
+        </nav>
+    </div>
+</header>
+
+<div class="hero">
+    <div class="mesh"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+    <div class="container">
+        <div class="badge-row">
+            <span class="pill">🤖 LightGBM·RandomForest 앙상블</span>
+            <span class="pill">📰 실시간 뉴스 분석</span>
+        </div>
+        <h1>흩어진 시세와 뉴스를,<br><span class="grad">하나의 대시보드</span>로.</h1>
+        <p>KOSPI200·KOSDAQ150 전 종목의 AI 예측과 실시간 뉴스를 자동으로 모아 정리한 개인화 대시보드를 확인해 보세요.</p>
+        <div class="hero-actions">
+            <a href="#" class="btn btn-primary">대시보드 무료 체험 →</a>
+            <a href="#features" class="btn btn-outline">기능 살펴보기</a>
+        </div>
+
+        <div class="dash-frame">
+            <div class="dash-topbar"><span></span><span></span><span></span></div>
+            <div class="dash-body">
+                <div class="dash-side">
+                    <div class="item active">📊 대시보드</div>
+                    <div class="item">📈 종목 상세</div>
+                    <div class="item">📰 뉴스</div>
+                    <div class="item">⚙️ 설정</div>
+                </div>
+                <div class="dash-main">
+                    <div class="dash-stats">
+                        <div class="dash-stat"><div class="label">모니터링 종목</div><div class="value">350</div></div>
+                        <div class="dash-stat"><div class="label">오늘 상승 시그널</div><div class="value up">128</div></div>
+                        <div class="dash-stat"><div class="label">신규 브리핑</div><div class="value">42</div></div>
+                    </div>
+                    <div class="dash-chart">
+                        <svg viewBox="0 0 400 100" preserveAspectRatio="none" style="width:100%;height:100%;">
+                            <polyline fill="none" stroke="#6d5ef8" stroke-width="2.5" points="0,80 40,72 80,76 120,55 160,60 200,38 240,44 280,24 320,30 360,12 400,18" />
+                        </svg>
+                    </div>
+                    <div class="dash-table">
+                        <div class="dash-row head"><span>종목</span><span>다음날 예측</span><span>확률</span></div>
+                        <div class="dash-row"><span>삼성전자</span><span>72,400원</span><span class="up">+68%</span></div>
+                        <div class="dash-row"><span>SK하이닉스</span><span>204,000원</span><span class="up">+74%</span></div>
+                        <div class="dash-row"><span>카카오</span><span>40,200원</span><span class="down">-41%</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section id="features">
+    <div class="container">
+        <div class="section-title"><h2>NextFinUp이 제공하는 것</h2><p>데이터 수집부터 예측, 뉴스 분석까지 전 과정을 자동화했습니다.</p></div>
+        <div class="bento">
+            <div class="bento-card big">
+                <div class="icon">🤖</div>
+                <h3>AI 주가 예측</h3>
+                <p>10년치 일봉 데이터를 학습한 LightGBM·RandomForest 앙상블 모델이 다음날 종가, 상승/하락 확률, 5일 예상 수익률과 매매 시그널을 산출합니다.</p>
+            </div>
+            <div class="bento-card"><div class="icon">📰</div><h3>실시간 뉴스 매칭</h3><p>관심 종목과 연관된 기사를 자동으로 골라 요약합니다.</p></div>
+            <div class="bento-card"><div class="icon">📊</div><h3>통합 브리핑</h3><p>가격·예측·뉴스를 한 화면에서 확인합니다.</p></div>
+            <div class="bento-card"><div class="icon">✍️</div><h3>블로그 자동 발행</h3><p>워드프레스·티스토리 등으로 자동 포스팅합니다.</p></div>
+            <div class="bento-card"><div class="icon">💬</div><h3>AI 챗봇</h3><p>궁금한 종목을 대화로 바로 물어보세요.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="flow" style="background:#fafaff;">
+    <div class="container">
+        <div class="section-title"><h2>어떻게 동작하나요</h2><p>백엔드 파이프라인이 매일 자동으로 데이터를 갱신합니다.</p></div>
+        <div class="timeline">
+            <div class="t-item"><div class="spacer"></div><div class="num">1</div><div class="card"><h4>종목 데이터 수집</h4><p>KOSPI200·KOSDAQ150 편입 종목의 10년치 일봉 데이터를 수집합니다.</p></div></div>
+            <div class="t-item"><div class="card"><h4>AI 모델 학습·예측</h4><p>종목별 머신러닝 모델을 학습시켜 다음날 가격과 매매 시그널을 산출합니다.</p></div><div class="num">2</div><div class="spacer"></div></div>
+            <div class="t-item"><div class="spacer"></div><div class="num">3</div><div class="card"><h4>뉴스 수집·분석</h4><p>실시간 경제 뉴스를 수집해 관련 종목과 매칭하고 AI로 요약·분석합니다.</p></div></div>
+            <div class="t-item"><div class="card"><h4>대시보드 제공</h4><p>예측 결과와 뉴스를 결합해 대시보드와 블로그 콘텐츠로 제공합니다.</p></div><div class="num">4</div><div class="spacer"></div></div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="section-title"><h2>최신 AI 분석 브리핑</h2><p>가장 최근에 수집·분석된 종목 뉴스입니다.</p></div>
+        <div class="news-grid">
+            <a href="#" class="news-card"><span class="stock">삼성전자 · 한국경제</span><span class="title">3나노 파운드리 수율 개선... AI 반도체 수혜 기대</span></a>
+            <a href="#" class="news-card"><span class="stock">SK하이닉스 · 매일경제</span><span class="title">HBM4 양산 앞당긴다... 엔비디아向 공급 확대</span></a>
+            <a href="#" class="news-card neg"><span class="stock">카카오 · 한국경제</span><span class="title">신규 AI 서비스 발표에도 규제 우려로 상승폭 제한</span></a>
+            <a href="#" class="news-card"><span class="stock">NAVER · 매일경제</span><span class="title">클라우드 부문 실적 개선... 목표주가 상향</span></a>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="cta">
+            <h2>지금 바로 AI 예측 대시보드를 확인하세요</h2>
+            <p>관심 종목의 실시간 AI 예측과 뉴스 브리핑을 무료로 확인할 수 있습니다.</p>
+            <a href="#" class="btn btn-primary">대시보드 바로가기</a>
+        </div>
+    </div>
+</section>
+
+<section class="newsletter">
+    <div class="container">
+        <h2>NextFinUp의 최신 소식 받아보기</h2>
+        <p>관심 종목 뉴스와 AI 예측 요약을 이메일로 받아보세요.</p>
+        <form class="newsletter-form" onsubmit="return false;">
+            <input type="email" placeholder="이메일 주소" required>
+            <button type="submit" class="btn btn-primary">구독하기</button>
+        </form>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
+        <p class="disclaimer">본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가 자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.</p>
+    </div>
+</footer>
+
+</body>
+</html>
