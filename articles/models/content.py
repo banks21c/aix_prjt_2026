@@ -12,6 +12,8 @@ class NewsletterSubscriber(models.Model):
 
     class Meta:
         ordering = ['-subscribed_at']
+        verbose_name = "뉴스레터 구독자"
+        verbose_name_plural = "뉴스레터 구독자"
 
     def __str__(self):
         return self.email
@@ -37,6 +39,8 @@ class NewsletterIssue(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = "뉴스레터 발행"
+        verbose_name_plural = "뉴스레터 발행"
 
     def __str__(self):
         return f"[{self.get_status_display()}] {self.subject}"

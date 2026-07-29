@@ -29,11 +29,11 @@
         <div class="row mb-4">
             <div class="col d-flex justify-content-between align-items-start">
                 <div>
-                    <h2 class="fw-bold text-dark">📰 뉴스 게시판</h2>
+                    <h2 class="fw-bold text-dark">📰 경제 동향</h2>
                     <p class="text-muted">AI 에이전트가 수집·분석한 증권/경제 뉴스 목록입니다.</p>
                 </div>
                 {% if user.is_authenticated %}
-                <a href="{% url 'news_scrape' %}" class="btn btn-primary btn-sm flex-shrink-0">🔗 URL로 기사 등록</a>
+                <a href="{% url 'news_scrape' %}" class="btn btn-primary btn-sm flex-shrink-0">뉴스 포스팅</a>
                 {% endif %}
             </div>
         </div>
@@ -95,6 +95,9 @@
                 {% endif %}
                 {% endfor %}
                 <span class="text-muted small ms-auto">
+                    {% if summarize_stats.remaining is not None %}
+                        <span class="badge bg-light text-dark border me-2">AI 요약 오늘 {{ summarize_stats.remaining }}건 남음</span>
+                    {% endif %}
                     {% if posting_stats.remaining is None %}
                         {% if posting_stats.is_admin %}
                         <span class="badge bg-dark me-2">관리자 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
@@ -115,7 +118,7 @@
                 {% if page_obj.object_list %}
                     {% for article in page_obj %}
                     <div class="news-row d-flex align-items-start">
-                        {% if selected_account and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
+                        {% if selected_account and article.ai_generated and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
                         <div class="form-check pt-1 pe-2">
                             <input type="checkbox" class="form-check-input article-check" name="article_ids" value="{{ article.pk }}">
                         </div>
@@ -129,20 +132,28 @@
                                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}</a>{% endif %}
                                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
                                 {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
+                                {% if article.ai_generated %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
                             </div>
-                            <div class="news-summary">{{ article.ai_summary|truncatechars:120 }}</div>
+                            <div class="news-summary">
+                                {% if article.ai_summary %}{{ article.ai_summary|truncatechars:120 }}{% else %}<span class="text-muted fst-italic">아직 AI 요약이 생성되지 않았습니다.</span>{% endif %}
+                            </div>
                         </div>
-                        {% if selected_account %}
-                        <div class="news-post-action ps-3">
-                            {% if article.pk in posted_article_ids %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
-                            {% elif posting_stats.remaining == 0 %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
-                            {% else %}
-                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary">포스팅</button>
+                        <div class="news-post-action ps-3 d-flex flex-column align-items-end gap-1">
+                            {% if not article.ai_generated %}
+                                {% if user.is_authenticated %}
+                                <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary"
+                                        {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
+                                {% endif %}
+                            {% elif selected_account %}
+                                {% if article.pk in posted_article_ids %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
+                                {% elif posting_stats.remaining == 0 %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
+                                {% else %}
+                                <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary">포스팅</button>
+                                {% endif %}
                             {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}
@@ -156,19 +167,23 @@
         {% if page_obj.paginator.num_pages > 1 %}
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">이전</a>
+                <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&laquo;</a>
                 </li>
-                {% endif %}
-                <li class="page-item disabled">
-                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&lsaquo;</a>
                 </li>
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">다음</a>
+                {% for n in page_range %}
+                <li class="page-item{% if n == page_obj.number %} active{% endif %}">
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">{{ n }}</a>
                 </li>
-                {% endif %}
+                {% endfor %}
+                <li class="page-item{% if not next_block_page %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&rsaquo;</a>
+                </li>
+                <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&raquo;</a>
+                </li>
             </ul>
         </nav>
         {% endif %}

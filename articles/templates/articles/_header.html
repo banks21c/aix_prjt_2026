@@ -1,75 +1,92 @@
 {% load static %}
-<!-- 내부 앱 페이지(대시보드/뉴스게시판/뉴스상세/종목상세/마이페이지) 공통 상단 네비게이션 -->
+<!-- 사이트 전체 공통 상단 네비게이션 (내부 앱 페이지 + 랜딩 페이지 + isa/pension/irp/insurance-guide 정적 페이지가 fetch로 불러다 씀).
+     Bootstrap 유무와 무관하게 항상 같은 모양으로 보이도록 아래 <style>이 필요한 CSS를 전부 자체적으로 갖고 있다.
+     is_index_page가 True로 전달되면(랜딩 페이지) index_menus + 랜딩 전용 링크를, 아니면 header_menus + 내부 앱 전용 링크를 보여준다. -->
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
-<nav class="navbar navbar-light bg-white border-bottom sticky-top app-navbar">
+<nav class="app-navbar">
     <div class="container">
-        <a class="navbar-brand" href="/">📈 NextFinUp <span class="text-secondary" style="font-size: 14px; font-weight: 400;">AI 자산 허브</span></a>
+        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: #6c757d;">AI 자산 허브</span></a>
         <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
                 onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
-        <div class="d-flex align-items-center app-nav-menu" id="appNavMenu">
-            <a href="/" class="btn btn-sm btn-outline-secondary me-2">홈으로</a>
-            {% for menu in header_menus %}
-                {% if menu.external_url == '/insurance-guide/' %}
-                <div class="nav-dropdown">
-                    <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                    <div class="nav-dropdown-menu">
-                        <a href="/insurance-guide/whole-life-insurance/">종신보험</a>
-                        <a href="/insurance-guide/term-life-insurance/">정기보험</a>
-                        <a href="/insurance-guide/variable-life-insurance/">변액보험</a>
-                        <a href="/insurance-guide/non-life-insurance/">실손손해보험</a>
-                    </div>
-                </div>
-                {% elif menu.name == '저축' %}
-                <div class="nav-dropdown">
-                    <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                    <div class="nav-dropdown-menu">
-                        <a href="/isa/">ISA</a>
-                        <a href="/pension/">연금저축</a>
-                        <a href="/irp/">IRP</a>
-                    </div>
-                </div>
-                {% else %}
-                <a href="{{ menu.get_url }}" class="btn btn-sm btn-outline-secondary me-2">{{ menu.name }}{% if menu.badge_text %}<span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">{{ menu.badge_text }}</span>{% endif %}</a>
-                {% endif %}
-            {% endfor %}
-            {% if user.is_authenticated %}
-                <a href="{% url 'news_scrape' %}" class="btn btn-sm btn-outline-secondary me-2">🔗 URL로 기사 등록</a>
+        <div class="app-nav-menu" id="appNavMenu">
+            {% if is_index_page %}
+                {% with menus=index_menus %}{% include "articles/_nav_menu_loop.html" %}{% endwith %}
+            {% else %}
+                {% with menus=header_menus %}{% include "articles/_nav_menu_loop.html" %}{% endwith %}
             {% endif %}
             {% if user.is_staff %}
-                <a href="/admin/" class="btn btn-sm btn-outline-secondary me-2" target="_blank">관리자</a>
+                <a href="/admin/" class="btn btn-outline-secondary" target="_blank">관리자</a>
             {% endif %}
             {% if user.is_authenticated %}
                 {% with provider=user.social_accounts.first.provider %}
-                <a href="{% url 'my_page' %}" class="btn btn-sm btn-outline-secondary me-2 d-inline-flex align-items-center gap-1">
-                    {% if provider == 'KAKAO' %}<span class="badge rounded-pill" style="background:#FEE500;color:#191919;">💬</span>
-                    {% elif provider == 'GOOGLE' %}<span class="badge rounded-pill" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
-                    {% elif provider == 'NAVER' %}<span class="badge rounded-pill" style="background:#03C75A;color:#fff;">N</span>
+                <a href="{% url 'my_page' %}" class="btn btn-outline-secondary">
+                    {% if provider == 'KAKAO' %}<span class="provider-badge" style="background:#FEE500;color:#191919;">💬</span>
+                    {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
+                    {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:#fff;">N</span>
                     {% endif %}
                     {{ user.first_name|default:user.username }}님
                 </a>
                 {% endwith %}
-                <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger" title="로그아웃" aria-label="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></a>
+                <a href="{% url 'logout' %}" class="btn btn-outline-secondary"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</a>
             {% else %}
-                <a href="{% url 'login' %}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"><i class="fa-solid fa-right-to-bracket"></i> 로그인</a>
+                <a href="{% url 'login' %}" class="btn btn-outline-secondary"><i class="fa-solid fa-right-to-bracket"></i> 로그인</a>
+                <a href="{% url 'signup' %}" class="btn btn-primary">회원가입</a>
             {% endif %}
         </div>
     </div>
 </nav>
 <style>
+    .app-navbar {
+        background: #fff;
+        border-bottom: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+    }
+    .app-navbar .container {
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 0 20px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    .app-navbar .navbar-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: #0d47a1;
+        font-size: 20px;
+        text-decoration: none;
+    }
+    .app-nav-menu {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
     .nav-dropdown { position: relative; display: inline-block; }
     .nav-dropdown-menu {
         display: none;
         position: absolute;
         top: 100%;
         left: 0;
-        margin-top: 4px;
+        margin-top: 0;
+        padding-top: 0;
+        background: transparent;
+        min-width: 140px;
+        z-index: 1000;
+    }
+    .nav-dropdown-menu-inner {
         background: #fff;
         border: 1px solid #dee2e6;
         border-radius: 8px;
         box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        min-width: 140px;
-        z-index: 1000;
         padding: 6px;
     }
     .nav-dropdown:hover .nav-dropdown-menu { display: block; }
@@ -84,8 +101,63 @@
     }
     .nav-dropdown-menu a:hover { background: #f1f3f5; }
     @media (max-width: 768px) {
-        .nav-dropdown-menu { position: static; display: block; box-shadow: none; border: none; padding-left: 12px; margin-top: 0; }
+        .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+        .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
         .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+
+    /* 버튼 모양은 index.html(랜딩 페이지) 스타일을 기준으로 통일 */
+    .app-navbar .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: normal;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .app-navbar .btn-outline-secondary {
+        border-color: #ced4da;
+        color: #495057;
+        background: #fff;
+    }
+    .app-navbar .btn-outline-secondary:hover {
+        background: #f1f3f5;
+        color: #495057;
+        border-color: #ced4da;
+    }
+    .app-navbar .btn-primary {
+        background: #0d47a1;
+        border-color: #0d47a1;
+        color: #fff;
+    }
+    .app-navbar .btn-primary:hover {
+        background: #0b3c8a;
+        border-color: #0b3c8a;
+    }
+    .app-navbar .btn-outline-danger {
+        border-color: #dc3545;
+        color: #dc3545;
+        background: #fff;
+    }
+    .app-navbar .btn-outline-danger:hover {
+        background: #dc3545;
+        color: #fff;
+    }
+
+    .provider-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 50%;
     }
 
     .app-navbar-toggler {
@@ -99,7 +171,7 @@
         cursor: pointer;
     }
     @media (max-width: 768px) {
-        .app-navbar .container { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; }
+        .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
         .app-navbar-toggler { display: inline-block; }
         .app-nav-menu {
             display: none !important;
@@ -116,7 +188,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.06);
         }
         .app-nav-menu.open { display: flex !important; }
-        .app-nav-menu .btn { margin: 0 !important; width: 100%; text-align: center; }
-        .app-nav-menu .badge { align-self: flex-start; }
+        .app-nav-menu .btn { width: 100%; justify-content: center; }
     }
 </style>

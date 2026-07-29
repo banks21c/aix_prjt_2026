@@ -39,6 +39,17 @@
                 {% csrf_token %}
 
                 {% for field in form %}
+                {% if field.name == 'title' or field.name == 'source_media' %}
+                <div class="mb-3 row align-items-center g-2">
+                    <label for="{{ field.id_for_label }}" class="col-auto form-label fw-semibold mb-0">{{ field.label }}</label>
+                    <div class="col">
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
                 <div class="mb-3">
                     <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
                     {% if field.name == 'is_premium' %}
@@ -56,10 +67,11 @@
                     <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
                     {% endif %}
                 </div>
+                {% endif %}
                 {% endfor %}
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{% url 'news_detail' article.pk %}" class="btn btn-outline-secondary">취소</a>
+                    <a href="{% url 'news_detail' article.pk %}" class="btn btn-outline-secondary">상세보기</a>
                     <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>

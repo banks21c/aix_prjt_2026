@@ -104,6 +104,7 @@ class PublicViewSmokeTests(TestCase):
         AnalyzedArticle.objects.create(
             stock=cls.stock, title='삼성전자 관련 뉴스', original_url='https://example.com/news/1',
             source_media='테스트뉴스', ai_summary='요약', ai_analysis='분석', blog_content='본문',
+            original_content='원문 본문 테스트용 텍스트',
         )
 
     def test_landing_page(self):

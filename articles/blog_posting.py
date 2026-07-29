@@ -1,4 +1,4 @@
-"""회원별 자동 포스팅(워드프레스/티스토리/네이버/블로거 블로그) 공통 로직.
+"""회원별 자동 포스팅(워드프레스/블로거 블로그) 공통 로직.
 
 각 플랫폼 커맨드(post_to_wordpress 등)와 마이페이지의 수동 포스팅 화면(post_articles_view)이
 공유하는 "발행 대상 기사 선정", "포스팅용 콘텐츠 빌드", "실제 플랫폼별 발행 API 호출"을
@@ -18,9 +18,8 @@ from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPre
 # 없으면 평문으로 간주해 기존처럼 줄바꿈만 <br>로 살린다.
 _BLOCK_HTML_RE = re.compile(r'<(p|h[1-6]|ul|ol|li|div|blockquote|table|img|br)\b', re.IGNORECASE)
 
-TISTORY_WRITE_URL = "https://www.tistory.com/apis/post/write"
-WP_POST_STATUS = "draft"  # 첫 포스팅이라 바로 공개되지 않도록 임시저장으로 올림. 검증 끝나면 "publish"로 변경.
-BLOGGER_IS_DRAFT = True  # 검증 전까지는 바로 공개되지 않도록 임시저장(비공개 초안)으로 올림
+WP_POST_STATUS = "publish"  # 검증 완료 후 바로 공개 발행으로 전환.
+BLOGGER_IS_DRAFT = False  # 검증 완료 후 바로 공개 발행으로 전환.
 
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
@@ -64,9 +63,13 @@ def _match_keywords(article, keywords):
 
 
 def select_candidates(account, preference, limit=None):
-    """이 계정에 아직 발행되지 않은 기사 중, 관심 키워드(또는 전체 발행 설정)에 맞는 기사 목록."""
+    """이 계정에 아직 발행되지 않은 기사 중, 관심 키워드(또는 전체 발행 설정)에 맞는 기사 목록.
+    ai_generated=False(RSS/KIS 자동 수집 직후의 placeholder 요약)는 제외한다 — 회원의 실제
+    블로그에 원문 truncate/고정 문구를 그대로 발행하지 않기 위함. 회원이 뉴스 게시판에서 'AI 요약'
+    버튼으로 직접 요약을 생성했거나, 특징주 통합 브리핑처럼 이미 실제 AI 요약이 있는 기사만 대상."""
     candidates = (
         AnalyzedArticle.objects
+        .filter(ai_generated=True)
         .select_related('stock', 'matched_keyword')
         .exclude(postings__blog_account=account)
         .order_by('-scraped_at')
@@ -106,7 +109,7 @@ def build_post_content(article):
         signal_color = "#E53935" if latest_pred.trading_signal == 'BUY' else ("#1E88E5" if latest_pred.trading_signal == 'SELL' else "#757575")
         pred_html = f"""
         <div style="padding: 20px; border: 2px solid #EEE; border-radius: 10px; background-color: #FAFAFA; margin-bottom: 20px;">
-            <h3 style="margin-top: 0; color: #333;">🤖 NextFinUp 머신러닝 주가 추론 브리핑</h3>
+            <h3 style="margin-top: 0; color: #333;">🤖 머신러닝 주가 추론 브리핑</h3>
             <p><b>🎯 분석 기준 종목:</b> {article.stock.name} ({article.stock.ticker})</p>
             <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                 <tr style="background-color: #F5F5F5;"><th style="padding: 8px; border: 1px solid #DDD;">예측 항목</th><th style="padding: 8px; border: 1px solid #DDD;">AI 추론 결과</th></tr>
@@ -121,7 +124,7 @@ def build_post_content(article):
     full_html_content = f"""
     {pred_html}
     <div style="line-height: 1.8; font-size: 16px; color: #333;">
-        <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">📰 AI 에이전트 뉴스 실시간 요약</h3>
+        <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">📰 오늘의 뉴스 핵심 요약</h3>
         <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px;">
             {safe_summary}
         </blockquote>
@@ -134,7 +137,7 @@ def build_post_content(article):
         <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">🚀 실전 투자 가이드 브리핑</h3>
         {blog_content_body}
 
-        <p style="font-size: 12px; color: #888; margin-top: 5px;">본 포스팅은 NextFinUp 시스템의 머신러닝 알고리즘과 AI 에이전트가 자동으로 가공한 경제 정보 콘텐츠이며, 투자 참고용으로만 사용하시기 바랍니다.</p>
+        <p style="font-size: 12px; color: #888; margin-top: 5px;">본 콘텐츠는 공개된 시장 데이터와 뉴스를 참고하여 작성되었으며, 투자 판단 및 그 결과에 대한 책임은 전적으로 투자자 본인에게 있습니다.</p>
     </div>
     """
 
@@ -142,8 +145,10 @@ def build_post_content(article):
         article.matched_keyword.keyword if article.matched_keyword else "경제"
     )
     # 게시판에 뜨는 원본 기사 제목(article.title)을 그대로 살려서, 회원이 블로그 관리자 화면에서
-    # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다.
-    blog_title = f"[NextFinUp AI 분석] {article.title}"
+    # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이
+    # 만든 콘텐츠"라는 걸 밝히지 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의
+    # 블로그 글처럼 보여야 하기 때문.
+    blog_title = f"[투자 인사이트] {article.title}"
 
     return blog_title, full_html_content, subject_label
 
@@ -163,30 +168,6 @@ def publish_to_wordpress(account, blog_title, content):
     if res.status_code == 201:
         return True, res.json().get('link', ''), None
     return False, '', f"워드프레스 API 응답 에러 ({res.status_code}): {res.text[:300]}"
-
-
-def publish_to_tistory(account, blog_title, content, subject_label):
-    """반환: (성공 여부, 발행된 글 URL, 실패 사유)"""
-    payload = {
-        # 티스토리 오픈 API: account_id=블로그 이름(예: nextfinup), credential=API 액세스 토큰
-        "access_token": account.credential,
-        "output": "json",
-        "blogName": account.account_id,
-        "title": blog_title,
-        "content": content,
-        "visibility": 3,  # 3: 발행(공개), 0: 비공개
-        "category": 0,
-        "tag": f"{subject_label}, 경제뉴스, AI투자, 테크핀",
-    }
-    try:
-        res = requests.post(TISTORY_WRITE_URL, data=payload, timeout=15).json()
-    except Exception as e:
-        return False, '', f"네트워크 연동 실패: {e}"
-
-    tistory_res = res.get("tistory", {})
-    if tistory_res.get("status") == "200":
-        return True, tistory_res.get('url', ''), None
-    return False, '', f"티스토리 API 응답 에러: {res}"
 
 
 def _get_blogger_access_token(account):
@@ -227,17 +208,9 @@ def publish_to_blogger(account, blog_title, content):
     return False, '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
 
-def publish_to_naver(account, blog_title, content):
-    """네이버는 개인 블로그 글쓰기 공식 오픈 API가 없어(검색 API만 공개), 실제 발행 없이
-    콘텐츠 빌드까지만 하고 항상 '성공(URL 없음)'으로 반환한다 (수동 게시 안내용)."""
-    return True, '', None
-
-
 PUBLISHERS = {
     'WORDPRESS': lambda account, title, content, subject_label: publish_to_wordpress(account, title, content),
-    'TISTORY': publish_to_tistory,
     'BLOGGER': lambda account, title, content, subject_label: publish_to_blogger(account, title, content),
-    'NAVER': lambda account, title, content, subject_label: publish_to_naver(account, title, content),
 }
 
 
