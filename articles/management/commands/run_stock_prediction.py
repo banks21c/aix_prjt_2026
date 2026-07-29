@@ -150,13 +150,19 @@ class Command(BaseCommand):
                 else:
                     signal = 'HOLD'
 
-                record = StockPrediction.objects.get(id=int(latest_row['id'].iloc[0]))
-                record.pred_next_close = round(pred_close, 2)
-                record.pred_5day_return = round(pred_ret5 * 100, 2)
-                record.up_probability = round(float(prob_up), 4)
-                record.down_probability = round(float(prob_down), 4)
-                record.trading_signal = signal
-                record.save()
+                # StockDailyPrice(가격)와 StockPrediction(예측)이 분리된 뒤로는 공유 id가 없어,
+                # 가격 쪽에서 읽어온 (종목, 날짜)로 예측 행을 찾거나 새로 만든다.
+                record, _ = StockPrediction.objects.update_or_create(
+                    stock_id=int(latest_row['stock_id'].iloc[0]),
+                    date=latest_row['date'].iloc[0],
+                    defaults={
+                        'pred_next_close': round(pred_close, 2),
+                        'pred_5day_return': round(pred_ret5 * 100, 2),
+                        'up_probability': round(float(prob_up), 4),
+                        'down_probability': round(float(prob_down), 4),
+                        'trading_signal': signal,
+                    },
+                )
 
                 validation_note = (
                     f"검증정확도 {holdout_acc:.1%}(기준 {baseline_acc:.1%}) "

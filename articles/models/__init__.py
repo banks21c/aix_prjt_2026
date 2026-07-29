@@ -4,20 +4,20 @@
 # 커맨드/admin.py 등 기존 임포트 구문을 하나도 건드리지 않고 그대로 재사용할 수 있다.
 from .market import (
     StockItem, KisAccessToken, RankedMover, StockRealtimePrice, MarketHoliday, MarketIndex,
-    StockPrediction,
+    StockDailyPrice, StockPrediction,
 )
 from .members import (
     UserSubscription, MemberGrade, UserPreference, BlogPostingAccount, LoginLog, MenuAccessLog,
     ChatMessage, SocialAccount,
 )
-from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle
+from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet
 
 __all__ = [
     'StockItem', 'KisAccessToken', 'RankedMover', 'StockRealtimePrice', 'MarketHoliday',
-    'MarketIndex', 'StockPrediction',
+    'MarketIndex', 'StockDailyPrice', 'StockPrediction',
     'UserSubscription', 'MemberGrade', 'UserPreference', 'BlogPostingAccount', 'LoginLog',
     'MenuAccessLog', 'ChatMessage', 'SocialAccount',
-    'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle',
+    'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest', 'FinancialConsultSheet',
 ]

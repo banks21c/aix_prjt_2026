@@ -3,7 +3,7 @@ import time
 
 import yfinance as yf
 from django.core.management.base import BaseCommand
-from articles.models import StockItem, StockPrediction
+from articles.models import StockItem, StockDailyPrice
 
 # 시장 구분 -> 야후 파이낸스 티커 접미사
 SUFFIX_MAP = {'KOSPI': '.KS', 'KOSDAQ': '.KQ'}
@@ -14,8 +14,8 @@ RATE_LIMIT_HINTS = ('429', 'rate limit', 'too many requests', 'rate-limited')
 
 class Command(BaseCommand):
     help = (
-        'is_major_index=True(코스피200/코스닥150) 종목만 대상으로 10년치 일봉 데이터를 '
-        '야후 파이낸스 차단을 피하며 안전하게 벌크 적재합니다.'
+        '기본적으로 is_major_index=True(코스피200/코스닥150) 종목만 대상으로 10년치 일봉 데이터를 '
+        '야후 파이낸스 차단을 피하며 안전하게 벌크 적재합니다. --all 지정 시 is_active 전체 종목 대상.'
     )
 
     def add_arguments(self, parser):
@@ -29,6 +29,8 @@ class Command(BaseCommand):
                              help='연속 실패 허용 횟수. 초과 시 차단으로 간주하고 작업 중단. 기본 5')
         parser.add_argument('--period', type=str, default='10y',
                              help='수집 기간(yfinance period 문법). 기본 10y')
+        parser.add_argument('--all', action='store_true',
+                             help='is_major_index 여부와 무관하게 is_active=True 전체 종목을 대상으로 수집합니다.')
 
     def handle(self, *args, **options):
         sleep_min = options['sleep_min']
@@ -36,24 +38,30 @@ class Command(BaseCommand):
         max_retries = options['max_retries']
         max_consecutive_failures = options['max_consecutive_failures']
         period = options['period']
+        collect_all = options['all']
 
         if sleep_min < 0 or sleep_max < sleep_min:
             self.stdout.write(self.style.ERROR("--sleep-min/--sleep-max 값이 올바르지 않습니다."))
             return
 
-        # is_major_index=True (코스피200/코스닥150)만 대상으로 좁혀서, 요청량 자체를 줄입니다.
-        db_stocks = list(StockItem.objects.filter(is_active=True, is_major_index=True))
+        # 기본은 is_major_index=True(코스피200/코스닥150)만 대상으로 좁혀서 요청량을 줄이고,
+        # --all 지정 시에만 is_active 전체 종목을 대상으로 합니다.
+        stock_filter = {'is_active': True}
+        if not collect_all:
+            stock_filter['is_major_index'] = True
+        db_stocks = list(StockItem.objects.filter(**stock_filter))
         total_count = len(db_stocks)
 
         if total_count == 0:
             self.stdout.write(self.style.WARNING(
-                "[-] is_major_index=True 종목이 없습니다. "
+                "[-] 대상 종목이 없습니다. "
                 "sync_index_membership 명령을 먼저 실행했는지 확인하세요."
             ))
             return
 
+        scope_label = "전체 활성" if collect_all else "코스피200/코스닥150"
         self.stdout.write(self.style.SUCCESS(
-            f"🚀 코스피200/코스닥150 총 {total_count}개 종목 10년 시계열 수집을 시작합니다. "
+            f"🚀 {scope_label} 총 {total_count}개 종목 10년 시계열 수집을 시작합니다. "
             f"(요청 간 {sleep_min}~{sleep_max}초 대기)"
         ))
 
@@ -155,14 +163,14 @@ class Command(BaseCommand):
         raise last_exc
 
     def _save_history(self, stock, df):
-        """OHLCV 데이터프레임을 검증 후 StockPrediction으로 벌크 적재합니다."""
+        """OHLCV 데이터프레임을 검증 후 StockDailyPrice로 벌크 적재합니다."""
         # 결측치가 있는 행은 DB 제약(NOT NULL) 위반이나 잘못된 값 저장을 막기 위해 제외
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
         if df.empty:
             return 0
 
         existing_dates = set(
-            StockPrediction.objects.filter(stock=stock).values_list('date', flat=True)
+            StockDailyPrice.objects.filter(stock=stock).values_list('date', flat=True)
         )
 
         bulk_list = []
@@ -173,7 +181,7 @@ class Command(BaseCommand):
 
             try:
                 bulk_list.append(
-                    StockPrediction(
+                    StockDailyPrice(
                         stock=stock,
                         date=record_date,
                         open_price=round(float(row['Open']), 2),
@@ -192,7 +200,7 @@ class Command(BaseCommand):
             return 0
 
         # unique_together=(stock, date) 위반분은 조용히 무시 (existing_dates와 이중 방어)
-        StockPrediction.objects.bulk_create(bulk_list, batch_size=500, ignore_conflicts=True)
+        StockDailyPrice.objects.bulk_create(bulk_list, batch_size=500, ignore_conflicts=True)
         return len(bulk_list)
 
     @staticmethod

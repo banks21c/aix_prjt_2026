@@ -12,7 +12,10 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, utils
-from .models import AnalyzedArticle, MemberGrade, StockItem, StockPrediction, UserPreference, UserSubscription
+from .models import (
+    AnalyzedArticle, MemberGrade, StockDailyPrice, StockItem, StockPrediction, UserPreference,
+    UserSubscription,
+)
 
 STRONG_PASSWORD = "N3xtF1nUp-test-only!"
 
@@ -97,13 +100,14 @@ class PublicViewSmokeTests(TestCase):
         cls.stock = StockItem.objects.create(
             ticker='005930', name='삼성전자', market_type='KOSPI', is_active=True, is_major_index=True,
         )
-        StockPrediction.objects.create(
+        StockDailyPrice.objects.create(
             stock=cls.stock, date=timezone.localdate(),
             open_price=70000, high_price=71000, low_price=69500, close_price=70500, volume=1000000,
         )
         AnalyzedArticle.objects.create(
             stock=cls.stock, title='삼성전자 관련 뉴스', original_url='https://example.com/news/1',
             source_media='테스트뉴스', ai_summary='요약', ai_analysis='분석', blog_content='본문',
+            original_content='원문 본문 테스트용 텍스트',
         )
 
     def test_landing_page(self):
@@ -181,17 +185,25 @@ class GradeLimitTests(TestCase):
 class ModelBasicsTests(TestCase):
     """마이그레이션/모델 정의가 예상대로인지 확인하는 값싼 회귀 테스트."""
 
-    def test_stock_prediction_unique_together_on_stock_and_date(self):
+    def test_stock_daily_price_unique_together_on_stock_and_date(self):
         stock = StockItem.objects.create(ticker='000660', name='SK하이닉스', market_type='KOSPI')
         today = timezone.localdate()
-        StockPrediction.objects.create(
+        StockDailyPrice.objects.create(
             stock=stock, date=today, open_price=1, high_price=1, low_price=1, close_price=1, volume=1,
         )
 
         with self.assertRaises(IntegrityError), transaction.atomic():
-            StockPrediction.objects.create(
+            StockDailyPrice.objects.create(
                 stock=stock, date=today, open_price=2, high_price=2, low_price=2, close_price=2, volume=2,
             )
+
+    def test_stock_prediction_unique_together_on_stock_and_date(self):
+        stock = StockItem.objects.create(ticker='035420', name='NAVER', market_type='KOSPI')
+        today = timezone.localdate()
+        StockPrediction.objects.create(stock=stock, date=today)
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            StockPrediction.objects.create(stock=stock, date=today)
 
     def test_analyzed_article_str(self):
         article = AnalyzedArticle.objects.create(

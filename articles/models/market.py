@@ -19,6 +19,10 @@ class StockItem(models.Model):
     # KRX CSV의 '상장시가총액' 원본 값을 그대로 저장 (정렬/랭킹 용도, 단위는 KRX 원본 표기 기준)
     market_cap = models.BigIntegerField(null=True, blank=True, verbose_name="상장시가총액")
 
+    class Meta:
+        verbose_name = "종목 (StockItem)"
+        verbose_name_plural = "종목 마스터 (StockItem)"
+
     def __str__(self):
         return f"[{self.ticker}] {self.name}"
 
@@ -32,6 +36,10 @@ class KisAccessToken(models.Model):
     access_token = models.TextField(verbose_name="접근 토큰")
     expires_at = models.DateTimeField(verbose_name="만료 시각")
     issued_at = models.DateTimeField(auto_now_add=True, verbose_name="발급 시각")
+
+    class Meta:
+        verbose_name = "KIS 접근 토큰 (KisAccessToken)"
+        verbose_name_plural = "KIS 접근 토큰 (KisAccessToken)"
 
     def __str__(self):
         return f"KIS 토큰 (만료: {self.expires_at})"
@@ -59,6 +67,8 @@ class RankedMover(models.Model):
     class Meta:
         unique_together = ('rank_type', 'rank')
         ordering = ['rank_type', 'rank']
+        verbose_name = "급등락 순위 (RankedMover)"
+        verbose_name_plural = "급등락 순위 (RankedMover)"
 
     def __str__(self):
         return f"[{self.get_rank_type_display()} {self.rank}위] {self.name} ({self.change_pct}%)"
@@ -81,6 +91,10 @@ class StockRealtimePrice(models.Model):
     volume = models.BigIntegerField(verbose_name="누적 거래량")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
 
+    class Meta:
+        verbose_name = "실시간 시세 (StockRealtimePrice)"
+        verbose_name_plural = "실시간 시세 (StockRealtimePrice)"
+
     def __str__(self):
         return f"{self.stock.name} 현재가 {self.close_price} ({self.updated_at})"
 
@@ -99,6 +113,8 @@ class MarketHoliday(models.Model):
 
     class Meta:
         ordering = ['date']
+        verbose_name = "휴장일 (MarketHoliday)"
+        verbose_name_plural = "휴장일 (MarketHoliday)"
 
     def __str__(self):
         status = "개장" if self.is_market_open else "휴장"
@@ -126,19 +142,24 @@ class MarketIndex(models.Model):
     class Meta:
         unique_together = ('market_type', 'date')
         ordering = ['-date']
+        verbose_name = "시장 지수 (MarketIndex)"
+        verbose_name_plural = "시장 지수 (MarketIndex)"
 
     def __str__(self):
         return f"{self.get_market_type_display()} {self.date} ({self.close_price})"
 
 
 # ==========================================
-# 2. 일봉 가격 및 AI 주가 예측 결과 테이블
+# 2-1. 일봉 가격(실제 OHLCV) 테이블
 # ==========================================
-class StockPrediction(models.Model):
-    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="predictions", verbose_name="종목")
-    date = models.DateField(verbose_name="날짜") # YYYY-MM-DD
+class StockDailyPrice(models.Model):
+    """collect_stock_data가 야후 파이낸스에서 받아온 실제 일봉(OHLCV)만 담는 테이블.
+    이전엔 StockPrediction 한 테이블에 이 실가격과 AI 예측값이 같이 있었는데, 전체 90만+ 행 중
+    예측값이 채워진 행은 0.1%도 안 돼(대부분 그냥 가격 이력) 이름과 실제 용도가 어긋나 혼란을
+    줬다. 그래서 실가격/예측을 테이블로 분리한다."""
+    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="daily_prices", verbose_name="종목")
+    date = models.DateField(verbose_name="날짜")  # YYYY-MM-DD
 
-    # 기초 훈련 데이터 (10년치 일봉 수집용)
     open_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="시가")
     high_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="고가")
     low_price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="저가")
@@ -146,7 +167,31 @@ class StockPrediction(models.Model):
     volume = models.BigIntegerField(verbose_name="거래량")
     trading_amount = models.BigIntegerField(null=True, blank=True, verbose_name="거래금액")
 
-    # ML/AI 분석 결과 데이터 (내일 및 5일 예측값)
+    class Meta:
+        # 한 종목에 대해 하루에 하나의 일봉만 쌓이도록 고유값 설정
+        unique_together = ('stock', 'date')
+        ordering = ['-date']
+        # 어드민 목록 정렬(-date, stock, -id: Django 어드민이 안정적 페이지네이션을 위해 pk를 자동으로 덧붙임)과
+        # 완전히 일치하는 인덱스를 걸어야 대량 데이터에서도 파일소트 없이 조회됨
+        indexes = [
+            models.Index(fields=['-date', 'stock', '-id'], name='dailyprice_date_stock_idx'),
+        ]
+        verbose_name = "일별 시세 (StockDailyPrice)"
+        verbose_name_plural = "일별 시세 (StockDailyPrice)"
+
+    def __str__(self):
+        return f"{self.stock.name} {self.date} 종가 {self.close_price}"
+
+
+# ==========================================
+# 2-2. AI 주가 예측 결과 테이블
+# ==========================================
+class StockPrediction(models.Model):
+    """run_stock_prediction이 산출한 예측값만 담는다. 실가격은 StockDailyPrice를 본다
+    (기준일 종가는 StockDailyPrice.objects.get(stock=.., date=이 행의 date).close_price)."""
+    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="predictions", verbose_name="종목")
+    date = models.DateField(verbose_name="예측 기준일(이 날짜 종가까지의 데이터로 다음날을 예측)")
+
     pred_next_close = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="AI 내일 예상종가")
     pred_5day_return = models.FloatField(null=True, blank=True, verbose_name="AI 향후 5일 예상수익률")
 
@@ -161,14 +206,14 @@ class StockPrediction(models.Model):
     trading_signal = models.CharField(max_length=5, choices=SIGNAL_CHOICES, default='HOLD', verbose_name="매매 신호")
 
     class Meta:
-        # 한 종목에 대해 하루에 하나의 예측/가격 데이터만 쌓이도록 고유값 설정
+        # 한 종목에 대해 하루에 하나의 예측만 쌓이도록 고유값 설정
         unique_together = ('stock', 'date')
         ordering = ['-date']
-        # 어드민 목록 정렬(-date, stock, -id: Django 어드민이 안정적 페이지네이션을 위해 pk를 자동으로 덧붙임)과
-        # 완전히 일치하는 인덱스를 걸어야 대량 데이터에서도 파일소트 없이 조회됨
         indexes = [
             models.Index(fields=['-date', 'stock', '-id'], name='stockpred_date_stock_idx'),
         ]
+        verbose_name = "AI 예측 (StockPrediction)"
+        verbose_name_plural = "AI 예측 (StockPrediction)"
 
     def __str__(self):
         return f"{self.stock.name} - {self.date} 예측"

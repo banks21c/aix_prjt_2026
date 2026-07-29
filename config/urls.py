@@ -22,7 +22,7 @@ from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
     privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view, header_fragment_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view,
-    news_board_view, news_detail_view, news_edit_view, news_scrape_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_search_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -57,9 +57,12 @@ urlpatterns = [
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
     path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑 → AI 초안 생성
+    path('news/search/', news_search_view, name='news_search'),  # ◀ news_scrape 화면의 검색어로 찾기 모드가 쓰는 AJAX 엔드포인트
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
+    path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape 검색결과의 '이미 등록됨' 항목 미리보기 AJAX
     path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
+    path('news/<int:pk>/ai-summarize/', news_ai_summarize_view, name='news_ai_summarize'),  # ◀ 포스팅 직전 개별 기사 AI 요약 트리거
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
 

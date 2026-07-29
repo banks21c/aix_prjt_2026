@@ -1,7 +1,7 @@
 """
 articles/ml/features.py 로 저장하세요.
 
-StockPrediction(일봉 OHLCV)로부터 학습/예측용 피처와 라벨을 계산하는 공용 모듈입니다.
+StockDailyPrice(일봉 OHLCV)로부터 학습/예측용 피처와 라벨을 계산하는 공용 모듈입니다.
 train_model.py, predict_stock.py 둘 다 이 모듈을 그대로 임포트해서 씁니다.
 (학습 때 쓴 피처 계산 로직과 예측 때 쓴 로직이 어긋나면 안 되므로 반드시 한 곳에서만 정의합니다.)
 """
@@ -99,9 +99,9 @@ def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=N
     run_stock_prediction이 build_feature_dataframe_for_stock()으로 종목을 하나씩 순차 처리합니다.
     """
     from django.db.models import Count
-    from articles.models import StockPrediction
+    from articles.models import StockDailyPrice
 
-    qs = StockPrediction.objects.filter(stock__is_major_index=True, stock__is_active=True)
+    qs = StockDailyPrice.objects.filter(stock__is_major_index=True, stock__is_active=True)
     if stock_ids is not None:
         qs = qs.filter(stock_id__in=stock_ids)
 
@@ -115,19 +115,19 @@ def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=N
 
 
 def build_feature_dataframe_for_stock(stock_id: int) -> pd.DataFrame:
-    """단일 종목의 일봉(StockPrediction)만 DB에서 읽어 피처/라벨을 계산해 반환합니다.
+    """단일 종목의 일봉(StockDailyPrice)만 DB에서 읽어 피처/라벨을 계산해 반환합니다.
 
     이전 build_feature_dataframe()처럼 전체 종목을 한 DataFrame으로 합치지 않는 것이 핵심입니다.
     호출 측(run_stock_prediction)이 종목 id 하나씩 이 함수를 호출해 학습을 끝낸 뒤 결과를 버리므로,
     피크 메모리 사용량이 "종목 1개의 10년치 일봉" 규모로 제한됩니다.
     """
-    from articles.models import StockPrediction
+    from articles.models import StockDailyPrice
 
     qs = (
-        StockPrediction.objects
+        StockDailyPrice.objects
         .filter(stock_id=stock_id)
         .values(
-            'id', 'stock_id', 'stock__ticker', 'stock__name', 'stock__market_type',
+            'stock_id', 'stock__ticker', 'stock__name', 'stock__market_type',
             'date', 'open_price', 'high_price', 'low_price', 'close_price', 'volume',
         )
     )

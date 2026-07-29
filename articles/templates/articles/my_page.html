@@ -156,12 +156,6 @@
                             {{ platform_label }}
                         </label>
                     </div>
-                    {% if platform_code == 'NAVER' %}
-                    <p class="text-muted small mb-2">
-                        ※ 네이버 블로그는 공식 글쓰기 API가 없어 자동 발행 대신 초안 콘텐츠만 생성됩니다. 최종 게시는 직접 해주셔야 합니다.
-                    </p>
-                    {% endif %}
-
                     {% if platform_code == 'BLOGGER' %}
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         {% if account_form.instance.credential %}
@@ -192,15 +186,11 @@
                         </div>
                         {% endif %}
                         <div class="col-md-6">
-                            <label class="form-label small text-muted" for="{{ account_form.account_id.id_for_label }}">
-                                {% if platform_code == 'TISTORY' %}블로그 이름 (예: nextfinup){% else %}계정 ID{% endif %}
-                            </label>
+                            <label class="form-label small text-muted" for="{{ account_form.account_id.id_for_label }}">계정 ID</label>
                             {{ account_form.account_id }}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted" for="{{ account_form.credential.id_for_label }}">
-                                {% if platform_code == 'TISTORY' %}API Key / 액세스 토큰{% else %}비밀번호{% endif %}
-                            </label>
+                            <label class="form-label small text-muted" for="{{ account_form.credential.id_for_label }}">비밀번호</label>
                             {{ account_form.credential }}
                         </div>
                     </div>

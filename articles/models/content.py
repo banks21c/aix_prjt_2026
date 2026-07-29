@@ -12,6 +12,8 @@ class NewsletterSubscriber(models.Model):
 
     class Meta:
         ordering = ['-subscribed_at']
+        verbose_name = "뉴스레터 구독자 (NewsletterSubscriber)"
+        verbose_name_plural = "뉴스레터 구독자 (NewsletterSubscriber)"
 
     def __str__(self):
         return self.email
@@ -37,6 +39,8 @@ class NewsletterIssue(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = "뉴스레터 발행 (NewsletterIssue)"
+        verbose_name_plural = "뉴스레터 발행 (NewsletterIssue)"
 
     def __str__(self):
         return f"[{self.get_status_display()}] {self.subject}"
@@ -66,8 +70,8 @@ class Menu(models.Model):
 
     class Meta:
         ordering = ['menu_type', 'order', 'id']
-        verbose_name = "메뉴"
-        verbose_name_plural = "메뉴 관리"
+        verbose_name = "메뉴 (Menu)"
+        verbose_name_plural = "메뉴 관리 (Menu)"
 
     def __str__(self):
         return f"[{self.get_menu_type_display()}] {self.name}"
@@ -107,8 +111,8 @@ class ConsultRequest(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "상담 신청"
-        verbose_name_plural = "상담 신청 관리"
+        verbose_name = "상담 신청 (ConsultRequest)"
+        verbose_name_plural = "상담 신청 관리 (ConsultRequest)"
 
     def __str__(self):
         return f"[{self.get_product_display()}] {self.name} ({self.created_at:%Y-%m-%d %H:%M})"
@@ -131,8 +135,8 @@ class FinancialConsultSheet(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "재무상담 시트"
-        verbose_name_plural = "재무상담 시트 관리"
+        verbose_name = "재무상담 시트 (FinancialConsultSheet)"
+        verbose_name_plural = "재무상담 시트 관리 (FinancialConsultSheet)"
 
     def __str__(self):
         return f"{self.customer_name or '(무기명)'} ({self.created_at:%Y-%m-%d %H:%M})"

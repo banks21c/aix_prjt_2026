@@ -5,11 +5,11 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils.html import format_html
 from .models import (
-    StockItem, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
+    StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
-    FinancialConsultSheet, MemberGrade,
+    FinancialConsultSheet, MemberGrade, MediaOutlet,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -37,16 +37,24 @@ class UserPreferenceInline(admin.StackedInline):
     can_delete = False
     fields = ('phone_number', 'grade')
 
+# User 편집 화면에서 바로 프리미엄 구독 여부를 켜고 끌 수 있도록 UserSubscription도 인라인으로
+# 붙인다. 결제 연동이 없어 이 체크박스가 유일한 프리미엄 부여 수단이라, 별도 "User subscriptions"
+# 화면을 따로 찾아가지 않아도 되게 한다.
+class UserSubscriptionInline(admin.StackedInline):
+    model = UserSubscription
+    can_delete = False
+    fields = ('is_active_premium', 'subscribed_at', 'expired_at')
+
 admin.site.unregister(User)
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    inlines = (UserPreferenceInline,)
-    list_display = UserAdmin.list_display + ('phone_number', 'member_grade')
-    list_filter = UserAdmin.list_filter + ('preference__grade',)
+    inlines = (UserPreferenceInline, UserSubscriptionInline)
+    list_display = UserAdmin.list_display + ('phone_number', 'member_grade', 'is_premium')
+    list_filter = UserAdmin.list_filter + ('preference__grade', 'subscription__is_active_premium')
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('preference', 'preference__grade')
+        return super().get_queryset(request).select_related('preference', 'preference__grade', 'subscription')
 
     @admin.display(description='전화번호')
     def phone_number(self, obj):
@@ -56,6 +64,10 @@ class CustomUserAdmin(UserAdmin):
     def member_grade(self, obj):
         grade = getattr(obj.preference, 'grade', None) if hasattr(obj, 'preference') else None
         return grade if grade else '-'
+
+    @admin.display(description='프리미엄', boolean=True)
+    def is_premium(self, obj):
+        return getattr(obj.subscription, 'is_active_premium', False) if hasattr(obj, 'subscription') else False
 
 # 0-0. 한국투자증권(KIS) 접근 토큰 캐시 조회용 (읽기 전용)
 @admin.register(KisAccessToken)
@@ -83,6 +95,12 @@ class NewsSourceAdmin(admin.ModelAdmin):
     list_editable = ('is_active',)
     search_fields = ('name', 'rss_url')
     list_filter = ('is_active',)
+
+# 0-1-1. 기사 URL 도메인 → 언론사명 매핑 (source_media 폴백용)
+@admin.register(MediaOutlet)
+class MediaOutletAdmin(admin.ModelAdmin):
+    list_display = ('domain', 'name', 'created_at')
+    search_fields = ('domain', 'name')
 
 # 0-2. 키워드 기반 뉴스 수집용 감지 키워드 관리
 @admin.register(NewsKeyword)
@@ -129,15 +147,26 @@ class StockRealtimePriceAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False  # collect_stock_realtime_price 명령을 통해서만 생성됨
 
-# 2. 일봉 가격 및 AI 주가 예측 결과 관리
+# 2-1. 일봉 가격(실제 OHLCV) 관리
+@admin.register(StockDailyPrice)
+class StockDailyPriceAdmin(admin.ModelAdmin):
+    list_display = ('stock', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'volume')
+    list_filter = ('date', 'stock__name')
+    search_fields = ('stock__name', 'stock__ticker')
+    ordering = ('-date', 'stock')
+    list_select_related = ('stock',)  # list_display의 stock 표시가 매 행마다 추가 쿼리 안 나가게
+    show_full_result_count = False    # "전체 N건" 카운트 쿼리 생략 (90만+ 행에서 매우 느림)
+    list_per_page = 100
+
+# 2-2. AI 주가 예측 결과 관리
 @admin.register(StockPrediction)
 class StockPredictionAdmin(admin.ModelAdmin):
-    list_display = ('stock', 'date', 'close_price', 'pred_next_close', 'trading_signal', 'up_probability')
+    list_display = ('stock', 'date', 'pred_next_close', 'trading_signal', 'up_probability')
     list_filter = ('trading_signal', 'date', 'stock__name')
     search_fields = ('stock__name', 'stock__ticker')
     ordering = ('-date', 'stock')
     list_select_related = ('stock',)  # list_display의 stock 표시가 매 행마다 추가 쿼리 안 나가게
-    show_full_result_count = False    # "전체 N건" 카운트 쿼리 생략 (75만+ 행에서 매우 느림)
+    show_full_result_count = False
     list_per_page = 100
 
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
@@ -170,9 +199,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
         if self.value() not in ('yes', 'no'):
             return queryset
         connected_q = (
-            (Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential=''))
-            | (Q(platform='TISTORY') & ~Q(account_id='') & ~Q(credential=''))
-            | (Q(platform='NAVER') & ~Q(account_id=''))
+            Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential='')
         )
         return queryset.filter(connected_q) if self.value() == 'yes' else queryset.exclude(connected_q)
 
