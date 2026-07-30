@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>변액보험 — 보험료가 펀드로 가는 보험</title>
+<!-- 아래 스타일은 irp/index.html과 시각적 일관성을 위해 그대로 복사한 것이라 사용하지 않는 선택자가 포함되어 있다 -->
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink: #212529;
+    --ink-soft: #868e96;
+    --paper: #f4f6f9;
+    --card: #ffffff;
+    --card-stub: #f1f3f5;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --accent: #0d47a1;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA 페이지와 같은 구조·높이) ── */
+  header { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
+    transform: rotate(-6deg);
+  }
+  #nav ul { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 900px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+
+  /* ---------- hero: passbook cover ---------- */
+  .hero { padding: 40px 0; }
+  .passbook {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    overflow: hidden;
+    position: relative;
+  }
+  .passbook-main { padding: 40px 40px 32px; }
+  .eyebrow {
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 14px;
+  }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
+  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
+
+  .calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .field label {
+    display: block; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 10px 11px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: var(--accent-ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(13,71,161,0.28); }
+  .btn:active { transform: translateY(0); }
+  .btn-block { width: 100%; margin-top: 18px; }
+
+  /* passbook cover panel with wax-seal stamp */
+  .passbook-cover {
+    background: var(--card-stub);
+    border-left: 1px solid var(--line);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double var(--accent);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
+    transform: rotate(-8deg);
+  }
+  .cover-label { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
+
+  @media (max-width: 760px) {
+    .passbook { grid-template-columns: 1fr; }
+    .passbook-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
+    .calc-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  section { padding: 56px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
+
+  .ledger-stub {
+    background: var(--card-stub);
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
+  }
+  .acct-no { margin-top: 14px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11px; color: var(--ink-soft); }
+
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .ledger-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .ledger-item .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .ledger-item .v { font-size: 14px; font-weight: 600; }
+  .ledger-feature { font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 12px; }
+
+  .ledger-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+  .fee .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+  .fee .v { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .fee .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
+
+  @media (max-width: 700px) {
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+    .ledger-grid { grid-template-columns: 1fr 1fr; }
+    .ledger-footer { flex-direction: column; align-items: stretch; }
+  }
+
+  .terms-strip {
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .terms-strip strong { color: var(--ink); }
+
+  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
+  .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .consult-grid .full { grid-column: 1 / -1; }
+  .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .consult-grid input, .consult-grid textarea {
+    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit;
+  }
+  .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
+  .consult-success { display: none; margin-top: 14px; background: var(--success-bg); color: var(--success); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  @media (max-width: 560px) { .consult { padding: 28px 22px; } .consult-grid { grid-template-columns: 1fr; } }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  .cmp th { background: var(--card); font-weight: 700; }
+  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+  .flow-step { flex: 1 1 160px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .flow-step .n { font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
+  .flow-step .t { font-weight: 800; font-size: 15px; margin-top: 2px; }
+  .flow-step .d { font-size: 13px; color: var(--ink-soft); margin-top: 4px; line-height: 1.6; }
+  .callout { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 16px; margin: 16px 0; }
+  .callout b { color: var(--accent); }
+  .check { list-style: none; padding: 0; margin: 16px 0; }
+  .check li { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; font-size: 14px; line-height: 1.7; }
+  .check li b { display: block; margin-bottom: 2px; }
+  .warn-note { font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-sub { background:#f8f9fb; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab is-active">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+<div class="am-tabs am-tabs-sub">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/insurance/" class="am-tab">개요</a>
+    <a href="/asset-management/insurance/life/" class="am-tab">생명보험</a>
+    <a href="/asset-management/insurance/damage/" class="am-tab">손해보험</a>
+    <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
+    <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
+    <a href="/asset-management/insurance/variable/" class="am-tab is-active">변액보험</a>
+  </div>
+</div>
+
+
+  <header>
+    <div class="nav-inner">
+      <div class="brand"><span class="seal">🛡️</span>변액보험</div>
+      <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+      <nav id="nav">
+        <ul>
+          <li><a href="#basics">기본 원리</a></li>
+          <li><a href="#flow">돈의 흐름</a></li>
+          <li><a href="#account">특별계정</a></li>
+          <li><a href="#cost">비용 구조</a></li>
+          <li><a href="#myths">오해</a></li>
+          <li><a href="#compare">비교</a></li>
+          <li><a href="#checklist">확인사항</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">變額保險</div>
+    <h1 class="pt-title"><span class="pt-icon">🛡️</span>보험료가 펀드로 가는 보험</h1>
+    <p class="pt-desc">낸 돈의 일부가 펀드에 투자되고, 그 성과가 보험금과 해지환급금을 움직입니다. 보험이면서 투자상품입니다.</p>
+  </div>
+
+  <main>
+    <section id="basics">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">일반 생명보험과 무엇이 다른가</h2>
+          <span class="section-note">정액보상 원칙의 예외</span>
+        </div>
+        <p>생명보험은 원래 <b>정액보상</b>입니다. 사망보험금 1억원으로 계약했으면 시장이 어떻든 1억원을 받습니다. 변액보험은 여기서 갈라집니다 &mdash; 적립금을 펀드로 운용하고, 그 실적이 적립금과 해지환급금을, 상품에 따라서는 사망보험금까지 움직입니다.</p>
+        <div class="callout">
+          <b>운용 책임은 계약자가 집니다.</b> 일반 생명보험은 보험사가 자산운용 위험을 떠안지만, 변액보험은 투자 결과가 그대로 계약자에게 돌아옵니다. 그래서 판매할 때 투자성향 진단과 적합성 확인을 거치고, 보험설계사도 변액보험 판매자격이 따로 있어야 합니다.
+        </div>
+        <p class="warn-note">참고로 사망보험금에는 대개 <b>최저사망보험금 보증</b>이 붙어, 운용 성과가 나빠도 기본 사망보험금 아래로는 내려가지 않습니다. 반면 <b>해지환급금에는 그런 보증이 없는 상품이 많습니다.</b> 이 둘을 뭉뚱그려 "원금이 보장된다"고 이해하면 곤란합니다.</p>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">돈이 흘러가는 구조</h2>
+          <span class="section-note">낸 보험료 전부가 투자되지 않는다</span>
+        </div>
+        <div class="flow">
+          <div class="flow-step rise">
+            <div class="n">STEP 1</div>
+            <div class="t">보험료 납입</div>
+            <div class="d">계약자가 낸 금액. 이 전액이 투자되는 것이 아닙니다.</div>
+          </div>
+          <div class="flow-step rise">
+            <div class="n">STEP 2</div>
+            <div class="t">사업비 차감</div>
+            <div class="d">계약체결비용 · 계약관리비용이 먼저 빠집니다.</div>
+          </div>
+          <div class="flow-step rise">
+            <div class="n">STEP 3</div>
+            <div class="t">위험보험료 차감</div>
+            <div class="d">사망 등 보장을 사는 비용. 나이가 들수록 커집니다.</div>
+          </div>
+          <div class="flow-step rise">
+            <div class="n">STEP 4</div>
+            <div class="t">특별계정 편입</div>
+            <div class="d">남은 금액이 펀드로. 이것이 실제 투자 원금입니다.</div>
+          </div>
+          <div class="flow-step rise">
+            <div class="n">STEP 5</div>
+            <div class="t">적립금 형성</div>
+            <div class="d">운용 성과에 따라 늘거나 줍니다.</div>
+          </div>
+        </div>
+        <div class="callout">
+          <b>여기가 변액보험 민원의 출발점입니다.</b> 월 30만원을 넣어도 초기에는 그중 상당 부분이 사업비와 위험보험료로 빠지고, 나머지만 펀드에 들어갑니다. 그래서 <b>펀드 수익률이 플러스여도 해지환급금은 원금보다 적을 수 있습니다.</b> 수익률은 "특별계정에 들어간 돈" 기준이지 "내가 낸 보험료" 기준이 아니기 때문입니다.
+        </div>
+      </div>
+    </section>
+
+    <section id="account">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">특별계정</h2>
+          <span class="section-note">일반계정과 분리된 칸막이</span>
+        </div>
+        <p>변액보험의 적립금은 보험사의 일반 자산과 <b>분리된 특별계정</b>에서 운용됩니다. 보험사가 자기 돈과 섞어 쓸 수 없고, 계약자별 적립금이 펀드 기준가로 따로 계산됩니다.</p>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>일반계정</th><th>특별계정 (변액)</th></tr></thead>
+            <tbody>
+              <tr><td>운용 주체</td><td>보험사</td><td>보험사 (계약자 지시로 펀드 선택)</td></tr>
+              <tr><td>투자 위험</td><td>보험사 부담</td><td>계약자 부담</td></tr>
+              <tr><td>자산 구분</td><td>보험사 고유자산과 통합</td><td>분리 관리</td></tr>
+              <tr><td>예금자보호</td><td>적용 (예금보험공사)</td><td><b>적용 안 됨</b> (최저보증 부분은 예외적으로 적용)</td></tr>
+              <tr><td>수익률 공시</td><td>공시이율</td><td>펀드별 기준가 · 수익률</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="warn-note">예금자보호가 되지 않는다는 점은 은행 예금이나 저축성 보험을 떠올리고 가입한 사람이 가장 자주 놓치는 부분입니다. 다만 최저사망보험금 보증처럼 보험사가 책임지는 부분은 일반계정에서 나오므로 보호 대상이 됩니다.</p>
+      </div>
+    </section>
+
+    <section id="types">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">종류</h2>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>주 목적</th><th>특징</th></tr></thead>
+            <tbody>
+              <tr><td>변액종신보험</td><td>사망 보장</td><td>보장이 중심. 적립금이 늘면 사망보험금이 증액되는 구조가 많습니다.</td></tr>
+              <tr><td>변액유니버설보험 (보장형)</td><td>사망 보장 + 유연성</td><td>납입 유예 · 중도 인출 · 추가 납입이 가능합니다.</td></tr>
+              <tr><td>변액유니버설보험 (적립형)</td><td>적립</td><td>보장을 최소화하고 적립에 무게를 둡니다.</td></tr>
+              <tr><td>변액연금보험</td><td>노후 소득</td><td>연금 개시 전까지 운용하고, 개시 후 연금으로 받습니다. 연금재원 최저보증이 붙는 상품이 있습니다.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="warn-note">같은 "변액"이라도 보장형과 적립형은 사업비 구조와 위험보험료 비중이 크게 다릅니다. 적립이 목적인데 보장형에 가입하면 위험보험료로 새는 돈이 커집니다.</p>
+      </div>
+    </section>
+
+    <section id="cost">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">비용 구조</h2>
+          <span class="section-note">어디서 얼마가 빠지는지</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>비용</th><th>무엇에 대한 대가</th><th>부과 방식</th></tr></thead>
+            <tbody>
+              <tr><td>계약체결비용</td><td>모집 · 계약 성립</td><td>초기 몇 년에 집중 부과 (선공제)</td></tr>
+              <tr><td>계약관리비용</td><td>계약 유지 · 관리</td><td>납입 기간 전반에 걸쳐 부과</td></tr>
+              <tr><td>위험보험료</td><td>사망 등 보장</td><td>연령 · 보장금액에 따라 매월</td></tr>
+              <tr><td>특별계정 운용보수</td><td>펀드 운용 · 수탁</td><td>적립금에 대해 연 %로 매일</td></tr>
+              <tr><td>최저보증비용</td><td>최저 사망보험금 · 연금재원 보증</td><td>적립금에 대해 연 %로</td></tr>
+              <tr><td>해지공제</td><td>&mdash;</td><td>초기 해지 시 환급금에서 추가 차감</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>비용이 <b>보험료에서 빠지는 것</b>(계약체결·계약관리·위험보험료)과 <b>적립금에서 빠지는 것</b>(운용보수·최저보증비용)으로 나뉜다는 점이 중요합니다. 후자는 적립금이 커질수록 절대 금액이 늘어납니다.</p>
+      </div>
+    </section>
+
+    <section id="myths">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">오해가 잦은 지점</h2>
+          <span class="section-note">분쟁이 실제로 생기는 자리</span>
+        </div>
+        <div class="plans">
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"원금은 보장되죠?"</div>
+              <span class="type-tag">아니오</span>
+            </div>
+            <div class="ledger-body">
+              <p>변액보험은 투자성 상품이라 <b>원금 손실이 가능합니다.</b> 최저보증은 대개 사망보험금이나 연금재원에 붙는 것이지, 중도 해지 시 받는 해지환급금을 보장하지 않습니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"수익률이 났는데 왜 손해죠?"</div>
+              <span class="type-tag">사업비 선공제</span>
+            </div>
+            <div class="ledger-body">
+              <p>공시되는 펀드 수익률은 특별계정에 들어간 금액 기준입니다. 낸 보험료에서 사업비와 위험보험료가 먼저 빠졌으므로, <b>펀드가 올라도 총 납입액 대비로는 마이너스일 수 있습니다.</b> 특히 초기 몇 년이 그렇습니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"급하면 해지하면 되죠"</div>
+              <span class="type-tag">초기 해지 불리</span>
+            </div>
+            <div class="ledger-body">
+              <p>계약체결비용이 초기에 집중 부과되고 해지공제까지 겹쳐, <b>가입 초기에 해지하면 환급금이 납입액을 크게 밑돕니다.</b> 변액보험이 장기 상품이라고 불리는 실질적인 이유입니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"10년 넘으면 무조건 비과세"</div>
+              <span class="type-tag">조건부</span>
+            </div>
+            <div class="ledger-body">
+              <p>저축성 보험의 보험차익 비과세는 <b>10년 이상 유지</b> 외에도 납입 한도와 납입 기간 등 요건을 함께 충족해야 합니다. 중간에 감액하거나 인출하면 요건이 깨질 수 있어, 가입 시점의 세법과 약관을 확인해야 합니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"넣어두면 알아서 굴러가겠지"</div>
+              <span class="type-tag">펀드 변경</span>
+            </div>
+            <div class="ledger-body">
+              <p>변액보험은 계약자가 펀드를 고르고 바꾸는 상품입니다. 펀드 변경은 <b>연간 횟수가 제한</b>되는 경우가 많으니 약관을 확인해야 합니다. 방치하면 시장이 바뀌어도 처음 고른 채권형·주식형 그대로 갑니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">"추가납입은 그냥 더 내는 것"</div>
+              <span class="type-tag">비용이 다름</span>
+            </div>
+            <div class="ledger-body">
+              <p>기본보험료와 달리 <b>추가납입보험료는 계약체결비용이 거의 붙지 않습니다.</b> 같은 금액을 넣어도 특별계정에 들어가는 비율이 높아, 적립이 목적이라면 기본보험료를 낮추고 추가납입을 활용하는 편이 유리할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">일반 펀드 · 연금저축과 비교</h2>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>변액보험</th><th>일반 펀드</th><th>연금저축펀드</th></tr></thead>
+            <tbody>
+              <tr><td>사망 보장</td><td>있음</td><td>없음</td><td>없음</td></tr>
+              <tr><td>초기 비용</td><td>높음 (계약체결비용 선공제)</td><td>낮음 (판매보수 · 운용보수)</td><td>낮음</td></tr>
+              <tr><td>세액공제</td><td>없음</td><td>없음</td><td>있음 (연 600만원 한도)</td></tr>
+              <tr><td>수익 과세</td><td>요건 충족 시 보험차익 비과세</td><td>배당소득세 15.4%</td><td>연금 수령 시 연금소득세</td></tr>
+              <tr><td>중도 인출</td><td>가능하나 적립금 감소</td><td>자유</td><td>불리 (기타소득세 16.5%)</td></tr>
+              <tr><td>예금자보호</td><td>적용 안 됨 (최저보증 제외)</td><td>적용 안 됨</td><td>적용 안 됨</td></tr>
+              <tr><td>유리한 경우</td><td>장기 유지 + 보장이 함께 필요</td><td>기간이 짧거나 유연성 우선</td><td>세액공제가 목적</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <b>보장이 필요 없다면</b> 변액보험의 사업비를 낼 이유가 줄어듭니다. 이 경우 "보장은 정기보험으로 싸게 사고, 적립은 펀드나 연금저축으로 따로" 하는 분리 전략과 비교해 보는 편이 좋습니다. 반대로 <b>장기간 확실히 유지할 수 있고</b> 보장과 비과세를 함께 원한다면 변액보험이 자기 자리를 갖습니다.
+        </div>
+      </div>
+    </section>
+
+    <section id="checklist">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">가입 전 확인할 것</h2>
+        </div>
+        <ul class="check">
+          <li><b>10년 이상 유지할 수 있는 금액인가</b>초기 해지가 가장 불리합니다. 무리한 월납액은 그 자체가 위험입니다.</li>
+          <li><b>목적이 보장인가 적립인가</b>적립이 목적이면 보장형 대신 적립형을, 그리고 기본보험료를 낮추고 추가납입을 검토합니다.</li>
+          <li><b>사업비율과 해지환급금 예시표를 봤는가</b>상품설명서에 연차별 해지환급금 예시가 있습니다. 원금 회복 시점이 몇 년째인지 직접 확인합니다.</li>
+          <li><b>어떤 펀드에 어떤 비율로 넣을지 정했는가</b>그리고 그 비중을 언제 어떻게 바꿀지, 연간 변경 횟수 제한이 몇 회인지 확인합니다.</li>
+          <li><b>최저보증이 무엇을 보증하는지 읽었는가</b>사망보험금인지 연금재원인지, 해지환급금은 대상이 아닌지 약관에서 확인합니다.</li>
+          <li><b>비과세 요건을 충족하는 계약인가</b>납입 한도 · 납입 기간 · 유지 기간 요건을 가입 시점 기준으로 확인합니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="third">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">경계에 있는 것 &mdash; 제3보험</h2>
+          <span class="section-note">손해보험사 · 생명보험사 모두 취급</span>
+        </div>
+        <p>사람의 신체를 대상으로 하지만 실제로 들어간 치료비를 보상하는 영역이 있습니다. 대상은 생명보험 쪽이고 보상 방식은 실손과 정액이 섞여 있어 어느 한쪽으로 분류되지 않습니다.</p>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>상품</th><th>보장</th><th>지급방식</th></tr></thead>
+            <tbody>
+              <tr><td>실손의료보험</td><td>질병 · 상해 치료비</td><td>실손 &mdash; 자기부담금 제외 후 실제 지출</td></tr>
+              <tr><td>암보험 · 진단비</td><td>특정 질병 진단</td><td>정액 &mdash; 진단 시 약정 금액</td></tr>
+              <tr><td>간병보험</td><td>장기요양 상태</td><td>정액 또는 실손</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>변액보험에 특약으로 이런 보장을 붙일 수 있지만, 특약 보험료는 특별계정이 아니라 일반계정에서 처리되는 것이 보통입니다. 즉 <b>특약 부분은 투자되지 않습니다.</b></p>
+        <p><a href="../../insurance/damage/index.html">손해보험 페이지 보기 &rarr;</a> &nbsp; <a href="../../insurance/life/index.html">생명보험 페이지 보기 &rarr;</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <span class="footer-brand">NextFinUp</span>
+      <span class="footer-note">교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다. 변액보험은 투자성 상품으로 <b>운용 결과에 따라 원금 손실이 발생할 수 있으며</b>, 그 손실은 계약자에게 귀속됩니다. 예금자보호법에 따른 보호를 받지 않습니다(최저보증 부분 제외). 사업비 · 수수료 · 최저보증비용과 해지환급금 예시는 상품마다 다르므로 가입 전 상품설명서와 약관을 반드시 확인하시기 바랍니다.</span>
+    </div>
+  </footer>
+
+  <script>
+    // 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴
+    (function () {
+      var navEl = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      if (!navEl || !toggle) return;
+      toggle.addEventListener('click', function () { navEl.classList.toggle('open'); });
+      navEl.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { navEl.classList.remove('open'); });
+      });
+    })();
+  </script>
+</body>
+</html>

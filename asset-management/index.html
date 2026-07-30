@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NextFinUp 종합자산관리 | 국민연금부터 청년저축까지, 전문가 무료 상담</title>
+<style>
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink:#212529; --paper:#f4f6f9; --card:#ffffff; --line:#e9ecef; --accent:#0d47a1; --accent-ink:#ffffff; --muted:#868e96;
+    --success:#2f7a4d; --success-bg:#e6f4ea; --shadow:0 4px 12px rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); line-height:1.65;
+         font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:8px 20px 64px; }
+  a { color: inherit; }
+  h2.sec { font-size:15px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+           margin:48px 0 16px; font-weight:600; }
+  .sec-desc { margin:-8px 0 20px; font-size:14px; color:var(--muted); max-width:64ch; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  a.card { display:block; background:var(--card); border:1px solid var(--line); border-radius:14px;
+           padding:24px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s; position:relative; }
+  a.card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  a.card h3 { margin:0 0 8px; font-size:19px; color:var(--accent); }
+  a.card p { margin:0 0 12px; font-size:14px; color:var(--muted); }
+  a.card .stat { display:inline-block; font-size:12px; font-weight:700; color:var(--accent);
+                 background:rgba(13,71,161,0.08); border-radius:20px; padding:4px 10px; }
+  .card-new-badge {
+    position:absolute; top:14px; right:14px; font-size:10.5px; font-weight:800; letter-spacing:.04em;
+    color:#fff; background:#e8590c; border-radius:20px; padding:3px 9px;
+  }
+  .layers { display:flex; flex-direction:column; gap:10px; }
+  .layer { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+           background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; }
+  .layer .n { font-weight:800; color:var(--accent); font-size:14px; flex:none; width:32px; }
+  .layer .name { font-weight:700; font-size:16px; flex:none; }
+  .layer .items { font-size:13px; color:var(--muted); flex:none; }
+  .layer .desc { font-size:13px; color:var(--muted); margin-left:auto; }
+  footer { margin-top:56px; padding-top:20px; border-top:1px solid var(--line);
+           font-size:13px; color:var(--muted); }
+
+  /* ---------- 버튼 ---------- */
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:8px;
+    font-weight:700; font-size:14px; cursor:pointer; padding:13px 22px; background:var(--accent); color:var(--accent-ink);
+    text-decoration:none; transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(13,71,161,0.28); }
+  .btn-block { width:100%; margin-top:18px; }
+  .btn-outline {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:8px;
+    font-weight:700; font-size:14px; cursor:pointer; padding:12px 21px;
+    background:var(--card); color:var(--ink); border:1px solid var(--line); text-decoration:none;
+  }
+  .btn-outline:hover { background:#fff; border-color:var(--accent); color:var(--accent); }
+  .hero-ctas { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+
+  /* ---------- 신뢰 스트립 ---------- */
+  .trust-strip {
+    display:flex; flex-wrap:wrap; gap:10px 28px; margin-top:22px; padding-top:18px;
+    border-top:1px solid var(--line); font-size:12.5px; color:var(--muted);
+  }
+  .trust-strip span { display:inline-flex; align-items:center; gap:6px; }
+
+  /* ---------- 전문가 상담 섹션 ---------- */
+  .section-head { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
+  .section-title { font-size:22px; font-weight:800; }
+  .section-note { font-size:13px; color:var(--muted); }
+  .consult-panel {
+    background:var(--accent); border-radius:16px; padding:2px; box-shadow:var(--shadow);
+  }
+  .consult { background:var(--card); border-radius:14px; padding:36px 40px; }
+  .consult-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .consult-grid .full { grid-column:1 / -1; }
+  .consult-grid label { display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  .consult-grid input, .consult-grid select, .consult-grid textarea {
+    width:100%; background:var(--paper); border:1px solid var(--line); border-radius:7px;
+    padding:11px 13px; font-size:14px; color:var(--ink); font-family:inherit;
+  }
+  .consult-grid input:focus, .consult-grid select:focus, .consult-grid textarea:focus { border-color:var(--accent); outline:none; }
+  .consult-success { display:none; margin-top:14px; background:var(--success-bg); color:var(--success); padding:12px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+  .consult-honeypot { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  @media (max-width:560px) { .consult { padding:26px 22px; } .consult-grid { grid-template-columns:1fr; } }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab is-active">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">국민연금부터 청년저축까지, 8개 영역 한 곳에서</div>
+    <h1 class="pt-title"><span class="pt-icon">💼</span>흩어진 내 자산, 여기서 한 번에 정리하세요</h1>
+    <p class="pt-desc">국민연금·연금저축·IRP·ISA·보험·채권·부동산·청년저축까지 — 어디서부터 시작해야 할지 막막했던 8가지를 한자리에 모았어요. 직접 계산해보고, 막히면 전문가에게 무료로 물어보세요.</p>
+    <div class="hero-ctas">
+      <a href="#consult" class="btn">💬 전문가 무료 상담 신청</a>
+      <a href="#cards" class="btn-outline">8개 영역 살펴보기</a>
+    </div>
+    <div class="trust-strip">
+      <span>📚 8개 영역 전 항목 무료 공개</span>
+      <span>🧮 세액공제·비과세 직접 계산</span>
+      <span>💬 상담 신청은 1분이면 충분</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <h2 class="sec">노후소득 3층 구조</h2>
+    <div class="layers">
+      <div class="layer"><span class="n">3층</span><span class="name">개인연금</span><span class="items">연금저축 · IRP · ISA</span><span class="desc">스스로 준비하는 층. 세제 혜택이 핵심입니다.</span></div><div class="layer"><span class="n">2층</span><span class="name">퇴직연금</span><span class="items">IRP · DB · DC</span><span class="desc">직장 생활에서 쌓이는 층.</span></div><div class="layer"><span class="n">1층</span><span class="name">국민연금</span><span class="items">노령연금 · 연기연금</span><span class="desc">가장 아래에서 받치는 층. 평생 지급됩니다.</span></div>
+    </div>
+
+    <h2 class="sec" id="cards">이런 고민, 있으신가요 — 영역별 안내</h2>
+    <p class="sec-desc">각 영역마다 놓치기 쉬운 포인트가 있어요. 눌러서 확인하고, 세액공제·비과세 한도까지 직접 계산해보세요.</p>
+    <div class="cards">
+      <a class="card" href="national-pension/index.html"><h3>🏛️ 국민연금 &rarr;</h3><p>내 예상 수급액과 수급 개시 나이, 정확히 알고 계신가요?</p><span class="stat">평생 지급되는 기초 소득</span></a>
+      <a class="card" href="savings-pension/index.html"><h3>💰 연금저축 &rarr;</h3><p>연 600만원까지 나오는 세액공제, 다 채우고 계신가요?</p><span class="stat">연 최대 600만원 세액공제</span></a>
+      <a class="card" href="irp/index.html"><h3>🏦 IRP &rarr;</h3><p>퇴직금이 300만원 넘으면 자동으로 IRP로 간다는 사실, 알고 계셨나요?</p><span class="stat">연금저축 합산 900만원 공제</span></a>
+      <a class="card" href="isa/index.html"><h3>📊 ISA &rarr;</h3><p>3년만 채우면 비과세인데, 아직 계좌가 없다면 놓치고 있는 거예요.</p><span class="stat">순이익 최대 400만원 비과세</span></a>
+      <a class="card" href="insurance/index.html"><h3>🛡️ 보험 &rarr;</h3><p>가입한 보험, 보장이 겹치거나 정작 필요한 항목이 빠지진 않았나요?</p><span class="stat">보장 중복·공백 점검</span></a>
+      <a class="card" href="bond/index.html"><h3>📜 채권 &rarr;</h3><p>예금보다 나은 확정 이자를 챙길 기회, 그냥 지나치고 있진 않나요?</p><span class="stat">확정 이자로 변동성 방어</span></a>
+      <a class="card" href="realestate/index.html"><h3>🏠 부동산 &rarr;</h3><p>내 예산과 목적에 맞는 지역, 감이 아니라 데이터로 확인해보셨나요?</p><span class="stat">지역·예산 맞춤 분석</span></a>
+      <a class="card" href="youth-savings/index.html"><h3>⭐ 청년저축 &rarr;<span class="card-new-badge">NEW</span></h3><p>은행마다 다른 청년적금 최고금리, 비교하지 않고 아무 데나 가입하셨나요?</p><span class="stat">은행별 최고금리 비교</span></a>
+    </div>
+
+    <h2 class="sec" id="consult-heading">전문가 상담</h2>
+    <div class="consult-panel">
+      <div class="consult">
+        <div class="section-head">
+          <h2 class="section-title" id="consult">혼자 고민하지 마세요</h2>
+          <span class="section-note">데모 화면 — 실제 접수는 되지 않습니다</span>
+        </div>
+        <p class="sec-desc" style="margin-top:-8px;">국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요.</p>
+        <form onsubmit="return submitConsult(event)">
+          <div class="consult-grid">
+            <div>
+              <label for="cName">이름</label>
+              <input id="cName" type="text" required placeholder="홍길동">
+            </div>
+            <div>
+              <label for="cPhone">연락처</label>
+              <input id="cPhone" type="tel" required placeholder="010-1234-5678">
+            </div>
+            <div>
+              <label for="cInterest">관심 분야</label>
+              <select id="cInterest">
+                <option>국민연금</option>
+                <option>연금저축</option>
+                <option>IRP</option>
+                <option>ISA</option>
+                <option>보험</option>
+                <option>채권</option>
+                <option>부동산</option>
+                <option>청년저축</option>
+                <option>전체 자산 진단</option>
+              </select>
+            </div>
+            <div>
+              <label for="cGoal">상담 목표</label>
+              <input id="cGoal" type="text" placeholder="예: 세액공제 한도 다 채우고 싶어요">
+            </div>
+            <div class="full">
+              <label for="cMsg">문의사항</label>
+              <textarea id="cMsg" rows="3" placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
+            </div>
+            <div class="full consult-honeypot">
+              <label for="cWebsite">웹사이트</label>
+              <input id="cWebsite" type="text" tabindex="-1" autocomplete="off">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-block">상담 신청하기</button>
+          <div class="consult-success" id="consultSuccess">신청이 접수되었습니다. 데모 화면이라 실제로 저장되거나 발송되지는 않습니다.</div>
+        </form>
+      </div>
+    </div>
+
+    <footer>
+      <strong>NextFinUp</strong> · 교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다.
+      제도는 개정될 수 있으므로 실제 결정 전 최신 규정을 확인하세요. 본 사이트는 프로토타입 데모이며 실제 금융투자상품
+      비교·중개 서비스가 아닙니다. 상담·비교·추천 서비스 제공에는 관련 법령에 따른 금융상품자문업 또는 판매대리·중개업
+      라이선스 확인이 필요합니다.
+    </footer>
+  </div>
+
+  <script>
+    function submitConsult(e) {
+      e.preventDefault();
+      if (document.getElementById('cWebsite').value.trim()) { return false; }
+      document.getElementById('consultSuccess').style.display = 'block';
+      e.target.reset();
+      return false;
+    }
+  </script>
+
+  <div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#16213a; color:#fff; padding:16px 20px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <p style="margin:0; font-size:13px; line-height:1.6; flex:1; min-width:240px; color:#dce8fb;">
+        NextFinUp은 로그인 유지 등 서비스 제공에 꼭 필요한 쿠키를 사용합니다. 계속 이용하시면 쿠키 사용에 동의하는 것으로 간주됩니다.
+        <a href="privacy-policy/index.html" style="color:#9fc0ff; text-decoration:underline;">자세히 보기</a>
+      </p>
+      <button type="button" onclick="acceptCookieConsent()" style="background:#fff; color:#16213a; border:none; border-radius:6px; padding:9px 20px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">동의합니다</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      try {
+        if (!localStorage.getItem('nextfinup_cookie_consent')) {
+          var el = document.getElementById('cookieConsentBanner');
+          if (el) { el.style.display = 'block'; }
+        }
+      } catch (e) { /* localStorage 접근 불가 시(사파리 시크릿 등) 배너를 띄우지 않고 조용히 무시 */ }
+    })();
+    function acceptCookieConsent() {
+      try { localStorage.setItem('nextfinup_cookie_consent', '1'); } catch (e) {}
+      var el = document.getElementById('cookieConsentBanner');
+      if (el) { el.style.display = 'none'; }
+    }
+  </script>
+</body>
+</html>

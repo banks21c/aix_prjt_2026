@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="지역을 선택하고 예산·목적을 입력하면 맞춤 부동산 투자 분석과 유형 추천을 보여주는 홈페이지">
+<title>부동산 — 지역과 예산으로 찾는 맞춤 투자</title>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab is-active">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+
+
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일.
+     good/warn/crit(상태 표시 기능색)는 그대로 두고 브랜드색(brass/teal)만 단일 블루로 합친다. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --paper: #f4f6f9;
+    --paper-2: #ffffff;
+    --card: #ffffff;
+    --ink: #212529;
+    --ink-soft: #495057;
+    --ink-faint: #868e96;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --brass: #0d47a1;
+    --brass-soft: #4d7dc4;
+    --teal: #0d47a1;
+    --teal-soft: #eef4fb;
+    --good: #2F7D53;
+    --good-bg: #E6F1EA;
+    --warn: #9A6B18;
+    --warn-bg: #F6EDD9;
+    --crit: #A5462F;
+    --crit-bg: #F5E4DE;
+    --shadow: 0 4px 12px rgba(0,0,0,.05);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,.08), 0 20px 48px rgba(0,0,0,.1);
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+  /* 사이트 공통 본문 폭(960px). 주입되는 네비 바가 같은 칼럼에 정렬된다. */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 56px 0; border-top: 1px solid var(--line); }
+
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--brass);
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--brass); display: inline-block; }
+  h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.2; margin: 16px 0 12px; font-weight: 800; text-wrap: balance; letter-spacing: -0.03em; }
+  .lead { color: var(--ink-soft); font-size: 17px; max-width: 62ch; margin: 0; }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Top bar (연금저축·IRP·ISA 페이지와 같은 구조·높이) ---------- */
+  header.top { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--brass);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--brass);
+    transform: rotate(-6deg);
+  }
+  /* 푸터의 로고 마크(.mark)가 여전히 이 스타일을 쓴다 */
+  .mark { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(140deg, var(--teal), var(--brass)); position: relative; flex: none; display: inline-block; }
+  .mark::after { content: ""; position: absolute; inset: 8px 8px 0 8px; border: 2px solid var(--paper-2); border-bottom: 0; border-radius: 4px 4px 0 0; }
+  #nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 820px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { border-top: 0; padding: 66px 0 60px; }
+  /* stretch: 두 상자가 위를 기준으로 서고, 높이는 더 긴 쪽에 맞춰 같아진다. */
+  .hero-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: stretch; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 32px; } }
+  /* 좌측 카피도 우측 .hero-card와 같은 상자에 담는다.
+     다른 페이지(국민연금·연금저축·IRP·ISA)의 히어로 카드와 같은 구성이다. */
+  .hero-copy {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 40px 40px 34px;
+    display: flex; flex-direction: column;
+  }
+  /* 높이를 옆 카드에 맞추느라 생긴 여백은 본문과 버튼 사이로 보낸다.
+     버튼이 상자 바닥에 붙어 빈 공간이 의도된 것으로 읽힌다. */
+  .hero-copy .hero-cta { margin-top: auto; padding-top: 30px; }
+  @media (max-width: 860px) { .hero-copy { padding: 28px 24px 26px; } }
+  .hero h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.08; letter-spacing: -0.045em; margin: 20px 0 20px; font-weight: 800; text-wrap: balance; }
+  .hero h1 .hl { color: var(--brass); }
+  .hero p.lead { font-size: 18px; }
+  .hero-cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+  .btn { border: 0; cursor: pointer; font: inherit; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+  .btn-primary { background: var(--ink); color: var(--paper-2); }
+  .btn-primary:hover { background: var(--teal); }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+  .btn-ghost:hover { border-color: var(--brass); color: var(--brass); }
+
+  .hero-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+  .hero-card h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: -0.02em; }
+  .hero-card .sub { color: var(--ink-faint); font-size: 13px; margin: 0 0 16px; }
+  .cycle { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .cyc { text-align: center; padding: 12px 6px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+  .cyc .ph { font-size: 20px; }
+  .cyc .nm { font-size: 12px; font-weight: 700; margin-top: 6px; }
+  .cyc .tag { font-size: 10.5px; margin-top: 3px; color: var(--ink-faint); }
+  .cyc.buy { background: var(--good-bg); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
+  .cyc.buy .tag { color: var(--good); font-weight: 700; }
+  .cyc.sell { background: var(--crit-bg); border-color: color-mix(in srgb, var(--crit) 35%, transparent); }
+  .cyc.sell .tag { color: var(--crit); font-weight: 700; }
+
+  /* ---------- Definition strip ---------- */
+  .defs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 30px; }
+  @media (max-width: 680px) { .defs { grid-template-columns: 1fr; } }
+  .def { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--brass); border-radius: 10px; padding: 20px 22px; }
+  .def h4 { margin: 0 0 4px; font-size: 15px; }
+  .def h4 small { color: var(--ink-faint); font-weight: 600; letter-spacing: 0.02em; }
+  .def p { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+  /* 사이클 카드 안에 들어가는 정의 블록. 좁은 열이라 한 줄씩 쌓고,
+     바로 위 '원칙' 블록과 같은 크기로 맞춘다. */
+  .defs-stack { grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+  .defs-stack .def { padding: 14px 16px; }
+  .defs-stack .def h4 { font-size: 14px; }
+  .defs-stack .def p { font-size: 13px; }
+
+  /* ---------- Region selector ---------- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 9px; margin: 28px 0 26px; }
+  .tab { border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-soft); padding: 10px 17px; border-radius: 999px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; transition: all .15s; }
+  .tab:hover { border-color: var(--brass); color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
+  .tab .dong { font-weight: 500; opacity: .6; font-size: 12px; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 26px 28px 22px; border-bottom: 1px solid var(--line); background: var(--paper-2); }
+  .panel-head .rname { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; margin: 0; }
+  .panel-head .rname span { color: var(--ink-faint); font-size: 15px; font-weight: 600; margin-left: 8px; }
+  .panel-head .rdesc { margin: 6px 0 0; color: var(--ink-soft); font-size: 14.5px; max-width: 52ch; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: 8px; letter-spacing: -0.01em; }
+  .chip.type { background: var(--teal-soft); color: var(--teal); }
+
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+  @media (max-width: 620px) { .metrics { grid-template-columns: 1fr; } }
+  .metric { background: var(--card); padding: 20px 24px; }
+  .metric .k { font-size: 12px; color: var(--ink-faint); font-weight: 700; letter-spacing: 0.02em; }
+  .metric .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
+  .metric .n { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+
+  .panel-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+  @media (max-width: 720px) { .panel-body { grid-template-columns: 1fr; } }
+  .col { background: var(--card); padding: 24px 28px; }
+  .col h5 { margin: 0 0 14px; font-size: 13px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-faint); font-weight: 800; }
+  ul.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  ul.plain li { position: relative; padding-left: 24px; font-size: 14.5px; color: var(--ink-soft); }
+  ul.plain li b { color: var(--ink); font-weight: 700; }
+  ul.plain li::before { content: ""; position: absolute; left: 4px; top: 9px; width: 7px; height: 7px; border-radius: 50%; }
+  .col.pros li::before { background: var(--good); }
+  .col.cons li::before { background: var(--crit); }
+
+  .verdict { padding: 20px 28px; background: var(--paper-2); border-top: 1px solid var(--line); display: flex; gap: 14px; align-items: flex-start; }
+  .verdict .badge { flex: none; font-size: 12px; font-weight: 800; padding: 5px 11px; border-radius: 7px; letter-spacing: 0.02em; }
+  .verdict p { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+  .verdict p b { color: var(--ink); }
+  .badge.b-good { background: var(--good-bg); color: var(--good); }
+  .badge.b-warn { background: var(--warn-bg); color: var(--warn); }
+
+  /* ---------- Recommender ---------- */
+  #recommend .rec-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; margin-top: 30px; align-items: start; }
+  @media (max-width: 820px) { #recommend .rec-grid { grid-template-columns: 1fr; } }
+  /* 페이지 자체 헤더(82px) 아래에 붙되, 통합 서버에서는 주입된 네비 바 높이만큼 더 내린다. */
+  .picker { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; position: sticky; top: calc(82px + var(--ta-nav-h, 0px)); }
+  @media (max-width: 820px) { .picker { position: static; } }
+  .field { margin-bottom: 22px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label { display: block; font-size: 13px; font-weight: 800; letter-spacing: 0.02em; margin-bottom: 10px; color: var(--ink); }
+  .field > label small { color: var(--ink-faint); font-weight: 600; margin-left: 6px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .opt { position: relative; }
+  .opt input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt label { display: block; text-align: center; padding: 11px 8px; border: 1px solid var(--line-strong); border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--ink-soft); cursor: pointer; transition: all .13s; }
+  .opt label:hover { border-color: var(--brass); }
+  .opt input:checked + label { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
+  .opt input:focus-visible + label { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+  .result { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; min-height: 260px; }
+  .result-inner { padding: 26px 28px; }
+  .result .top-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .result .rank { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: var(--brass); text-transform: uppercase; }
+  .result h3 { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; margin: 6px 0 0; }
+  .result h3 .kw { color: var(--brass); }
+  .result .why { color: var(--ink-soft); font-size: 15px; margin: 14px 0 0; max-width: 58ch; }
+  .result .yield-row { display: flex; gap: 22px; margin: 22px 0 0; flex-wrap: wrap; }
+  .yb { flex: 1; min-width: 130px; }
+  .yb .yk { font-size: 12px; color: var(--ink-faint); font-weight: 700; }
+  .yb .yv { font-size: 18px; font-weight: 800; margin-top: 3px; }
+  .result .alt { margin: 24px 0 0; padding-top: 20px; border-top: 1px dashed var(--line-strong); }
+  .result .alt .lbl { font-size: 12px; font-weight: 800; color: var(--ink-faint); letter-spacing: 0.03em; text-transform: uppercase; }
+  .result .alt p { margin: 8px 0 0; font-size: 14px; color: var(--ink-soft); }
+  .result .alt p b { color: var(--ink); }
+  .cautions { margin: 22px 0 0; display: flex; flex-direction: column; gap: 8px; }
+  .caution { display: flex; gap: 10px; align-items: flex-start; background: var(--warn-bg); border-radius: 9px; padding: 11px 14px; font-size: 13.5px; color: var(--ink-soft); }
+  .caution .i { color: var(--warn); font-weight: 800; flex: none; }
+
+  /* ---------- Checklist ---------- */
+  .check-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+  @media (max-width: 780px) { .check-grid { grid-template-columns: 1fr; } }
+  .ccard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 20px; box-shadow: var(--shadow); }
+  .ccard .idx { font-size: 12px; font-weight: 800; color: var(--brass); letter-spacing: 0.06em; }
+  .ccard h4 { margin: 8px 0 8px; font-size: 17px; letter-spacing: -0.02em; }
+  .ccard p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .ccard p code { background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 12.5px; color: var(--teal); font-weight: 700; }
+
+  /* ---------- Footer ---------- */
+  footer { border-top: 1px solid var(--line); padding: 40px 0 60px; }
+  .disc { background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: var(--radius); padding: 20px 24px; display: flex; gap: 14px; }
+  .disc .i { color: var(--warn); font-weight: 800; font-size: 18px; flex: none; }
+  .disc p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  .disc p b { color: var(--ink); }
+  .foot-meta { margin-top: 26px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--ink-faint); }
+  .foot-meta .brand { font-size: 13px; }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0 0 20px; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+
+<header class="top">
+  <div class="nav-inner">
+    <div class="brand"><span class="seal">🏠</span>부동산 투자 길잡이</div>
+    <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+    <nav id="nav">
+      <ul>
+        <li><a href="#region">지역 분석</a></li>
+        <li><a href="#recommend">유형 추천</a></li>
+        <li><a href="#checklist">체크리스트</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <div class="pt-hero">
+    <div class="pt-eyebrow">지역·유형 맞춤 분석</div>
+    <h1 class="pt-title"><span class="pt-icon">🏠</span>지역을 고르고, 예산을 넣으면 나에게 맞는 투자가 보입니다</h1>
+    <p class="pt-desc">부동산 투자는 &lsquo;소유&rsquo;가 아니라 시간·자본·리스크를 감수하고 미래 수익을 기대하는 자산 운용입니다. 지역별 특성과 예산·목적을 조합해, 감이 아닌 근거로 판단하세요.</p>
+    <div class="hero-cta">
+      <a href="#region" class="btn btn-primary">지역별 분석 보기 →</a>
+      <a href="#recommend" class="btn btn-ghost">예산으로 유형 찾기</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid" style="grid-template-columns: 1fr; justify-items: start;">
+        <aside class="hero-card" aria-label="부동산 경기 사이클" style="max-width: 480px;">
+          <h3>부동산 경기 사이클</h3>
+          <p class="sub">국면에 따라 진입·청산 전략이 달라집니다</p>
+          <div class="cycle">
+            <div class="cyc buy"><div class="ph">🌱</div><div class="nm">침체기</div><div class="tag">매수 적기</div></div>
+            <div class="cyc"><div class="ph">📈</div><div class="nm">회복기</div><div class="tag">선점</div></div>
+            <div class="cyc"><div class="ph">🔥</div><div class="nm">상승기</div><div class="tag">추격 자제</div></div>
+            <div class="cyc sell"><div class="ph">🍂</div><div class="nm">후퇴기</div><div class="tag">매도 검토</div></div>
+          </div>
+          <div class="defs" style="margin-top:18px; grid-template-columns:1fr;">
+            <div class="def" style="padding:14px 16px;">
+              <p style="font-size:13px;"><b style="color:var(--brass)">원칙</b> &mdash; 남들이 공포에 팔 때 사고, 탐욕에 살 때 판다. 단, <b>실거주</b> 목적이면 타이밍보다 <b>필요 시점</b>이 우선입니다.</p>
+            </div>
+          </div>
+
+          <div class="defs defs-stack">
+            <div class="def">
+              <h4>자본이득 <small>Capital Gain</small></h4>
+              <p>매입가와 매도가의 차익. 시세 차익·개발 이익이 여기 속합니다. 상승기·개발 호재에 민감합니다.</p>
+            </div>
+            <div class="def">
+              <h4>운영수익 <small>Income Gain</small></h4>
+              <p>보유 중 발생하는 정기 수익. 임대료·월세·상가 수익. 안정적 현금흐름을 원할 때 중심이 됩니다.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- REGION -->
+  <section id="region">
+    <div class="wrap reveal">
+      <span class="eyebrow">STEP 1</span>
+      <h2>지역별 맞춤 분석</h2>
+      <p class="lead">지역을 선택하면 대표 유형·핵심 지표·장단점·진입 판단이 함께 바뀝니다. 수치는 시장 흐름을 읽기 위한 상대적 참고치입니다.</p>
+
+      <div class="tabs" id="regionTabs" role="tablist" aria-label="지역 선택"></div>
+
+      <div class="panel" id="regionPanel" role="tabpanel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- RECOMMEND -->
+  <section id="recommend">
+    <div class="wrap reveal">
+      <span class="eyebrow">STEP 2</span>
+      <h2>예산·목적별 유형 추천</h2>
+      <p class="lead">가용 예산과 투자 목적을 고르면 가장 적합한 유형을 실시간으로 제안합니다. 성향에 맞는 대안과 유의점까지 함께 확인하세요.</p>
+
+      <div class="rec-grid">
+        <form class="picker" id="picker" aria-label="투자 조건 선택">
+          <div class="field">
+            <label>가용 예산 <small>대출 제외 실투자금 기준</small></label>
+            <div class="opts" id="budgetOpts"></div>
+          </div>
+          <div class="field">
+            <label>투자 목적</label>
+            <div class="opts" id="goalOpts"></div>
+          </div>
+          <div class="field">
+            <label>보유 성향 <small>기간·리스크</small></label>
+            <div class="opts" id="riskOpts"></div>
+          </div>
+        </form>
+
+        <div class="result" id="result" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHECKLIST -->
+  <section id="checklist">
+    <div class="wrap reveal">
+      <span class="eyebrow">투자 전 필수 점검</span>
+      <h2>유의점 5가지 체크리스트</h2>
+      <p class="lead">유형·지역과 무관하게 계약 전 반드시 확인해야 할 항목입니다.</p>
+      <div class="check-grid">
+        <div class="ccard"><div class="idx">01 입지</div><h4>첫째도 입지, 둘째도 입지</h4><p>교통(역세권)·학군·인프라·개발 호재. 미래 가치를 좌우하는 가장 핵심 요소입니다.</p></div>
+        <div class="ccard"><div class="idx">02 자금</div><h4>레버리지 관리</h4><p>금리 인상기 과도한 대출은 위험. <code>DSR</code>·<code>LTV</code>와 상환 능력, 6개월~1년치 여유자금을 확보하세요.</p></div>
+        <div class="ccard"><div class="idx">03 권리</div><h4>권리관계 확인</h4><p><code>등기부등본</code>으로 근저당·가압류·소유권 분쟁을, 전세는 깡통전세·이중계약을 점검합니다.</p></div>
+        <div class="ccard"><div class="idx">04 세금</div><h4>취득·보유·양도세</h4><p>다주택 중과와 비과세 요건(2년 보유·거주 등)을 사전에 계산해 실수익을 확인합니다.</p></div>
+        <div class="ccard"><div class="idx">05 환금성</div><h4>유동성 리스크</h4><p>부동산은 현금화가 느린 자산. 급전이 필요한 자금은 절대 투입하지 않습니다.</p></div>
+        <div class="ccard" style="background:var(--teal-soft); border-color:color-mix(in srgb, var(--teal) 30%, transparent);"><div class="idx" style="color:var(--teal)">＋ 현장</div><h4>임장은 필수</h4><p>서류만으로 판단 금지. 낮·밤·평일·주말 직접 방문해 상권·소음·공실을 눈으로 확인하세요.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="disc">
+      <span class="i" aria-hidden="true">⚠</span>
+      <p><b>투자 유의 안내.</b> 이 페이지의 지역 분석·수익률·추천은 일반적인 시장 원리에 기반한 <b>교육용 참고 자료</b>이며, 특정 물건의 수익을 보장하지 않습니다. 실제 투자 전에는 반드시 <b>세무사·공인중개사 등 전문가 상담</b>과 본인의 재무 상황 점검, 현장 임장을 병행하세요. 부동산은 정부 정책·금리·지역 여건에 따라 크게 달라집니다.</p>
+    </div>
+    <div class="foot-meta">
+      <span class="brand"><span class="mark" style="width:20px;height:20px;display:inline-block;vertical-align:-4px;margin-right:6px;"></span>부동산 투자 길잡이</span>
+      <span>지역·유형 맞춤 분석 · 교육용 자료 · 2026</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴 ---------- */
+  var navEl = document.getElementById("nav"), navToggle = document.getElementById("navToggle");
+  navToggle.addEventListener("click", function () { navEl.classList.toggle("open"); });
+  navEl.querySelectorAll("a").forEach(function (a) {
+    a.addEventListener("click", function () { navEl.classList.remove("open"); });
+  });
+
+  /* ---------- Region data ---------- */
+  var regions = [
+    {
+      id: "gangnam", name: "서울 강남", dong: "대치·도곡·개포",
+      desc: "전국에서 방어력이 가장 강한 시장. 하락기에도 회복이 빠르고 학군·인프라가 압도적입니다.",
+      types: ["재건축 아파트", "꼬마빌딩"],
+      metrics: [
+        { k: "진입 난이도", v: "매우 높음", n: "초기 자본 부담 큼" },
+        { k: "기대 수익 성격", v: "자본이득 중심", n: "임대수익률은 낮음" },
+        { k: "규제 강도", v: "집중", n: "다주택·대출 규제" }
+      ],
+      pros: ["하락기 <b>방어력·회복력</b> 최상위", "대치동 등 <b>대표 학군</b> 수요 견고", "재건축 진행 시 <b>개발 이익</b> 기대"],
+      cons: ["<b>초기 자본</b> 진입장벽 최고 수준", "각종 <b>규제가 집중</b>되는 지역", "재건축은 <b>10년+ 시간</b>·분담금 리스크"],
+      verdict: { t: "good", label: "장기 우량", txt: "자금 여력이 되면 <b>1순위 장기 보유</b> 대상. 단기 시세차익보다 오랜 보유로 접근하는 것이 정석입니다." }
+    },
+    {
+      id: "hwaseong", name: "경기 화성", dong: "동탄1·2신도시",
+      desc: "GTX-A와 삼성 반도체 배후 일자리가 받치는 신도시. 성장 잠재력이 크지만 입주 물량 변수가 있습니다.",
+      types: ["신축 아파트", "신도시 상가"],
+      metrics: [
+        { k: "진입 난이도", v: "중간", n: "수도권 대비 합리적" },
+        { k: "성장 동력", v: "일자리+교통", n: "반도체·GTX-A" },
+        { k: "핵심 변수", v: "입주 물량", n: "공급 시기 주의" }
+      ],
+      pros: ["<b>GTX-A</b> 개통으로 서울 접근성 개선", "삼성 반도체 등 <b>배후 일자리</b> 탄탄", "신축 위주 <b>주거 선호도</b> 높음"],
+      cons: ["시기별 <b>입주 물량 폭탄</b> 가능성", "신도시 <b>상가는 상권 형성 3~5년</b> 공실", "호재 <b>선반영</b> 구간 진입 주의"],
+      verdict: { t: "good", label: "성장 유망", txt: "아파트는 <b>입주 물량이 적은 시기</b>를 노려 진입. 상가는 상권이 자리 잡기 전 <b>공실 감수 기간</b>을 반드시 계산하세요." }
+    },
+    {
+      id: "busan", name: "부산 해운대", dong: "해운대·수영·마린시티",
+      desc: "관광·해안뷰 프리미엄과 지역 대표성을 가진 시장. 다만 지방 특유의 유동성·인구 흐름을 봐야 합니다.",
+      types: ["뷰 프리미엄 아파트", "상가"],
+      metrics: [
+        { k: "진입 난이도", v: "중상", n: "핵심지 프리미엄" },
+        { k: "수요 성격", v: "실거주+관광", n: "해안뷰 선호" },
+        { k: "핵심 변수", v: "인구 흐름", n: "지방 유동성" }
+      ],
+      pros: ["<b>해안뷰·관광</b> 기반 희소 프리미엄", "부산 내 <b>대표 학군·상권</b> 밀집", "지역 랜드마크로 <b>브랜드 가치</b> 유지"],
+      cons: ["지방 특유의 <b>환금성(유동성)</b> 부담", "부산 전반의 <b>인구 감소</b> 추세 유의", "핵심지 외곽은 <b>온도차</b>가 큼"],
+      verdict: { t: "warn", label: "선별 접근", txt: "지역 <b>대표 핵심지·신축</b> 위주로 압축하세요. 외곽·비인기 입지는 인구·일자리 지표를 먼저 확인해야 합니다." }
+    },
+    {
+      id: "songdo", name: "인천 송도", dong: "국제도시",
+      desc: "바이오 클러스터와 GTX-B 기대가 있는 계획도시. 인프라는 좋지만 공급 물량이 많은 편입니다.",
+      types: ["신축 아파트", "지식산업센터", "상가"],
+      metrics: [
+        { k: "진입 난이도", v: "중간", n: "신축 다수" },
+        { k: "성장 동력", v: "바이오+GTX-B", n: "산업 클러스터" },
+        { k: "핵심 변수", v: "공급 과잉", n: "물량 부담" }
+      ],
+      pros: ["<b>바이오 클러스터</b> 일자리 유입", "<b>GTX-B</b> 기대 및 계획도시 인프라", "쾌적한 <b>정주 여건</b>과 신축 선호"],
+      cons: ["아파트·상가 모두 <b>공급 물량 부담</b>", "지식산업센터는 <b>공급 과잉</b> 주의", "호재 <b>실현 시점</b> 지연 리스크"],
+      verdict: { t: "warn", label: "물량 확인", txt: "진입 전 <b>향후 입주·분양 물량</b>을 반드시 점검. 지식산업센터·상가는 최근 과잉 공급을 감안해 보수적으로 접근하세요." }
+    },
+    {
+      id: "daejeon", name: "대전 둔산", dong: "둔산·도안",
+      desc: "정부청사·연구단지의 안정적 배후 수요를 가진 학군 시장. 변동성이 크지 않은 중저가 실수요 지역입니다.",
+      types: ["학군 아파트"],
+      metrics: [
+        { k: "진입 난이도", v: "중하", n: "상대적 합리성" },
+        { k: "수요 성격", v: "안정 실수요", n: "공공·연구직" },
+        { k: "변동성", v: "낮음", n: "완만한 흐름" }
+      ],
+      pros: ["<b>정부청사·연구단지</b> 안정 배후 수요", "둔산 등 <b>대전 대표 학군</b> 견고", "<b>변동성이 낮아</b> 실거주 겸 투자 적합"],
+      cons: ["<b>폭발적 상승</b>은 기대하기 어려움", "지방 광역시 <b>인구·일자리</b> 흐름 확인", "핵심 학군 외 지역은 <b>차별화</b> 큼"],
+      verdict: { t: "good", label: "안정 실수요", txt: "<b>실거주를 겸한 안정형</b> 투자에 적합. 대표 학군지 위주로 접근하면 하방이 비교적 단단합니다." }
+    }
+  ];
+
+  var tabsEl = document.getElementById("regionTabs");
+  var panelEl = document.getElementById("regionPanel");
+
+  regions.forEach(function (r, i) {
+    var b = document.createElement("button");
+    b.className = "tab"; b.type = "button"; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", i === 0 ? "true" : "false");
+    b.innerHTML = r.name + ' <span class="dong">' + r.dong.split("·")[0] + "</span>";
+    b.addEventListener("click", function () { selectRegion(i); });
+    tabsEl.appendChild(b);
+  });
+
+  function selectRegion(i) {
+    var tabs = tabsEl.querySelectorAll(".tab");
+    tabs.forEach(function (t, j) { t.setAttribute("aria-selected", j === i ? "true" : "false"); });
+    var r = regions[i];
+    var chips = r.types.map(function (t) { return '<span class="chip type">' + t + "</span>"; }).join("");
+    var metrics = r.metrics.map(function (m) {
+      return '<div class="metric"><div class="k">' + m.k + '</div><div class="v">' + m.v + '</div><div class="n">' + m.n + "</div></div>";
+    }).join("");
+    var pros = r.pros.map(function (p) { return "<li>" + p + "</li>"; }).join("");
+    var cons = r.cons.map(function (p) { return "<li>" + p + "</li>"; }).join("");
+    panelEl.innerHTML =
+      '<div class="panel-head">' +
+        '<div><p class="rname">' + r.name + ' <span>' + r.dong + '</span></p><p class="rdesc">' + r.desc + '</p></div>' +
+        '<div class="chips">' + chips + '</div>' +
+      '</div>' +
+      '<div class="metrics">' + metrics + '</div>' +
+      '<div class="panel-body">' +
+        '<div class="col pros"><h5>▲ 강점</h5><ul class="plain">' + pros + '</ul></div>' +
+        '<div class="col cons"><h5>▼ 유의점</h5><ul class="plain">' + cons + '</ul></div>' +
+      '</div>' +
+      '<div class="verdict"><span class="badge b-' + r.verdict.t + '">' + r.verdict.label + '</span><p>' + r.verdict.txt + '</p></div>';
+  }
+  selectRegion(0);
+
+  /* ---------- Recommender ---------- */
+  var budgets = [
+    { id: "b1", label: "2억 이하" },
+    { id: "b2", label: "2~5억" },
+    { id: "b3", label: "5~10억" },
+    { id: "b4", label: "10억 이상" }
+  ];
+  var goals = [
+    { id: "g_gain", label: "시세 차익" },
+    { id: "g_rent", label: "월세 수익" },
+    { id: "g_live", label: "실거주 겸용" },
+    { id: "g_dev", label: "장기 개발" }
+  ];
+  var risks = [
+    { id: "r_stable", label: "안정 선호" },
+    { id: "r_bold", label: "고수익 감수" }
+  ];
+
+  function buildOpts(containerId, name, arr, defaultIdx) {
+    var c = document.getElementById(containerId);
+    arr.forEach(function (o, i) {
+      var wrap = document.createElement("div"); wrap.className = "opt";
+      var input = document.createElement("input");
+      input.type = "radio"; input.name = name; input.id = o.id; input.value = o.id;
+      if (i === defaultIdx) input.checked = true;
+      input.addEventListener("change", recompute);
+      var lab = document.createElement("label"); lab.setAttribute("for", o.id); lab.textContent = o.label;
+      wrap.appendChild(input); wrap.appendChild(lab); c.appendChild(wrap);
+    });
+  }
+  buildOpts("budgetOpts", "budget", budgets, 1);
+  buildOpts("goalOpts", "goal", goals, 1);
+  buildOpts("riskOpts", "risk", risks, 0);
+
+  function val(name) { var el = document.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : null; }
+
+  // recommendation engine
+  function recommend(budget, goal, risk) {
+    // returns {type, kw, why, primaryYield, secondaryYield, secLabel, alt, cautions}
+    var r = {};
+    var lowBudget = (budget === "b1" || budget === "b2");
+
+    if (goal === "g_dev") {
+      r.type = "토지"; r.kw = "장기 개발";
+      r.why = "장기 개발을 목표로 한다면 개발 시 자본이득이 가장 큰 토지가 정석입니다. 다만 환금성이 가장 낮고 5~10년 이상의 인내가 필요합니다.";
+      r.pY = { k: "기대 성격", v: "고수익·고위험" }; r.sY = { k: "권장 보유기간", v: "5~10년+" };
+      r.alt = risk === "r_stable"
+        ? "안정 성향이라면 토지는 부담이 큽니다. <b>학군 아파트</b>로 방향을 바꾸거나, 개발 확정 단계의 물건만 선별하세요."
+        : "여력이 되면 <b>도로에 접한 관리지역</b> 토지를 우선. 용도지역 상향 가능성을 함께 보세요.";
+      r.cautions = ["<code>토지이용계획확인원</code>으로 그린벨트·군사보호구역 등 규제 필수 확인", "&lsquo;기획부동산&rsquo;의 지분 쪼개기 판매 사기 주의"];
+      return r;
+    }
+
+    if (goal === "g_rent") {
+      if (budget === "b4" || budget === "b3") {
+        r.type = "상가 · 꼬마빌딩"; r.kw = "현금흐름";
+        r.why = "매달 임대수익(현금흐름)을 원하고 예산 여력이 있다면 상가 또는 꼬마빌딩이 적합합니다. 주택 규제에서 상대적으로 자유롭습니다.";
+        r.pY = { k: "목표 임대수익률", v: "연 4~6%" }; r.sY = { k: "핵심 지표", v: "배후수요·공실률" };
+        r.alt = "안정을 더 원하면 <b>배후 세대수가 확정된</b> 대단지 근린상가를, 규모를 키우려면 <b>꼬마빌딩</b>으로 확장하세요.";
+        r.cautions = ["1층 코너라도 <b>상권 자체가 쇠퇴</b>하면 회복이 어렵습니다", "신도시 상가는 상권 형성까지 <b>3~5년 공실</b>을 감수"];
+        return r;
+      }
+      r.type = "오피스텔"; r.kw = "소액 수익형";
+      r.why = "소액으로 매달 임대수익을 원한다면 오피스텔·소형 주택이 현실적입니다. 진입 문턱이 낮고 임차 수요가 꾸준한 역세권을 노리세요.";
+      r.pY = { k: "목표 임대수익률", v: "연 4~5%" }; r.sY = { k: "핵심 지표", v: "역세권·공실률" };
+      r.alt = "지방 소형 아파트도 대안입니다. 다만 <b>주택 수 포함 여부</b>에 따른 세금 변화를 반드시 확인하세요.";
+      r.cautions = ["오피스텔은 <b>주택 수 산정·세금</b> 규정을 사전 확인", "공급 과잉 지역은 <b>월세 하락·공실</b> 위험"];
+      return r;
+    }
+
+    if (goal === "g_live") {
+      r.type = "아파트"; r.kw = "실거주 겸 투자";
+      r.why = "실거주와 투자를 겸한다면 환금성이 높고 시세가 명확한 아파트가 최적입니다. 타이밍보다 필요 시점이 우선이며, 입지가 곧 미래 가치입니다.";
+      r.pY = { k: "우선 요소", v: "학군·역세권" }; r.sY = { k: "환금성", v: "높음" };
+      r.alt = lowBudget
+        ? "예산이 제한적이면 <b>지방 광역시 대표 학군지</b>나 준신축을 노리세요. 세대수 1,000↑ 단지가 유리합니다."
+        : "여력이 되면 <b>재건축 가능성 있는 준신축·구축</b>이 장기적으로 유리할 수 있습니다(시간·분담금 감수).";
+      r.cautions = ["다주택 <b>중과·비과세 요건</b>(2년 보유·거주)을 미리 계산", "입주 물량이 몰리는 시기는 진입을 피하세요"];
+      return r;
+    }
+
+    // goal === g_gain (시세 차익)
+    if (lowBudget) {
+      r.type = risk === "r_bold" ? "지방 소형 아파트 · 재개발 초기" : "지방 준신축 아파트"; r.kw = "시세 차익";
+      r.why = "제한된 예산으로 시세차익을 노린다면 저평가 우량 아파트가 현실적입니다. 일자리·교통 호재가 착공 단계에 들어선 지역을 선별하세요.";
+      r.pY = { k: "기대 성격", v: "자본이득 중심" }; r.sY = { k: "관건", v: "저평가·호재 시점" };
+      r.alt = risk === "r_bold"
+        ? "공격적이라면 <b>재개발·재건축 초기</b> 물건도 검토. 단 사업 단계·조합원 자격·분담금을 반드시 확인하세요."
+        : "안정형이면 <b>대표 학군·대단지</b> 위주로 압축해 하방을 단단히 하세요.";
+      r.cautions = ["인구·일자리가 <b>감소하는 지역</b>은 신중", "교통 호재는 &lsquo;발표→착공→개통&rsquo; 중 <b>착공 시점</b>이 비교적 안전"];
+      return r;
+    }
+    r.type = risk === "r_bold" ? "재건축 아파트" : "핵심지 아파트"; r.kw = "시세 차익";
+    r.why = "예산 여력을 갖고 시세차익을 노린다면 방어력이 강한 핵심지 아파트가 정석입니다. 하락기에도 회복이 빠른 입지가 결국 자본이득을 만듭니다.";
+    r.pY = { k: "기대 성격", v: "자본이득 중심" }; r.sY = { k: "우선 요소", v: "입지·학군" };
+    r.alt = risk === "r_bold"
+      ? "공격적이라면 <b>재건축 단지</b>로 개발 이익을 노리되, 10년+ 시간과 분담금 리스크를 감수하세요."
+      : "안정형이면 <b>이미 완성된 대표 학군·역세권</b> 신축·준신축으로 변동성을 낮추세요.";
+    r.cautions = ["규제가 집중되는 지역은 <b>대출·세금 규제</b>를 먼저 확인", "상승기 <b>추격 매수</b>는 자제, 국면을 보고 진입"];
+    return r;
+  }
+
+  function recompute() {
+    var budget = val("budget"), goal = val("goal"), risk = val("risk");
+    var rec = recommend(budget, goal, risk);
+    var bLabel = budgets.filter(function (b) { return b.id === budget; })[0].label;
+    var gLabel = goals.filter(function (g) { return g.id === goal; })[0].label;
+    var cautions = rec.cautions.map(function (c) {
+      return '<div class="caution"><span class="i" aria-hidden="true">!</span><span>' + c + "</span></div>";
+    }).join("");
+    document.getElementById("result").innerHTML =
+      '<div class="result-inner">' +
+        '<div class="top-line"><span class="rank">추천 유형 · ' + bLabel + " · " + gLabel + '</span></div>' +
+        '<h3>' + rec.type.replace(/(\S+)/, '<span class="kw">$1</span>') + '</h3>' +
+        '<p class="why">' + rec.why + '</p>' +
+        '<div class="yield-row">' +
+          '<div class="yb"><div class="yk">' + rec.pY.k + '</div><div class="yv">' + rec.pY.v + '</div></div>' +
+          '<div class="yb"><div class="yk">' + rec.sY.k + '</div><div class="yv">' + rec.sY.v + '</div></div>' +
+        '</div>' +
+        '<div class="cautions">' + cautions + '</div>' +
+        '<div class="alt"><span class="lbl">성향별 대안</span><p>' + rec.alt + '</p></div>' +
+      '</div>';
+  }
+  recompute();
+
+  /* ---------- Scroll reveal ---------- */
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("in"); });
+  }
+})();
+</script>
+
+</body>
+</html>
