@@ -13,8 +13,8 @@ from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, utils
 from .models import (
-    AnalyzedArticle, MemberGrade, StockDailyPrice, StockItem, StockPrediction, UserPreference,
-    UserSubscription,
+    AnalyzedArticle, ConsultRequest, MemberGrade, StockDailyPrice, StockItem, StockPrediction,
+    UserPreference, UserSubscription,
 )
 
 STRONG_PASSWORD = "N3xtF1nUp-test-only!"
@@ -214,3 +214,27 @@ class ModelBasicsTests(TestCase):
     def test_member_grade_str(self):
         grade = MemberGrade.objects.create(name='VIP', level=TEST_GRADE_LEVEL_START + 5)
         self.assertEqual(str(grade), f'{grade.level}. VIP')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class ExpertConsultTests(TestCase):
+    """전문가 상담 페이지(/experts/)와 그 폼이 물고 있는 기존 /api/consult/ 계약을 지킨다.
+    페이지는 순수 render라 외부 API 의존이 없고, 상담 접수는 consult_request_view가
+    전부 처리하므로 여기서는 그 뷰가 ASSET 유형을 받아주는지까지만 확인한다."""
+
+    def test_consult_api_accepts_asset_product(self):
+        response = self.client.post(reverse('consult_request'), data={
+            'product': 'ASSET',
+            'name': '홍길동',
+            'phone': '010-1234-5678',
+            'interest': '전체 자산 진단',
+            'goal': '세액공제 한도를 다 채우고 싶어요',
+            'message': '문의 내용',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        consult = ConsultRequest.objects.get()
+        self.assertEqual(consult.product, 'ASSET')
+        self.assertEqual(consult.get_product_display(), '자산관리 종합')
+        self.assertEqual(consult.interest, '전체 자산 진단')
