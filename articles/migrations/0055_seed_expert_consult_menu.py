@@ -19,7 +19,9 @@ def seed_menu(apps, schema_editor):
 
 def remove_menu(apps, schema_editor):
     Menu = apps.get_model('articles', 'Menu')
-    Menu.objects.filter(name=EXPERT_CONSULT_MENU['name']).delete()
+    Menu.objects.filter(
+        name=EXPERT_CONSULT_MENU['name'], url_name=EXPERT_CONSULT_MENU['url_name'],
+    ).delete()
 
 
 class Migration(migrations.Migration):

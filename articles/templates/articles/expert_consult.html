@@ -58,6 +58,8 @@
         /* 운영자가 채워야 하는 자리표시자를 눈에 띄게 표시한다 — 이 배경색이 화면에 보이면
            아직 실제 문구가 들어오지 않은 것이므로 운영 배포해서는 안 된다. */
         .ec-todo { background: #fff3cd; color: #664d03; padding: 0 4px; border-radius: 3px; }
+        /* 상단 sticky 네비게이션(약 64px)에 앵커 이동한 제목이 가려지지 않도록 여유를 둔다. */
+        #consult { scroll-margin-top: 76px; }
         .ec-form label { font-size: 13px; font-weight: 700; color: #343a40; margin-bottom: 6px; }
         .ec-form .form-control, .ec-form .form-select { font-size: 14px; }
         /* 허니팟 — 사람에게는 보이지 않고 봇만 채우도록 화면 밖으로 밀어낸다.
@@ -84,7 +86,7 @@
     <div class="ec-card">
         <h2>상담을 맡는 전문가</h2>
         <div class="ec-profile">
-            <div class="ec-photo">NF</div>
+            <div class="ec-photo" aria-hidden="true">NF</div>
             <div style="flex: 1; min-width: 260px;">
                 <p class="ec-profile-name"><span class="ec-todo">[[전문가 성명]]</span></p>
                 <p class="ec-profile-title"><span class="ec-todo">[[직함 — 예: 종합자산관리 FC]]</span></p>
@@ -149,7 +151,7 @@
                     <textarea class="form-control" id="ecMessage" rows="3"
                               placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
                 </div>
-                <div class="ec-honeypot">
+                <div class="ec-honeypot" aria-hidden="true">
                     <label for="ecWebsite">웹사이트</label>
                     <input type="text" id="ecWebsite" tabindex="-1" autocomplete="off">
                 </div>
