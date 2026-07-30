@@ -98,6 +98,7 @@ class ConsultRequest(models.Model):
         ('IRP', 'IRP'),
         ('PENSION', '연금저축'),
         ('INSURANCE', '보험'),
+        ('ASSET', '자산관리 종합'),
     ]
 
     product = models.CharField(max_length=20, choices=PRODUCT_CHOICES, verbose_name="상품 유형")
