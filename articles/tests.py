@@ -13,7 +13,7 @@ from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, utils
 from .models import (
-    AnalyzedArticle, ConsultRequest, MemberGrade, StockDailyPrice, StockItem, StockPrediction,
+    AnalyzedArticle, ConsultRequest, MemberGrade, Menu, StockDailyPrice, StockItem, StockPrediction,
     UserPreference, UserSubscription,
 )
 
@@ -268,3 +268,21 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['ok'])
         self.assertEqual(ConsultRequest.objects.count(), 0)
+
+    def test_expert_consult_menu_is_seeded_for_both_menu_types(self):
+        menus = Menu.objects.filter(name='전문가 상담')
+
+        self.assertEqual(menus.count(), 2)
+        self.assertEqual({m.menu_type for m in menus}, {'INDEX', 'HEADER'})
+        for menu in menus:
+            self.assertEqual(menu.url_name, 'expert_consult')
+            self.assertEqual(menu.order, 9)
+            self.assertTrue(menu.is_active)
+            # url_name을 쓰므로 경로가 바뀌어도 메뉴가 따라간다
+            self.assertEqual(menu.get_url(), reverse('expert_consult'))
+
+    def test_expert_consult_page_is_in_sitemap(self):
+        response = self.client.get(reverse('sitemap'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('expert_consult'))
