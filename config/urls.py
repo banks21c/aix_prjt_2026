@@ -14,6 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
@@ -86,4 +88,9 @@ urlpatterns = [
     path('accounts/blogger/connect/', blogger_connect_view, name='blogger_connect'),  # ◀ 마이페이지 - 블로거 자동포스팅 연동
     path('accounts/blogger/callback/', blogger_callback_view, name='blogger_callback'),
 ]
+
+if settings.DEBUG:
+    # 운영 환경은 nginx가 /media/를 직접 서빙(config/settings.py MEDIA_ROOT 주석 참고)하지만,
+    # 로컬 개발 서버(runserver)에서는 Django가 직접 서빙해야 썸네일 이미지가 보인다.
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

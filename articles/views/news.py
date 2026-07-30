@@ -1,17 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .. import article_ai, blog_posting
+from .. import article_ai, blog_posting, thumbnail
 from ..forms import NewsArticleEditForm, NewsScrapeForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
-from ..utils import ai_summarize_stats, fetch_article_metadata, scraping_stats, search_news_by_keyword
+from ..utils import ai_summarize_stats, detect_reuse_restriction, fetch_article_metadata, scraping_stats, search_news_by_keyword
 
 
 def news_board_view(request):
@@ -43,7 +43,6 @@ def news_board_view(request):
     next_block_page = page_block_end + 1 if page_block_end < paginator.num_pages else None
 
     user_blog_accounts = []
-    selected_account = None
     posted_article_ids = set()
     posting_stats = None
     summarize_stats = None
@@ -51,24 +50,24 @@ def news_board_view(request):
         summarize_stats = ai_summarize_stats(request.user)
         user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
         posting_stats = blog_posting.posting_stats(request.user)
-        account_id = request.GET.get('account')
-        if account_id:
-            selected_account = next((a for a in user_blog_accounts if str(a.pk) == account_id), None)
-        if not selected_account and user_blog_accounts:
-            selected_account = user_blog_accounts[0]
-        if selected_account:
+        if user_blog_accounts:
+            # 계정 체크박스는 포스팅 폼 안에 직접 있어(적용 버튼 없이) 제출 시점의 체크 상태를
+            # 그대로 읽어 루프를 돈다 — 그래서 페이지 렌더링 시점엔 "어떤 계정이 체크될지" 알 수
+            # 없으므로, 배지는 "연결된 계정 전부에 발행됐는가"로 고정한다. 이미 발행된 계정×기사
+            # 조합은 publish_article이 알아서 건너뛰므로, 일부 계정만 체크하고 다시 눌러도 안전하다.
             page_article_ids = [a.pk for a in page_obj.object_list]
-            posted_article_ids = set(
+            posted_counts = (
                 PostedArticle.objects
-                .filter(blog_account=selected_account, article_id__in=page_article_ids)
-                .values_list('article_id', flat=True)
+                .filter(blog_account__in=user_blog_accounts, article_id__in=page_article_ids)
+                .values('article_id')
+                .annotate(account_count=Count('blog_account', distinct=True))
             )
+            posted_article_ids = {
+                row['article_id'] for row in posted_counts
+                if row['account_count'] == len(user_blog_accounts)
+            }
 
-    # 계정 선택이 URL에 없어도(첫 방문 시 기본값으로 골라준 경우 포함) 항상 유지되도록,
-    # 목록/페이지네이션/기사별 포스팅 폼이 공유하는 "현재 조회 조건" URL을 여기서 한 번에 만든다.
     next_params = request.GET.copy()
-    if selected_account:
-        next_params['account'] = str(selected_account.pk)
     next_url = f"{request.path}?{next_params.urlencode()}" if next_params else request.path
 
     context = {
@@ -79,7 +78,6 @@ def news_board_view(request):
         'next_block_page': next_block_page,
         'query': query,
         'user_blog_accounts': user_blog_accounts,
-        'selected_account': selected_account,
         'posted_article_ids': posted_article_ids,
         'next_url': next_url,
         'posting_stats': posting_stats,
@@ -91,16 +89,26 @@ def news_board_view(request):
 @login_required
 @require_POST
 def post_articles_view(request):
-    """뉴스 게시판에서 회원이 직접 고른 기사들을 선택한 본인 블로그 계정에 즉시 발행한다."""
-    account = get_object_or_404(BlogPostingAccount, pk=request.POST.get('account_id'), user=request.user)
+    """뉴스 게시판에서 회원이 직접 고른 기사들을 체크한 계정 전부(1개 이상)에 즉시 발행한다.
+    계정을 여러 개 체크했으면 기사마다 각 계정에 순서대로 발행을 반복한다(루프) — 이미 발행된
+    계정×기사 조합은 blog_posting.publish_article이 자체적으로 걸러낸다(PostedArticle 유니크)."""
+    account_ids = request.POST.getlist('account_ids')
+    accounts = list(BlogPostingAccount.objects.filter(pk__in=account_ids, user=request.user))
+    if not accounts:
+        messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
+        return redirect(request.POST.get('next') or 'news_board')
+
+    connected_accounts = [a for a in accounts if a.is_connected()]
+    not_connected = [a for a in accounts if not a.is_connected()]
+    for account in not_connected:
+        messages.error(request, f"{account.get_platform_display()} 계정이 아직 연동되지 않아 건너뛰었습니다. 마이페이지에서 먼저 연동해주세요.")
+    if not connected_accounts:
+        return redirect(request.POST.get('next') or 'news_board')
+
     # 개별 행의 '포스팅' 버튼은 체크박스 상태와 무관하게 그 기사 하나만 발행하도록,
     # 제출 버튼 자체에 실린 solo_article_id를 우선 사용한다 (없으면 체크박스로 고른 전체 발행).
     solo_article_id = request.POST.get('solo_article_id')
     article_ids = [solo_article_id] if solo_article_id else request.POST.getlist('article_ids')
-
-    if not account.is_connected():
-        messages.error(request, f"{account.get_platform_display()} 계정이 아직 연동되지 않았습니다. 마이페이지에서 먼저 연동해주세요.")
-        return redirect(request.POST.get('next') or 'news_board')
 
     if not article_ids:
         messages.warning(request, "포스팅할 기사를 하나 이상 선택해주세요.")
@@ -118,12 +126,17 @@ def post_articles_view(request):
                 "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
             )
             return redirect(request.POST.get('next') or 'news_board')
-        if len(article_ids) > remaining:
+        # 계정을 여러 개 체크하면 기사 하나당 실제 발행 시도가 계정 수만큼 반복되므로,
+        # 하루 한도는 "기사 수 × 계정 수" 기준으로 넘는지 확인해야 한다.
+        planned_total = len(article_ids) * len(connected_accounts)
+        if planned_total > remaining:
+            max_articles = max(1, remaining // len(connected_accounts))
             messages.warning(
                 request,
-                f"{grade_name} 등급은 하루 {daily_limit}건까지만 가능해서, 이번엔 {remaining}건만 발행합니다.",
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 가능해서, 이번엔 {len(connected_accounts)}개 계정 × "
+                f"{max_articles}건만 발행합니다.",
             )
-            article_ids = article_ids[:remaining]
+            article_ids = article_ids[:max_articles]
 
     articles = AnalyzedArticle.objects.filter(pk__in=article_ids)
     not_summarized_count = articles.filter(ai_generated=False).count()
@@ -136,14 +149,15 @@ def post_articles_view(request):
         articles = articles.filter(ai_generated=True)
 
     success_count = 0
-    for article in articles:
-        # 개별 포스팅은 목록 화면의 포스팅완료 버튼 상태로 바로 드러나므로 성공 메시지가 필요 없지만,
-        # '선택 포스팅' 일괄 처리는 몇 건이 실제로 끝났는지 바로 안 보이므로 건수를 안내해준다.
-        ok, result = blog_posting.publish_article(account, article)
-        if ok:
-            success_count += 1
-        else:
-            messages.error(request, f"[{article.title[:30]}] {result}")
+    for account in connected_accounts:
+        for article in articles:
+            # 개별 포스팅은 목록 화면의 포스팅완료 버튼 상태로 바로 드러나므로 성공 메시지가 필요 없지만,
+            # '선택 포스팅' 일괄 처리는 몇 건이 실제로 끝났는지 바로 안 보이므로 건수를 안내해준다.
+            ok, result = blog_posting.publish_article(account, article)
+            if ok:
+                success_count += 1
+            else:
+                messages.error(request, f"[{account.get_platform_display()} · {article.title[:30]}] {result}")
 
     if success_count and not solo_article_id:
         messages.add_message(
@@ -244,7 +258,12 @@ def news_ai_summarize_view(request, pk):
             )
             return redirect('news_board')
 
-        draft = article_ai.generate_draft(article.title, article.original_content)
+        draft = article_ai.generate_draft(
+            article.title,
+            article.original_content,
+            restricted=article.has_reuse_restriction,
+            related_stock_name=article.stock.name if article.stock else None,
+        )
         if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
             # OPENAI_API_KEY 미설정이거나 호출 자체가 실패한 경우 — 한도를 쓰지 않고 알려준다.
             messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
@@ -256,9 +275,10 @@ def news_ai_summarize_view(request, pk):
         article.ai_generated = True
         article.ai_summarized_by = request.user
         article.ai_summarized_at = timezone.now()
+        article.thumbnail = thumbnail.build_thumbnail_file(article.title, article.stock, article.matched_keyword)
         article.save(update_fields=[
             'ai_summary', 'ai_analysis', 'blog_content',
-            'ai_generated', 'ai_summarized_by', 'ai_summarized_at',
+            'ai_generated', 'ai_summarized_by', 'ai_summarized_at', 'thumbnail',
         ])
         messages.success(request, "AI 요약이 완료됐습니다. 내용을 검토하고 필요하면 수정한 뒤 저장해주세요.")
 
@@ -268,7 +288,7 @@ def news_ai_summarize_view(request, pk):
 @login_required
 def news_scrape_view(request):
     """회원이 임의의 기사 URL을 입력하면 (1) trafilatura로 본문을 스크래핑하고,
-    (2) OpenAI로 3줄 요약/투자 분석/블로그 초안을 생성한 뒤, (3) 바로 편집 화면(news_edit)으로
+    (2) article_ai로 3줄 요약/투자 분석/블로그 초안을 생성한 뒤, (3) 바로 편집 화면(news_edit)으로
     넘겨 검토·수정 후 저장하게 하는 수동 등록 진입점. RSS 자동 수집(scraped_ai_news 등)과 달리
     회원이 임의 사이트를 직접 골라 등록할 때 쓴다. 등급별 일일 한도(MemberGrade.daily_scrape_limit)
     로 제한되며, 관리자(is_staff/is_superuser)는 무제한이다."""
@@ -296,16 +316,20 @@ def news_scrape_view(request):
         if not scraped['content']:
             messages.error(request, "본문을 스크래핑하지 못했습니다. URL을 확인하거나 다른 기사로 시도해주세요.")
         else:
-            draft = article_ai.generate_draft(scraped['title'], scraped['content'])
+            restricted = detect_reuse_restriction(scraped['content'])
+            draft = article_ai.generate_draft(scraped['title'], scraped['content'], restricted=restricted)
+            article_title = scraped['title'] or url
             article = AnalyzedArticle.objects.create(
-                title=scraped['title'] or url,
+                title=article_title,
                 original_url=url,
                 source_media=scraped['source_media'] or '수동 등록',
                 source_type=AnalyzedArticle.SOURCE_RSS,
                 original_content=scraped['content'],
+                has_reuse_restriction=restricted,
                 ai_summary=draft['ai_summary'],
                 ai_analysis=draft['ai_analysis'],
                 blog_content=draft['blog_content'],
+                thumbnail=thumbnail.build_thumbnail_file(article_title),
                 applied_template='T1',
                 scraped_by=request.user,
                 ai_generated=True,

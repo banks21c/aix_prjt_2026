@@ -2,12 +2,19 @@ import json
 import logging
 
 from django.conf import settings
+from google import genai
+from google.genai import types as genai_types
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+# 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 별칭(latest)을 써서
+# 특정 날짜 버전이 신규 사용자에게 막히거나(예: gemini-2.5-flash) 무료 쿼터가 갑자기 0으로
+# 바뀌는 문제(예: gemini-2.0-flash)를 피한다 — 실제 테스트에서 확인된 이슈.
+GEMINI_MODEL = "gemini-flash-latest"
+
 SIMULATION_SUMMARY = (
-    "AI 요약 기능은 현재 준비 중입니다. 관리자가 OpenAI API 키를 설정하면 "
+    "AI 요약 기능은 현재 준비 중입니다. 관리자가 AI 요약용 API 키를 설정하면 "
     "실시간 AI 요약이 제공됩니다. (현재 시뮬레이션 모드)"
 )
 SIMULATION_ANALYSIS = "AI 투자 관점 분석 기능은 현재 준비 중입니다. (현재 시뮬레이션 모드)"
@@ -31,6 +38,28 @@ SYSTEM_PROMPT = """당신은 NextFinUp의 금융 뉴스 AI 에디터입니다. �
 }
 """
 
+# utils.detect_reuse_restriction이 원문에서 "무단전재 배포금지, AI 학습 및 활용 금지" 류 문구를
+# 감지한 기사용 시스템 프롬프트. 이런 기사는 원문 본문을 절대 프롬프트에 넣지 않고(호출부에서부터
+# content 자체를 전달하지 않음) 제목/구조화된 사실(관련 종목명 등)만으로 NextFinUp 자체 해설을
+# 작성하게 한다 — 원문 문장의 재구성/의역이 아니라 독자적인 배경 설명·투자 시사점 위주 원고.
+RESTRICTED_SYSTEM_PROMPT = """당신은 NextFinUp의 금융 뉴스 AI 에디터입니다. 이 기사는 언론사가
+'무단전재 배포금지, AI 학습 및 활용 금지'를 명시해 원문 본문을 전달받지 못했습니다. 당신에게는
+[기사 제목]과 [참고 정보](관련 종목 등 구조화된 사실)만 주어집니다.
+- 원문 본문을 읽은 적이 없다는 전제로 작성하세요. [기사 제목]/[참고 정보]에 없는 구체적인 수치·
+  발언·사건 경위를 원문에서 가져온 것처럼 지어내거나 추측하지 마세요.
+- 특정 문장을 재구성하거나 의역하려 하지 말고, 제목이 가리키는 주제에 대해 일반적으로 알려진
+  배경지식과 산업/기업 맥락, 투자자 관점에서 통상적으로 짚어볼 시사점·유의점 위주로 NextFinUp만의
+  독자적인 해설을 작성하세요. "기사에 따르면", "원문에서는" 같이 원문을 인용하는 듯한 표현은
+  쓰지 마세요.
+- 한국어로, 명확하고 자연스럽게 작성하세요. 같은 문장을 반복하며 억지로 늘리지 마세요.
+- 반드시 아래 JSON 형식으로만 답하세요. 그 외 설명이나 마크다운 코드블록은 절대 붙이지 마세요.
+{
+  "ai_summary": "제목이 가리키는 주제를 3줄로 정리한 문자열 (줄바꿈 문자로 구분, 원문 문장 재구성 금지)",
+  "ai_analysis": "투자자 관점에서 통상적으로 짚어볼 시사점을 3~5문장으로 정리한 문자열",
+  "blog_content": "블로그 포스팅용 본문 HTML. <h3>/<p>/<ul><li> 등 간단한 태그만 사용해 배경/산업맥락/투자 시사점 위주 섹션으로 구성하고(원문 인용·재구성 없이) 공백 포함 한글 1,200~1,800자 분량으로 작성"
+}
+"""
+
 
 def _simulation_draft(content):
     return {
@@ -48,31 +77,50 @@ def _error_draft(content):
     }
 
 
-def generate_draft(title, content):
+def _call_gemini_json(system_prompt, user_prompt, max_output_tokens):
+    """Gemini에 system_instruction+user prompt를 보내 JSON 객체로 파싱해 반환한다.
+    response_mime_type='application/json'으로 OpenAI의 response_format=json_object와
+    동일하게 JSON만 반환하도록 강제한다."""
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=user_prompt,
+        config=genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            response_mime_type='application/json',
+            max_output_tokens=max_output_tokens,
+            temperature=0.4,
+        ),
+    )
+    return json.loads(response.text)
+
+
+def generate_draft(title, content, restricted=False, related_stock_name=None):
     """스크래핑한 기사 (제목, 본문)으로부터 AI 3줄 요약 / 투자 관점 분석 / 블로그 포스팅용
-    HTML 원고를 생성한다. OpenAI API 키가 없으면 chatbot_client와 동일하게 시뮬레이션
-    모드로 동작해, 스크래핑~편집 화면 진입 흐름 자체는 항상 끊기지 않게 한다."""
+    HTML 원고를 생성한다. Gemini API 키가 없으면 chatbot_client와 동일하게 시뮬레이션
+    모드로 동작해, 스크래핑~편집 화면 진입 흐름 자체는 항상 끊기지 않게 한다.
+
+    restricted=True(utils.detect_reuse_restriction으로 원문에서 "무단전재 배포금지, AI 학습
+    및 활용 금지" 류 문구가 감지된 경우)면 원문 본문은 아예 참조하지 않고 제목/관련 종목명만으로
+    별도 프롬프트(RESTRICTED_SYSTEM_PROMPT)를 태워 NextFinUp 자체 해설을 생성한다 — 원문
+    인용·재구성 없이, 출처(source_media/original_url) 표시는 그대로 유지한 채 발행된다."""
+    if restricted:
+        return _generate_restricted_draft(title, related_stock_name)
+
     if not content:
         return _simulation_draft(content)
 
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
         return _simulation_draft(content)
 
     user_prompt = f"[제목]\n{title}\n\n[원문]\n{content[:6000]}"
 
     try:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {'role': 'system', 'content': SYSTEM_PROMPT},
-                {'role': 'user', 'content': user_prompt},
-            ],
-            max_tokens=3000,
-            temperature=0.4,
-            response_format={'type': 'json_object'},
-        )
-        data = json.loads(response.choices[0].message.content)
+        # Gemini(gemini-flash-latest)는 응답 전에 내부적으로 "thinking" 토큰을 먼저 소비하고
+        # 그것도 max_output_tokens에 포함된다 — 실측 결과 thinking에만 2,500~3,500토큰 정도
+        # 쓰였다. 여유 없이 잡으면 thinking만 끝나고 실제 JSON 출력이 중간에 잘린다(finish_reason
+        # MAX_TOKENS), 그래서 OpenAI 때보다 훨씬 넉넉하게 잡는다.
+        data = _call_gemini_json(SYSTEM_PROMPT, user_prompt, max_output_tokens=6000)
         return {
             'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
             'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,
@@ -81,6 +129,31 @@ def generate_draft(title, content):
     except Exception:
         logger.exception("기사 AI 초안 생성 실패 (title=%r)", title)
         return _error_draft(content)
+
+
+def _generate_restricted_draft(title, related_stock_name=None):
+    """재사용 제한 문구가 감지된 기사용 분기. 원문 본문은 프롬프트에 절대 포함하지 않고
+    제목(+ 있으면 관련 종목명)만 근거로 NextFinUp 자체 해설을 생성한다."""
+    if not title:
+        return _simulation_draft('')
+
+    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+        return _simulation_draft('')
+
+    user_prompt = f"[기사 제목]\n{title}"
+    if related_stock_name:
+        user_prompt += f"\n\n[참고 정보]\n관련 종목: {related_stock_name}"
+
+    try:
+        data = _call_gemini_json(RESTRICTED_SYSTEM_PROMPT, user_prompt, max_output_tokens=6000)
+        return {
+            'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
+            'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,
+            'blog_content': (data.get('blog_content') or '').strip() or f"<p>{title}</p>",
+        }
+    except Exception:
+        logger.exception("제한 기사 AI 초안 생성 실패 (title=%r)", title)
+        return _error_draft('')
 
 
 BRIEFING_SYSTEM_PROMPT = """당신은 NextFinUp의 금융 뉴스 AI 에디터입니다. 아래 [특징주 목록](KIS 등락률

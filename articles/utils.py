@@ -52,6 +52,22 @@ def get_client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 
+def detect_reuse_restriction(text):
+    """스크래핑한 기사 본문에 'ⓒ...무단전재 배포금지, AI 학습 및 활용 금지' 류의 재사용 제한
+    문구가 있는지 감지한다. 감지되면 article_ai.generate_draft가 원문 본문을 AI 프롬프트에
+    전혀 넣지 않고 제목/구조화된 사실만으로 NextFinUp 자체 해설을 생성하는 분기를 타게 하는
+    판별 함수 (AnalyzedArticle.has_reuse_restriction에 저장)."""
+    import re
+
+    if not text:
+        return False
+    pattern = (
+        r'무단\s*전재|무단\s*배포|무단\s*복제|재배포\s*금지|전재\s*금지|'
+        r'AI\s*학습|AI\s*활용\s*금지|AI\s*학습\s*및?\s*활용'
+    )
+    return bool(re.search(pattern, text, re.IGNORECASE))
+
+
 def fetch_article_content(url):
     """뉴스 원문 URL에서 기사 본문 텍스트를 스크래핑한다. 언론사마다 HTML 구조가 달라
     사이트별 셀렉터 대신 trafilatura의 범용 추출을 사용한다. 실패해도 수집 파이프라인

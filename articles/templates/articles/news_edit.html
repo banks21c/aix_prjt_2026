@@ -49,19 +49,23 @@
                         {% endif %}
                     </div>
                 </div>
+                {% elif field.name == 'is_premium' %}
+                <div class="mb-3 d-flex align-items-center gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0">{{ field.label }}</label>
+                    <div class="form-check form-check-inline mb-0">
+                        {{ field }}
+                    </div>
+                    {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
                 {% else %}
                 <div class="mb-3">
                     <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                    {% if field.name == 'is_premium' %}
-                    <div class="form-check">
-                        {{ field }}
-                    </div>
-                    {% else %}
                     {{ field }}
                     {% if field.name == 'blog_content' %}
                     <div id="blogContentEditor" class="mt-2"></div>
                     <div class="form-text">이 편집기에서 수정한 내용이 저장 시 자동으로 반영됩니다.</div>
-                    {% endif %}
                     {% endif %}
                     {% if field.errors %}
                     <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
