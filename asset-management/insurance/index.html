@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보험 — 어느 쪽부터 봐야 할까</title>
+<!-- 아래 스타일은 이 페이지 하위의 life/damage/whole-life/term-life/variable 페이지와 시각적 일관성을 위해 그대로 맞춘 것이라 사용하지 않는 선택자가 포함되어 있다 -->
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink: #212529;
+    --ink-soft: #868e96;
+    --paper: #f4f6f9;
+    --card: #ffffff;
+    --card-stub: #f1f3f5;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --accent: #0d47a1;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA 페이지와 같은 구조·높이) ── */
+  header { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
+    transform: rotate(-6deg);
+  }
+  #nav ul { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 820px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+
+  section { padding: 56px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
+  .ledger-stub {
+    background: var(--card-stub);
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
+  }
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  @media (max-width: 700px) {
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+  }
+
+  /* ---------- 5가지 보험 카드 ---------- */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  a.card { display:block; background:var(--card); border:1px solid var(--line); border-radius:12px;
+           padding:22px 24px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s; }
+  a.card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  a.card .type-tag { margin-top:0; margin-bottom:10px; }
+  a.card h2 { margin:0 0 8px; font-size:19px; color:var(--accent); }
+  a.card p { margin:0; font-size:13.5px; color:var(--ink-soft); }
+
+  /* ---------- 페르소나 추천 카드 ---------- */
+  .persona-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px; }
+  a.persona { display:block; background:var(--card); border:1px solid var(--line); border-radius:10px;
+              padding:18px 20px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s; }
+  a.persona:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .persona-q { font-size:14px; font-weight:700; margin-bottom:8px; }
+  .persona-a { font-size:13px; color:var(--accent); font-weight:700; }
+  .persona-a::after { content:" →"; }
+
+  /* ---------- 체크리스트 경고 박스 ---------- */
+  .warn-list { display:flex; flex-direction:column; gap:12px; }
+  .warn-box {
+    background: rgba(13,71,161,0.06); border: 1px solid var(--accent); border-radius: 8px;
+    padding: 16px 18px; font-size: 0.92rem;
+  }
+  .warn-box strong { color: var(--accent); }
+
+  /* ---------- 표 ---------- */
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  .cmp th { background: var(--card); font-weight: 700; }
+  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
+  .cmp td.hl { color: var(--accent); font-weight: 700; }
+
+  /* ---------- FAQ ---------- */
+  .faq-item{ border-bottom:1px solid var(--line); }
+  .faq-item summary{
+    cursor:pointer; padding:18px 4px; font-weight:700; color:var(--accent); font-size:0.98rem;
+    list-style:none; display:flex; justify-content:space-between; align-items:center; gap:14px;
+  }
+  .faq-item summary::-webkit-details-marker{ display:none; }
+  .faq-item summary::after{ content:"+"; font-size:1.25rem; color:var(--accent); flex-shrink:0; }
+  .faq-item[open] summary::after{ content:"–"; }
+  .faq-item .a{ padding:0 4px 18px; font-size:0.9rem; color:var(--ink-soft); max-width:740px; }
+
+  /* ---------- 상담 유도 배너 ---------- */
+  .consult-cta {
+    background: var(--accent); color: #fff; border-radius: 12px; padding: 28px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .consult-cta h3 { font-size: 18px; margin: 0 0 4px; }
+  .consult-cta p { margin: 0; font-size: 13.5px; opacity: 0.88; }
+  .consult-cta .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 22px; background: #fff; color: var(--accent);
+    text-decoration: none; white-space: nowrap;
+  }
+
+  .table-scroll { overflow-x:auto; margin-top:32px; }
+  table { border-collapse:collapse; width:100%; min-width:520px; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:10px 12px; text-align:left; }
+  th { background:var(--card); }
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; margin-top: 24px; }
+  .footer-row { display: flex; flex-direction: column; gap: 8px; }
+  .footer-brand { font-weight: 800; font-size: 14px; }
+  .footer-note { font-size: 12px; color: var(--ink-soft); max-width: 60ch; line-height: 1.7; }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0 0 20px; }
+  .pt-hero .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pt-hero .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: #fff;
+    text-decoration: none; border: 1px solid var(--accent);
+  }
+  .pt-hero .btn-outline {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 11px 19px; background: #fff; color: var(--ink);
+    text-decoration: none; border: 1px solid var(--line-strong);
+  }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-sub { background:#f8f9fb; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab is-active">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+<div class="am-tabs am-tabs-sub">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/insurance/" class="am-tab is-active">개요</a>
+    <a href="/asset-management/insurance/life/" class="am-tab">생명보험</a>
+    <a href="/asset-management/insurance/damage/" class="am-tab">손해보험</a>
+    <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
+    <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
+    <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
+  </div>
+</div>
+
+
+  <header>
+    <div class="nav-inner">
+      <div class="brand"><span class="seal">🛡️</span>보험 안내</div>
+      <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+      <nav id="nav">
+        <ul>
+          <li><a href="#basics">기본 원리</a></li>
+          <li><a href="#compare">유형비교</a></li>
+          <li><a href="#trio">3형제</a></li>
+          <li><a href="#third">제3보험</a></li>
+          <li><a href="#persona">맞는 보험</a></li>
+          <li><a href="#checklist">체크리스트</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">보험 안내</div>
+    <h1 class="pt-title"><span class="pt-icon">🛡️</span>보험, 어느 쪽부터 봐야 할까</h1>
+    <p class="pt-desc">보험은 크게 손해보험과 생명보험으로 나뉘고, 그 안에 종신·정기·변액·제3보험까지 다섯 갈래가 더 있어요. 보상 방식이 근본적으로 다른 이 구조를 알면, 내게 필요한 보장과 불필요하게 겹친 보장이 한눈에 보여요.</p>
+    <div class="hero-ctas">
+      <a href="#compare" class="btn">5가지 보험 비교표 보기</a>
+      <a href="#persona" class="btn-outline">내게 맞는 보험 찾기</a>
+    </div>
+  </div>
+
+  <main>
+    <div class="wrap">
+
+      <section id="basics" style="padding-top:8px;">
+        <div class="section-head">
+          <h2 class="section-title">손해보험 vs 생명보험, 근본이 다른 두 축</h2>
+          <span class="section-note">모든 보험은 이 둘 중 하나에서 출발합니다</span>
+        </div>
+        <div class="plans">
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">지급 방식</div>
+              <span class="type-tag">실손 vs 정액</span>
+            </div>
+            <div class="ledger-body">
+              <p>손해보험은 <strong>실손보상</strong>이에요. 이득금지 원칙에 따라 실제 손해액까지만 받고, 보험으로 이익을 볼 수 없어요. 생명보험은 <strong>정액보상</strong>이에요. 사람의 생명에는 가격을 매길 수 없어서, 손해액과 무관하게 계약에서 미리 정한 금액을 그대로 지급해요.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">중복 가입</div>
+              <span class="type-tag">비례분담 vs 전액지급</span>
+            </div>
+            <div class="ledger-body">
+              <p>손해보험을 여러 곳에 가입해도 보험사끼리 손해액을 비례분담할 뿐, 실제 손해를 넘겨 받지는 못해요. 생명보험은 계약마다 각각 전액이 지급돼요. 그래서 실손의료보험은 하나만 있어도 충분하지만, 사망보험금은 여러 건 가입한 만큼 쌓여요.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">대위(代位)</div>
+              <span class="type-tag">청구권 이전</span>
+            </div>
+            <div class="ledger-body">
+              <p>손해보험사는 보험금을 지급하면 가해자에 대한 청구권을 넘겨받아요(대위). 생명보험은 대위가 없어서, 보험금을 받아도 가해자에 대한 손해배상 청구권이 그대로 남아요. 실손보상이 아니라 이중이득 문제가 생기지 않기 때문이에요.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>손해보험</th><th>생명보험</th></tr></thead>
+            <tbody>
+              <tr><td>보험사고</td><td>재산상 손해</td><td>사람의 생사</td></tr>
+              <tr><td>지급방식</td><td class="hl">실손보상</td><td class="hl">정액보상</td></tr>
+              <tr><td>중복가입</td><td>비례분담</td><td>각각 전액 지급</td></tr>
+              <tr><td>보험기간</td><td>1년 단위 갱신이 일반적 (장기손해보험 예외)</td><td>장기</td></tr>
+              <tr><td>대위</td><td>있음</td><td>없음</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="compare">
+        <div class="section-head">
+          <h2 class="section-title">5가지 보험, 한눈에 비교</h2>
+          <span class="section-note">각 페이지에서 원리·종류·주의사항을 더 자세히 볼 수 있어요</span>
+        </div>
+        <div class="cards">
+          <a class="card" href="../insurance/life/index.html">
+            <span class="type-tag">生命保險</span>
+            <h2>생명보험 &rarr;</h2>
+            <p>사람의 생사에 약정한 금액을 정액 지급. 종신 · 정기 · 변액 · 연금보험이 여기 속해요.</p>
+          </a>
+          <a class="card" href="../insurance/damage/index.html">
+            <span class="type-tag">損害保險</span>
+            <h2>손해보험 &rarr;</h2>
+            <p>재산상 손해를 실제 손해액만큼 보상. 화재 · 자동차 · 배상책임 · 보증이 여기 속해요.</p>
+          </a>
+          <a class="card" href="../insurance/whole-life/index.html">
+            <span class="type-tag">終身保險</span>
+            <h2>종신보험 &rarr;</h2>
+            <p>보험기간에 끝이 없어 사망 시점이 언제든 지급이 확정돼요. 같은 보장의 정기보험보다 비싸요.</p>
+          </a>
+          <a class="card" href="../insurance/term-life/index.html">
+            <span class="type-tag">定期保險</span>
+            <h2>정기보험 &rarr;</h2>
+            <p>정해진 기간에만 사망을 보장. 돌려받는 돈은 거의 없지만 같은 보장에 보험료가 가장 저렴해요.</p>
+          </a>
+          <a class="card" href="../insurance/variable/index.html">
+            <span class="type-tag">變額保險</span>
+            <h2>변액보험 &rarr;</h2>
+            <p>낸 보험료 일부가 펀드로 투자돼 성과에 따라 보험금 · 해지환급금이 달라져요. 예금자보호 대상이 아니에요.</p>
+          </a>
+        </div>
+        <p style="margin-top:16px; font-size:14px; color:var(--ink-soft);">실손의료보험 · 암보험 등 <strong>제3보험</strong>은 손해보험과 생명보험 사이에 있어요. <a href="#third" style="color:var(--accent); font-weight:700;">아래에서 바로 보기 &rarr;</a></p>
+      </section>
+
+      <section id="trio">
+        <div class="section-head">
+          <h2 class="section-title">생명보험 3형제 — 종신 · 정기 · 변액</h2>
+          <span class="section-note">모두 사망보장이 기본, 다른 건 가격과 운용 방식</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>종신보험</th><th>정기보험</th><th>변액보험</th></tr></thead>
+            <tbody>
+              <tr><td>보험기간</td><td>제한 없음 (평생)</td><td>정해진 기간까지</td><td>상품에 따라 다름</td></tr>
+              <tr><td>사망보험금</td><td>확정</td><td>기간 내 사망해야 지급</td><td>투자 실적 연동 (최저사망보험금 보증)</td></tr>
+              <tr><td>같은 보장의 보험료</td><td>높음</td><td class="hl">가장 저렴</td><td>사업비·위험보험료 우선 차감</td></tr>
+              <tr><td>해지환급금</td><td>쌓임</td><td>거의 없음 (소멸성)</td><td>보증 없는 경우 많음, 원금손실 가능</td></tr>
+              <tr><td>예금자보호</td><td>적용</td><td>적용</td><td class="hl">적용 안 됨 (최저보증 부분 제외)</td></tr>
+              <tr><td>맞는 목적</td><td>상속 재원 · 평생 보장</td><td>자녀 독립 전까지 등 한시적 보장</td><td>보장 + 투자수익을 함께 노릴 때</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="third">
+        <div class="section-head">
+          <h2 class="section-title">경계에 있는 것 — 제3보험</h2>
+          <span class="section-note">손해보험사 · 생명보험사 모두 취급</span>
+        </div>
+        <p>사람의 신체를 대상으로 하지만 실제로 들어간 치료비를 보상하는 영역이 있어요. 대상은 생명보험 쪽이고 보상 방식은 실손과 정액이 섞여 있어 어느 한쪽으로 분류되지 않아요. 실제로 가장 많은 사람이 가입하는 보험이 이 영역이에요.</p>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>상품</th><th>보장</th><th>지급방식</th></tr></thead>
+            <tbody>
+              <tr><td>실손의료보험</td><td>질병 · 상해 치료비</td><td>실손 — 자기부담금 제외 후 실제 지출</td></tr>
+              <tr><td>암보험 · 진단비</td><td>특정 질병 진단</td><td>정액 — 진단 시 약정 금액</td></tr>
+              <tr><td>간병보험</td><td>장기요양 상태</td><td>정액 또는 실손</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:14px; color:var(--ink-soft);">실손의료보험은 여러 건에 가입해도 실제 치료비를 넘겨 받을 수 없어요. 중복 가입이 의미 없는 이유예요.</p>
+      </section>
+
+      <section id="persona">
+        <div class="section-head">
+          <h2 class="section-title">내게 맞는 보험, 이렇게 좁혀보세요</h2>
+          <span class="section-note">상황을 고르면 관련 페이지로 이동해요</span>
+        </div>
+        <div class="persona-grid">
+          <a class="persona" href="../insurance/damage/index.html">
+            <div class="persona-q">병원비·수술비가 걱정돼요</div>
+            <div class="persona-a">제3보험(실손의료보험) 보기</div>
+          </a>
+          <a class="persona" href="../insurance/term-life/index.html">
+            <div class="persona-q">자녀 독립 전까지처럼 기간이 정해진 보장이 필요해요</div>
+            <div class="persona-a">정기보험 보기</div>
+          </a>
+          <a class="persona" href="../insurance/whole-life/index.html">
+            <div class="persona-q">평생 보장과 상속 재원을 함께 준비하고 싶어요</div>
+            <div class="persona-a">종신보험 보기</div>
+          </a>
+          <a class="persona" href="../insurance/variable/index.html">
+            <div class="persona-q">보장도 받고, 원금손실을 감수하더라도 투자수익도 노리고 싶어요</div>
+            <div class="persona-a">변액보험 보기</div>
+          </a>
+          <a class="persona" href="../insurance/damage/index.html">
+            <div class="persona-q">자동차 · 화재 · 배상책임처럼 재산이 걱정돼요</div>
+            <div class="persona-a">손해보험 보기</div>
+          </a>
+          <a class="persona" href="../insurance/life/index.html">
+            <div class="persona-q">지금 가입한 보험이 어느 쪽인지부터 헷갈려요</div>
+            <div class="persona-a">생명보험 개념부터 보기</div>
+          </a>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <div class="section-head">
+          <h2 class="section-title">가입 전 체크리스트</h2>
+          <span class="section-note">자주 하는 실수 4가지</span>
+        </div>
+        <div class="warn-list">
+          <div class="warn-box"><strong>실손의료보험 중복가입은 의미 없어요.</strong> 실손보상이라 여러 건에 가입해도 실제 치료비를 넘겨 받지 못해요. 보험료만 이중으로 나가고 있진 않은지 확인하세요.</div>
+          <div class="warn-box"><strong>갱신형은 초기 보험료만 보면 안 돼요.</strong> 나이가 들수록 갱신 보험료가 오르는 구조라, 가입 시점 보험료가 아니라 총 납입액 기준으로 비갱신형과 비교해야 해요.</div>
+          <div class="warn-box"><strong>변액보험의 해지환급금은 예금자보호가 안 돼요.</strong> 최저사망보험금은 보증되지만 해지환급금까지 보증되는 건 아니에요. "원금 보장"이라고 오해하고 가입하는 경우가 가장 많아요.</div>
+          <div class="warn-box"><strong>종신보험의 해지환급금은 저축이 아니에요.</strong> 보장을 위해 미리 낸 보험료의 잔액일 뿐이라, 목돈 마련이 목적이라면 다른 상품과 비교해보는 게 좋아요.</div>
+        </div>
+      </section>
+
+      <section id="faq">
+        <div class="section-head">
+          <h2 class="section-title">자주 묻는 질문</h2>
+        </div>
+        <details class="faq-item" open>
+          <summary>실손의료보험은 왜 하나만 있어도 되나요?</summary>
+          <div class="a">실손보상 원칙 때문이에요. 여러 건에 가입해도 실제로 지출한 치료비 이상은 받을 수 없어서, 추가로 가입한 보험료는 그대로 낭비가 돼요. 다만 실손의료보험이 아닌 암보험 · 진단비처럼 정액으로 지급되는 보장은 여러 건 가입한 만큼 받을 수 있어요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>종신보험과 정기보험, 뭘 골라야 하나요?</summary>
+          <div class="a">평생 보장과 상속 재원 마련이 목적이면 종신보험, 자녀 독립 전까지처럼 정해진 기간만 보장이 필요하면 정기보험이 유리해요. 같은 사망보험금이라면 정기보험이 훨씬 저렴하니, 필요한 보장 기간부터 먼저 정하는 게 순서예요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>변액보험은 위험한가요?</summary>
+          <div class="a">낸 보험료 전액이 아니라 사업비 · 위험보험료를 뺀 나머지만 펀드로 투자되기 때문에, 펀드 수익률이 플러스여도 해지환급금은 원금보다 적을 수 있어요. 사망보험금에는 최저사망보험금 보증이 붙는 경우가 많지만, 해지환급금에는 그런 보증이 없는 상품이 많아요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>손해보험사에서도 생명보험 성격의 상품을 팔 수 있나요?</summary>
+          <div class="a">네. 실손의료보험 · 암보험 같은 제3보험은 손해보험사와 생명보험사 모두 취급할 수 있어요. 대상은 사람의 신체지만 보상 방식이 실손과 정액으로 나뉘어 있어서, 어느 회사에서 가입했는지보다 상품의 지급방식을 확인하는 게 중요해요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>보험 리모델링은 언제 고려해야 하나요?</summary>
+          <div class="a">오래된 실손보험이 최신 세대보다 보장이 낮거나 자기부담금이 다를 때, 갱신형 보험료가 부담스럽게 오르기 시작할 때, 결혼·출산·이직 등으로 필요한 보장 규모가 달라졌을 때가 대표적인 리모델링 시점이에요. 다만 기존 계약을 해지하기 전에 새 계약의 면책기간과 보험료를 먼저 비교하는 게 안전해요.</div>
+        </details>
+      </section>
+
+      <section style="padding-top:8px;">
+        <div class="consult-cta">
+          <div>
+            <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
+            <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
+          </div>
+          <a class="btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <span class="footer-brand">🛡️ 보험 안내</span>
+      <span class="footer-note">
+        이 페이지는 보험 제도를 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 보험사나 상품을 권유하지 않아요.
+        본 사이트는 프로토타입 데모이며 실제 보험 비교·중개 서비스가 아닙니다. 보험 상품 비교·추천에는 관련 법령에 따른
+        보험대리점(GA) 등록 또는 금융위원회 혁신금융서비스 지정 등 법적 요건을 먼저 충족해야 합니다.
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    // 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴
+    (function () {
+      var navEl = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      if (!navEl || !toggle) return;
+      toggle.addEventListener('click', function () { navEl.classList.toggle('open'); });
+      navEl.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { navEl.classList.remove('open'); });
+      });
+    })();
+  </script>
+
+  <div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#16213a; color:#fff; padding:16px 20px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <p style="margin:0; font-size:13px; line-height:1.6; flex:1; min-width:240px; color:#dce8fb;">
+        NextFinUp은 로그인 유지 등 서비스 제공에 꼭 필요한 쿠키를 사용합니다. 계속 이용하시면 쿠키 사용에 동의하는 것으로 간주됩니다.
+        <a href="../privacy-policy/index.html" style="color:#9fc0ff; text-decoration:underline;">자세히 보기</a>
+      </p>
+      <button type="button" onclick="acceptCookieConsent()" style="background:#fff; color:#16213a; border:none; border-radius:6px; padding:9px 20px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">동의합니다</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      try {
+        if (!localStorage.getItem('nextfinup_cookie_consent')) {
+          var el = document.getElementById('cookieConsentBanner');
+          if (el) { el.style.display = 'block'; }
+        }
+      } catch (e) { /* localStorage 접근 불가 시(사파리 시크릿 등) 배너를 띄우지 않고 조용히 무시 */ }
+    })();
+    function acceptCookieConsent() {
+      try { localStorage.setItem('nextfinup_cookie_consent', '1'); } catch (e) {}
+      var el = document.getElementById('cookieConsentBanner');
+      if (el) { el.style.display = 'none'; }
+    }
+  </script>
+</body>
+</html>

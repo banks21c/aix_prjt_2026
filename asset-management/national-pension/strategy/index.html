@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>국민연금 — 50~60대 잘 활용하는 방법</title>
+<style>
+  /* 이 페이지 고유의 변수명(--brand, --bg …)은 그대로 두고 값만 NextFinUp
+     팔레트에 매핑한다. 마크업을 건드리지 않고 분위기만 통일하기 위해서다. */
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일.
+     다크모드 분기도 news 게시판과 동일하게 항상 라이트 하나만 쓴다. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --brand:#0d47a1;
+    --brand-dark:#0b3c8a;
+    --accent:#0d47a1;
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --card-stub:#f1f3f5;
+    --text:#212529;
+    --muted:#868e96;
+    --border:#e9ecef;
+    --on-brand:#ffffff;
+    --note-bg:#eef4fb;
+    --note-line:#cfe0f3;
+    --shadow:0 4px 12px rgba(0,0,0,.05);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;color-scheme:light dark}
+  body{
+    font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    color:var(--text);background:var(--bg);line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA·국민연금 페이지와 같은 구조·높이) ── */
+  header{ border-bottom:1px solid var(--border); }
+  .nav-inner{ max-width:960px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:900; font-size:1.15rem; letter-spacing:0.01em; }
+  .brand .seal{
+    width:28px; height:28px; border-radius:50%; border:2px solid var(--brand);
+    display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; color:var(--brand);
+    transform:rotate(-6deg);
+  }
+  .back{font-size:.94rem;font-weight:700;color:var(--muted);padding:8px 12px;border-radius:8px}
+  .back:hover{background:var(--bg);color:var(--brand)}
+
+  /* ── 히어로 ── */
+  .hero{
+    background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+    color:var(--on-brand);padding:117px 24px 66px;text-align:center;
+  }
+  .hero .tag{color:var(--on-brand);opacity:.85;font-weight:800;font-size:.9rem;letter-spacing:1px}
+  .hero h1{font-size:2.1rem;font-weight:800;letter-spacing:-1px;margin:8px 0 14px}
+  .hero p{font-size:1.05rem;opacity:.92;max-width:640px;margin:0 auto}
+
+  /* ── 레이아웃 ── */
+  main{max-width:960px;margin:0 auto;padding:0 24px}
+  section{padding:56px 0;border-bottom:1px solid var(--border)}
+  section:last-of-type{border-bottom:none}
+  h2{font-size:1.5rem;font-weight:800;color:var(--brand-dark);letter-spacing:-.5px;margin-bottom:6px}
+  h2 .num{color:var(--accent)}
+  .lead{color:var(--muted);margin-bottom:24px}
+  h3{font-size:1.1rem;color:var(--brand-dark);margin-bottom:6px}
+
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px;box-shadow:var(--shadow);margin-bottom:16px;
+  }
+  .card p{color:var(--muted);font-size:.98rem}
+  .card p + p{margin-top:8px}
+  .card ul{margin:10px 0 0 18px;color:var(--muted);font-size:.96rem}
+  .card li{margin-bottom:6px}
+
+  .summary-box{
+    background:var(--card);
+    border:1px solid var(--border);border-radius:var(--radius);
+    padding:26px;box-shadow:var(--shadow);
+  }
+  .summary-box ol{margin:12px 0 0 20px;color:var(--text)}
+  .summary-box li{margin-bottom:8px}
+
+  .warn{background:var(--note-bg);border:1px solid var(--note-line)}
+  .warn h3{color:var(--brand)}
+
+  .table-wrap{overflow-x:auto;border-radius:var(--radius);box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;background:var(--card);min-width:420px}
+  th,td{padding:13px 16px;text-align:center;border-bottom:1px solid var(--border);font-size:.95rem}
+  thead th{background:var(--brand);color:var(--on-brand);font-weight:700}
+  tbody tr:hover{background:var(--bg)}
+
+  .disclaimer{margin:28px 0 40px;font-size:.86rem;color:var(--muted);
+    background:var(--note-bg);border:1px solid var(--note-line);border-radius:10px;padding:14px 16px}
+  .cta-row{text-align:center;padding-bottom:48px}
+  .cta{display:inline-block;background:var(--brand);color:var(--on-brand);
+    padding:13px 28px;border-radius:30px;font-weight:800;box-shadow:var(--shadow)}
+  .cta:hover{background:var(--brand-dark)}
+
+  footer{background:var(--card-stub);color:var(--muted);padding:40px 24px;text-align:center;font-size:.9rem;border-top:1px solid var(--border)}
+  footer a{color:var(--brand);font-weight:700;text-decoration:underline}
+  footer .official{margin-top:10px;font-size:.82rem;opacity:.8}
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab is-active">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+
+
+
+<header>
+  <div class="nav-inner">
+    <div class="brand"><span class="seal">🏛️</span>국민연금 안내</div>
+    <a href="../../national-pension/index.html#faq" class="back">← 자주 묻는 질문으로</a>
+  </div>
+</header>
+
+<div class="pt-hero">
+  <div class="pt-eyebrow">50~60대 가이드</div>
+  <h1 class="pt-title"><span class="pt-icon">🏛️</span>50~60대 국민연금 잘 활용하는 방법</h1>
+  <p class="pt-desc">이 나이대의 국민연금은 "투자 상품"이라기보다 <strong>가입 이력을 어떻게 메우고, 언제부터 받느냐</strong>가 핵심입니다. 실제로 활용할 수 있는 제도들을 정리했습니다.</p>
+</div>
+
+<main>
+
+  <section>
+    <h2>한눈에 보는 결론</h2>
+    <p class="lead">50~60대의 실질적인 의사결정 포인트는 세 가지입니다.</p>
+    <div class="summary-box">
+      <ol>
+        <li>보험료를 내지 못한 <strong>공백 기간을 추납·반납으로 메울지</strong></li>
+        <li><strong>수령 시기를 언제로 할지</strong>(조기수령 · 정상수령 · 연기연금)</li>
+        <li>수령액이 늘어날 때 <strong>건강보험 피부양자 자격을 유지할 수 있는지</strong></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">1.</span> 가입 기간 늘리기 — 수령액 자체를 키우는 방법</h2>
+    <p class="lead">연금액은 가입 기간이 길수록, 평균 소득이 높을수록 커집니다.</p>
+
+    <div class="card">
+      <h3>추납(추후납부)</h3>
+      <p>실직·사업중단·육아·군 복무 등으로 보험료를 내지 못했던 기간에 대해
+        나중에 보험료를 내고 그 기간을 가입기간으로 인정받는 제도입니다.
+        <strong>최대 10년 미만</strong> 범위에서 신청할 수 있습니다.</p>
+      <p>다만 2025년 11월 개정으로 추납보험료 산정 기준이 달라져
+        2026년 기준으로 유·불리가 바뀌었으므로 <strong>신청 전 반드시 확인</strong>이 필요합니다.</p>
+    </div>
+
+    <div class="card">
+      <h3>반납제도</h3>
+      <p>퇴직하면서 이미 받았던 반환일시금을 <strong>원금 + 이자</strong>와 함께 다시 납부하면
+        해당 기간의 가입 이력이 복원됩니다.</p>
+    </div>
+
+    <div class="card">
+      <h3>임의계속가입</h3>
+      <p>60세가 되어 의무가입 대상에서 빠지더라도,
+        최소 가입기간(10년)을 채우지 못했거나 기간을 더 늘리고 싶다면
+        <strong>임의로 계속 가입</strong>할 수 있습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2.</span> 수령 시기 조절 — 50~60대에 가장 중요한 결정</h2>
+    <p class="lead">한 번 정하면 평생 금액이 달라지는 선택입니다.</p>
+
+    <div class="table-wrap" style="margin-bottom:20px">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>조정 폭</th><th>가감률</th><th>최대 변동</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>조기노령연금</td><td>최대 5년 앞당김</td><td>감액</td><td>평생 감액된 금액</td></tr>
+          <tr><td>정상 수령</td><td>—</td><td>—</td><td>기준 금액</td></tr>
+          <tr><td>연기연금</td><td>최대 5년 늦춤</td><td>월 0.6% (연 7.2%) 가산</td><td>최대 +36%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>연기연금 (늦게 받기)</h3>
+      <p>60세 이상 65세 미만의 노령연금 수급권자가 신청할 수 있으며,
+        연기되는 <strong>매 1개월마다 0.6%(연 7.2%)</strong>를 가산받습니다.
+        최대 5년까지 연기 가능하고, <strong>최대 36% 더 많은 금액을 평생</strong> 받게 됩니다.</p>
+      <p>연기 중에도 언제든 재지급을 신청하면 그 다음 달부터 지급이 개시됩니다.</p>
+    </div>
+
+    <div class="card">
+      <h3>조기노령연금 (일찍 받기)</h3>
+      <p>반대로 소득이 없고 당장 생활비가 필요하다면
+        <strong>최대 5년 일찍</strong> 받되 감액된 금액을 평생 받는 방식도 있습니다.</p>
+      <p>한번 신청하면 정상 수령으로 되돌릴 수 없으므로 신중해야 합니다.</p>
+    </div>
+
+    <div class="card">
+      <h3>어느 쪽이 유리할까?</h3>
+      <p>건강 상태, 다른 소득원 유무, 기대수명에 따라 달라집니다.
+        조기수령과 연기수령 사이에는 <strong>손익분기 나이</strong>가 있어,
+        그 이전에 사망하면 조기수령이, 그 이후까지 생존하면 연기수령이 유리합니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3.</span> 놓치기 쉬운 함정 — 건강보험 피부양자 자격</h2>
+    <div class="card warn">
+      <h3>⚠ 연기 결정 전에 반드시 시뮬레이션하세요</h3>
+      <p>연기연금으로 수령액을 늘렸다가 국민연금 수령액이 연 기준을 넘으면
+        <strong>피부양자 자격을 잃고 지역가입자로 전환</strong>됩니다.</p>
+      <p>지역가입자가 되면 소유한 주택·자동차까지 합산되어
+        건강보험료가 크게 늘어날 수 있습니다.
+        연금을 더 받으려다 건보료로 더 나가는 상황이 생기지 않도록,
+        연기를 결정하기 전에 이 부분을 꼭 확인해야 합니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4.</span> 2026년 제도 변화 참고</h2>
+    <div class="card">
+      <ul>
+        <li><strong>소득대체율 43% 상향</strong> — 2026년부터 적용되어
+          앞으로 수령액이 이전 계획보다 소폭 늘어날 전망입니다.</li>
+        <li><strong>보험료율 인상</strong> — 2026년부터 매년 0.5%p씩 8년간 인상되어
+          2033년 13%에 도달할 예정입니다. 계속 근로 중이라면 납입액도 점차 늘어납니다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>다음 단계</h2>
+    <div class="card">
+      <p>정확한 예상 수령액 비교는 본인의 가입 이력을 기준으로 확인해야 합니다.
+        국민연금공단 콜센터 <strong>☎ 1355</strong> 또는 홈페이지의
+        <strong>'내 연금 알아보기'</strong>에서 조회해 보시기 바랍니다.</p>
+      <p>현재 가입기간, 예상 은퇴 시기, 다른 소득원 유무를 함께 놓고 보면
+        어떤 선택지가 더 검토할 만한지 판단하기 쉬워집니다.</p>
+    </div>
+  </section>
+
+  <p class="disclaimer">본 내용은 제도 이해를 돕기 위한 일반적인 안내이며 재무설계 조언이 아닙니다.
+    실제 결정은 국민연금공단 상담이나 재무설계 전문가와 함께 확인하시기 바랍니다.
+    제도는 개정될 수 있으므로 신청 시점의 최신 규정을 확인하세요.</p>
+
+  <div class="cta-row">
+    <a href="../../national-pension/index.html#calc" class="cta">💰 내 예상 연금 계산해 보기</a>
+  </div>
+
+</main>
+
+<footer>
+  <p>본 사이트는 국민연금 제도 이해를 돕기 위한 <strong>비공식 안내 페이지</strong>입니다.</p>
+  <p class="official">정확한 정보·신청·상담은 국민연금공단
+    <a href="https://www.nps.or.kr" target="_blank" rel="noopener">www.nps.or.kr</a>
+    또는 국번없이 <strong>☎ 1355</strong></p>
+</footer>
+
+</body>
+</html>

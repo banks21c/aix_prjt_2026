@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRP — 퇴직금과 노후자금, 한 계좌로</title>
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
+  :root{
+    --navy:#0d47a1;
+    --navy-2:#0b3c8a;
+    --paper:#f4f6f9;
+    --paper-dark:#e9ecef;
+    --stamp:#0d47a1;
+    --jade:#495057;
+    --ink:#212529;
+    --line:#e9ecef;
+    --line-soft:rgba(33,37,41,0.08);
+    /* 서빙 시점에 주입되는 공통 상담 폼(consult_form.py)이 참조하는 변수들.
+       이 페이지의 색을 그대로 물려주어 폼이 본문과 한 몸으로 보이게 한다. */
+    --accent:#0d47a1;
+    --accent-ink:#FFFFFF;
+    --card:#ffffff;
+    --success:#2f7a4d;
+    --shadow:0 4px 12px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Pretendard Variable','Pretendard',sans-serif;
+    line-height:1.6;
+  }
+  h1,h2,h3,.serif{ font-family:'Pretendard Variable','Pretendard',sans-serif; }
+  .mono{ font-family:'Pretendard Variable','Pretendard',sans-serif; letter-spacing:0.02em; }
+  a{color:inherit;}
+  img{max-width:100%;}
+
+  /* ---------- Nav ---------- */
+  header{
+    color:var(--ink);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    max-width:960px; margin:0 auto; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; font-family:'Pretendard Variable','Pretendard',sans-serif; font-weight:900; font-size:1.15rem; letter-spacing:0.01em;}
+  .brand .seal{
+    width:28px;height:28px;border-radius:50%;border:2px solid var(--stamp);
+    display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:var(--stamp);
+    transform:rotate(-6deg);
+  }
+  #nav ul{ display:flex; gap:24px; list-style:none; margin:0; padding:0; font-size:0.92rem;}
+  #nav a{ text-decoration:none; opacity:0.88; transition:opacity .2s;}
+  #nav a:hover, #nav a:focus-visible{ opacity:1; text-decoration:underline; text-decoration-color:var(--stamp); text-underline-offset:5px;}
+  .nav-toggle{display:none;}
+  @media (max-width:900px){
+    #nav ul{ display:none; }
+    .nav-toggle{
+      display:inline-flex; background:none; border:1px solid var(--line); color:var(--ink);
+      padding:6px 12px; border-radius:4px; font-size:0.85rem; cursor:pointer;
+    }
+    #nav.open ul{
+      display:flex; flex-direction:column; gap:14px; position:absolute; left:0; right:0; top:64px;
+      background:var(--card); padding:20px 24px; border-bottom:1px solid var(--line); z-index:1010;
+    }
+  }
+
+  /* 사이트 공통 본문 칼럼. 국민연금·연금저축·ISA와 같고, 주입되는 네비 바(--ta-col: 960px)와도 같은 세로선에 선다. */
+  section{ padding:56px 24px; max-width:960px; margin:0 auto; }
+  .eyebrow{
+    font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.78rem; letter-spacing:0.14em;
+    color:var(--stamp); text-transform:uppercase; margin-bottom:14px; display:block;
+  }
+  .section-head{ max-width:640px; margin-bottom:56px;}
+  .section-head h2{ font-size:2rem; margin:0 0 14px; color:var(--navy); font-weight:700;}
+  .section-head p{ margin:0; opacity:0.82; font-size:1.02rem;}
+
+  .hero-ctas{ display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:12px 20px; border-radius:7px; font-weight:700; font-size:14px;
+    text-decoration:none; cursor:pointer; border:1px solid transparent;
+    transition:transform .15s ease, box-shadow .15s ease, background .2s;
+  }
+  .btn-primary{ background:var(--stamp); color:var(--accent-ink); }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(13,71,161,.28); }
+  .btn-primary:active{ transform:translateY(0); }
+  .btn-ghost{ border-color:var(--line); color:var(--ink); background:var(--card); }
+  .btn-ghost:hover{ background:var(--paper-dark); }
+
+  /* ---------- 유형 카드 ---------- */
+  .types-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+  .type-card{
+    background:var(--paper-dark); border:1px solid var(--line); border-radius:4px;
+    padding:28px 24px; position:relative;
+  }
+  .type-card .tag{
+    font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.75rem; color:var(--jade);
+    border:1px solid var(--jade); border-radius:20px; padding:3px 11px; display:inline-block; margin-bottom:16px;
+  }
+  .type-card h3{ margin:0 0 10px; font-size:1.1rem; color:var(--navy);}
+  .type-card p{ margin:0; font-size:0.92rem; opacity:0.82;}
+
+  /* ---------- 세제혜택 stats ---------- */
+  .stats-strip{
+    background:var(--navy); color:var(--paper); border-radius:4px; padding:44px 36px;
+    display:grid; grid-template-columns:repeat(4,1fr); gap:28px;
+  }
+  .stat{ border-left:2px solid var(--stamp); padding-left:18px; }
+  .stat .num{ font-family:'Pretendard Variable','Pretendard',sans-serif; font-weight:700; font-size:1.9rem; display:block; margin-bottom:4px;}
+  .stat .cap{ font-size:0.86rem; opacity:0.78; }
+  @media (max-width:900px){ .stats-strip{ grid-template-columns:repeat(2,1fr);} }
+
+  .ledger-note{
+    margin-top:26px; font-size:0.9rem; opacity:0.78; border-top:1px dashed var(--line); padding-top:18px;
+  }
+
+  /* ---------- 계산기 ---------- */
+  .calc{
+    background:var(--paper-dark); border:1px solid var(--line); border-radius:4px;
+    padding:40px; display:grid; grid-template-columns:1fr 1fr; gap:40px;
+  }
+  @media (max-width:820px){ .calc{ grid-template-columns:1fr; } }
+  .calc-field{ margin-bottom:26px; }
+  .calc-field:last-child{ margin-bottom:0; }
+  .calc-field label{ display:block; font-weight:700; margin-bottom:10px; font-size:0.95rem; color:var(--navy);}
+  .seg{ display:flex; border:1px solid var(--navy); border-radius:3px; overflow:hidden; }
+  .seg button{
+    flex:1; padding:11px 8px; border:none; background:var(--paper); cursor:pointer;
+    font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.88rem; font-weight:500; color:var(--ink);
+    border-right:1px solid var(--navy);
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button.active{ background:var(--navy); color:var(--paper); }
+  select.calc-select{
+    width:100%; background:var(--paper); border:1px solid var(--navy); border-radius:3px;
+    padding:11px 12px; font-size:0.9rem; color:var(--ink); font-family:inherit; cursor:pointer;
+  }
+  input[type=range]{ width:100%; accent-color:var(--stamp); }
+  .range-value{ display:flex; justify-content:space-between; font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:0.85rem; margin-top:6px; opacity:0.75;}
+  .calc-result{
+    background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:28px;
+    display:flex; flex-direction:column; justify-content:center; position:relative;
+  }
+  .calc-result .rlabel{ font-size:0.85rem; opacity:0.7; margin-bottom:8px;}
+  .calc-result .rvalue{
+    font-family:'Pretendard Variable','Pretendard',sans-serif; font-weight:700; font-size:2.4rem; color:var(--stamp); margin-bottom:6px;
+  }
+  .calc-result .rsub{ font-size:0.86rem; opacity:0.7; }
+  .calc-result .rtype{ margin-top:18px; padding-top:16px; border-top:1px dashed var(--line); font-size:0.85rem; opacity:0.8; }
+  .calc-result .seal-big{
+    position:absolute; top:20px; right:24px; width:56px; height:56px; border-radius:50%;
+    border:2.5px solid var(--stamp); color:var(--stamp); display:flex; align-items:center; justify-content:center;
+    font-size:0.65rem; font-weight:700; transform:rotate(-10deg); font-family:'Pretendard Variable','Pretendard',sans-serif; text-align:center;
+  }
+
+  /* ---------- 비교 표 ---------- */
+  table.compare{ width:100%; border-collapse:collapse; font-size:0.92rem; }
+  table.compare th, table.compare td{ padding:14px 16px; border-bottom:1px solid var(--line); text-align:left;}
+  table.compare thead th{ font-family:'Pretendard Variable','Pretendard',sans-serif; color:var(--navy); border-bottom:2px solid var(--navy);}
+  table.compare tbody th{ color:var(--navy); font-weight:700; width:150px;}
+  table.compare td.hl{ color:var(--jade); font-weight:700;}
+  .table-scroll{ overflow-x:auto; }
+  @media (max-width:700px){ table.compare{ min-width:620px; } }
+
+  /* ---------- 타임라인 ---------- */
+  .timeline{ position:relative; padding-left:32px; }
+  .timeline::before{ content:""; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background:var(--line);}
+  .tl-item{ position:relative; padding-bottom:34px; }
+  .tl-item:last-child{ padding-bottom:0; }
+  .tl-item::before{
+    content:""; position:absolute; left:-32px; top:2px; width:14px; height:14px; border-radius:50%;
+    background:var(--paper); border:2.5px solid var(--stamp);
+  }
+  .tl-item h4{ margin:0 0 6px; color:var(--navy); font-size:1.02rem;}
+  .tl-item p{ margin:0; font-size:0.92rem; opacity:0.82; max-width:640px;}
+
+  .warn-box{
+    margin-top:36px; background:rgba(13,71,161,0.08); border:1px solid var(--stamp); border-radius:4px;
+    padding:20px 22px; font-size:0.9rem;
+  }
+  .warn-box strong{ color:var(--stamp); }
+
+  /* ---------- FAQ ---------- */
+  .faq-item{ border-bottom:1px solid var(--line); }
+  .faq-item summary{
+    cursor:pointer; padding:20px 4px; font-weight:700; color:var(--navy); font-size:1rem;
+    list-style:none; display:flex; justify-content:space-between; align-items:center; gap:16px;
+  }
+  .faq-item summary::-webkit-details-marker{ display:none; }
+  .faq-item summary::after{ content:"+"; font-family:'Pretendard Variable','Pretendard',sans-serif; font-size:1.3rem; color:var(--stamp); flex-shrink:0;}
+  .faq-item[open] summary::after{ content:"–"; }
+  .faq-item .a{ padding:0 4px 20px; font-size:0.92rem; opacity:0.84; max-width:760px; }
+
+  footer{
+    background:var(--navy); color:var(--paper); padding:56px 24px 40px;
+  }
+  .footer-inner{ max-width:960px; margin:0 auto; }
+  .footer-inner .disclaimer{
+    font-size:0.82rem; opacity:0.68; border-top:1px solid rgba(240,233,216,0.2); padding-top:20px; margin-top:28px; line-height:1.7;
+  }
+  .footer-brand{ font-family:'Pretendard Variable','Pretendard',sans-serif; font-weight:900; font-size:1.1rem; margin-bottom:10px;}
+
+  @media (max-width:900px){
+    .types-grid{ grid-template-columns:1fr; }
+    section{ padding:40px 24px; }
+    .stats-strip{ padding:32px 24px; }
+  }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0 0 20px; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+            border-bottom:3px solid transparent; text-decoration:none; }
+  .am-tab:hover { color:#0d47a1; }
+  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+  .am-tab-new { position: relative; }
+  .am-tab-sparkle {
+    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+  }
+  @keyframes am-sparkle-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+  }
+</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+  <style>
+    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
+       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
+       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
+       현상이 사라진다). */
+    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+    .nav-dropdown { position: relative; display: inline-block; }
+    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    @media (max-width: 768px) {
+      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+    }
+    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+    @media (max-width: 768px) {
+      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+      .app-navbar-toggler { display: inline-block; }
+      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+      .app-nav-menu.open { display: flex !important; }
+      .app-nav-menu .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab is-active">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+
+
+
+<header>
+  <div class="nav-inner">
+    <div class="brand"><span class="seal">🏦</span>IRP 원장</div>
+    <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+    <nav id="nav">
+      <ul>
+        <li><a href="#about">IRP란</a></li>
+        <li><a href="#tax">세액공제</a></li>
+        <li><a href="#calc">계산기</a></li>
+        <li><a href="#types">유형비교</a></li>
+        <li><a href="#transfer">퇴직금·인출</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<div class="pt-hero">
+  <div class="pt-eyebrow">퇴직금과 노후자금, 한 계좌로</div>
+  <h1 class="pt-title"><span class="pt-icon">🏦</span>내 IRP, 세액공제 얼마나 받을 수 있을까</h1>
+  <p class="pt-desc">연 납입액과 총급여 구간만 입력하면 세액공제 한도를 원장처럼 정리해드려요. 퇴직금이 IRP로 넘어오는 규칙부터 중도인출 조건까지, IRP를 처음 만드는 분도 한 번에 알 수 있게 정리했어요.</p>
+  <div class="hero-ctas">
+    <a href="#calc" class="btn btn-primary">내 세액공제 계산하기</a>
+    <a href="#about" class="btn btn-ghost">IRP 알아보기</a>
+  </div>
+</div>
+
+<section id="about">
+  <div class="section-head">
+    <span class="eyebrow">Chapter 1</span>
+    <h2>IRP, 정확히는 뭔가요</h2>
+    <p>회사를 그만둘 때 받는 퇴직급여를 쌓아두거나, 재직 중에도 스스로 돈을 더 넣어서 노후자금을 키울 수 있는 퇴직연금 계좌예요. 근로자뿐 아니라 자영업자, 공무원, 프리랜서 등 소득이 있는 사람이라면 대부분 만들 수 있어요.</p>
+  </div>
+  <div class="types-grid">
+    <div class="type-card">
+      <span class="tag">증권사</span>
+      <h3>증권형 IRP (실적배당)</h3>
+      <p>펀드, ETF, 리츠 등 다양한 상품에 직접 투자해서 운용해요. 정해진 수익률이 없는 대신 장기적으로 더 높은 수익을 기대할 수 있고, 위험자산에는 전체 적립금의 70%까지만 담을 수 있어요.</p>
+    </div>
+    <div class="type-card">
+      <span class="tag">은행</span>
+      <h3>은행형 IRP (원리금보장)</h3>
+      <p>예금, 적금 같은 원리금보장상품 위주로 운용해요. 수익률은 낮은 편이지만 원금 손실 걱정 없이 안정적으로 굴리고 싶은 분들이 주로 선택해요.</p>
+    </div>
+    <div class="type-card">
+      <span class="tag">보험사</span>
+      <h3>보험형 IRP (원리금보장)</h3>
+      <p>보험사가 공시하는 이율에 따라 적립금이 불어나요. 원리금은 보장되지만 사업비가 먼저 빠지기 때문에 가입 초기 몇 년은 체감 수익률이 낮게 느껴질 수 있어요.</p>
+    </div>
+  </div>
+</section>
+
+<section id="tax">
+  <div class="section-head">
+    <span class="eyebrow">Chapter 2</span>
+    <h2>세액공제, 숫자로 보면 이래요</h2>
+    <p>IRP에 넣은 돈은 연말정산에서 세금을 그대로 돌려받아요. 연금저축과 한도를 공유하지만, IRP는 그 하나만으로도 한도를 전부 채울 수 있다는 게 차이예요.</p>
+  </div>
+  <div class="stats-strip">
+    <div class="stat"><span class="num mono">900만</span><span class="cap">IRP 세액공제 한도 (연금저축과 합산, 연간)</span></div>
+    <div class="stat"><span class="num mono">16.5 / 13.2%</span><span class="cap">총급여 5,500만원 이하 / 초과 공제율</span></div>
+    <div class="stat"><span class="num mono">148.5만</span><span class="cap">한도(900만원)를 다 채웠을 때 최대 환급액</span></div>
+    <div class="stat"><span class="num mono">3.3~5.5%</span><span class="cap">만 55세 이후 연금으로 받을 때 적용되는 저율 과세</span></div>
+  </div>
+  <p class="ledger-note">※ IRP 계좌의 연간 납입 한도는 1,800만원(연금저축 포함 합산)이지만, 세액공제는 900만원까지만 적용돼요. 초과 납입분은 공제는 못 받아도 계좌에 그대로 적립되고, 나중에 연금으로 받을 때 세금을 낮게 매기는 과세이연 혜택은 동일하게 적용돼요.</p>
+</section>
+
+<section id="calc">
+  <div class="section-head">
+    <span class="eyebrow">Chapter 3</span>
+    <h2>내 세액공제, 직접 넣어보세요</h2>
+    <p>소득 구간과 납입 계획만 정하면 예상 환급액을 바로 볼 수 있어요. 실제 공제 금액은 본인의 결정세액 한도 안에서 정해지니 참고용으로 봐주세요.</p>
+  </div>
+  <div class="calc">
+    <div>
+      <div class="calc-field">
+        <label>총급여 기준</label>
+        <div class="seg" id="incomeSeg">
+          <button class="active" data-rate="0.165">5,500만원 이하<br><span style="opacity:.65;font-size:.78rem;">(종합소득 4,500만원 이하)</span></button>
+          <button data-rate="0.132">5,500만원 초과</button>
+        </div>
+      </div>
+      <div class="calc-field">
+        <label>연금저축 납입액</label>
+        <input type="range" id="pensionRange" min="0" max="600" step="10" value="0">
+        <div class="range-value"><span>0원</span><span id="pensionVal" class="mono">0만원</span><span>600만원</span></div>
+      </div>
+      <div class="calc-field">
+        <label>IRP 납입액 <span style="font-weight:400;opacity:.7;">(연금저축과 합산 900만원까지 인정)</span></label>
+        <input type="range" id="irpRange" min="0" max="900" step="10" value="900">
+        <div class="range-value"><span>0원</span><span id="irpVal" class="mono">900만원</span><span>900만원</span></div>
+      </div>
+      <div class="calc-field">
+        <label>운용 유형</label>
+        <select class="calc-select" id="typeSelect">
+          <option value="stock">증권형 (실적배당)</option>
+          <option value="bank">은행형 (원리금보장)</option>
+          <option value="insurance">보험형 (원리금보장)</option>
+        </select>
+      </div>
+    </div>
+    <div class="calc-result">
+      <div class="seal-big serif">퇴직<br>연금</div>
+      <div class="rlabel">예상 연말정산 환급액</div>
+      <div class="rvalue mono" id="refundVal">1,485,000원</div>
+      <div class="rsub" id="baseText">공제 인정 금액 900만원 × 공제율 16.5%</div>
+      <div class="rtype" id="typeNote">증권형은 실적배당형이라 수익률이 정해져 있지 않아요. 장기 투자로 노후자금을 불리고 싶을 때 적합해요.</div>
+    </div>
+  </div>
+</section>
+
+<section id="types">
+  <div class="section-head">
+    <span class="eyebrow">Chapter 4</span>
+    <h2>유형별로 뭐가 다를까</h2>
+    <p>세액공제 혜택은 세 유형 모두 동일해요. 다른 건 돈을 굴리는 방식과 원금 보장 여부예요. 하나의 IRP 계좌 안에서도 여러 상품을 섞어 담을 수 있어요.</p>
+  </div>
+  <div class="table-scroll">
+    <table class="compare">
+      <thead>
+        <tr><th></th><th>증권형</th><th>은행형</th><th>보험형</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>운용 방식</th><td>펀드, ETF 등 실적배당 상품</td><td>예금, 적금 등 원리금보장 상품</td><td>보험사 공시이율 상품</td></tr>
+        <tr><th>원금 보장</th><td>보장되지 않음</td><td class="hl">보장됨</td><td class="hl">보장됨</td></tr>
+        <tr><th>예금자보호</th><td>상품에 따라 다름</td><td>1인당 5천만원(해당 금융회사 기준)</td><td>1인당 5천만원(해당 보험사 기준)</td></tr>
+        <tr><th>위험자산 한도</th><td>전체 적립금의 70%까지</td><td>해당 없음</td><td>해당 없음</td></tr>
+        <tr><th>이런 분께</th><td>장기 투자로 수익을 키우고 싶은 분</td><td>원금 손실 없이 안정적으로 굴리고 싶은 분</td><td>정해진 이율로 꾸준히 쌓고 싶은 분</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="transfer">
+  <div class="section-head">
+    <span class="eyebrow">Chapter 5</span>
+    <h2>퇴직금 넣을 때, 연금으로 받을 때</h2>
+    <p>IRP는 두 가지 돈이 만나는 계좌예요. 회사에서 받는 퇴직급여와, 세액공제를 위해 내가 추가로 넣는 돈이죠. 그래서 넣는 시점과 받는 시점 모두 알아둘 규칙이 있어요.</p>
+  </div>
+  <div class="timeline">
+    <div class="tl-item">
+      <h4>퇴직급여 300만원 초과 시 IRP로 우선 지급</h4>
+      <p>퇴직할 때 받는 퇴직급여가 300만원을 넘으면, 원칙적으로 본인 명의의 IRP 계좌로 먼저 들어와요. 만 55세 이후 퇴직하거나 사망으로 유족에게 지급되는 경우 등 일부 예외에서만 바로 현금으로 받을 수 있어요.</p>
+    </div>
+    <div class="tl-item">
+      <h4>가입 후 5년 이상 유지</h4>
+      <p>추가 납입분을 연금으로 받으려면 계좌를 처음 만든 날로부터 5년이 지나야 해요. 퇴직급여만 이전한 계좌는 이 요건이 별도로 적용되지 않아요.</p>
+    </div>
+    <div class="tl-item">
+      <h4>만 55세 이후 연금 수령 신청</h4>
+      <p>5년 요건과 별개로 만 55세를 넘겨야 하고, 직접 연금 수령을 신청해야 비로소 연금으로 받을 수 있어요.</p>
+    </div>
+    <div class="tl-item">
+      <h4>최소 10년 이상 나눠 받기</h4>
+      <p>짧게 많이 받을수록 세율이 올라가는 구조예요. 최소 10년 이상, 되도록 오래 나눠 받을수록 연금소득세 부담이 줄어들어요.</p>
+    </div>
+  </div>
+  <div class="warn-box">
+    <strong>중도인출은 법으로 정한 사유가 있을 때만 가능해요.</strong> 무주택자의 주택 구입·전세보증금, 6개월 이상 요양, 개인회생·파산, 천재지변 등 정해진 사유가 아니면 중도인출이 막혀 있어요. 특히 퇴직급여가 재원인 부분은 연금저축보다 더 엄격하게 관리돼요. 요건을 어기고 해지하면 그동안 감면받았던 세금에 기타소득세 16.5%가 붙어, 사실상 환급금을 다시 반납하는 셈이 돼요.
+  </div>
+</section>
+
+<section id="faq">
+  <div class="section-head">
+    <span class="eyebrow">FAQ</span>
+    <h2>자주 묻는 질문</h2>
+  </div>
+  <details class="faq-item" open>
+    <summary>퇴사하면 퇴직금은 무조건 IRP로 받아야 하나요?</summary>
+    <div class="a">퇴직급여가 300만원을 넘으면 원칙적으로 본인 명의의 IRP로 지급돼요. 다만 만 55세 이후에 퇴직하거나, 근로자가 사망해 유족에게 지급되는 경우, 법에서 정한 담보대출 상환 등 예외 사유에 해당하면 바로 현금으로 받을 수 있어요.</div>
+  </details>
+  <details class="faq-item">
+    <summary>연금저축이랑 IRP, 둘 다 있으면 뭐부터 채워야 하나요?</summary>
+    <div class="a">세액공제 한도(900만원) 안에서는 순서가 크게 중요하지 않아요. 다만 연금저축이 중도 인출 요건이 조금 더 유연한 편이라 먼저 채우고, 남는 여력을 IRP로 채우는 경우가 많아요. IRP 하나만으로도 900만원 한도를 전부 채울 수 있어요.</div>
+  </details>
+  <details class="faq-item">
+    <summary>IRP도 여러 개 만들 수 있나요?</summary>
+    <div class="a">계좌는 여러 금융회사에 나눠 만들 수 있어요. 다만 세액공제 한도는 계좌 수와 상관없이 사람 기준으로 합산되고, 퇴직급여를 받을 계좌는 보통 1개로 지정해서 관리하는 게 편해요.</div>
+  </details>
+  <details class="faq-item">
+    <summary>계좌를 유지하는 데 수수료가 드나요?</summary>
+    <div class="a">대부분의 금융회사가 운용관리수수료와 자산관리수수료를 받아요. 다만 최근에는 퇴직급여 이전이나 일정 잔액 이상 등 조건을 채우면 수수료를 면제해주는 곳도 많아서, 가입 전에 비교해보는 게 좋아요.</div>
+  </details>
+  <details class="faq-item">
+    <summary>증권형·은행형·보험형 중 뭐가 유리한가요?</summary>
+    <div class="a">정답은 없고 목표에 따라 달라요. 장기간 굴리며 수익을 키우고 싶다면 증권형, 원금을 지키며 안정적으로 운용하고 싶다면 은행형·보험형이 잘 맞아요. 하나의 계좌 안에서도 운용 상품을 섞어 담을 수 있어요.</div>
+  </details>
+  <details class="faq-item">
+    <summary>세액공제 한도를 넘겨서 납입하면 손해인가요?</summary>
+    <div class="a">공제는 못 받지만 손해는 아니에요. 900만원을 초과한 납입분도 계좌 안에서 계속 운용되고, 나중에 연금으로 받을 때 세금을 낮게 매기는 과세이연 혜택은 그대로 적용돼요. 다만 당장 세금을 돌려받는 효과는 없으니 여유 자금 계획에 맞춰 넣는 게 좋아요.</div>
+  </details>
+</section>
+
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">🏦 IRP 원장</div>
+    <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 IRP 제도를 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 금융회사나 상품을 권유하지 않아요.</p>
+    <div class="disclaimer">
+      본 페이지의 세액공제 한도, 공제율, 수령 조건 등은 2026년 기준 일반적인 내용을 정리한 것으로, 세법 개정이나 개인의 소득·가입 이력에 따라 실제 적용 내용이 달라질 수 있어요. 정확한 공제 금액과 가입 상담은 국세청, 금융회사 창구 또는 세무사를 통해 확인하는 걸 권장해요. 이 페이지는 투자 자문이나 세무 자문을 대신하지 않으며, 실제 금융투자상품 비교·중개 서비스가 아닙니다. IRP 계좌 비교·추천에는 관련 법령에 따른 금융상품자문업 또는 판매대리·중개업 라이선스 혹은 제휴 구조 확인이 필요합니다.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // nav toggle (mobile)
+  const navEl = document.getElementById('nav');
+  document.getElementById('navToggle').addEventListener('click', () => navEl.classList.toggle('open'));
+  navEl.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navEl.classList.remove('open')));
+
+  // income segment toggle
+  const incomeSeg = document.getElementById('incomeSeg');
+  let rate = 0.165;
+  incomeSeg.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      incomeSeg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rate = parseFloat(btn.dataset.rate);
+      updateCalc();
+    });
+  });
+
+  const pensionRange = document.getElementById('pensionRange');
+  const irpRange = document.getElementById('irpRange');
+  const pensionVal = document.getElementById('pensionVal');
+  const irpVal = document.getElementById('irpVal');
+  const refundVal = document.getElementById('refundVal');
+  const baseText = document.getElementById('baseText');
+  const typeSelect = document.getElementById('typeSelect');
+  const typeNote = document.getElementById('typeNote');
+
+  const typeNotes = {
+    stock: '증권형은 실적배당형이라 수익률이 정해져 있지 않아요. 장기 투자로 노후자금을 불리고 싶을 때 적합해요.',
+    bank: '은행형은 예금, 적금 등 원리금보장 상품 위주예요. 원금 손실 없이 안정적으로 굴리고 싶을 때 적합해요.',
+    insurance: '보험형은 보험사 공시이율에 따라 적립금이 불어나요. 정해진 이율로 꾸준히 쌓고 싶을 때 적합해요.'
+  };
+  typeSelect.addEventListener('change', () => {
+    typeNote.textContent = typeNotes[typeSelect.value];
+  });
+
+  function fmt(n){ return n.toLocaleString('ko-KR'); }
+
+  function updateCalc(){
+    const pension = Math.min(parseInt(pensionRange.value,10), 600);
+    const irp = Math.min(parseInt(irpRange.value,10), 900);
+    pensionVal.textContent = pension + '만원';
+    irpVal.textContent = irp + '만원';
+
+    const totalBase = Math.min(pension + irp, 900);
+    const refund = Math.round(totalBase * 10000 * rate);
+    refundVal.textContent = fmt(refund) + '원';
+
+    const ratePct = (rate*100).toFixed(1);
+    baseText.textContent = `공제 인정 금액 ${totalBase}만원 × 공제율 ${ratePct}%`;
+  }
+  pensionRange.addEventListener('input', updateCalc);
+  irpRange.addEventListener('input', updateCalc);
+  updateCalc();
+</script>
+
+  <div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#16213a; color:#fff; padding:16px 20px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <p style="margin:0; font-size:13px; line-height:1.6; flex:1; min-width:240px; color:#dce8fb;">
+        NextFinUp은 로그인 유지 등 서비스 제공에 꼭 필요한 쿠키를 사용합니다. 계속 이용하시면 쿠키 사용에 동의하는 것으로 간주됩니다.
+        <a href="../privacy-policy/index.html" style="color:#9fc0ff; text-decoration:underline;">자세히 보기</a>
+      </p>
+      <button type="button" onclick="acceptCookieConsent()" style="background:#fff; color:#16213a; border:none; border-radius:6px; padding:9px 20px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">동의합니다</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      try {
+        if (!localStorage.getItem('nextfinup_cookie_consent')) {
+          var el = document.getElementById('cookieConsentBanner');
+          if (el) { el.style.display = 'block'; }
+        }
+      } catch (e) { /* localStorage 접근 불가 시(사파리 시크릿 등) 배너를 띄우지 않고 조용히 무시 */ }
+    })();
+    function acceptCookieConsent() {
+      try { localStorage.setItem('nextfinup_cookie_consent', '1'); } catch (e) {}
+      var el = document.getElementById('cookieConsentBanner');
+      if (el) { el.style.display = 'none'; }
+    }
+  </script>
+</body>
+</html>
