@@ -3,7 +3,7 @@
 from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view,
-    header_fragment_view,
+    header_fragment_view, expert_consult_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
@@ -26,7 +26,7 @@ __all__ = [
     'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
     'newsletter_unsubscribe_view', 'cron_status_view', 'privacy_policy_view',
     'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
-    'header_fragment_view', 'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
+    'header_fragment_view', 'expert_consult_view', 'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_search_view', 'post_articles_view', 'stock_detail_view', 'stock_minute_chart_view',
     'market_index_minute_chart_view', 'chatbot_ask_view',

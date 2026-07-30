@@ -238,3 +238,9 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(consult.product, 'ASSET')
         self.assertEqual(consult.get_product_display(), '자산관리 종합')
         self.assertEqual(consult.interest, '전체 자산 진단')
+
+    def test_expert_consult_page_renders(self):
+        response = self.client.get(reverse('expert_consult'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'articles/expert_consult.html')

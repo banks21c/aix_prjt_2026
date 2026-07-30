@@ -71,6 +71,10 @@ def terms_of_service_view(request):
     return render(request, 'articles/terms_of_service.html', {'site_title': 'NextFinUp - 이용약관'})
 
 
+def expert_consult_view(request):
+    return render(request, 'articles/expert_consult.html', {'site_title': 'NextFinUp - 전문가 상담'})
+
+
 def insurance_compare_view(request):
     # 해외여행자보험 비교 데모(프로토타입) — 상품/가격은 전부 예시 데이터이며 실 서비스 아님
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
