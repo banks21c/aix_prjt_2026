@@ -2,6 +2,8 @@
 # 종목상세), 등급별 일일 한도 계산(utils.scraping_stats/blog_posting.posting_stats), 핵심 모델 제약.
 # 아직 커버하지 않음(외부 서비스 의존이라 별도 mocking 전략이 필요): yfinance/FinanceDataReader/KIS를
 # 부르는 관리 커맨드, 카카오/구글/네이버/블로거 OAuth 뷰, run_stock_prediction(모델 학습).
+import json
+
 from django.contrib.auth.models import User
 from django.core import mail
 from django.db import IntegrityError, transaction
@@ -13,8 +15,8 @@ from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, utils
 from .models import (
-    AnalyzedArticle, MemberGrade, StockDailyPrice, StockItem, StockPrediction, UserPreference,
-    UserSubscription,
+    AnalyzedArticle, ConsultRequest, MemberGrade, Menu, StockDailyPrice, StockItem, StockPrediction,
+    UserPreference, UserSubscription,
 )
 
 STRONG_PASSWORD = "N3xtF1nUp-test-only!"
@@ -214,3 +216,99 @@ class ModelBasicsTests(TestCase):
     def test_member_grade_str(self):
         grade = MemberGrade.objects.create(name='VIP', level=TEST_GRADE_LEVEL_START + 5)
         self.assertEqual(str(grade), f'{grade.level}. VIP')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class ExpertConsultTests(TestCase):
+    """전문가 상담 페이지(/experts/)와 그 폼이 물고 있는 기존 /api/consult/ 계약을 지킨다.
+    페이지는 순수 render라 외부 API 의존이 없고, 상담 접수는 consult_request_view가
+    전부 처리하므로 여기서는 그 뷰가 ASSET 유형을 받아주는지까지만 확인한다."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.stock = StockItem.objects.create(
+            ticker='005930', name='삼성전자', market_type='KOSPI', is_active=True, is_major_index=True,
+        )
+        StockDailyPrice.objects.create(
+            stock=cls.stock, date=timezone.localdate(),
+            open_price=70000, high_price=71000, low_price=69500, close_price=70500, volume=1000000,
+        )
+        AnalyzedArticle.objects.create(
+            stock=cls.stock, title='삼성전자 관련 뉴스', original_url='https://example.com/news/1',
+            source_media='테스트뉴스', ai_summary='요약', ai_analysis='분석', blog_content='본문',
+            original_content='원문 본문 테스트용 텍스트',
+        )
+
+    def test_consult_api_accepts_asset_product(self):
+        response = self.client.post(reverse('consult_request'), data=json.dumps({
+            'product': 'ASSET',
+            'name': '홍길동',
+            'phone': '010-1234-5678',
+            'interest': '전체 자산 진단',
+            'goal': '세액공제 한도를 다 채우고 싶어요',
+            'message': '문의 내용',
+        }), content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        consult = ConsultRequest.objects.get()
+        self.assertEqual(consult.product, 'ASSET')
+        self.assertEqual(consult.get_product_display(), '자산관리 종합')
+        self.assertEqual(consult.interest, '전체 자산 진단')
+
+    def test_expert_consult_page_renders(self):
+        response = self.client.get(reverse('expert_consult'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'articles/expert_consult.html')
+
+    def test_expert_consult_page_contains_consult_form(self):
+        response = self.client.get(reverse('expert_consult'))
+
+        # 히어로 CTA가 가리키는 앵커와 폼 필드가 실제로 렌더링되는지
+        self.assertContains(response, 'id="consult"')
+        self.assertContains(response, 'id="ecName"')
+        self.assertContains(response, 'id="ecPhone"')
+        self.assertContains(response, 'id="ecWebsite"')  # 허니팟
+        self.assertContains(response, '전체 자산 진단')   # 관심 분야 9번째 옵션
+        self.assertContains(response, '/api/consult/')
+
+    def test_consult_api_ignores_honeypot_submission(self):
+        response = self.client.post(reverse('consult_request'), data=json.dumps({
+            'product': 'ASSET',
+            'name': '봇',
+            'phone': '010-0000-0000',
+            'website': 'http://spam.example.com',  # 허니팟에 값이 채워짐
+        }), content_type='application/json')
+
+        # 봇에게 실패를 알리지 않으려고 ok:true를 돌려주지만 저장은 하지 않는다
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(ConsultRequest.objects.count(), 0)
+
+    def test_expert_consult_menu_is_seeded_for_both_menu_types(self):
+        menus = Menu.objects.filter(name='전문가 상담')
+
+        self.assertEqual(menus.count(), 2)
+        self.assertEqual({m.menu_type for m in menus}, {'INDEX', 'HEADER'})
+        for menu in menus:
+            self.assertEqual(menu.url_name, 'expert_consult')
+            self.assertEqual(menu.order, 9)
+            self.assertTrue(menu.is_active)
+            # url_name을 쓰므로 경로가 바뀌어도 메뉴가 따라간다
+            self.assertEqual(menu.get_url(), reverse('expert_consult'))
+
+    def test_expert_consult_page_is_in_sitemap(self):
+        response = self.client.get(reverse('sitemap'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('expert_consult'))
+
+    def test_expert_consult_menu_renders_in_nav(self):
+        # DB에 Menu row가 있는 것만으로는 실제로 화면에 나오는지 보장하지 않는다 —
+        # 랜딩(INDEX 메뉴)과 내부 대시보드(HEADER 메뉴) 양쪽에서 실제로 렌더링되는지 확인한다.
+        landing_response = self.client.get(reverse('landing_page'))
+        dashboard_response = self.client.get(reverse('main_dashboard'))
+
+        self.assertContains(landing_response, '전문가 상담')
+        self.assertContains(dashboard_response, '전문가 상담')

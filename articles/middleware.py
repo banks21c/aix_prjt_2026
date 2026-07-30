@@ -10,6 +10,7 @@ MENU_URL_NAMES = {
     'news_board',
     'news_detail',
     'stock_detail',
+    'expert_consult',
 }
 
 
