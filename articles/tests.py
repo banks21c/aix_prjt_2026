@@ -244,3 +244,27 @@ class ExpertConsultTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'articles/expert_consult.html')
+
+    def test_expert_consult_page_contains_consult_form(self):
+        response = self.client.get(reverse('expert_consult'))
+
+        # 히어로 CTA가 가리키는 앵커와 폼 필드가 실제로 렌더링되는지
+        self.assertContains(response, 'id="consult"')
+        self.assertContains(response, 'id="ecName"')
+        self.assertContains(response, 'id="ecPhone"')
+        self.assertContains(response, 'id="ecWebsite"')  # 허니팟
+        self.assertContains(response, '전체 자산 진단')   # 관심 분야 9번째 옵션
+        self.assertContains(response, '/api/consult/')
+
+    def test_consult_api_ignores_honeypot_submission(self):
+        response = self.client.post(reverse('consult_request'), data={
+            'product': 'ASSET',
+            'name': '봇',
+            'phone': '010-0000-0000',
+            'website': 'http://spam.example.com',  # 허니팟에 값이 채워짐
+        })
+
+        # 봇에게 실패를 알리지 않으려고 ok:true를 돌려주지만 저장은 하지 않는다
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(ConsultRequest.objects.count(), 0)
