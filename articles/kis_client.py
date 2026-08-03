@@ -146,6 +146,51 @@ def get_index_price(market_type):
     }
 
 
+# 시장별 투자자매매동향(시세) TR_ID (v1_국내주식-074) - 시장 전체 외국인/개인/기관계 순매수 조회
+INVESTOR_TREND_TR_ID = "FHPTJ04030000"
+# FID_INPUT_ISCD(시장구분)는 지수 코드(0001/1001)와 별개로 KSP/KSQ를 쓴다
+MARKET_ISCD_MAP = {
+    'KOSPI': 'KSP',
+    'KOSDAQ': 'KSQ',
+}
+
+
+def get_investor_trend(market_type):
+    """시장별 투자자매매동향(시세) API로 코스피/코스닥 시장 전체의 외국인/개인/기관계
+    순매수 수량을 조회합니다. 종목이 특정되지 않는 카드(특징주 브리핑 등)의 시장 요약용.
+    금액(거래대금) 필드는 단위 표기가 명확하지 않아, 오해의 소지가 없는 수량(주)만 사용합니다."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-time-by-market"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INVESTOR_TREND_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_INPUT_ISCD": MARKET_ISCD_MAP[market_type],
+        "FID_INPUT_ISCD_2": INDEX_CODE_MAP[market_type],
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 투자자매매동향 조회 실패: {data.get('msg1')}")
+
+    output = data.get('output')
+    if isinstance(output, list):
+        output = output[0] if output else {}
+
+    return {
+        'foreign_net_qty': int(output.get('frgn_ntby_qty') or 0),
+        'institution_net_qty': int(output.get('orgn_ntby_qty') or 0),
+        'retail_net_qty': int(output.get('prsn_ntby_qty') or 0),
+    }
+
+
 # 국내업종 일자별지수 조회 TR_ID (v1_국내주식-065) - 한 번에 최대 100건(영업일 기준)
 INDEX_DAILY_PRICE_TR_ID = "FHPUP02120000"
 

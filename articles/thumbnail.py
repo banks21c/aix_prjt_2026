@@ -124,36 +124,52 @@ def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
 
 
 def _draw_index_summary_grid(draw, x0, y0, x1, y1, index_rows):
-    """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥 지수·등락률·거래량을
-    _draw_market_grid와 같은 3열×2행 스타일로 그린다(1행=코스피, 2행=코스닥).
-    index_rows: [{'label','close','change','change_pct','volume'}, ...] (코스피, 코스닥 순)."""
+    """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥 지수를 위아래로 쌓아
+    각각 지수·등락률·거래량·외인/기관/개인 순매수(수량)를 3줄로 보여준다.
+    index_rows: [{'label','close','change','change_pct','volume','flows'}, ...] (코스피, 코스닥 순).
+    flows: {'foreign','institution','retail'} (수량, 주) — 없으면 3번째 줄은 생략."""
     draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
 
-    col_w = (x1 - x0) / 3
-    row_h = (y1 - y0) / max(len(index_rows), 1)
-    label_font = _font(FONT_REGULAR, 22)
-    value_font = _font(FONT_BOLD, 30)
+    n = max(len(index_rows), 1)
+    row_h = (y1 - y0) / n
+    label_font = _font(FONT_BOLD, 24)
+    pct_font = _font(FONT_BOLD, 20)
+    sub_font = _font(FONT_REGULAR, 17)
 
-    for col in (1, 2):
-        lx = x0 + col_w * col
-        draw.line([(lx, y0 + 12), (lx, y1 - 12)], fill=GRID_LINE, width=1)
     for row in range(1, len(index_rows)):
         ly = y0 + row_h * row
-        draw.line([(x0 + 12, ly), (x1 - 12, ly)], fill=GRID_LINE, width=1)
+        draw.line([(x0 + 20, ly), (x1 - 20, ly)], fill=GRID_LINE, width=1)
+
+    def _signed_qty(v):
+        return f"{v:+,.0f}주" if v is not None else "-"
 
     for row, idx in enumerate(index_rows):
         change = idx['change']
         move_color = SIGNAL_COLORS['BUY'] if change > 0 else SIGNAL_COLORS['SELL'] if change < 0 else NEUTRAL_COLOR
-        cells = [
-            (idx['label'], f"{idx['close']:,.2f}", TITLE_COLOR),
-            ("등락률", format_signed_pct(idx['change_pct']), move_color),
-            ("거래량", format_volume(idx['volume']) if idx.get('volume') else "-", SUBTITLE_COLOR),
-        ]
-        for col, (label, value, color) in enumerate(cells):
-            cx0 = x0 + col_w * col + 28
-            cy0 = y0 + row_h * row + 16
-            draw.text((cx0, cy0), label, font=label_font, fill=SUBTITLE_COLOR)
-            draw.text((cx0, cy0 + 28), value, font=value_font, fill=color)
+        cx = x0 + 28
+        cy = y0 + row_h * row + 10
+
+        # 1줄: 시장명 + 지수값 + 등락률
+        draw.text((cx, cy), idx['label'], font=label_font, fill=TITLE_COLOR)
+        label_w = draw.textlength(idx['label'], font=label_font)
+        close_text = f"{idx['close']:,.2f}"
+        draw.text((cx + label_w + 12, cy + 2), close_text, font=label_font, fill=TITLE_COLOR)
+        close_w = draw.textlength(close_text, font=label_font)
+        draw.text((cx + label_w + 12 + close_w + 12, cy + 3), format_signed_pct(idx['change_pct']), font=pct_font, fill=move_color)
+
+        # 2줄: 거래량
+        vol_text = f"거래량 {format_volume(idx['volume'])}" if idx.get('volume') else "거래량 -"
+        draw.text((cx, cy + 30), vol_text, font=sub_font, fill=SUBTITLE_COLOR)
+
+        # 3줄: 외인/기관/개인 순매수 수량 (있을 때만)
+        flows = idx.get('flows')
+        if flows:
+            flow_text = (
+                f"외인 {_signed_qty(flows.get('foreign'))} · "
+                f"기관 {_signed_qty(flows.get('institution'))} · "
+                f"개인 {_signed_qty(flows.get('retail'))}"
+            )
+            draw.text((cx, cy + 54), flow_text, font=sub_font, fill=SUBTITLE_COLOR)
 
 
 def _wrap_by_width(draw, text, font, max_width, max_lines):
@@ -251,9 +267,10 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     # 시세 그리드 (현재가/전일대비/등락률/전일가/거래량/거래대금) — 실시간 시세가 있을 때만
     if market_data:
         _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
-    # 특정 종목이 없는 카드(특징주 브리핑 등)는 대신 코스피/코스닥 지수 요약을 그린다
+    # 특정 종목이 없는 카드(특징주 브리핑 등)는 대신 코스피/코스닥 지수 요약을 그린다.
+    # 외인/기관/개인 순매수까지 3줄로 들어가 market_data 그리드보다 세로 공간이 더 필요하다.
     elif index_summary:
-        _draw_index_summary_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, index_summary)
+        _draw_index_summary_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 618, index_summary)
 
     from io import BytesIO
     buf = BytesIO()
@@ -311,6 +328,11 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
                     'change': float(today_indices[market_type].change or 0),
                     'change_pct': today_indices[market_type].change_pct or 0,
                     'volume': today_indices[market_type].volume,
+                    'flows': {
+                        'foreign': today_indices[market_type].foreign_net_qty,
+                        'institution': today_indices[market_type].institution_net_qty,
+                        'retail': today_indices[market_type].retail_net_qty,
+                    },
                 }
                 for market_type in ('KOSPI', 'KOSDAQ') if market_type in today_indices
             ]
@@ -337,8 +359,10 @@ if __name__ == "__main__":
           'volume': 3456789, 'trading_value': 245500 * 3456789}, None),
         ("코스피, 미 연준 금리 동결 소식에 강보합 마감", "코스피", None, None, "AI 요약 리포트", None, None),
         ("2026-07-31 장중 특징주 브리핑", "경제 뉴스", None, None, "특징주 브리핑", None, [
-            {'label': '코스피', 'close': 3187.42, 'change': -12.5, 'change_pct': -0.39, 'volume': 412345678},
-            {'label': '코스닥', 'close': 812.7, 'change': 6.2, 'change_pct': 0.77, 'volume': 987654321},
+            {'label': '코스피', 'close': 3187.42, 'change': -12.5, 'change_pct': -0.39, 'volume': 412345678,
+             'flows': {'foreign': -1523000, 'institution': -842000, 'retail': 2365000}},
+            {'label': '코스닥', 'close': 812.7, 'change': 6.2, 'change_pct': 0.77, 'volume': 987654321,
+             'flows': {'foreign': 341000, 'institution': -120000, 'retail': -221000}},
         ]),
     ]
     for i, (title, subject, ticker, signal, category, market_data, index_summary) in enumerate(samples):

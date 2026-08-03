@@ -139,6 +139,9 @@ class MarketIndex(models.Model):
     change = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="전일 대비 등락")
     change_pct = models.FloatField(null=True, blank=True, verbose_name="전일 대비 등락률(%)")
     volume = models.BigIntegerField(null=True, blank=True, verbose_name="거래량")
+    foreign_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="외국인 순매수 수량")
+    institution_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="기관계 순매수 수량")
+    retail_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="개인 순매수 수량")
 
     class Meta:
         unique_together = ('market_type', 'date')

@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from django.core.management.base import BaseCommand
 
-from articles.kis_client import get_index_daily_price, get_index_price, is_market_open
+from articles.kis_client import get_index_daily_price, get_index_price, get_investor_trend, is_market_open
 from articles.models import MarketIndex
 
 MARKET_TYPES = ['KOSPI', 'KOSDAQ']
@@ -72,19 +72,32 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"    ↳ {market_type} KIS 실시간 갱신 실패: {e}"))
             return
 
+        defaults = dict(
+            open_price=round(quote['open'], 2),
+            high_price=round(quote['high'], 2),
+            low_price=round(quote['low'], 2),
+            close_price=round(quote['close'], 2),
+            change=round(quote['change'], 2),
+            change_pct=round(quote['change_pct'], 2),
+            volume=quote['volume'],
+        )
+
+        # 별도 API라 독립적으로 실패할 수 있음 — 실패해도 지수 자체 갱신은 계속 진행
+        try:
+            trend = get_investor_trend(market_type)
+            defaults.update(
+                foreign_net_qty=trend['foreign_net_qty'],
+                institution_net_qty=trend['institution_net_qty'],
+                retail_net_qty=trend['retail_net_qty'],
+            )
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"    ↳ {market_type} 투자자매매동향 조회 실패: {e}"))
+
         today = date.today()
         _, created = MarketIndex.objects.update_or_create(
             market_type=market_type,
             date=today,
-            defaults=dict(
-                open_price=round(quote['open'], 2),
-                high_price=round(quote['high'], 2),
-                low_price=round(quote['low'], 2),
-                close_price=round(quote['close'], 2),
-                change=round(quote['change'], 2),
-                change_pct=round(quote['change_pct'], 2),
-                volume=quote['volume'],
-            ),
+            defaults=defaults,
         )
         action = '신규' if created else '갱신'
         self.stdout.write(self.style.SUCCESS(
