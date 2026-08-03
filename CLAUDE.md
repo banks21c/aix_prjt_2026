@@ -56,8 +56,8 @@ One-time / occasional setup (run in this order for a fresh setup):
 ```
 python manage.py insert_stock_master                                       # load all KOSPI/KOSDAQ tickers via FinanceDataReader
 python manage.py sync_index_membership --kospi200 <csv> --kosdaq150 <csv>  # flag is_major_index from KRX-exported CSVs
-python manage.py collect_stock_data                                        # bulk-fetch 10y daily bars for is_major_index stocks via yfinance
-python manage.py run_stock_prediction                                      # train RandomForest per active stock, write predictions
+python manage.py collect_stock_data                                        # fetch 10y daily bars (first run) for is_major_index stocks via yfinance
+python manage.py run_stock_prediction                                      # train ensemble model per active stock, write predictions
 ```
 `collect_stock_data_back.py` is an earlier, superseded version of `collect_stock_data` (no
 rate-limit backoff/retry) — kept in the tree but not part of the intended pipeline.
@@ -65,27 +65,36 @@ rate-limit backoff/retry) — kept in the tree but not part of the intended pipe
 Recurring jobs are defined in `deploy/crontab` (source of truth, checked into the repo — the
 live server crontab can drift if edited directly with `crontab -e`; see the file header for how
 to sync in either direction). Also viewable read-only at `/admin-tools/cron/` via
-`cron_status_view`:
+`cron_status_view`. **The server's system clock and Django's `TIME_ZONE` are both UTC, and cron
+has no per-job TZ override, so every hour below is UTC — the comment on each line gives the
+actual Korea-time (KST = UTC+9) equivalent that the hour was chosen to hit:**
 ```
 */5 * * * *  collect_keyword_news            # RSS scrape by NewsKeyword, AI-summarize, create AnalyzedArticle rows
 */5 * * * *  collect_market_index            # KOSPI/KOSDAQ index snapshot (MarketIndex)
 */5 * * * *  collect_kis_news                # 종합 시황/공시 headlines via KIS API
 */5 * * * *  collect_stock_realtime_price    # KIS realtime price (StockRealtimePrice)
 */5 * * * *  collect_fluctuation_ranking     # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
-0 13 * * 1-5 generate_featured_stock_briefing --session=midday  # AI 특징주 브리핑 (AnalyzedArticle, source_type=AI_BRIEFING)
-40 15 * * 1-5 generate_featured_stock_briefing --session=close  # 마감 후 AI 특징주 브리핑
-5  13 * * 1-5 post_to_wordpress --limit 1     # publish that session's newest ai_generated candidate per enabled account
-5  13 * * 1-5 post_to_blogger --limit 1
-45 15 * * 1-5 post_to_wordpress --limit 1
-45 15 * * 1-5 post_to_blogger --limit 1
-0 16 * * 1-5 generate_newsletter_draft       # dress that day's close-session briefing as a NewsletterIssue, status=READY (no manual review)
-0 21 * * *   send_newsletter                 # email READY issues to NewsletterSubscriber list as HTML, mark SENT
+0 17 * * *   collect_stock_data --all        # KST 02:00 — incremental (only new trading days) full-universe OHLCV pull
+30 19 * * *  run_stock_prediction --all      # KST 04:30 — full-universe ensemble retrain, ~30min after collect_stock_data starts
+0 4 * * 1-5  generate_featured_stock_briefing --session=midday  # KST 13:00 — AI 특징주 브리핑 (AnalyzedArticle, source_type=AI_BRIEFING)
+40 6 * * 1-5 generate_featured_stock_briefing --session=close   # KST 15:40 — 마감 후 AI 특징주 브리핑
+5  4 * * 1-5 post_to_wordpress --limit 1     # KST 13:05 — publish that session's newest ai_generated candidate per enabled account
+5  4 * * 1-5 post_to_blogger --limit 1       # KST 13:05
+45 6 * * 1-5 post_to_wordpress --limit 1     # KST 15:45
+45 6 * * 1-5 post_to_blogger --limit 1       # KST 15:45
+0 7 * * 1-5  generate_newsletter_draft       # KST 16:00 — dress that day's close-session briefing as a NewsletterIssue, status=READY (no manual review)
+0 12 * * *   send_newsletter                 # KST 21:00 — email READY issues to NewsletterSubscriber list as HTML, mark SENT
 ```
 `generate_newsletter_draft` depends on the close-session briefing already existing for the day — it
 looks up `AnalyzedArticle` by the pseudo-URL `internal://featured-briefing/<date>/close` and skips
-(no issue created) if that briefing hasn't run yet, so its cron time must stay after 15:40.
-`collect_stock_data` and `run_stock_prediction` are heavy (full yfinance re-pull / model
-retraining) and are run manually/less frequently, not on the 5-minute cron cadence.
+(no issue created) if that briefing hasn't run yet, so its cron time must stay after the close
+briefing's (KST 15:40 / UTC 6:40).
+`collect_stock_data` defaults to `is_major_index=True` (350 stocks) and only requests, per stock,
+the OHLCV since that stock's latest stored date (new stocks / `--full` pull the whole `--period`,
+default 10y) — so a daily `--all` run doesn't re-download years of history it already has, just
+that day's new bar per stock. `run_stock_prediction` defaults the same way; both accept `--all` to
+cover `is_active=True` instead (used by the daily cron above and by the admin manual-trigger
+buttons at `/admin-tools/cron/`).
 
 Publishing (per-user, driven by each member's `BlogPostingAccount` + `UserPreference`, not global
 config — see Architecture). Live and publishes immediately (not draft):

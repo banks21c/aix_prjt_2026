@@ -13,17 +13,38 @@
 # which makes correlating failures across jobs hard during an incident — and (2) emails
 # settings.ADMINS via the notify_failure command if the job exits non-zero (eg. OOM kill), so a
 # quiet cron failure doesn't go unnoticed until someone happens to read the log.
+#
+# TIMEZONE: this server's system clock and Django's TIME_ZONE are both UTC, and cron itself has
+# no per-job TZ override — so every "hour" below is UTC, NOT Korea time (KST = UTC+9). All times
+# are chosen so the KST wall-clock time next to each line is what actually happens; get the KST
+# figure by adding 9 hours (and rolling the date forward past 24:00).
 
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_keyword_news.log venv/bin/python manage.py collect_keyword_news
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_market_index.log venv/bin/python manage.py collect_market_index
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
-0 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=midday
-40 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=close
-5 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
-5 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
-45 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
-45 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
-0 16 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
-0 21 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/send_newsletter.log venv/bin/python manage.py send_newsletter
+
+# 02:00 KST — 전종목 시세 증분 수집(collect_stock_data --all, 이미 저장된 최신 날짜 이후만 받아옴).
+# 장 시작(09:00 KST) 전 여유 있게 끝나도록 새벽 시간대에 배치. 평일에만 새 거래일 데이터가
+# 생기지만 주말에 돌아도 "신규 거래일 없음"으로 빠르게 끝나 무해하므로 매일 실행한다.
+0 17 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_data.log venv/bin/python manage.py collect_stock_data --all
+# 04:30 KST — 전종목 AI 예측 재학습(run_stock_prediction --all). 위 수집 작업이 보통 2~2.2시간
+# 안에 끝나므로 30분 버퍼를 두고 시작하며, 자체 소요시간(2.5~2.8시간)을 감안해도 장 시작 전에
+# 끝난다.
+30 19 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/run_stock_prediction.log venv/bin/python manage.py run_stock_prediction --all
+
+# 13:00 KST(장중) — 특징주 브리핑 생성
+0 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=midday
+# 15:40 KST(마감후, 장마감 15:30+10분) — 특징주 브리핑 생성
+40 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=close
+# 13:05 KST — 장중 브리핑 발행
+5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+# 15:45 KST — 마감후 브리핑 발행
+45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+# 16:00 KST — 마감후 브리핑을 뉴스레터 초안(READY)으로 생성
+0 7 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
+# 21:00 KST(밤 9시) — 뉴스레터 발송
+0 12 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/send_newsletter.log venv/bin/python manage.py send_newsletter
