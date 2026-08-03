@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
@@ -38,6 +40,14 @@ PIPELINE_COMMANDS = {
         'note': '전 종목 RandomForest 재학습 — CPU를 많이 씁니다.',
     },
 }
+
+# 배포 방식이 서버마다 다를 수 있어(이 서버는 Cloudflare Origin 인증서, 예전 서버는 certbot) 존재하는
+# 첫 번째 경로를 사용한다 — 둘 다 없으면 그냥 "인증서 없음"으로 표시하고 에러를 내지 않는다.
+SSL_CERT_CANDIDATES = (
+    '/etc/nginx/cloudflare/nextfinup_origin.pem',
+    '/etc/letsencrypt/live/nextfinup.com/fullchain.pem',
+)
+HEALTH_SYSTEMD_SERVICES = ('nextfinup', 'nginx', 'cron')
 
 
 def _tail_file(path, max_bytes=LOG_TAIL_BYTES):
@@ -147,6 +157,83 @@ def pipeline_trigger_view(request, key):
 
     messages.success(request, f"{conf['label']} 실행을 시작했습니다. 로그: {log_path.name}")
     return redirect(reverse('pipeline_status'))
+
+
+def _systemctl_is_active(name):
+    try:
+        result = subprocess.run(['systemctl', 'is-active', name], capture_output=True, text=True, timeout=5)
+        return result.stdout.strip() or 'unknown'
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return 'unknown'
+
+
+def _cert_expiry(path):
+    """openssl로 인증서 만료일(notAfter)만 읽어온다 — 인증서 내용 자체는 다루지 않는다."""
+    try:
+        result = subprocess.run(
+            ['openssl', 'x509', '-enddate', '-noout', '-in', str(path)],
+            capture_output=True, text=True, timeout=5,
+        )
+        line = result.stdout.strip()
+        if not line.startswith('notAfter='):
+            return None
+        date_str = line[len('notAfter='):].strip()
+        if date_str.endswith(' GMT'):
+            date_str = date_str[:-4]
+        return datetime.strptime(date_str, '%b %d %H:%M:%S %Y').replace(tzinfo=dt_timezone.utc)
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        return None
+
+
+@staff_member_required
+def server_health_view(request):
+    """nginx/gunicorn(nextfinup.service)/mysql/cron 서비스 상태, 디스크·메모리·로드, SSL 인증서
+    만료일을 보여준다 — 지금까지는 이걸 확인하려면 SSH로 서버에 직접 들어가야 했다.
+    배포 환경마다 달라질 수 있는 값(로컬 DB 여부, 인증서 경로)은 하드코딩하지 않고 실제 설정/파일
+    존재 여부를 보고 판단해서, 이 코드가 다른 서버에서 돌아도 에러 없이 "해당 없음"으로 표시된다."""
+    db_host = settings.DATABASES['default'].get('HOST', '')
+    service_names = list(HEALTH_SYSTEMD_SERVICES)
+    if db_host in ('127.0.0.1', 'localhost', ''):
+        service_names.append('mysql')
+    services = [{'name': name, 'active': _systemctl_is_active(name)} for name in service_names]
+
+    disk = shutil.disk_usage('/')
+
+    meminfo = {}
+    try:
+        with open('/proc/meminfo') as f:
+            for line in f:
+                key, _, rest = line.partition(':')
+                if rest:
+                    meminfo[key.strip()] = int(rest.strip().split()[0])  # kB
+    except OSError:
+        pass
+    mem_total_mb = meminfo.get('MemTotal', 0) // 1024
+    mem_available_mb = meminfo.get('MemAvailable', 0) // 1024
+    mem_used_mb = max(mem_total_mb - mem_available_mb, 0)
+
+    load1, load5, load15 = os.getloadavg()
+
+    cert_path = next((p for p in SSL_CERT_CANDIDATES if Path(p).exists()), None)
+    cert_expiry = _cert_expiry(cert_path) if cert_path else None
+    cert_days_left = (cert_expiry - datetime.now(dt_timezone.utc)).days if cert_expiry else None
+
+    context = {
+        'site_title': 'NextFinUp - 서버 상태',
+        'services': services,
+        'cpu_count': os.cpu_count(),
+        'load1': load1, 'load5': load5, 'load15': load15,
+        'disk_total_gb': round(disk.total / 1024**3, 1),
+        'disk_used_gb': round(disk.used / 1024**3, 1),
+        'disk_used_pct': round(disk.used / disk.total * 100, 1) if disk.total else 0,
+        'mem_total_mb': mem_total_mb,
+        'mem_used_mb': mem_used_mb,
+        'mem_used_pct': round(mem_used_mb / mem_total_mb * 100, 1) if mem_total_mb else 0,
+        'cert_path': cert_path,
+        'cert_expiry': cert_expiry,
+        'cert_days_left': cert_days_left,
+    }
+    return render(request, 'articles/server_health.html', context)
 
 
 def _describe_cron_schedule(minute, hour, day, month, weekday):
