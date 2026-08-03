@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 def landing_page_view(request):
-    # 히어로 문구가 "KOSPI200·KOSDAQ150 종목의 다음날 종가를 예측"이라고 명시하므로, 이 옆의
-    # 카운터도 is_active 전체(2천여 개)가 아니라 실제로 AI 예측 대상인 is_major_index 종목 수여야
-    # 문구와 숫자가 어긋나지 않는다.
-    active_stock_count = StockItem.objects.filter(is_active=True, is_major_index=True).count()
+    # 히어로 문구가 "전종목의 다음날 종가를 예측"이라고 명시하므로, 이 옆의 카운터도 실제 AI
+    # 예측 대상 범위(is_active 전체)와 일치해야 한다. collect_stock_data/run_stock_prediction이
+    # 매일 새벽 --all(is_active 전체)로 돌아 최신 유지된다(deploy/crontab 02:00/04:30 KST).
+    active_stock_count = StockItem.objects.filter(is_active=True).count()
     latest_articles = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:3]
 
     context = {
