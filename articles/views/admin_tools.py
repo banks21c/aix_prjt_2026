@@ -39,6 +39,20 @@ PIPELINE_COMMANDS = {
         'log_prefix': 'run_stock_prediction_manual',
         'note': '전 종목 RandomForest 재학습 — CPU를 많이 씁니다.',
     },
+    'featured_briefing_midday': {
+        'label': '특징주 브리핑 생성 (장중)',
+        'command': 'generate_featured_stock_briefing',
+        'args': ['--session=midday', '--force'],
+        'log_prefix': 'generate_featured_stock_briefing_manual_midday',
+        'note': 'AI 1회 호출로 수 초~수십 초 내 끝납니다. --force로 오늘 이미 생성된 브리핑도 덮어씁니다.',
+    },
+    'featured_briefing_close': {
+        'label': '특징주 브리핑 생성 (마감후)',
+        'command': 'generate_featured_stock_briefing',
+        'args': ['--session=close', '--force'],
+        'log_prefix': 'generate_featured_stock_briefing_manual_close',
+        'note': 'AI 1회 호출로 수 초~수십 초 내 끝납니다. --force로 오늘 이미 생성된 브리핑도 덮어씁니다.',
+    },
 }
 
 # 배포 방식이 서버마다 다를 수 있어(이 서버는 Cloudflare Origin 인증서, 예전 서버는 certbot) 존재하는
