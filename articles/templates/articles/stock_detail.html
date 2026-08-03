@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -21,6 +22,8 @@
         .chart-wrap { position: relative; height: 320px; }
         .news-item + .news-item { border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
     </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
 </head>
 <body>
 

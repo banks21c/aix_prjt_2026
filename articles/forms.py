@@ -177,7 +177,7 @@ class NewsArticleEditForm(forms.ModelForm):
             'source_media': '언론사',
             'ai_summary': 'AI 3줄 요약',
             'ai_analysis': 'AI 투자 관점 분석',
-            'blog_content': '블로그/티스토리 포스팅용 원고',
+            'blog_content': 'AI 요약 원고',
             'applied_template': '적용된 템플릿',
             'is_premium': '유료 회원 전용 콘텐츠',
         }

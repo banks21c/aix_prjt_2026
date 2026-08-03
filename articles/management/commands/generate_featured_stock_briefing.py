@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from articles import article_ai
+from articles import article_ai, thumbnail
 from articles.models import AnalyzedArticle, MarketHoliday, RankedMover
 
 SESSION_LABELS = {'midday': '장중', 'close': '마감후'}
@@ -60,7 +60,7 @@ class Command(BaseCommand):
             for m in movers_qs
         ]
         if not movers:
-            self.stdout.write(self.style.WARNING("[-] RankedMover 데이터가 없습니다. collect_stock_realtime_price가 먼저 돌아야 합니다."))
+            self.stdout.write(self.style.WARNING("[-] RankedMover 데이터가 없습니다. collect_fluctuation_ranking이 먼저 돌아야 합니다."))
             return
 
         reports_qs = (
@@ -93,6 +93,7 @@ class Command(BaseCommand):
                 ai_analysis=draft['ai_analysis'],
                 blog_content=draft['blog_content'],
                 original_content=article_ai.movers_to_text(movers, reports),
+                thumbnail=thumbnail.build_thumbnail_file(title, category_label="특징주 브리핑"),
                 applied_template='T1',
                 is_premium=False,
                 is_posted=False,

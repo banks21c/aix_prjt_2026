@@ -1,12 +1,11 @@
 {% load static %}
 <!-- 사이트 전체 공통 상단 네비게이션 (내부 앱 페이지 + 랜딩 페이지 + isa/pension/irp/insurance-guide 정적 페이지가 fetch로 불러다 씀).
      Bootstrap 유무와 무관하게 항상 같은 모양으로 보이도록 아래 <style>이 필요한 CSS를 전부 자체적으로 갖고 있다.
-     is_index_page가 True로 전달되면(랜딩 페이지) index_menus + 랜딩 전용 링크를, 아니면 header_menus + 내부 앱 전용 링크를 보여준다. -->
-<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
-<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+     is_index_page가 True로 전달되면(랜딩 페이지) index_menus + 랜딩 전용 링크를, 아니면 header_menus + 내부 앱 전용 링크를 보여준다.
+     FontAwesome <link>은 head에서 로드해야 하므로 이 컴포넌트를 쓰는 각 템플릿의 <head>에 있다(이 파일에는 없음). -->
 <nav class="app-navbar">
     <div class="container">
-        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: #6c757d;">AI 자산 허브</span></a>
+        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: #6c757d;">AI종합자산관리 허브</span></a>
         <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
                 onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
         <div class="app-nav-menu" id="appNavMenu">

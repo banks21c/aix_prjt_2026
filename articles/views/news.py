@@ -11,7 +11,10 @@ from django.views.decorators.http import require_POST
 from .. import article_ai, blog_posting, thumbnail
 from ..forms import NewsArticleEditForm, NewsScrapeForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
-from ..utils import ai_summarize_stats, detect_reuse_restriction, fetch_article_metadata, scraping_stats, search_news_by_keyword
+from ..utils import (
+    ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
+    fetch_article_metadata, scraping_stats, search_news_by_keyword,
+)
 
 
 def news_board_view(request):
@@ -173,7 +176,6 @@ def news_detail_view(request, pk):
     article = get_object_or_404(AnalyzedArticle.objects.select_related('stock', 'matched_keyword'), pk=pk)
 
     user_blog_accounts = []
-    selected_account = None
     is_posted = False
     posting_stats = None
     summarize_stats = None
@@ -181,19 +183,17 @@ def news_detail_view(request, pk):
         summarize_stats = ai_summarize_stats(request.user)
         user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
         posting_stats = blog_posting.posting_stats(request.user)
-        account_id = request.GET.get('account')
-        if account_id:
-            selected_account = next((a for a in user_blog_accounts if str(a.pk) == account_id), None)
-        if not selected_account and user_blog_accounts:
-            selected_account = user_blog_accounts[0]
-        if selected_account:
-            is_posted = PostedArticle.objects.filter(blog_account=selected_account, article=article).exists()
+        if user_blog_accounts:
+            # 뉴스 게시판(news_board_view)과 같은 규칙 — 계정을 여러 개 체크박스로 고를 수 있어
+            # "포스팅완료"는 연결된 계정 전부에 발행됐을 때만 뜬다. 일부만 발행됐어도 다시 누르면
+            # publish_article이 이미 발행된 계정×기사 조합은 알아서 건너뛰므로 안전하다.
+            posted_count = PostedArticle.objects.filter(blog_account__in=user_blog_accounts, article=article).count()
+            is_posted = posted_count == len(user_blog_accounts)
 
     context = {
         'site_title': f'NextFinUp - {article.title}',
         'article': article,
         'user_blog_accounts': user_blog_accounts,
-        'selected_account': selected_account,
         'is_posted': is_posted,
         'posting_stats': posting_stats,
         'summarize_stats': summarize_stats,
@@ -271,7 +271,7 @@ def news_ai_summarize_view(request, pk):
 
         article.ai_summary = draft['ai_summary']
         article.ai_analysis = draft['ai_analysis']
-        article.blog_content = draft['blog_content']
+        article.blog_content = draft['blog_content'] + build_mentioned_stocks_table(article.original_content)
         article.ai_generated = True
         article.ai_summarized_by = request.user
         article.ai_summarized_at = timezone.now()
@@ -328,7 +328,7 @@ def news_scrape_view(request):
                 has_reuse_restriction=restricted,
                 ai_summary=draft['ai_summary'],
                 ai_analysis=draft['ai_analysis'],
-                blog_content=draft['blog_content'],
+                blog_content=draft['blog_content'] + build_mentioned_stocks_table(scraped['content']),
                 thumbnail=thumbnail.build_thumbnail_file(article_title),
                 applied_template='T1',
                 scraped_by=request.user,
