@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 
@@ -378,3 +379,37 @@ def generate_featured_briefing(session_label, movers, reports=None):
     except Exception:
         logger.exception("특징주 브리핑 AI 생성 실패 (session=%r)", session_label)
         return _error_briefing(session_label, movers, reports)
+
+
+def generate_thumbnail_image_bytes(title, ai_summary):
+    """경제 뉴스가 아닌 일반 기사(관련 종목·매칭 키워드가 없는 기사)의 썸네일을 gpt-image-2로
+    직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/코스닥 지수처럼 정확한 수치를 보여줘야
+    하는 카드는 여기 쓰지 않는다 — AI 이미지 생성은 숫자를 정확히 보장할 수 없어, 그런 카드는
+    thumbnail.py가 실제 데이터로 직접 그린다(_draw_market_grid/_draw_index_summary_boxes).
+    비용을 낮게 유지하기 위해 quality="low"만 사용한다. OPENAI_API_KEY가 없거나(플레이스홀더
+    포함) 호출이 실패하면 None을 반환해, 호출부(thumbnail.build_thumbnail_file)가 조용히 기존
+    PIL 텍스트 패널 카드로 폴백하게 한다."""
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+        return None
+
+    prompt = (
+        "Create a clean, modern editorial illustration to use as a Korean news article's cover "
+        "thumbnail. Absolutely no text, letters, numbers, charts, graphs, or logos anywhere in "
+        "the image — illustration only.\n"
+        f"Headline: {title}\n"
+        f"Summary: {(ai_summary or '')[:400]}\n"
+        "Style: flat editorial illustration, muted navy/blue color palette, high contrast, "
+        "professional news-site cover art."
+    )
+    try:
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        response = client.images.generate(
+            model="gpt-image-2",
+            prompt=prompt,
+            size="1536x1024",
+            quality="low",
+        )
+        return base64.b64decode(response.data[0].b64_json)
+    except Exception:
+        logger.exception("gpt-image-2 썸네일 생성 실패 (title=%r)", title)
+        return None

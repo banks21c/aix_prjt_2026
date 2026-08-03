@@ -1,6 +1,7 @@
 """기사의 AI 3줄 요약/블로그 포스팅용 원고에 붙일 썸네일 이미지를 서버에서 직접 생성한다.
 원문 기사의 사진/이미지는 절대 재사용하지 않는다(무단전재 이슈) — 종목명·시세·등락 시그널 등
 NextFinUp이 이미 갖고 있는 데이터만으로 매번 새로 그리는 카드 이미지다."""
+import re
 from datetime import date
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -172,6 +173,31 @@ def _draw_index_summary_boxes(draw, x0, y0, x1, y1, index_rows):
                 cy += 34
 
 
+_LEADING_MARKER_RE = re.compile(r'^\s*(?:[0-9]+[.)]|[-•·])\s*')
+
+
+def _draw_summary_panel(draw, x0, y0, x1, y1, summary_lines):
+    """종목 시세도, 코스피/코스닥 지수 요약도 그릴 게 없는 카드(=경제 뉴스가 아닌 일반 기사)용 —
+    빈 공간을 그대로 두는 대신 AI 3줄 요약을 한 줄당 한 줄로 짧게 줄여 채운다."""
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
+
+    label_font = _font(FONT_REGULAR, 22)
+    line_font = _font(FONT_REGULAR, 26)
+    max_width = (x1 - x0) - 56
+
+    draw.text((x0 + 28, y0 + 16), "핵심 요약", font=label_font, fill=SUBTITLE_COLOR)
+
+    y = y0 + 52
+    line_gap = 36
+    for raw_line in summary_lines[:3]:
+        text = _LEADING_MARKER_RE.sub('', raw_line).strip()
+        if not text:
+            continue
+        [wrapped] = _wrap_by_width(draw, text, line_font, max_width, max_lines=1) or [text]
+        draw.text((x0 + 28, y), f"· {wrapped}", font=line_font, fill=TITLE_COLOR)
+        y += line_gap
+
+
 def _wrap_by_width(draw, text, font, max_width, max_lines):
     """Pillow는 자동 줄바꿈이 없어서, 실제 렌더 폭을 기준으로 직접 줄바꿈한다.
     max_lines를 넘으면 마지막 줄을 "…"으로 잘라 붙인다."""
@@ -203,16 +229,96 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
     return lines
 
 
+def _compose_ai_image_background(ai_image_bytes):
+    """gpt-image-2가 만든 이미지(비율이 카드와 정확히 안 맞을 수 있음)를 1200x630 캔버스에
+    꽉 차게(cover) 리사이즈한 뒤 남는 부분을 가운데 기준으로 잘라낸다."""
+    from io import BytesIO
+    src = Image.open(BytesIO(ai_image_bytes)).convert("RGB")
+    target_w, target_h = CANVAS_SIZE
+    if src.width / src.height > target_w / target_h:
+        new_h = target_h
+        new_w = round(src.width * (target_h / src.height))
+    else:
+        new_w = target_w
+        new_h = round(src.height * (target_w / src.width))
+    resized = src.resize((new_w, new_h), Image.LANCZOS)
+    left = (new_w - target_w) // 2
+    top = (new_h - target_h) // 2
+    return resized.crop((left, top, left + target_w, top + target_h))
+
+
+def _draw_bottom_gradient(img, height=300):
+    """AI 이미지 위에 얹는 제목 텍스트가 배경과 상관없이 항상 읽히도록, 카드 하단에 어두운
+    그라데이션을 덧씌운다."""
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for i in range(height):
+        alpha = int(210 * (i / height))
+        y = img.height - height + i
+        draw.line([(0, y), (img.width, y)], fill=(14, 21, 38, alpha))
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+
+
+def _render_ai_hero_card(title, category_label, ai_image_bytes):
+    """gpt-image-2로 생성한 일러스트를 배경 전체에 깔고, 그 위에 액센트 바/날짜/카테고리
+    태그/제목만 얹는 단순한 레이아웃 — 경제 뉴스가 아닌 일반 기사용. 종목 시세·코스피/코스닥
+    카드와 달리 정확한 수치를 보여줄 게 없으므로 그 자리를 이미지 자체가 대신한다."""
+    img = _compose_ai_image_background(ai_image_bytes)
+    img = _draw_bottom_gradient(img)
+    draw = ImageDraw.Draw(img)
+    accent = DEFAULT_SIGNAL_COLOR
+    margin = 70
+
+    draw.rectangle([0, 0, CANVAS_SIZE[0], 10], fill=accent)
+
+    date_text = date.today().strftime("%Y.%m.%d")
+    draw.text((CANVAS_SIZE[0] - margin, 46), date_text, font=_font(FONT_REGULAR, 22), fill="#e7ecf5", anchor="rm")
+
+    if category_label:
+        tag_font = _font(FONT_BOLD, 22)
+        tag_w = draw.textlength(category_label, font=tag_font)
+        pad_x, pad_y = 16, 8
+        tag_h = 22 + pad_y * 2
+        x1 = CANVAS_SIZE[0] - margin
+        x0 = x1 - tag_w - pad_x * 2
+        y0 = 68
+        y1 = y0 + tag_h
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=tag_h / 2, fill=(14, 21, 38, 180), outline="white", width=2)
+        draw.text(((x0 + x1) / 2, (y0 + y1) / 2), category_label, font=tag_font, fill="white", anchor="mm")
+
+    title_font = _font(FONT_BOLD, 44)
+    max_text_width = CANVAS_SIZE[0] - margin * 2
+    lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=2)
+    y = CANVAS_SIZE[1] - 56 - len(lines) * 56
+    for line in lines:
+        draw.text((margin, y), line, font=title_font, fill="white")
+        y += 56
+
+    from io import BytesIO
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key=None,
-                              category_label=None, market_data=None, index_summary=None):
-    """title: 기사 제목, subject_label: 종목명 또는 키워드(없으면 "경제 뉴스"),
+                              category_label=None, market_data=None, index_summary=None,
+                              summary_lines=None, ai_background_bytes=None):
+    """title: 기사 제목, subject_label: 종목명 또는 키워드(없으면 "AI 요약"),
     ticker: 종목코드(선택), signal_color_key: 'BUY'/'SELL'/'HOLD'/None,
     category_label: 상단 태그(예: "종목 분석 리포트", "특징주 브리핑"),
     market_data: {'current_price','prev_close','change','change_pct','volume','trading_value'}
     (있으면 하단에 시세 그리드를 추가로 그린다. 종목 실시간 시세가 없으면 None).
     index_summary: [{'label','close','change','change_pct','volume'}, ...] (코스피/코스닥 등
     특정 종목이 없는 카드용 — market_data가 없을 때만 대신 그린다).
+    summary_lines: AI 3줄 요약 줄 목록 — market_data도 index_summary도 없는(=경제 뉴스가
+    아닌) 카드에서, 빈 하단 공간에 짧게 줄인 요약을 대신 그릴 때 쓴다(ai_background_bytes가
+    없을 때의 폴백).
+    ai_background_bytes: gpt-image-2로 생성한 PNG 바이트 — 있으면 이 함수의 나머지 인자를
+    전부 무시하고 _render_ai_hero_card로 그린다(경제 뉴스가 아닌 기사용 대표 레이아웃).
     반환: PNG 바이트."""
+    if ai_background_bytes:
+        return _render_ai_hero_card(title, category_label, ai_background_bytes)
+
     accent = SIGNAL_COLORS.get(signal_color_key, DEFAULT_SIGNAL_COLOR)
 
     img = Image.new("RGB", CANVAS_SIZE, BG_COLOR_BOTTOM)
@@ -281,9 +387,12 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
             draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
             y += 58
 
-        # 시세 그리드 (현재가/전일대비/등락률/전일가/거래량/거래대금) — 실시간 시세가 있을 때만
+        # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로
+        # 하단 빈 공간을 채운다.
         if market_data:
             _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
+        elif summary_lines:
+            _draw_summary_panel(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, summary_lines)
 
     from io import BytesIO
     buf = BytesIO()
@@ -291,17 +400,28 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     return buf.getvalue()
 
 
-def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label=None):
+def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label=None,
+                          ai_summary=None, is_economic_news=None):
     """news_ai_summarize_view/news_scrape_view/generate_featured_stock_briefing에서 AI 요약이
     만들어지는 시점에 호출. stock이 있으면 종목명/티커/최신 매매 시그널·실시간 시세로, 없으면
-    매칭 키워드(또는 '경제 뉴스')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
+    매칭 키워드(또는 'AI 요약')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
     category_label을 넘기면 상단 태그를 기본값(종목 분석 리포트/AI 요약 리포트) 대신 그 값으로 쓴다
-    (예: 특징주 브리핑 커맨드는 "특징주 브리핑"을 넘김)."""
+    (예: 특징주 브리핑 커맨드는 "특징주 브리핑"을 넘김).
+    is_economic_news를 지정하지 않으면 stock 또는 matched_keyword가 있을 때만 경제/시황 기사로
+    보고 코스피/코스닥 지수 요약을 그린다 — 종목·키워드 매칭 없이 회원이 임의 URL을 스크랩한
+    기사(예: 사회 이슈 기사)까지 지수 카드가 붙는 걸 막기 위함. 특징주 브리핑처럼 종목/키워드가
+    없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다. 경제 뉴스가 아니라 지수 요약을 그리지
+    않는 경우, 그 자리엔 대신 ai_summary(3줄 요약)를 짧게 줄여 채운다."""
     from django.core.files.base import ContentFile
 
     from .models import MarketIndex, StockPrediction, StockRealtimePrice
 
+    if is_economic_news is None:
+        is_economic_news = bool(stock or matched_keyword)
+
     index_summary = None
+    summary_lines = None
+    ai_background_bytes = None
     if stock:
         subject_label = stock.name
         ticker = stock.ticker
@@ -321,40 +441,53 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
                 'trading_value': realtime.close_price * realtime.volume,
             }
     else:
-        subject_label = matched_keyword.keyword if matched_keyword else "경제 뉴스"
+        subject_label = matched_keyword.keyword if matched_keyword else "AI 요약"
         ticker = None
         signal_color_key = None
         market_data = None
         category_label = category_label or "AI 요약 리포트"
 
-        # 특정 종목이 없어 카드가 휑해 보이므로, 대신 오늘자 코스피/코스닥 지수 요약을 보여준다.
-        today_indices = {
-            row.market_type: row
-            for row in MarketIndex.objects.filter(date=date.today(), market_type__in=['KOSPI', 'KOSDAQ'])
-        }
-        if today_indices:
-            labels = {'KOSPI': '코스피', 'KOSDAQ': '코스닥'}
-            index_summary = [
-                {
-                    'label': labels[market_type],
-                    'close': float(today_indices[market_type].close_price),
-                    'change': float(today_indices[market_type].change or 0),
-                    'change_pct': today_indices[market_type].change_pct or 0,
-                    'volume': today_indices[market_type].volume,
-                    'flows': {
-                        'foreign': today_indices[market_type].foreign_net_qty,
-                        'institution': today_indices[market_type].institution_net_qty,
-                        'retail': today_indices[market_type].retail_net_qty,
-                    },
-                }
-                for market_type in ('KOSPI', 'KOSDAQ') if market_type in today_indices
-            ]
+        if is_economic_news:
+            # 특정 종목이 없어 카드가 휑해 보이므로, 대신 오늘자 코스피/코스닥 지수 요약을 보여준다.
+            today_indices = {
+                row.market_type: row
+                for row in MarketIndex.objects.filter(date=date.today(), market_type__in=['KOSPI', 'KOSDAQ'])
+            }
+            if today_indices:
+                labels = {'KOSPI': '코스피', 'KOSDAQ': '코스닥'}
+                index_summary = [
+                    {
+                        'label': labels[market_type],
+                        'close': float(today_indices[market_type].close_price),
+                        'change': float(today_indices[market_type].change or 0),
+                        'change_pct': today_indices[market_type].change_pct or 0,
+                        'volume': today_indices[market_type].volume,
+                        'flows': {
+                            'foreign': today_indices[market_type].foreign_net_qty,
+                            'institution': today_indices[market_type].institution_net_qty,
+                            'retail': today_indices[market_type].retail_net_qty,
+                        },
+                    }
+                    for market_type in ('KOSPI', 'KOSDAQ') if market_type in today_indices
+                ]
+
+        if not index_summary:
+            if not is_economic_news:
+                # 경제 뉴스가 아닌 일반 기사는 코스피/코스닥 대신 gpt-image-2로 그린 일러스트를
+                # 대표 이미지로 쓴다. 실패/미설정 시 None이 돌아와 아래 summary_lines 폴백으로
+                # 자연스럽게 이어진다.
+                from . import article_ai
+                ai_background_bytes = article_ai.generate_thumbnail_image_bytes(title, ai_summary)
+            if not ai_background_bytes:
+                summary_lines = [l.strip() for l in (ai_summary or '').split('\n') if l.strip()][:3] or None
 
     image_bytes = generate_thumbnail_image(
         title, subject_label, ticker, signal_color_key,
         category_label=category_label,
         market_data=market_data,
         index_summary=index_summary,
+        summary_lines=summary_lines,
+        ai_background_bytes=ai_background_bytes,
     )
     return ContentFile(image_bytes, name="thumbnail.png")
 

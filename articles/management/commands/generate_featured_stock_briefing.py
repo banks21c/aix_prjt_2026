@@ -113,7 +113,9 @@ class Command(BaseCommand):
                 ai_analysis=draft['ai_analysis'],
                 blog_content=draft['blog_content'],
                 original_content=article_ai.movers_to_text(movers, reports),
-                thumbnail=thumbnail.build_thumbnail_file(title, category_label="특징주 브리핑"),
+                thumbnail=thumbnail.build_thumbnail_file(
+                    title, category_label="특징주 브리핑", is_economic_news=True,
+                ),
                 applied_template='T1',
                 is_premium=False,
                 is_posted=False,

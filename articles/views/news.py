@@ -275,7 +275,9 @@ def news_ai_summarize_view(request, pk):
         article.ai_generated = True
         article.ai_summarized_by = request.user
         article.ai_summarized_at = timezone.now()
-        article.thumbnail = thumbnail.build_thumbnail_file(article.title, article.stock, article.matched_keyword)
+        article.thumbnail = thumbnail.build_thumbnail_file(
+            article.title, article.stock, article.matched_keyword, ai_summary=draft['ai_summary'],
+        )
         article.save(update_fields=[
             'ai_summary', 'ai_analysis', 'blog_content',
             'ai_generated', 'ai_summarized_by', 'ai_summarized_at', 'thumbnail',
@@ -329,7 +331,7 @@ def news_scrape_view(request):
                 ai_summary=draft['ai_summary'],
                 ai_analysis=draft['ai_analysis'],
                 blog_content=draft['blog_content'] + build_mentioned_stocks_table(scraped['content']),
-                thumbnail=thumbnail.build_thumbnail_file(article_title),
+                thumbnail=thumbnail.build_thumbnail_file(article_title, ai_summary=draft['ai_summary']),
                 applied_template='T1',
                 scraped_by=request.user,
                 ai_generated=True,
