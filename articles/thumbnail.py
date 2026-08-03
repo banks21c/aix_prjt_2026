@@ -123,53 +123,53 @@ def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
         draw.text((cx0, cy0 + 28), value, font=value_font, fill=color)
 
 
-def _draw_index_summary_grid(draw, x0, y0, x1, y1, index_rows):
-    """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥 지수를 위아래로 쌓아
-    각각 지수·등락률·거래량·외인/기관/개인 순매수(수량)를 3줄로 보여준다.
+def _draw_index_summary_boxes(draw, x0, y0, x1, y1, index_rows):
+    """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥을 좌/우로 나란히 놓인
+    별도 박스 2개로 그린다(이전 버전은 위아래로 쌓았다). 헤드라인이 제목으로 대체되며 생긴
+    여유 공간 덕분에 글자 크기를 이전 대비 큼직하게 키웠다.
     index_rows: [{'label','close','change','change_pct','volume','flows'}, ...] (코스피, 코스닥 순).
-    flows: {'foreign','institution','retail'} (수량, 주) — 없으면 3번째 줄은 생략."""
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
-
+    flows: {'foreign','institution','retail'} (수량, 주) — 없으면 그 줄들은 생략."""
     n = max(len(index_rows), 1)
-    row_h = (y1 - y0) / n
-    label_font = _font(FONT_BOLD, 24)
-    pct_font = _font(FONT_BOLD, 20)
-    sub_font = _font(FONT_REGULAR, 17)
+    gap = 20
+    box_w = (x1 - x0 - gap * (n - 1)) / n
 
-    for row in range(1, len(index_rows)):
-        ly = y0 + row_h * row
-        draw.line([(x0 + 20, ly), (x1 - 20, ly)], fill=GRID_LINE, width=1)
+    label_font = _font(FONT_BOLD, 34)
+    value_font = _font(FONT_BOLD, 44)
+    pct_font = _font(FONT_BOLD, 32)
+    sub_font = _font(FONT_REGULAR, 24)
 
     def _signed_qty(v):
         return f"{v:+,.0f}주" if v is not None else "-"
 
-    for row, idx in enumerate(index_rows):
+    for i, idx in enumerate(index_rows):
+        bx0 = x0 + (box_w + gap) * i
+        bx1 = bx0 + box_w
+        draw.rounded_rectangle([bx0, y0, bx1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
+
         change = idx['change']
         move_color = SIGNAL_COLORS['BUY'] if change > 0 else SIGNAL_COLORS['SELL'] if change < 0 else NEUTRAL_COLOR
-        cx = x0 + 28
-        cy = y0 + row_h * row + 10
+        cx = bx0 + 30
+        cy = y0 + 30
 
-        # 1줄: 시장명 + 지수값 + 등락률
-        draw.text((cx, cy), idx['label'], font=label_font, fill=TITLE_COLOR)
-        label_w = draw.textlength(idx['label'], font=label_font)
-        close_text = f"{idx['close']:,.2f}"
-        draw.text((cx + label_w + 12, cy + 2), close_text, font=label_font, fill=TITLE_COLOR)
-        close_w = draw.textlength(close_text, font=label_font)
-        draw.text((cx + label_w + 12 + close_w + 12, cy + 3), format_signed_pct(idx['change_pct']), font=pct_font, fill=move_color)
-
-        # 2줄: 거래량
+        # 시장명
+        draw.text((cx, cy), idx['label'], font=label_font, fill=SUBTITLE_COLOR)
+        # 지수값 + 등락률
+        cy += 44
+        draw.text((cx, cy), f"{idx['close']:,.2f}", font=value_font, fill=TITLE_COLOR)
+        cy += 56
+        draw.text((cx, cy), format_signed_pct(idx['change_pct']), font=pct_font, fill=move_color)
+        # 거래량
+        cy += 48
         vol_text = f"거래량 {format_volume(idx['volume'])}" if idx.get('volume') else "거래량 -"
-        draw.text((cx, cy + 30), vol_text, font=sub_font, fill=SUBTITLE_COLOR)
+        draw.text((cx, cy), vol_text, font=sub_font, fill=SUBTITLE_COLOR)
 
-        # 3줄: 외인/기관/개인 순매수 수량 (있을 때만)
+        # 외인/기관/개인 순매수 수량 (있을 때만, 각각 한 줄씩)
         flows = idx.get('flows')
         if flows:
-            flow_text = (
-                f"외인 {_signed_qty(flows.get('foreign'))} · "
-                f"기관 {_signed_qty(flows.get('institution'))} · "
-                f"개인 {_signed_qty(flows.get('retail'))}"
-            )
-            draw.text((cx, cy + 54), flow_text, font=sub_font, fill=SUBTITLE_COLOR)
+            cy += 40
+            for f_label, f_key in (('외인', 'foreign'), ('기관', 'institution'), ('개인', 'retail')):
+                draw.text((cx, cy), f"{f_label} {_signed_qty(flows.get(f_key))}", font=sub_font, fill=SUBTITLE_COLOR)
+                cy += 34
 
 
 def _wrap_by_width(draw, text, font, max_width, max_lines):
@@ -242,35 +242,48 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
         draw.rounded_rectangle([x0, y0, x1, y1], radius=tag_h / 2, outline=accent, width=2)
         draw.text(((x0 + x1) / 2, (y0 + y1) / 2), category_label, font=tag_font, fill=accent, anchor="mm")
 
-    # 종목명(+티커) 또는 키워드
-    subject_font = _font(FONT_BOLD, 56)
-    subject_text = f"{subject_label} ({ticker})" if ticker else subject_label
-    draw.text((margin, 118), subject_text, font=subject_font, fill=accent)
-    subject_w = draw.textlength(subject_text, font=subject_font)
+    if index_summary:
+        # 특정 종목이 없는 카드(특징주 브리핑 등)는 "경제 뉴스" 같은 자리표시자 라벨 대신
+        # 기사 제목을 큼직한 헤드라인으로 바로 보여주고, 아래 코스피/코스닥 박스를 훨씬 위로
+        # 끌어올려 크게(좌/우 박스로 나란히) 그린다 — 세로 공간이 넉넉해진 만큼 글자도 키운다.
+        headline_font = _font(FONT_BOLD, 50)
+        max_text_width = CANVAS_SIZE[0] - margin * 2
+        lines = _wrap_by_width(draw, title, headline_font, max_text_width, max_lines=2)
+        y = 122
+        for line in lines:
+            draw.text((margin, y), line, font=headline_font, fill=TITLE_COLOR)
+            y += 62
 
-    # 매수/매도/관망 시그널 뱃지 (종목 기사에만 존재)
-    if signal_color_key in SIGNAL_LABELS:
-        _draw_signal_badge(draw, margin + subject_w + 24, 136, signal_color_key, accent)
+        divider_y = y + 16
+        draw.line([(margin, divider_y), (CANVAS_SIZE[0] - margin, divider_y)], fill="#2a3b5c", width=2)
 
-    # 종목명 아래 구분선
-    draw.line([(margin, 203), (CANVAS_SIZE[0] - margin, 203)], fill="#2a3b5c", width=2)
+        _draw_index_summary_boxes(draw, margin, divider_y + 30, CANVAS_SIZE[0] - margin, 612, index_summary)
+    else:
+        # 종목명(+티커) 또는 키워드
+        subject_font = _font(FONT_BOLD, 56)
+        subject_text = f"{subject_label} ({ticker})" if ticker else subject_label
+        draw.text((margin, 118), subject_text, font=subject_font, fill=accent)
+        subject_w = draw.textlength(subject_text, font=subject_font)
 
-    # 기사 제목 (최대 3줄, 넘치면 말줄임)
-    title_font = _font(FONT_REGULAR, 42)
-    max_text_width = CANVAS_SIZE[0] - margin * 2
-    lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=3)
-    y = 235
-    for line in lines:
-        draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
-        y += 58
+        # 매수/매도/관망 시그널 뱃지 (종목 기사에만 존재)
+        if signal_color_key in SIGNAL_LABELS:
+            _draw_signal_badge(draw, margin + subject_w + 24, 136, signal_color_key, accent)
 
-    # 시세 그리드 (현재가/전일대비/등락률/전일가/거래량/거래대금) — 실시간 시세가 있을 때만
-    if market_data:
-        _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
-    # 특정 종목이 없는 카드(특징주 브리핑 등)는 대신 코스피/코스닥 지수 요약을 그린다.
-    # 외인/기관/개인 순매수까지 3줄로 들어가 market_data 그리드보다 세로 공간이 더 필요하다.
-    elif index_summary:
-        _draw_index_summary_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 618, index_summary)
+        # 종목명 아래 구분선
+        draw.line([(margin, 203), (CANVAS_SIZE[0] - margin, 203)], fill="#2a3b5c", width=2)
+
+        # 기사 제목 (최대 3줄, 넘치면 말줄임)
+        title_font = _font(FONT_REGULAR, 42)
+        max_text_width = CANVAS_SIZE[0] - margin * 2
+        lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=3)
+        y = 235
+        for line in lines:
+            draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
+            y += 58
+
+        # 시세 그리드 (현재가/전일대비/등락률/전일가/거래량/거래대금) — 실시간 시세가 있을 때만
+        if market_data:
+            _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
 
     from io import BytesIO
     buf = BytesIO()
