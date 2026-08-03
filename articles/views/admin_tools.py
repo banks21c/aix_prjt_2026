@@ -4,6 +4,7 @@ import subprocess
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -12,6 +13,37 @@ from django.views.decorators.http import require_POST
 from ..models import FinancialConsultSheet
 
 KST = dt_timezone(timedelta(hours=9))
+
+LOG_TAIL_BYTES = 8000  # 로그 파일이 계속 append되며 커질 수 있어(로테이션 미설정) 끝부분만 읽는다
+_EXCEPTION_LINE = re.compile(r'^[\w.]*(Error|Exception)\b.*:')  # 트레이스백 마지막 줄 패턴
+
+
+def _tail_file(path, max_bytes=LOG_TAIL_BYTES):
+    """로그 파일 전체를 읽지 않고 끝에서 max_bytes만 읽어 최근 실행 내용만 반환한다."""
+    try:
+        with open(path, 'rb') as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes))
+            chunk = f.read()
+    except OSError:
+        return ''
+    text = chunk.decode('utf-8', errors='replace')
+    if size > max_bytes:
+        text = text.split('\n', 1)[-1]  # 잘린 첫 줄은 버림
+    return text.strip()
+
+
+def _log_status(tail_text):
+    """가장 최근 실행의 '마지막 줄들'만 보고 판단한다 — tail 전체에서 'Traceback'을 찾으면
+    이전 실행의 에러가 이후 성공 실행 뒤에도 여전히 tail 범위 안에 남아있어 오탐할 수 있다."""
+    if not tail_text:
+        return 'unknown'
+    last_lines = [l for l in tail_text.splitlines() if l.strip()][-5:]
+    for line in last_lines:
+        if 'Traceback (most recent call last):' in line or _EXCEPTION_LINE.match(line.strip()):
+            return 'error'
+    return 'ok'
 
 
 def _describe_cron_schedule(minute, hour, day, month, weekday):
@@ -54,12 +86,16 @@ def cron_status_view(request):
 
         last_run = None
         last_run_ago_minutes = None
+        log_tail = ''
+        status = 'unknown'  # unknown(로그 없음) / ok / error
         if log_path:
             try:
                 log_file = Path(log_path)
                 if log_file.exists():
                     last_run = datetime.fromtimestamp(log_file.stat().st_mtime, tz=KST)
                     last_run_ago_minutes = int((datetime.now(KST) - last_run).total_seconds() // 60)
+                    log_tail = _tail_file(log_file)
+                    status = _log_status(log_tail)
             except OSError:
                 pass
 
@@ -70,6 +106,8 @@ def cron_status_view(request):
             'log_path': log_path,
             'last_run': last_run,
             'last_run_ago_minutes': last_run_ago_minutes,
+            'log_tail': log_tail,
+            'status': status,
         })
 
     context = {
@@ -78,6 +116,87 @@ def cron_status_view(request):
         'error': error,
     }
     return render(request, 'articles/cron_status.html', context)
+
+
+def _integration_status(*values, placeholder=None):
+    """값이 하나라도 비어있으면 'missing', 플레이스홀더 값 그대로면 'placeholder',
+    다 채워져 있으면 'configured'. 실제 키/비밀번호 값은 반환하지 않는다 — 상태만 판정."""
+    if any(not v for v in values):
+        return 'missing'
+    if placeholder and placeholder in values:
+        return 'placeholder'
+    return 'configured'
+
+
+@staff_member_required
+def integration_status_view(request):
+    """.env로만 관리되는 외부 연동 키(소셜로그인/AI/KIS/SMTP 등)가 실제로 설정됐는지, 비어있는지,
+    코드에 박힌 플레이스홀더 그대로인지 한눈에 보여준다 (읽기 전용, 값 자체는 절대 노출 안 함).
+    OPENAI_API_KEY/GEMINI_API_KEY가 미설정/플레이스홀더면 article_ai.py/chatbot_client.py가
+    조용히 '시뮬레이션 모드'로 폴백하는데, 그 상태를 확인할 화면이 지금까지 없었다."""
+    db = settings.DATABASES['default']
+
+    groups = [
+        {
+            'title': '데이터베이스',
+            'items': [
+                {
+                    'name': 'MySQL 접속 정보',
+                    'status': _integration_status(db.get('USER'), db.get('PASSWORD')),
+                    'detail': f"{db.get('USER')}@{db.get('HOST')}:{db.get('PORT')}/{db.get('NAME')}",
+                },
+            ],
+        },
+        {
+            'title': '소셜 로그인',
+            'items': [
+                {'name': '카카오', 'status': _integration_status(settings.KAKAO_CLIENT_ID, settings.KAKAO_CLIENT_SECRET)},
+                {'name': '구글', 'status': _integration_status(settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET)},
+                {'name': '네이버', 'status': _integration_status(settings.NAVER_CLIENT_ID, settings.NAVER_CLIENT_SECRET)},
+            ],
+        },
+        {
+            'title': 'AI',
+            'items': [
+                {
+                    'name': 'OpenAI (챗봇)',
+                    'status': _integration_status(settings.OPENAI_API_KEY, placeholder='YOUR_OPENAI_API_KEY_HERE'),
+                    'detail': '미설정/플레이스홀더면 챗봇이 시뮬레이션 모드로 응답합니다.',
+                },
+                {
+                    'name': 'Gemini (뉴스 AI 요약·블로그 초안)',
+                    'status': _integration_status(settings.GEMINI_API_KEY, placeholder='YOUR_GEMINI_API_KEY_HERE'),
+                    'detail': '미설정/플레이스홀더면 AI 요약·블로그 초안 생성이 시뮬레이션 모드로 동작합니다.',
+                },
+            ],
+        },
+        {
+            'title': '한국투자증권(KIS)',
+            'items': [
+                {
+                    'name': 'KIS Open API',
+                    'status': _integration_status(settings.KIS_APP_KEY, settings.KIS_APP_SECRET),
+                    'detail': '실시간 시세·등락률 순위·휴장일 조회에 사용됩니다.',
+                },
+            ],
+        },
+        {
+            'title': '이메일(SMTP)',
+            'items': [
+                {
+                    'name': 'Gmail SMTP',
+                    'status': _integration_status(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD),
+                    'detail': '회원가입 인증메일·뉴스레터 발송에 사용됩니다.',
+                },
+            ],
+        },
+    ]
+
+    context = {
+        'site_title': 'NextFinUp - 외부 연동 상태',
+        'groups': groups,
+    }
+    return render(request, 'articles/integration_status.html', context)
 
 
 @staff_member_required

@@ -14,6 +14,9 @@
         .schedule-badge { font-family: monospace; font-size: 12px; }
         .fresh { color: #1e7e34; }
         .stale { color: #c62828; }
+        .log-tail { background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 12px;
+                    padding: 12px; border-radius: 8px; max-height: 320px; overflow-y: auto;
+                    white-space: pre-wrap; word-break: break-all; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -43,6 +46,8 @@
                             <th>cron 표현식</th>
                             <th>로그 파일</th>
                             <th>마지막 실행</th>
+                            <th>상태</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -61,7 +66,31 @@
                                     <span class="text-muted">기록 없음</span>
                                 {% endif %}
                             </td>
+                            <td>
+                                {% if job.status == 'ok' %}
+                                    <span class="badge bg-success">정상</span>
+                                {% elif job.status == 'error' %}
+                                    <span class="badge bg-danger">에러</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">기록없음</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if job.log_tail %}
+                                <button class="btn btn-sm btn-outline-secondary" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#log-{{ forloop.counter }}">
+                                    로그 보기
+                                </button>
+                                {% endif %}
+                            </td>
                         </tr>
+                        {% if job.log_tail %}
+                        <tr class="collapse" id="log-{{ forloop.counter }}">
+                            <td colspan="7">
+                                <div class="log-tail">{{ job.log_tail }}</div>
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -72,5 +101,6 @@
         </div>
     </div>
 {% include "articles/_cookie_banner.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

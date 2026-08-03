@@ -9,7 +9,7 @@ from .models import (
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
-    FinancialConsultSheet, MemberGrade, MediaOutlet,
+    FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -146,6 +146,17 @@ class StockRealtimePriceAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # collect_stock_realtime_price 명령을 통해서만 생성됨
+
+# 1-0-1-2. 등락률 순위(특징종목) 캐시 조회용 (읽기 전용)
+@admin.register(RankedMover)
+class RankedMoverAdmin(admin.ModelAdmin):
+    list_display = ('rank_type', 'rank', 'ticker', 'name', 'price', 'change_pct', 'updated_at')
+    list_filter = ('rank_type',)
+    search_fields = ('ticker', 'name')
+    ordering = ('rank_type', 'rank')
+
+    def has_add_permission(self, request):
+        return False  # collect_fluctuation_ranking 명령을 통해서만 생성됨
 
 # 2-1. 일봉 가격(실제 OHLCV) 관리
 @admin.register(StockDailyPrice)
