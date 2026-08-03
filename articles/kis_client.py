@@ -142,6 +142,7 @@ def get_index_price(market_type):
         'low': float(output['bstp_nmix_lwpr']),
         'change': float(output['bstp_nmix_prdy_vrss']),
         'change_pct': float(output['bstp_nmix_prdy_ctrt']),
+        'volume': int(output.get('acml_vol') or 0),
     }
 
 

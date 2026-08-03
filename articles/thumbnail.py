@@ -123,6 +123,39 @@ def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
         draw.text((cx0, cy0 + 28), value, font=value_font, fill=color)
 
 
+def _draw_index_summary_grid(draw, x0, y0, x1, y1, index_rows):
+    """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥 지수·등락률·거래량을
+    _draw_market_grid와 같은 3열×2행 스타일로 그린다(1행=코스피, 2행=코스닥).
+    index_rows: [{'label','close','change','change_pct','volume'}, ...] (코스피, 코스닥 순)."""
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
+
+    col_w = (x1 - x0) / 3
+    row_h = (y1 - y0) / max(len(index_rows), 1)
+    label_font = _font(FONT_REGULAR, 22)
+    value_font = _font(FONT_BOLD, 30)
+
+    for col in (1, 2):
+        lx = x0 + col_w * col
+        draw.line([(lx, y0 + 12), (lx, y1 - 12)], fill=GRID_LINE, width=1)
+    for row in range(1, len(index_rows)):
+        ly = y0 + row_h * row
+        draw.line([(x0 + 12, ly), (x1 - 12, ly)], fill=GRID_LINE, width=1)
+
+    for row, idx in enumerate(index_rows):
+        change = idx['change']
+        move_color = SIGNAL_COLORS['BUY'] if change > 0 else SIGNAL_COLORS['SELL'] if change < 0 else NEUTRAL_COLOR
+        cells = [
+            (idx['label'], f"{idx['close']:,.2f}", TITLE_COLOR),
+            ("등락률", format_signed_pct(idx['change_pct']), move_color),
+            ("거래량", format_volume(idx['volume']) if idx.get('volume') else "-", SUBTITLE_COLOR),
+        ]
+        for col, (label, value, color) in enumerate(cells):
+            cx0 = x0 + col_w * col + 28
+            cy0 = y0 + row_h * row + 16
+            draw.text((cx0, cy0), label, font=label_font, fill=SUBTITLE_COLOR)
+            draw.text((cx0, cy0 + 28), value, font=value_font, fill=color)
+
+
 def _wrap_by_width(draw, text, font, max_width, max_lines):
     """Pillow는 자동 줄바꿈이 없어서, 실제 렌더 폭을 기준으로 직접 줄바꿈한다.
     max_lines를 넘으면 마지막 줄을 "…"으로 잘라 붙인다."""
@@ -155,12 +188,14 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
 
 
 def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key=None,
-                              category_label=None, market_data=None):
+                              category_label=None, market_data=None, index_summary=None):
     """title: 기사 제목, subject_label: 종목명 또는 키워드(없으면 "경제 뉴스"),
     ticker: 종목코드(선택), signal_color_key: 'BUY'/'SELL'/'HOLD'/None,
     category_label: 상단 태그(예: "종목 분석 리포트", "특징주 브리핑"),
     market_data: {'current_price','prev_close','change','change_pct','volume','trading_value'}
     (있으면 하단에 시세 그리드를 추가로 그린다. 종목 실시간 시세가 없으면 None).
+    index_summary: [{'label','close','change','change_pct','volume'}, ...] (코스피/코스닥 등
+    특정 종목이 없는 카드용 — market_data가 없을 때만 대신 그린다).
     반환: PNG 바이트."""
     accent = SIGNAL_COLORS.get(signal_color_key, DEFAULT_SIGNAL_COLOR)
 
@@ -216,6 +251,9 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     # 시세 그리드 (현재가/전일대비/등락률/전일가/거래량/거래대금) — 실시간 시세가 있을 때만
     if market_data:
         _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
+    # 특정 종목이 없는 카드(특징주 브리핑 등)는 대신 코스피/코스닥 지수 요약을 그린다
+    elif index_summary:
+        _draw_index_summary_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, index_summary)
 
     from io import BytesIO
     buf = BytesIO()
@@ -231,8 +269,9 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
     (예: 특징주 브리핑 커맨드는 "특징주 브리핑"을 넘김)."""
     from django.core.files.base import ContentFile
 
-    from .models import StockPrediction, StockRealtimePrice
+    from .models import MarketIndex, StockPrediction, StockRealtimePrice
 
+    index_summary = None
     if stock:
         subject_label = stock.name
         ticker = stock.ticker
@@ -258,10 +297,29 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
         market_data = None
         category_label = category_label or "AI 요약 리포트"
 
+        # 특정 종목이 없어 카드가 휑해 보이므로, 대신 오늘자 코스피/코스닥 지수 요약을 보여준다.
+        today_indices = {
+            row.market_type: row
+            for row in MarketIndex.objects.filter(date=date.today(), market_type__in=['KOSPI', 'KOSDAQ'])
+        }
+        if today_indices:
+            labels = {'KOSPI': '코스피', 'KOSDAQ': '코스닥'}
+            index_summary = [
+                {
+                    'label': labels[market_type],
+                    'close': float(today_indices[market_type].close_price),
+                    'change': float(today_indices[market_type].change or 0),
+                    'change_pct': today_indices[market_type].change_pct or 0,
+                    'volume': today_indices[market_type].volume,
+                }
+                for market_type in ('KOSPI', 'KOSDAQ') if market_type in today_indices
+            ]
+
     image_bytes = generate_thumbnail_image(
         title, subject_label, ticker, signal_color_key,
         category_label=category_label,
         market_data=market_data,
+        index_summary=index_summary,
     )
     return ContentFile(image_bytes, name="thumbnail.png")
 
@@ -272,16 +330,19 @@ if __name__ == "__main__":
         ("삼성전자, 목표주가 55만원→37만원…33% 하향한 이유는[클릭e종목]", "삼성전자", "005930", "SELL",
          "종목 분석 리포트",
          {'current_price': 71500, 'prev_close': 73200, 'change': -1700, 'change_pct': -2.32,
-          'volume': 18234567, 'trading_value': 71500 * 18234567}),
+          'volume': 18234567, 'trading_value': 71500 * 18234567}, None),
         ("현대차, 3분기 영업이익 시장 예상치 크게 웃돌아…목표주가 줄상향", "현대차", "005380", "BUY",
          "종목 분석 리포트",
          {'current_price': 245500, 'prev_close': 236000, 'change': 9500, 'change_pct': 4.03,
-          'volume': 3456789, 'trading_value': 245500 * 3456789}),
-        ("코스피, 미 연준 금리 동결 소식에 강보합 마감", "코스피", None, None, "AI 요약 리포트", None),
-        ("2026-07-31 장중 특징주 브리핑", "경제 뉴스", None, None, "특징주 브리핑", None),
+          'volume': 3456789, 'trading_value': 245500 * 3456789}, None),
+        ("코스피, 미 연준 금리 동결 소식에 강보합 마감", "코스피", None, None, "AI 요약 리포트", None, None),
+        ("2026-07-31 장중 특징주 브리핑", "경제 뉴스", None, None, "특징주 브리핑", None, [
+            {'label': '코스피', 'close': 3187.42, 'change': -12.5, 'change_pct': -0.39, 'volume': 412345678},
+            {'label': '코스닥', 'close': 812.7, 'change': 6.2, 'change_pct': 0.77, 'volume': 987654321},
+        ]),
     ]
-    for i, (title, subject, ticker, signal, category, market_data) in enumerate(samples):
-        data = generate_thumbnail_image(title, subject, ticker, signal, category, market_data)
+    for i, (title, subject, ticker, signal, category, market_data, index_summary) in enumerate(samples):
+        data = generate_thumbnail_image(title, subject, ticker, signal, category, market_data, index_summary)
         path = f"/tmp/thumb_sample_{i}.png"
         with open(path, "wb") as f:
             f.write(data)

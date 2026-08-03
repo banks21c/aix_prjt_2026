@@ -133,7 +133,7 @@ class StockItemAdmin(admin.ModelAdmin):
 # 1-1. 코스피/코스닥 지수 시계열 관리
 @admin.register(MarketIndex)
 class MarketIndexAdmin(admin.ModelAdmin):
-    list_display = ('market_type', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'change', 'change_pct')
+    list_display = ('market_type', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'change', 'change_pct', 'volume')
     list_filter = ('market_type',)
     ordering = ('-date', 'market_type')
 

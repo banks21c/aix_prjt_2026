@@ -83,6 +83,7 @@ class Command(BaseCommand):
                 close_price=round(quote['close'], 2),
                 change=round(quote['change'], 2),
                 change_pct=round(quote['change_pct'], 2),
+                volume=quote['volume'],
             ),
         )
         action = '신규' if created else '갱신'
