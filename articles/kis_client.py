@@ -81,7 +81,12 @@ def get_fluctuation_ranking(sort_cls_code, market_scope=MARKET_SCOPE_ALL, count=
         "fid_input_iscd": market_scope,
         "fid_rank_sort_cls_code": sort_cls_code,
         "fid_input_cnt_1": "0",
-        "fid_prc_cls_code": "0",
+        # fid_prc_cls_code는 정렬 기준(sort_cls_code)에 따라 뜻이 달라진다: 상승률순일 때
+        # 0=저가대비/1=종가대비, 하락률순일 때 0=고가대비/1=종가대비. "1"(종가대비)로 고정해야
+        # 두 방향 모두 우리가 실제로 표시하는 전일 대비율(prdy_ctrt) 기준으로 순위가 뽑힌다.
+        # "0"으로 두면 하락률 상위가 "오늘 고점 대비 낙폭 상위"로 뽑혀, 전일 대비로는 보합/상승인
+        # 종목이 하락률 상위에 섞여 나올 수 있다(장중 급등 후 급락한 종목 등).
+        "fid_prc_cls_code": "1",
         "fid_input_price_1": "",
         "fid_input_price_2": "",
         "fid_vol_cnt": "",
