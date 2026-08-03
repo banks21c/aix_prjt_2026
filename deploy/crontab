@@ -7,17 +7,23 @@
 #   crontab -l > deploy/crontab
 #
 # Read-only view of whatever is currently live: /admin-tools/cron/ (articles.views.cron_status_view).
+#
+# Every job runs through deploy/run_job.sh, which (1) prefixes each output line with a timestamp
+# before appending to the log file — plain `>>` gives no way to tell when a line was written,
+# which makes correlating failures across jobs hard during an incident — and (2) emails
+# settings.ADMINS via the notify_failure command if the job exits non-zero (eg. OOM kill), so a
+# quiet cron failure doesn't go unnoticed until someone happens to read the log.
 
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_keyword_news >> /home/ubuntu/nextfinup/logs/collect_keyword_news.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_market_index >> /home/ubuntu/nextfinup/logs/collect_market_index.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_kis_news >> /home/ubuntu/nextfinup/logs/collect_kis_news.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_stock_realtime_price >> /home/ubuntu/nextfinup/logs/collect_stock_realtime_price.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_fluctuation_ranking >> /home/ubuntu/nextfinup/logs/collect_fluctuation_ranking.log 2>&1
-0 13 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_featured_stock_briefing --session=midday >> /home/ubuntu/nextfinup/logs/generate_featured_stock_briefing.log 2>&1
-40 15 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_featured_stock_briefing --session=close >> /home/ubuntu/nextfinup/logs/generate_featured_stock_briefing.log 2>&1
-5 13 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py post_to_wordpress --limit 1 >> /home/ubuntu/nextfinup/logs/post_to_wordpress.log 2>&1
-5 13 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py post_to_blogger --limit 1 >> /home/ubuntu/nextfinup/logs/post_to_blogger.log 2>&1
-45 15 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py post_to_wordpress --limit 1 >> /home/ubuntu/nextfinup/logs/post_to_wordpress.log 2>&1
-45 15 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py post_to_blogger --limit 1 >> /home/ubuntu/nextfinup/logs/post_to_blogger.log 2>&1
-0 16 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_newsletter_draft >> /home/ubuntu/nextfinup/logs/generate_newsletter_draft.log 2>&1
-0 21 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py send_newsletter >> /home/ubuntu/nextfinup/logs/send_newsletter.log 2>&1
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_keyword_news.log venv/bin/python manage.py collect_keyword_news
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_market_index.log venv/bin/python manage.py collect_market_index
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
+0 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=midday
+40 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=close
+5 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+5 13 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+45 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+45 15 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+0 16 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
+0 21 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/send_newsletter.log venv/bin/python manage.py send_newsletter

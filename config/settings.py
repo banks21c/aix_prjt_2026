@@ -227,6 +227,12 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'NextFinUp <{EMAIL_HOST_USER}>'
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# DEBUG=False일 때 Django 기본 로깅 설정(django.request 로거의 mail_admins 핸들러)이 처리 안 된
+# 500 에러 발생 시 여기로 이메일을 보낸다. deploy/run_job.sh(articles.management.commands.
+# notify_failure)도 cron 파이프라인이 조용히 실패했을 때(OOM kill 등) 같은 주소로 알린다.
+ADMINS = [('NextFinUp Admin', 'banks@naver.com')]
 
 # 앞단 프록시(Cloudflare 등)가 X-Forwarded-Proto 헤더로 원 요청의 스킴을 전달해준다는 전제 하에,
 # request.build_absolute_uri() 등이 https로 올바르게 URL을 생성하도록 함
