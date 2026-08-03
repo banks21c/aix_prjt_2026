@@ -7,6 +7,7 @@ from .public import (
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
+    financial_consult_sheet_search_view,
     integration_status_view, pipeline_status_view, pipeline_trigger_view, server_health_view,
 )
 from .news import (
@@ -28,6 +29,7 @@ __all__ = [
     'newsletter_unsubscribe_view', 'cron_status_view', 'privacy_policy_view',
     'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
     'header_fragment_view', 'expert_consult_view', 'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
+    'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_search_view', 'post_articles_view', 'stock_detail_view', 'stock_minute_chart_view',

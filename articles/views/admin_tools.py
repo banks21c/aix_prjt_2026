@@ -9,6 +9,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -410,14 +411,52 @@ def financial_consult_sheet_view(request):
     # FinancialConsultSheet에 기록하고, 별도로 인쇄/PDF 저장도 가능하다.
     # ConsultRequest 관리자 목록의 이름 링크(articles/admin.py name_with_sheet_link)가
     # name/phone/apply_date/channel을 쿼리스트링으로 넘겨, 그 리드의 기본정보를 미리 채워준다.
+    #
+    # ?load=<FinancialConsultSheet id>가 있으면 그 시트에 저장된 전체 데이터를 폼에 채워
+    # 넣는다(재상담 시 이전 입력 이어보기용). 이때 저장 버튼은 새로 만들지 않고 이 레코드를
+    # 업데이트하도록, 로드된 시트의 id를 JS에 함께 넘긴다.
     context = {
         'site_title': 'NextFinUp - 종합 재무상담 시트',
         'prefill_name': request.GET.get('name', ''),
         'prefill_phone': request.GET.get('phone', ''),
         'prefill_apply_date': request.GET.get('apply_date', ''),
         'prefill_channel': request.GET.get('channel', ''),
+        'load_sheet_id': '',
+        'load_sheet_data_json': 'null',
     }
+
+    load_id = request.GET.get('load')
+    if load_id:
+        sheet = FinancialConsultSheet.objects.filter(pk=load_id).first()
+        if sheet is not None:
+            context['load_sheet_id'] = sheet.id
+            # </script>로 HTML 파서가 태그를 조기 종료하지 않도록 '<'만 이스케이프해 안전하게 삽입
+            context['load_sheet_data_json'] = json.dumps(sheet.data or {}).replace('<', '\\u003c')
+
     return render(request, 'articles/financial_consult_sheet.html', context)
+
+
+@staff_member_required
+def financial_consult_sheet_search_view(request):
+    """상단 "불러오기" 검색창이 호출하는 AJAX 엔드포인트. 고객명/전화번호로 이전 시트를
+    찾아 최근 20건까지 반환한다 (값 자체는 여기서 넘기지 않고 목록만 — 실제 데이터는
+    선택 후 financial_consult_sheet_view의 ?load=<id>로 다시 로드할 때 채워진다)."""
+    q = (request.GET.get('q') or '').strip()
+    qs = FinancialConsultSheet.objects.all()
+    if q:
+        qs = qs.filter(Q(customer_name__icontains=q) | Q(customer_phone__icontains=q))
+    results = [
+        {
+            'id': s.id,
+            'customer_name': s.customer_name,
+            'customer_phone': s.customer_phone,
+            'consultant_name': s.consultant_name,
+            'consult_date': s.consult_date.isoformat() if s.consult_date else None,
+            'created_at': s.created_at.strftime('%Y-%m-%d %H:%M'),
+        }
+        for s in qs.order_by('-created_at')[:20]
+    ]
+    return JsonResponse({'results': results})
 
 
 @staff_member_required
@@ -425,7 +464,9 @@ def financial_consult_sheet_view(request):
 def financial_consult_sheet_save_view(request):
     """financial_consult_sheet.html에서 저장 버튼 클릭 시 fetch로 전송하는 전체 시트 데이터를
     FinancialConsultSheet에 저장한다. 목록/검색용 핵심 컬럼(고객명·연락처·상담자·상담일자)만
-    최상위로 뽑고, 나머지 세부 항목은 원본 그대로 JSONField에 보관한다."""
+    최상위로 뽑고, 나머지 세부 항목은 원본 그대로 JSONField에 보관한다.
+    payload에 sheet_id가 있으면(불러온 시트를 이어 작성/수정) 새로 만들지 않고 그 레코드를
+    업데이트한다 — 없으면(새 상담) 새 레코드를 만든다."""
     try:
         payload = json.loads(request.body or '{}')
     except json.JSONDecodeError:
@@ -434,6 +475,7 @@ def financial_consult_sheet_save_view(request):
     if not isinstance(payload, dict):
         return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
 
+    sheet_id = payload.pop('sheet_id', None)
     meta = payload.get('meta') or {}
     s1 = payload.get('s1') or {}
 
@@ -444,12 +486,22 @@ def financial_consult_sheet_save_view(request):
         except ValueError:
             consult_date = None
 
-    sheet = FinancialConsultSheet.objects.create(
+    fields = dict(
         customer_name=(s1.get('name') or '')[:50],
         customer_phone=(s1.get('phone') or '')[:20],
         consultant_name=(meta.get('consultant') or '')[:50],
         consult_date=consult_date,
         data=payload,
-        created_by=request.user,
     )
+
+    if sheet_id:
+        sheet = FinancialConsultSheet.objects.filter(pk=sheet_id).first()
+        if sheet is None:
+            return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
+        for key, value in fields.items():
+            setattr(sheet, key, value)
+        sheet.save()
+    else:
+        sheet = FinancialConsultSheet.objects.create(created_by=request.user, **fields)
+
     return JsonResponse({'ok': True, 'id': sheet.id})
