@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 def landing_page_view(request):
-    active_stock_count = StockItem.objects.filter(is_active=True).count()
+    # 히어로 문구가 "KOSPI200·KOSDAQ150 종목의 다음날 종가를 예측"이라고 명시하므로, 이 옆의
+    # 카운터도 is_active 전체(2천여 개)가 아니라 실제로 AI 예측 대상인 is_major_index 종목 수여야
+    # 문구와 숫자가 어긋나지 않는다.
+    active_stock_count = StockItem.objects.filter(is_active=True, is_major_index=True).count()
     latest_articles = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:3]
 
     context = {
