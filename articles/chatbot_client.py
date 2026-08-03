@@ -3,7 +3,10 @@ import logging
 from django.conf import settings
 from django.db.models import Max
 
-from .models import AnalyzedArticle, MarketIndex, RankedMover, StockDailyPrice, StockItem, StockPrediction
+from .models import (
+    AnalyzedArticle, MarketIndex, RankedMover, StockDailyPrice, StockItem, StockPrediction,
+    StockRealtimePrice,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,9 @@ SYSTEM_PROMPT = """당신은 NextFinUp의 AI 주식/경제 챗봇입니다.
 - 주식, 증시, 경제, 투자와 무관한 질문에는 정중히 답변을 거절하고 주식/경제 관련 질문을 유도하세요.
 - 한국어로, 간결하고 명확하게 답변하세요.
 - 원화(원) 가격을 말할 때는 소수점 없이 정수로만 표시하세요 (예: 254,250원, 254,250.00원 금지).
+- "지금/현재 가격이 얼마냐"는 질문에는 반드시 [실시간 현재가] 줄의 값을 쓰세요. [AI 예측] 줄의
+  "기준일 종가"는 그 예측이 계산된 날짜의 종가일 뿐 오늘 가격이 아니므로, "지금 가격"으로
+  혼동해서 답하지 마세요 — 두 값이 다르면(예측 데이터 갱신 지연 등) 그 사실도 짧게 언급하세요.
 - 답변 말미에 "본 답변은 투자 참고용이며 투자 손실에 대한 법적 책임을 지지 않습니다."를 짧게 덧붙이세요.
 
 [제공 데이터]
@@ -70,6 +76,16 @@ def _build_context(question):
 
     mentioned = _find_mentioned_stocks(question)
     for ticker, name in mentioned:
+        # 실시간 현재가(5분 주기로 갱신)는 AI 예측용 일봉/예측 데이터(무거워서 수동 실행 주기)보다
+        # 훨씬 자주 갱신되므로, "지금 얼마냐"는 질문엔 이 값을 써야 한다 — 둘을 섞으면 며칠 지난
+        # 예측 기준일 종가를 "지금 가격"으로 잘못 답하게 된다.
+        realtime = StockRealtimePrice.objects.filter(stock__ticker=ticker).first()
+        if realtime:
+            lines.append(
+                f"- [{name}] 실시간 현재가 {realtime.close_price:,.0f}원 "
+                f"({realtime.change_pct:+.2f}%, {realtime.updated_at:%Y-%m-%d %H:%M} 기준 갱신)"
+            )
+
         pred = (
             StockPrediction.objects
             .filter(stock__ticker=ticker)
@@ -85,8 +101,8 @@ def _build_context(question):
             up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
             down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
             lines.append(
-                f"- [{name}] {pred.date} 종가 {base_close}, "
-                f"AI 내일 예상종가 {next_close}, "
+                f"- [{name}] AI 예측(기준일 {pred.date} 종가 {base_close}): "
+                f"내일 예상종가 {next_close}, "
                 f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
             )
         articles = (
