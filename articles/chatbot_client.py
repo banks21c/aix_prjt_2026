@@ -1,4 +1,5 @@
 import logging
+import subprocess
 
 from django.conf import settings
 from django.db.models import Max
@@ -9,6 +10,22 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# collect_stock_data(주가 재수집)/run_stock_prediction(예측 재학습)은 무겁고 비정기적으로
+# 수동 실행되는데, 돌아가는 도중엔 아직 갱신 전인 예측값이 최신인 것처럼 보일 수 있다.
+# 프로세스가 떠 있는지 확인해, 돌고 있으면 그 사실을 답변에 반영한다.
+_PIPELINE_COMMANDS = ('collect_stock_data', 'run_stock_prediction')
+
+
+def _pipeline_is_running():
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'manage.py (' + '|'.join(_PIPELINE_COMMANDS) + ')'],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 SIMULATION_ANSWER = (
     "챗봇 기능은 현재 준비 중입니다. 관리자가 OpenAI API 키를 설정하면 "
@@ -75,6 +92,7 @@ def _build_context(question):
         lines.append(f"- 하락률 상위 종목: {loser_str}")
 
     mentioned = _find_mentioned_stocks(question)
+    pipeline_running = _pipeline_is_running() if mentioned else False
     for ticker, name in mentioned:
         # 실시간 현재가(5분 주기로 갱신)는 AI 예측용 일봉/예측 데이터(무거워서 수동 실행 주기)보다
         # 훨씬 자주 갱신되므로, "지금 얼마냐"는 질문엔 이 값을 써야 한다 — 둘을 섞으면 며칠 지난
@@ -86,25 +104,30 @@ def _build_context(question):
                 f"({realtime.change_pct:+.2f}%, {realtime.updated_at:%Y-%m-%d %H:%M} 기준 갱신)"
             )
 
-        pred = (
-            StockPrediction.objects
-            .filter(stock__ticker=ticker)
-            .order_by('-date')
-            .first()
-        )
-        if pred:
-            # StockPrediction엔 예측값만 있고 실가격은 없다(StockDailyPrice가 분리 보관) —
-            # 기준일 종가는 그쪽에서 따로 조회해야 한다.
-            daily = StockDailyPrice.objects.filter(stock__ticker=ticker, date=pred.date).first()
-            base_close = f"{daily.close_price:,.0f}원" if daily else "정보 없음"
-            next_close = f"{pred.pred_next_close:,.0f}원" if pred.pred_next_close is not None else "정보 없음"
-            up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
-            down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
-            lines.append(
-                f"- [{name}] AI 예측(기준일 {pred.date} 종가 {base_close}): "
-                f"내일 예상종가 {next_close}, "
-                f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
+        if pipeline_running:
+            # 재수집/재학습이 진행 중이면 기존 예측은 곧 낡은 값이 될 걸 알면서 보여주는 셈이라,
+            # 예측 수치 대신 갱신 중이라는 사실만 전달한다 (실시간 현재가는 위에서 이미 보여줬다).
+            lines.append(f"- [{name}] AI 예측 데이터를 지금 갱신(재학습)하는 중입니다. 잠시 후 다시 확인해주세요.")
+        else:
+            pred = (
+                StockPrediction.objects
+                .filter(stock__ticker=ticker)
+                .order_by('-date')
+                .first()
             )
+            if pred:
+                # StockPrediction엔 예측값만 있고 실가격은 없다(StockDailyPrice가 분리 보관) —
+                # 기준일 종가는 그쪽에서 따로 조회해야 한다.
+                daily = StockDailyPrice.objects.filter(stock__ticker=ticker, date=pred.date).first()
+                base_close = f"{daily.close_price:,.0f}원" if daily else "정보 없음"
+                next_close = f"{pred.pred_next_close:,.0f}원" if pred.pred_next_close is not None else "정보 없음"
+                up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
+                down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
+                lines.append(
+                    f"- [{name}] AI 예측(기준일 {pred.date} 종가 {base_close}): "
+                    f"내일 예상종가 {next_close}, "
+                    f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
+                )
         articles = (
             AnalyzedArticle.objects
             .filter(stock__ticker=ticker)
