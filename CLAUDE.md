@@ -90,11 +90,17 @@ looks up `AnalyzedArticle` by the pseudo-URL `internal://featured-briefing/<date
 (no issue created) if that briefing hasn't run yet, so its cron time must stay after the close
 briefing's (KST 15:40 / UTC 6:40).
 `collect_stock_data` defaults to `is_major_index=True` (350 stocks) and only requests, per stock,
-the OHLCV since that stock's latest stored date (new stocks / `--full` pull the whole `--period`,
-default 10y) — so a daily `--all` run doesn't re-download years of history it already has, just
-that day's new bar per stock. `run_stock_prediction` defaults the same way; both accept `--all` to
-cover `is_active=True` instead (used by the daily cron above and by the admin manual-trigger
-buttons at `/admin-tools/cron/`).
+the OHLCV since that stock's latest stored date — for a stock with existing data this now goes
+through the KIS 국내주식기간별시세 API (`kis_client.get_stock_daily_price`), not yfinance;
+yfinance is only used for a brand-new stock's initial full-history pull (or `--full`, which
+forces every stock through that yfinance path regardless of existing data). This switch exists
+because yfinance lags by days on many non-major-index KOSDAQ small-caps specifically (~1,500 of
+~2,780 stocks were stuck days behind when checked on 2026-08-03) while KIS — the same API already
+used for realtime price/ranking — stays current. So a daily `--all` run neither re-downloads
+years of history it already has nor depends on yfinance's per-ticker freshness. `run_stock_prediction`
+defaults the same way regarding `is_major_index`/`--all` (its own model-training logic is
+unrelated to either data source); both accept `--all` to cover `is_active=True` instead (used by
+the daily cron above and by the admin manual-trigger buttons at `/admin-tools/cron/`).
 
 Publishing (per-user, driven by each member's `BlogPostingAccount` + `UserPreference`, not global
 config — see Architecture). Live and publishes immediately (not draft):
