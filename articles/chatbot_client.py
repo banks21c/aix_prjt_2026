@@ -113,10 +113,19 @@ def _build_context(question):
                 f"- [{name}] 실시간 현재가 {realtime.close_price:,.0f}원 ({realtime.change_pct:+.2f}%)"
             )
         else:
-            # 실시간 시세는 코스피200·코스닥150 종목만 수집한다. 여기서 명시적으로 "없다"고
-            # 못박지 않으면, "데이터에 없으면 모른다고 답하라"는 프롬프트 지시를 무시하고
-            # 모델이 그럴듯한 가격을 지어내는 경우가 실제로 있었다(예: 마음AI에 없는 가격을 답함).
-            lines.append(f"- [{name}] 실시간 현재가 데이터 없음 (코스피200·코스닥150 종목만 실시간 시세 추적 대상)")
+            # 코스피200·코스닥150 밖이라 5분 캐시가 없는 종목은, utils.build_mentioned_stocks_table과
+            # 같은 방식으로 KIS에 온디맨드 조회한다 — 실시간 시세 자체는 종목코드만 있으면 지수
+            # 편입 여부와 무관하게 조회 가능하다(AI 예측과 달리 캐시가 없다고 진짜 값이 없는 게
+            # 아니다). 조회마저 실패하면 그때는 정말 데이터가 없는 것이니 명시적으로 없다고 밝힌다.
+            try:
+                from .kis_client import get_stock_close_price
+                fetched = get_stock_close_price(ticker)
+                lines.append(
+                    f"- [{name}] 실시간 현재가 {fetched['close']:,.0f}원 ({fetched['change_pct']:+.2f}%) "
+                    f"(코스피200·코스닥150 밖 종목이라 KIS 온디맨드 조회)"
+                )
+            except Exception:
+                lines.append(f"- [{name}] 실시간 현재가 데이터 없음 (종목코드 조회 실패)")
 
         if pipeline_running:
             # 재수집/재학습이 진행 중이면 기존 예측은 곧 낡은 값이 될 걸 알면서 보여주는 셈이라,
