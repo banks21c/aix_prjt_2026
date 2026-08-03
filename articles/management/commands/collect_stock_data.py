@@ -1,8 +1,10 @@
 import random
 import time
+from datetime import timedelta
 
 import yfinance as yf
 from django.core.management.base import BaseCommand
+from django.db.models import Max
 from articles.models import StockItem, StockDailyPrice
 
 # 시장 구분 -> 야후 파이낸스 티커 접미사
@@ -14,8 +16,10 @@ RATE_LIMIT_HINTS = ('429', 'rate limit', 'too many requests', 'rate-limited')
 
 class Command(BaseCommand):
     help = (
-        '기본적으로 is_major_index=True(코스피200/코스닥150) 종목만 대상으로 10년치 일봉 데이터를 '
-        '야후 파이낸스 차단을 피하며 안전하게 벌크 적재합니다. --all 지정 시 is_active 전체 종목 대상.'
+        '기본적으로 is_major_index=True(코스피200/코스닥150) 종목만 대상으로 일봉 데이터를 '
+        '야후 파이낸스 차단을 피하며 안전하게 적재합니다. --all 지정 시 is_active 전체 종목 대상. '
+        '종목마다 이미 저장된 최신 날짜 이후분만 증분 수집하며(신규 종목은 --period만큼 전체 수집), '
+        '--full을 주면 기존 데이터 유무와 무관하게 전 종목을 --period만큼 통째로 다시 받아옵니다.'
     )
 
     def add_arguments(self, parser):
@@ -28,9 +32,12 @@ class Command(BaseCommand):
         parser.add_argument('--max-consecutive-failures', type=int, default=5,
                              help='연속 실패 허용 횟수. 초과 시 차단으로 간주하고 작업 중단. 기본 5')
         parser.add_argument('--period', type=str, default='10y',
-                             help='수집 기간(yfinance period 문법). 기본 10y')
+                             help='신규 종목(또는 --full) 전체 수집 시 기간(yfinance period 문법). 기본 10y')
         parser.add_argument('--all', action='store_true',
                              help='is_major_index 여부와 무관하게 is_active=True 전체 종목을 대상으로 수집합니다.')
+        parser.add_argument('--full', action='store_true',
+                             help='이미 데이터가 있는 종목도 증분 수집하지 않고 --period만큼 전체를 다시 받아옵니다 '
+                                  '(데이터 정합성 재점검 등 예외적인 경우에만 사용).')
 
     def handle(self, *args, **options):
         sleep_min = options['sleep_min']
@@ -39,6 +46,7 @@ class Command(BaseCommand):
         max_consecutive_failures = options['max_consecutive_failures']
         period = options['period']
         collect_all = options['all']
+        force_full = options['full']
 
         if sleep_min < 0 or sleep_max < sleep_min:
             self.stdout.write(self.style.ERROR("--sleep-min/--sleep-max 값이 올바르지 않습니다."))
@@ -60,8 +68,9 @@ class Command(BaseCommand):
             return
 
         scope_label = "전체 활성" if collect_all else "코스피200/코스닥150"
+        mode_label = f"전체({period}) 재수집" if force_full else "증분(신규 거래일만) 수집"
         self.stdout.write(self.style.SUCCESS(
-            f"🚀 {scope_label} 총 {total_count}개 종목 10년 시계열 수집을 시작합니다. "
+            f"🚀 {scope_label} 총 {total_count}개 종목 {mode_label}을 시작합니다. "
             f"(요청 간 {sleep_min}~{sleep_max}초 대기)"
         ))
 
@@ -82,10 +91,17 @@ class Command(BaseCommand):
                     continue
 
                 yf_ticker_str = f"{stock.ticker}{suffix}"
-                self.stdout.write(f"[{idx}/{total_count}] {stock.name}({stock.ticker}) 데이터 조회 중...")
+
+                latest_date = None
+                if not force_full:
+                    latest_date = (
+                        StockDailyPrice.objects.filter(stock=stock).aggregate(Max('date'))['date__max']
+                    )
+                fetch_desc = f"{latest_date} 이후 증분" if latest_date else f"전체({period})"
+                self.stdout.write(f"[{idx}/{total_count}] {stock.name}({stock.ticker}) 데이터 조회 중... ({fetch_desc})")
 
                 try:
-                    df = self._fetch_history(yf_ticker_str, period, max_retries)
+                    df = self._fetch_history(yf_ticker_str, period, latest_date, max_retries)
                 except Exception as e:
                     consecutive_failures += 1
                     failed_count += 1
@@ -109,12 +125,15 @@ class Command(BaseCommand):
                 consecutive_failures = 0
 
                 if df is None or df.empty:
-                    self.stdout.write(f"    ↳ 수신 데이터 없음(상장폐지/신규상장 등) - 건너뜀")
+                    if latest_date:
+                        self.stdout.write("    ↳ 신규 거래일 없음 (이미 최신)")
+                    else:
+                        self.stdout.write("    ↳ 수신 데이터 없음(상장폐지/신규상장 등) - 건너뜀")
                     skipped_count += 1
                     self._sleep(sleep_min, sleep_max)
                     continue
 
-                created = self._save_history(stock, df)
+                created = self._save_history(stock, df, min_date=latest_date)
                 if created > 0:
                     self.stdout.write(self.style.SUCCESS(f"    ↳ 성공: 신규 일봉 {created}개 적재 완료"))
                 else:
@@ -135,14 +154,25 @@ class Command(BaseCommand):
             f"(전체 {total_count}종목)"
         ))
 
-    def _fetch_history(self, yf_ticker_str, period, max_retries):
-        """야후 파이낸스에서 일봉 데이터를 받아옵니다. 실패 시 지수 백오프로 재시도합니다."""
+    def _fetch_history(self, yf_ticker_str, period, since_date, max_retries):
+        """야후 파이낸스에서 일봉 데이터를 받아옵니다. 실패 시 지수 백오프로 재시도합니다.
+
+        since_date가 있으면(=이미 데이터가 있는 종목) 그 날짜 이후분만 받아 매일 돌려도 10년치
+        전체를 반복해서 재수집하지 않도록 하고(증분 수집), 없으면(신규 종목/--full) period만큼
+        전체를 받아온다.
+        """
         last_exc = None
         for attempt in range(1, max_retries + 1):
             try:
                 ticker_data = yf.Ticker(yf_ticker_str)
                 # auto_adjust=False: 배당/액면분할로 과거 종가가 조정되지 않도록 원본 값 유지
-                df = ticker_data.history(period=period, interval="1d", auto_adjust=False)
+                if since_date is not None:
+                    df = ticker_data.history(
+                        start=(since_date + timedelta(days=1)).isoformat(),
+                        interval="1d", auto_adjust=False,
+                    )
+                else:
+                    df = ticker_data.history(period=period, interval="1d", auto_adjust=False)
                 return df
             except Exception as e:
                 last_exc = e
@@ -162,15 +192,22 @@ class Command(BaseCommand):
 
         raise last_exc
 
-    def _save_history(self, stock, df):
-        """OHLCV 데이터프레임을 검증 후 StockDailyPrice로 벌크 적재합니다."""
+    def _save_history(self, stock, df, min_date=None):
+        """OHLCV 데이터프레임을 검증 후 StockDailyPrice로 벌크 적재합니다.
+
+        min_date(증분 수집 시 이미 저장된 최신 날짜)가 있으면 dedup 조회를 그 이후 구간으로만
+        좁혀, 종목마다 몇 년치 date 집합을 통째로 다시 긁어오지 않게 한다.
+        """
         # 결측치가 있는 행은 DB 제약(NOT NULL) 위반이나 잘못된 값 저장을 막기 위해 제외
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
         if df.empty:
             return 0
 
+        date_filter = {'stock': stock}
+        if min_date is not None:
+            date_filter['date__gte'] = min_date
         existing_dates = set(
-            StockDailyPrice.objects.filter(stock=stock).values_list('date', flat=True)
+            StockDailyPrice.objects.filter(**date_filter).values_list('date', flat=True)
         )
 
         bulk_list = []

@@ -27,11 +27,15 @@ _EXCEPTION_LINE = re.compile(r'^[\w.]*(Error|Exception)\b.*:')  # 트레이스�
 # 위험하므로, 여기 화이트리스트에 있는 것만 (staff 전용 화면에서) 실행 가능하게 제한한다.
 PIPELINE_COMMANDS = {
     'collect_stock_data': {
-        'label': '주가 데이터 재수집 (전 종목 10년치 OHLCV)',
+        'label': '주가 데이터 수집 (전 종목, 증분)',
         'command': 'collect_stock_data',
         'args': ['--all'],
         'log_prefix': 'collect_stock_data_manual',
-        'note': '종목당 1.5~3초 대기 + 실패 시 재시도가 있어 종목 수에 따라 수십 분 이상 걸릴 수 있습니다.',
+        'note': (
+            '종목마다 이미 저장된 최신 날짜 이후 신규 거래일만 받아옵니다(전체 10년치 재수집 아님). '
+            '종목당 1.5~3초 대기가 있어 전 종목 기준 수십 분 정도 걸릴 수 있습니다. 데이터 정합성 '
+            '재점검 등으로 전체를 통째로 다시 받아야 하면 SSH로 --full을 직접 붙여 실행하세요.'
+        ),
     },
     'run_stock_prediction': {
         'label': 'AI 주가 예측 모델 재학습 (전 종목)',
