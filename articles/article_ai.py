@@ -238,19 +238,27 @@ def _colored_pct(change_pct):
     return f'<span style="color:{color};font-weight:600;">{change_pct:+.2f}%</span>'
 
 
+def _naver_finance_link(ticker, label):
+    url = f"https://finance.naver.com/item/main.naver?code={ticker}"
+    return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{label}</a>'
+
+
 def _movers_list_html(movers_subset):
     """상승률/하락률 상위 목록을 원본 RankedMover 값에서 직접 렌더링한다 — AI가 이 수치를
     산문으로 옮겨적다 부호를 틀리는 사고(예: 하락 목록에 +% 종목이 섞이는 것)를 원천 차단하기
     위해, 목록 자체는 AI를 거치지 않고 시스템이 그린다. 외부 블로그(Blogger 등)에 그대로
-    발행되므로 클래스가 아닌 인라인 style로 색을 입힌다."""
+    발행되므로 클래스가 아닌 인라인 style로 색을 입힌다. 종목명은 네이버 증권 종목 페이지로 연결."""
     items = "".join(
-        f"<li>{m['name']}: {m['price']:,.0f}원, {_colored_pct(m['change_pct'])}</li>" for m in movers_subset
+        f"<li>{_naver_finance_link(m['ticker'], m['name'])}: {m['price']:,.0f}원, {_colored_pct(m['change_pct'])}</li>"
+        for m in movers_subset
     )
     return f"<ul>{items}</ul>"
 
 
 def _reports_list_html(reports_subset):
-    items = "".join(f"<li>{r['name']}: {r['text']}</li>" for r in reports_subset)
+    items = "".join(
+        f"<li>{_naver_finance_link(r['ticker'], r['name'])}: {r['text']}</li>" for r in reports_subset
+    )
     return f"<ul>{items}</ul>"
 
 
