@@ -227,12 +227,24 @@ def movers_to_text(movers, reports=None):
     return "\n".join(lines)
 
 
+# articles/thumbnail.py SIGNAL_COLORS의 BUY/SELL 색상과 동일 — 국내 관례대로 상승=빨강, 하락=파랑
+POSITIVE_COLOR = "#e53935"
+NEGATIVE_COLOR = "#1e88e5"
+NEUTRAL_COLOR = "#6c757d"
+
+
+def _colored_pct(change_pct):
+    color = POSITIVE_COLOR if change_pct > 0 else NEGATIVE_COLOR if change_pct < 0 else NEUTRAL_COLOR
+    return f'<span style="color:{color};font-weight:600;">{change_pct:+.2f}%</span>'
+
+
 def _movers_list_html(movers_subset):
     """상승률/하락률 상위 목록을 원본 RankedMover 값에서 직접 렌더링한다 — AI가 이 수치를
     산문으로 옮겨적다 부호를 틀리는 사고(예: 하락 목록에 +% 종목이 섞이는 것)를 원천 차단하기
-    위해, 목록 자체는 AI를 거치지 않고 시스템이 그린다."""
+    위해, 목록 자체는 AI를 거치지 않고 시스템이 그린다. 외부 블로그(Blogger 등)에 그대로
+    발행되므로 클래스가 아닌 인라인 style로 색을 입힌다."""
     items = "".join(
-        f"<li>{m['name']}: {m['price']:,.0f}원, {m['change_pct']:+.2f}%</li>" for m in movers_subset
+        f"<li>{m['name']}: {m['price']:,.0f}원, {_colored_pct(m['change_pct'])}</li>" for m in movers_subset
     )
     return f"<ul>{items}</ul>"
 
