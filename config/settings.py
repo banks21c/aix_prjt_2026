@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # .env(또는 서버 환경변수)에 DEBUG를 명시하지 않으면 기본값은 False(운영 안전 기본값)로 동작합니다.
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189']
+ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'admin.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189', '134.185.118.175', '10.0.0.2']
 
 # Application definition
 
@@ -166,6 +166,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CSRF_TRUSTED_ORIGINS = [
     'https://nextfinup.com',
     'https://www.nextfinup.com',
+    'https://admin.nextfinup.com',
 ]
 
 # 관리 커맨드(cron)처럼 request 객체가 없는 곳에서 절대 URL(예: 뉴스레터 수신거부 링크)을 만들 때 사용
