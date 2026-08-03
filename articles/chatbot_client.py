@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.db.models import Max
 
-from .models import AnalyzedArticle, MarketIndex, RankedMover, StockItem, StockPrediction
+from .models import AnalyzedArticle, MarketIndex, RankedMover, StockDailyPrice, StockItem, StockPrediction
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +77,15 @@ def _build_context(question):
             .first()
         )
         if pred:
+            # StockPrediction엔 예측값만 있고 실가격은 없다(StockDailyPrice가 분리 보관) —
+            # 기준일 종가는 그쪽에서 따로 조회해야 한다.
+            daily = StockDailyPrice.objects.filter(stock__ticker=ticker, date=pred.date).first()
+            base_close = f"{daily.close_price:,.0f}원" if daily else "정보 없음"
             next_close = f"{pred.pred_next_close:,.0f}원" if pred.pred_next_close is not None else "정보 없음"
             up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
             down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
             lines.append(
-                f"- [{name}] {pred.date} 종가 {pred.close_price:,.0f}원, "
+                f"- [{name}] {pred.date} 종가 {base_close}, "
                 f"AI 내일 예상종가 {next_close}, "
                 f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
             )
