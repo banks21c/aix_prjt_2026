@@ -152,6 +152,11 @@ MESSAGE_TAGS = {
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic 결과물 (nginx가 이 경로를 직접 서빙)
 
+# 기사별 AI 요약 썸네일(articles/thumbnail.py) 등 요청 시점에 생성되는 미디어 파일용.
+# nginx가 /media/를 이 경로에서 직접 서빙한다 (STATIC_ROOT와 동일한 패턴).
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -197,6 +202,10 @@ NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET')
 
 # 챗봇용 OpenAI API 키 (실제 키로 교체 전까지는 시뮬레이션 모드로 동작 - articles/chatbot_client.py 참고)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY_HERE')
+
+# 기사 AI 3줄 요약/투자 분석/블로그 초안 생성용 Gemini API 키 (실제 키로 교체 전까지는 시뮬레이션
+# 모드로 동작 - articles/article_ai.py 참고). Google AI Studio에서 무료로 발급받을 수 있다.
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY_HERE')
 
 # 한국투자증권(KIS) Open API - 실전투자(실계좌) 앱 키
 # https://apiportal.koreainvestment.com

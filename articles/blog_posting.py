@@ -88,62 +88,177 @@ def select_candidates(account, preference, limit=None):
     return candidates
 
 
-def build_post_content(article):
-    """기사 + 최신 ML 예측을 결합한 블로그 포스팅용 (제목, HTML 본문, 종목/키워드 라벨) 반환."""
-    latest_pred = StockPrediction.objects.filter(stock=article.stock).order_by('-date').first() if article.stock else None
+_SECTION_H3_STYLE = "color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;"
+_HR_HTML = '<hr style="border: 0; height: 1px; background: #CCC; margin: 30px 0;">'
+_DISCLAIMER_HTML = (
+    '<p style="font-size: 12px; color: #888; margin-top: 5px;">본 콘텐츠는 공개된 시장 데이터와 '
+    '뉴스를 참고하여 작성되었으며, 투자 판단 및 그 결과에 대한 책임은 전적으로 투자자 본인에게 '
+    '있습니다.</p>'
+)
 
-    safe_summary = article.ai_summary.replace('\n', '<br>')
+
+def _section_h3(text):
+    return f'<h3 style="{_SECTION_H3_STYLE}">{text}</h3>'
+
+
+def _build_pred_html(article, latest_pred):
+    """StockPrediction이 있으면(관련 종목이 있고 예측이 이미 돌아간 경우) ML 예측 표 HTML,
+    없으면 빈 문자열. 3개 템플릿이 모두 공유하는 블록이라 여기서 한 번만 만든다."""
+    if not (latest_pred and latest_pred.pred_next_close is not None):
+        return ""
+    signal_color = "#E53935" if latest_pred.trading_signal == 'BUY' else ("#1E88E5" if latest_pred.trading_signal == 'SELL' else "#757575")
+    return f"""
+    <div style="padding: 20px; border: 2px solid #EEE; border-radius: 10px; background-color: #FAFAFA; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; color: #333;">🤖 머신러닝 주가 추론 브리핑</h3>
+        <p><b>🎯 분석 기준 종목:</b> {article.stock.name} ({article.stock.ticker})</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr style="background-color: #F5F5F5;"><th style="padding: 8px; border: 1px solid #DDD;">예측 항목</th><th style="padding: 8px; border: 1px solid #DDD;">AI 추론 결과</th></tr>
+            <tr><td style="padding: 8px; border: 1px solid #DDD;">내일 예상 종가</td><td style="padding: 8px; border: 1px solid #DDD; font-weight: bold;">{latest_pred.pred_next_close:,.0f} 원</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #DDD;">다음날 상승 확률</td><td style="padding: 8px; border: 1px solid #DDD; color: #E53935;">{latest_pred.up_probability * 100:.1f}%</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #DDD;">향후 5일 예상 수익률</td><td style="padding: 8px; border: 1px solid #DDD;">{latest_pred.pred_5day_return}%</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #DDD;"><b>최종 투자 시그널</b></td><td style="padding: 8px; border: 1px solid #DDD; font-weight: bold; color: {signal_color};">{latest_pred.get_trading_signal_display()}</td></tr>
+        </table>
+    </div>
+    """
+
+
+def _blog_content_body(article):
+    """blog_content는 두 가지 출처가 섞여 있다(모듈 상단 주석 참고) — 이미 블록 태그가 있는
+    HTML은 그대로, 평문(레거시 RSS 수집분)은 줄바꿈만 <br>로 살려 <p>로 감싼다."""
     blog_content = article.blog_content or ''
     if _BLOCK_HTML_RE.search(blog_content):
-        # 이미 블록 태그가 있는 HTML은 그대로 삽입한다 — <br> 치환은 태그 사이 서식용 개행까지
-        # 눈에 보이는 줄바꿈으로 바꿔버리고, <p>로 감싸면 안에 있는 <h3>/<p> 등이 <p> 안에
-        # 중첩되는 잘못된 마크업이 되기 때문이다.
-        blog_content_body = blog_content
-    else:
-        # 평문(레거시 RSS 수집분)은 기존처럼 줄바꿈만 <br>로 살리고 <p>로 감싼다.
-        safe_blog_content = blog_content.replace('\n', '<br>')
-        blog_content_body = f"<p>{safe_blog_content}</p>"
+        return blog_content
+    safe_blog_content = blog_content.replace('\n', '<br>')
+    return f"<p>{safe_blog_content}</p>"
 
-    pred_html = ""
-    if latest_pred and latest_pred.pred_next_close is not None:
-        signal_color = "#E53935" if latest_pred.trading_signal == 'BUY' else ("#1E88E5" if latest_pred.trading_signal == 'SELL' else "#757575")
-        pred_html = f"""
-        <div style="padding: 20px; border: 2px solid #EEE; border-radius: 10px; background-color: #FAFAFA; margin-bottom: 20px;">
-            <h3 style="margin-top: 0; color: #333;">🤖 머신러닝 주가 추론 브리핑</h3>
-            <p><b>🎯 분석 기준 종목:</b> {article.stock.name} ({article.stock.ticker})</p>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <tr style="background-color: #F5F5F5;"><th style="padding: 8px; border: 1px solid #DDD;">예측 항목</th><th style="padding: 8px; border: 1px solid #DDD;">AI 추론 결과</th></tr>
-                <tr><td style="padding: 8px; border: 1px solid #DDD;">내일 예상 종가</td><td style="padding: 8px; border: 1px solid #DDD; font-weight: bold;">{latest_pred.pred_next_close:,.0f} 원</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #DDD;">다음날 상승 확률</td><td style="padding: 8px; border: 1px solid #DDD; color: #E53935;">{latest_pred.up_probability * 100:.1f}%</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #DDD;">향후 5일 예상 수익률</td><td style="padding: 8px; border: 1px solid #DDD;">{latest_pred.pred_5day_return}%</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #DDD;"><b>최종 투자 시그널</b></td><td style="padding: 8px; border: 1px solid #DDD; font-weight: bold; color: {signal_color};">{latest_pred.get_trading_signal_display()}</td></tr>
-            </table>
-        </div>
-        """
 
-    full_html_content = f"""
+def _subject_label(article):
+    return article.stock.name if article.stock else (
+        article.matched_keyword.keyword if article.matched_keyword else "경제"
+    )
+
+
+def _render_t1(article, safe_summary, blog_content_body, pred_html):
+    """템플릿 1 (뉴스 요약형): 뉴스 핵심 요약을 가장 먼저 보여주고, 투자 분석 → 실전 가이드
+    순으로 이어지는 원래(기본) 레이아웃."""
+    return f"""
     {pred_html}
     <div style="line-height: 1.8; font-size: 16px; color: #333;">
-        <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">📰 오늘의 뉴스 핵심 요약</h3>
+        {_section_h3('📰 오늘의 뉴스 핵심 요약')}
         <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px;">
             {safe_summary}
         </blockquote>
 
-        <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">💡 전문 투자 관점 분석</h3>
+        {_section_h3('💡 전문 투자 관점 분석')}
         <p>{article.ai_analysis}</p>
 
-        <hr style="border: 0; height: 1px; background: #CCC; margin: 30px 0;">
+        {_HR_HTML}
 
-        <h3 style="color: #0D47A1; border-left: 5px solid #0D47A1; padding-left: 10px;">🚀 실전 투자 가이드 브리핑</h3>
+        {_section_h3('🚀 실전 투자 가이드 브리핑')}
         {blog_content_body}
 
-        <p style="font-size: 12px; color: #888; margin-top: 5px;">본 콘텐츠는 공개된 시장 데이터와 뉴스를 참고하여 작성되었으며, 투자 판단 및 그 결과에 대한 책임은 전적으로 투자자 본인에게 있습니다.</p>
+        {_DISCLAIMER_HTML}
     </div>
     """
 
-    subject_label = article.stock.name if article.stock else (
-        article.matched_keyword.keyword if article.matched_keyword else "경제"
-    )
+
+def _render_t2(article, safe_summary, blog_content_body, pred_html):
+    """템플릿 2 (종목 분석형): 종목명을 헤더로 내세우고 ML 예측/투자 분석을 먼저 배치, 원본
+    뉴스 요약은 맨 뒤에 참고 자료로 축소해서 붙인다 — 뉴스 자체보다 종목 분석이 중심."""
+    subject = _subject_label(article)
+    header = f"""
+    <div style="padding: 16px 20px; background: #0D47A1; color: #fff; border-radius: 10px; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 20px;">📊 종목 분석 리포트: {subject}</h2>
+    </div>
+    """
+    return f"""
+    {header}
+    {pred_html}
+    <div style="line-height: 1.8; font-size: 16px; color: #333;">
+        {_section_h3('💡 전문 투자 관점 분석')}
+        <p>{article.ai_analysis}</p>
+
+        {_HR_HTML}
+
+        {_section_h3('🚀 실전 투자 가이드 브리핑')}
+        {blog_content_body}
+
+        {_HR_HTML}
+
+        {_section_h3('📰 관련 뉴스 요약 (참고)')}
+        <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px; font-size: 14px; color: #555;">
+            {safe_summary}
+        </blockquote>
+
+        {_DISCLAIMER_HTML}
+    </div>
+    """
+
+
+def _render_t3(article, safe_summary, blog_content_body, pred_html):
+    """템플릿 3 (카드뉴스 대본형): 제목/3줄 요약/투자 시사점을 카드뉴스 슬라이드처럼 짧고
+    굵은 카드 단위로 나열한 뒤, 실전 가이드 본문을 이어 붙인다."""
+    cards = [("HOOK", article.title)]
+    cards += [(f"CARD {i}", line) for i, line in enumerate(
+        (line.strip() for line in article.ai_summary.split('\n') if line.strip()), start=1
+    )]
+    if article.ai_analysis:
+        cards.append(("INSIGHT", article.ai_analysis))
+
+    card_html = "".join(f"""
+        <div style="padding: 18px 20px; margin-bottom: 12px; background: linear-gradient(135deg, #0D47A1, #1565C0); color: #fff; border-radius: 12px;">
+            <div style="font-size: 12px; opacity: 0.75; letter-spacing: 1px; margin-bottom: 6px;">{label}</div>
+            <div style="font-size: 18px; font-weight: 700; line-height: 1.5;">{text}</div>
+        </div>
+    """ for label, text in cards)
+
+    return f"""
+    {pred_html}
+    <div style="line-height: 1.8; font-size: 16px; color: #333;">
+        {_section_h3('🎬 카드뉴스 대본')}
+        {card_html}
+
+        {_HR_HTML}
+
+        {_section_h3('🚀 실전 투자 가이드 브리핑')}
+        {blog_content_body}
+
+        {_DISCLAIMER_HTML}
+    </div>
+    """
+
+
+_TEMPLATE_RENDERERS = {
+    'T1': _render_t1,
+    'T2': _render_t2,
+    'T3': _render_t3,
+}
+
+
+def build_post_content(article):
+    """기사 + 최신 ML 예측을 결합한 블로그 포스팅용 (제목, HTML 본문, 종목/키워드 라벨) 반환.
+    article.applied_template(T1/T2/T3)에 따라 서로 다른 레이아웃(_TEMPLATE_RENDERERS)을 적용한다 —
+    값이 비어있거나 알 수 없는 경우 기본값인 T1(뉴스 요약형)으로 처리."""
+    latest_pred = StockPrediction.objects.filter(stock=article.stock).order_by('-date').first() if article.stock else None
+
+    safe_summary = article.ai_summary.replace('\n', '<br>')
+    blog_content_body = _blog_content_body(article)
+    pred_html = _build_pred_html(article, latest_pred)
+
+    renderer = _TEMPLATE_RENDERERS.get(article.applied_template, _render_t1)
+    full_html_content = renderer(article, safe_summary, blog_content_body, pred_html)
+
+    if article.thumbnail:
+        # 워드프레스/블로거는 외부 URL로 이미지를 그대로 fetch하므로 절대 URL이 필요하다
+        # (article.thumbnail.url은 MEDIA_URL 기준 상대경로).
+        thumbnail_url = f"{settings.SITE_URL}{article.thumbnail.url}"
+        thumbnail_html = (
+            f'<p><img src="{thumbnail_url}" alt="{article.title}" '
+            'style="max-width:100%; height:auto; border-radius:10px; margin-bottom:20px;"></p>'
+        )
+        full_html_content = thumbnail_html + full_html_content
+
+    subject_label = _subject_label(article)
     # 게시판에 뜨는 원본 기사 제목(article.title)을 그대로 살려서, 회원이 블로그 관리자 화면에서
     # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이
     # 만든 콘텐츠"라는 걸 밝히지 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의

@@ -70,7 +70,8 @@ to sync in either direction). Also viewable read-only at `/admin-tools/cron/` vi
 */5 * * * *  collect_keyword_news            # RSS scrape by NewsKeyword, AI-summarize, create AnalyzedArticle rows
 */5 * * * *  collect_market_index            # KOSPI/KOSDAQ index snapshot (MarketIndex)
 */5 * * * *  collect_kis_news                # 종합 시황/공시 headlines via KIS API
-*/5 * * * *  collect_stock_realtime_price    # KIS realtime price/ranking (StockRealtimePrice, RankedMover)
+*/5 * * * *  collect_stock_realtime_price    # KIS realtime price (StockRealtimePrice)
+*/5 * * * *  collect_fluctuation_ranking     # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
 0  8 * * *   generate_newsletter_draft       # build the day's NewsletterIssue draft
 0 18 * * *   send_newsletter                 # email the draft to NewsletterSubscriber list
 ```
@@ -90,9 +91,9 @@ begin with. Both `post_to_tistory`/`post_to_naver` commands and the `TISTORY`/`N
 Members can also publish manually/selectively from the news board (`post_articles_view`,
 `news/post/`) using the same `articles/blog_posting.py` logic.
 
-Legacy/one-off collectors not on the cron schedule: `collect_fluctuation_ranking.py`,
-`scraped_ai_news.py` (original 한국경제/매일경제 RSS-only collector, superseded by
-`collect_keyword_news` for most flows but still functional).
+Legacy/one-off collector not on the cron schedule: `scraped_ai_news.py` (original
+한국경제/매일경제 RSS-only collector, superseded by `collect_keyword_news` for most flows but
+still functional).
 
 Install/refresh dependencies:
 ```

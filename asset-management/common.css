@@ -1,0 +1,69 @@
+/* 자산관리(asset-management) 전 페이지 공통 스타일.
+   각 페이지의 <head>에서 <link rel="stylesheet" href="/asset-management/common.css">로 불러온다.
+   페이지마다 조금씩 다른 부분(예: irp/savings-pension의 disclaimer 색, 보험 페이지의 .am-tabs-sub)은
+   각 파일의 자체 <style> 블록에 이 파일 다음 순서로 남겨 오버라이드한다. */
+
+/* ---------- 상단 네비게이션 (articles/_header.html과 동일한 규칙을 복제)
+   fetch('/partials/header/')가 메뉴 항목만 채워 넣지, 이 nav 자체를 통째로
+   교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던 현상이 사라진다. ---------- */
+.app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
+.app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
+.app-nav-menu { display: flex; align-items: center; gap: 8px; }
+.nav-dropdown { position: relative; display: inline-block; }
+.nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
+.nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
+.nav-dropdown:hover .nav-dropdown-menu { display: block; }
+.nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
+.nav-dropdown-menu a:hover { background: #f1f3f5; }
+@media (max-width: 768px) {
+  .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
+  .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
+  .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+}
+.app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+.app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
+.app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
+.app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
+.app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
+.app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
+.app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+.provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
+.app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
+@media (max-width: 768px) {
+  .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
+  .app-navbar-toggler { display: inline-block; }
+  .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
+  .app-nav-menu.open { display: flex !important; }
+  .app-nav-menu .btn { width: 100%; justify-content: center; }
+}
+
+/* ---------- 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ---------- */
+.am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
+.am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+.am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
+          border-bottom:3px solid transparent; text-decoration:none; }
+.am-tab:hover { color:#0d47a1; }
+.am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
+.am-tab-new { position: relative; }
+.am-tab-sparkle {
+  position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
+  animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
+}
+@keyframes am-sparkle-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
+}
+
+/* ---------- 공통 footer 카드 (문구·배지 색만 페이지별 자체 스타일로 덮어씀) ---------- */
+footer { padding: 40px 24px 56px; }
+.footer-inner {
+  max-width: 912px; margin: 0 auto;
+  background: linear-gradient(135deg, #0a2647, #144272); color: #fff;
+  border-radius: 14px; box-shadow: 0 6px 18px rgba(10,38,71,0.22);
+  padding: 34px 30px 38px;
+}
+.footer-brand { font-weight: 900; font-size: 1.1rem; margin-bottom: 10px; }
+.footer-inner .disclaimer {
+  font-size: 0.82rem; opacity: 0.68; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px; margin-top: 28px; line-height: 1.7;
+}

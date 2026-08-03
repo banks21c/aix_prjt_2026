@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -16,6 +17,8 @@
            문단 사이가 두 줄처럼 벌어져 보이지 않도록 여백을 줄인다(구조는 <p> 그대로 유지). */
         .toastui-editor-contents p { margin: 0 !important; }
     </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
 </head>
 <body>
 
@@ -35,6 +38,10 @@
         <div class="card card-custom bg-white p-4 mt-3">
             <h3 class="fw-bold mb-4">기사 수정</h3>
 
+            {% if article.thumbnail %}
+            <img src="{{ article.thumbnail.url }}" alt="{{ article.title }}" class="img-fluid rounded mb-3">
+            {% endif %}
+
             <form method="post" novalidate>
                 {% csrf_token %}
 
@@ -49,19 +56,23 @@
                         {% endif %}
                     </div>
                 </div>
+                {% elif field.name == 'is_premium' %}
+                <div class="mb-3 d-flex align-items-center gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0">{{ field.label }}</label>
+                    <div class="form-check form-check-inline mb-0">
+                        {{ field }}
+                    </div>
+                    {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
                 {% else %}
                 <div class="mb-3">
                     <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                    {% if field.name == 'is_premium' %}
-                    <div class="form-check">
-                        {{ field }}
-                    </div>
-                    {% else %}
                     {{ field }}
                     {% if field.name == 'blog_content' %}
                     <div id="blogContentEditor" class="mt-2"></div>
                     <div class="form-text">이 편집기에서 수정한 내용이 저장 시 자동으로 반영됩니다.</div>
-                    {% endif %}
                     {% endif %}
                     {% if field.errors %}
                     <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>

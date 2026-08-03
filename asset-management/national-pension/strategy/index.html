@@ -57,7 +57,7 @@
 
   /* ── 레이아웃 ── */
   main{max-width:960px;margin:0 auto;padding:0 24px}
-  section{padding:56px 0;border-bottom:1px solid var(--border)}
+  section{padding:32px 0;border-bottom:1px solid var(--border)}
   section:last-of-type{border-bottom:none}
   h2{font-size:1.5rem;font-weight:800;color:var(--brand-dark);letter-spacing:-.5px;margin-bottom:6px}
   h2 .num{color:var(--accent)}
@@ -97,78 +97,21 @@
     padding:13px 28px;border-radius:30px;font-weight:800;box-shadow:var(--shadow)}
   .cta:hover{background:var(--brand-dark)}
 
-  footer{background:var(--card-stub);color:var(--muted);padding:40px 24px;text-align:center;font-size:.9rem;border-top:1px solid var(--border)}
-  footer a{color:var(--brand);font-weight:700;text-decoration:underline}
-  footer .official{margin-top:10px;font-size:.82rem;opacity:.8}
-
   /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
   .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
   .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
   .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
   .pt-title .pt-icon { font-size: 28px; line-height: 1; }
   .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
-
-  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
-  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
-  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
-  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
-            border-bottom:3px solid transparent; text-decoration:none; }
-  .am-tab:hover { color:#0d47a1; }
-  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
-  .am-tab-new { position: relative; }
-  .am-tab-sparkle {
-    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
-    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
-  }
-  @keyframes am-sparkle-twinkle {
-    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
-    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
-  }
 </style>
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-  <style>
-    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
-       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
-       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
-       현상이 사라진다). */
-    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
-    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
-    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
-    .nav-dropdown { position: relative; display: inline-block; }
-    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
-    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
-    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
-    .nav-dropdown-menu a:hover { background: #f1f3f5; }
-    @media (max-width: 768px) {
-      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
-      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
-      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    }
-    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
-    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
-    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
-    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
-    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
-    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
-    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
-    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
-    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
-    @media (max-width: 768px) {
-      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
-      .app-navbar-toggler { display: inline-block; }
-      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
-      .app-nav-menu.open { display: flex !important; }
-      .app-nav-menu .btn { width: 100%; justify-content: center; }
-    }
-  </style>
   <nav class="app-navbar">
     <div class="container">
-      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
       <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
       <div class="app-nav-menu" id="appNavMenu"></div>
     </div>
@@ -248,9 +191,17 @@
 
     <div class="card">
       <h3>임의계속가입</h3>
-      <p>60세가 되어 의무가입 대상에서 빠지더라도,
-        최소 가입기간(10년)을 채우지 못했거나 기간을 더 늘리고 싶다면
-        <strong>임의로 계속 가입</strong>할 수 있습니다.</p>
+      <p>60세가 되어 의무가입 대상에서 빠지더라도 <strong>65세 미만</strong>까지는
+        본인이 원하면 계속 가입할 수 있습니다. 이때 보험료는 사업주 지원 없이
+        <strong>본인이 선택한 기준소득월액의 보험료를 전액 혼자 부담</strong>합니다.</p>
+      <p><strong>장점</strong></p>
+      <ul>
+        <li>가입 기간이 늘어난 만큼 연금액이 커집니다 — 예컨대 60세 이후 <strong>5년간</strong> 임의계속가입하면
+          월 수령액이 <strong>약 7만 2천원</strong> 정도 늘어나는 것으로 추정됩니다(소득 수준에 따라 차이).</li>
+        <li>10년(120개월)을 채우지 못한 사람에게는 부족한 기간을 메워
+          <strong>연금을 받을 자격 자체를 만들어주는</strong> 효과도 있습니다.</li>
+        <li>60세 이후에도 소득이 안정적이라면, 추가 납부가 노후 자금 마련에 특히 유리합니다.</li>
+      </ul>
     </div>
   </section>
 
@@ -273,10 +224,15 @@
 
     <div class="card">
       <h3>연기연금 (늦게 받기)</h3>
-      <p>60세 이상 65세 미만의 노령연금 수급권자가 신청할 수 있으며,
+      <p>노령연금 수급권자가 정상 개시 연령부터 최대 5년간 신청할 수 있으며,
         연기되는 <strong>매 1개월마다 0.6%(연 7.2%)</strong>를 가산받습니다.
         최대 5년까지 연기 가능하고, <strong>최대 36% 더 많은 금액을 평생</strong> 받게 됩니다.</p>
-      <p>연기 중에도 언제든 재지급을 신청하면 그 다음 달부터 지급이 개시됩니다.</p>
+      <p><strong>부분연기</strong>도 가능합니다 — 연금액 전부가 아니라 일부만 골라 1개월 단위로 연기할 수 있어,
+        당장 필요한 만큼만 받고 나머지는 가산율을 붙여 늘릴 수 있습니다.</p>
+      <p>예를 들어 월 100만원을 받을 수급자가 5년을 꽉 채워 연기하면 월 <strong>약 136만원</strong>을 받게 되고,
+        재개 후 30년을 더 산다고 가정하면 늦게 받은 대가로 <strong>약 1억 3천만원</strong>을 더 받는 셈이 됩니다.</p>
+      <p>연기 중에도 언제든 재지급을 신청하면 그 다음 달부터 지급이 개시되며,
+        이때는 <strong>취소 시점까지 쌓인 증액률만</strong> 적용되어 유연하게 관리할 수 있습니다.</p>
     </div>
 
     <div class="card">
@@ -291,11 +247,28 @@
       <p>건강 상태, 다른 소득원 유무, 기대수명에 따라 달라집니다.
         조기수령과 연기수령 사이에는 <strong>손익분기 나이</strong>가 있어,
         그 이전에 사망하면 조기수령이, 그 이후까지 생존하면 연기수령이 유리합니다.</p>
+      <p>연기연금은 대략 수령을 <strong>재개한 뒤 8~10년 이상</strong> 생존해야
+        연기 기간 동안 못 받은 금액(기회비용)을 회수할 수 있는 구조입니다 —
+        건강 상태와 예상 수명을 함께 고려해 결정하세요.</p>
     </div>
   </section>
 
   <section>
-    <h2><span class="num">3.</span> 놓치기 쉬운 함정 — 건강보험 피부양자 자격</h2>
+    <h2><span class="num">3.</span> 두 제도를 함께 쓰면? — 수령액 극대화 조합</h2>
+    <p class="lead">임의계속가입과 연기연금은 적용되는 시점이 다른 별개 제도라, 순서대로 이어 붙일 수 있습니다.</p>
+    <div class="summary-box">
+      <p>먼저 <strong>임의계속가입(60~65세, 더 내기)</strong>으로 가입 기간과 기본연금액을 최대한 늘려놓은 뒤,
+        수급 개시 연령부터 <strong>연기연금(최대 5년, 늦게 받기)</strong>으로 그 늘어난 금액에
+        <strong>36%를 추가로 얹는</strong> 조합이 이론적으로 수령액을 가장 크게 늘리는 전략입니다.</p>
+      <ol>
+        <li><strong>60~65세</strong> — 임의계속가입으로 가입기간·기본연금액을 최대한 늘린다</li>
+        <li><strong>수급 개시 후 최대 5년</strong> — 연기연금으로 늘어난 기본연금액에 최대 36%를 더 얹는다</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4.</span> 놓치기 쉬운 함정 — 건강보험 피부양자 자격</h2>
     <div class="card warn">
       <h3>⚠ 연기 결정 전에 반드시 시뮬레이션하세요</h3>
       <p>연기연금으로 수령액을 늘렸다가 국민연금 수령액이 연 기준을 넘으면
@@ -308,7 +281,7 @@
   </section>
 
   <section>
-    <h2><span class="num">4.</span> 2026년 제도 변화 참고</h2>
+    <h2><span class="num">5.</span> 2026년 제도 변화 참고</h2>
     <div class="card">
       <ul>
         <li><strong>소득대체율 43% 상향</strong> — 2026년부터 적용되어
@@ -341,10 +314,13 @@
 </main>
 
 <footer>
-  <p>본 사이트는 국민연금 제도 이해를 돕기 위한 <strong>비공식 안내 페이지</strong>입니다.</p>
-  <p class="official">정확한 정보·신청·상담은 국민연금공단
-    <a href="https://www.nps.or.kr" target="_blank" rel="noopener">www.nps.or.kr</a>
-    또는 국번없이 <strong>☎ 1355</strong></p>
+  <div class="footer-inner">
+    <div class="footer-brand">🏛️ 국민연금 안내</div>
+    <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 국민연금 제도 이해를 돕기 위한 비공식 안내 페이지예요. 특정 금융회사나 상품을 권유하지 않아요.</p>
+    <div class="disclaimer">
+      정확한 정보·신청·상담은 국민연금공단 <a href="https://www.nps.or.kr" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">www.nps.or.kr</a> 또는 국번없이 <strong>☎ 1355</strong>로 문의하세요. 본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다.
+    </div>
+  </div>
 </footer>
 
 </body>

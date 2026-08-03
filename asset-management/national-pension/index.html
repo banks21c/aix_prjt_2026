@@ -113,7 +113,7 @@
 
   /* ── 레이아웃 ── */
   main{max-width:960px;margin:0 auto;padding:0 24px}
-  section{padding:56px 0;border-bottom:1px solid var(--border)}
+  section{padding:16px 0;border-bottom:1px solid var(--border)}
   section:last-child{border-bottom:none}
   .sec-head{text-align:center;margin-bottom:40px}
   .sec-head .tag{color:var(--accent);font-weight:800;font-size:.9rem;letter-spacing:1px}
@@ -210,10 +210,18 @@
   }
   .faq .more a:hover{background:var(--brand-dark)}
 
-  /* ── 푸터 ── */
-  footer{background:var(--card-stub);color:var(--muted);padding:40px 24px;text-align:center;font-size:.9rem;border-top:1px solid var(--border)}
-  footer a{color:var(--brand);font-weight:700;text-decoration:underline}
-  footer .official{margin-top:10px;font-size:.82rem;opacity:.8}
+  /* ---------- 상담 유도 배너 ---------- */
+  .consult-cta {
+    background: var(--accent); color: var(--on-brand); border-radius: 12px; padding: 28px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .consult-cta h3 { font-size: 18px; margin: 0 0 4px; }
+  .consult-cta p { margin: 0; font-size: 13.5px; opacity: 0.88; }
+  .consult-cta-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 22px; background: #fff; color: var(--accent);
+    text-decoration: none; white-space: nowrap;
+  }
 
   @media(max-width:760px){
     .hero h1{font-size:1.8rem}
@@ -225,73 +233,20 @@
   }
 
   /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
-  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; min-height: 320px; }
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
   .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
   .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
   .pt-title .pt-icon { font-size: 28px; line-height: 1; }
   .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0 0 16px; }
-
-  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
-  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
-  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
-  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
-            border-bottom:3px solid transparent; text-decoration:none; }
-  .am-tab:hover { color:#0d47a1; }
-  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
-  .am-tab-new { position: relative; }
-  .am-tab-sparkle {
-    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
-    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
-  }
-  @keyframes am-sparkle-twinkle {
-    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
-    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
-  }
 </style>
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-  <style>
-    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
-       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
-       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
-       현상이 사라진다). */
-    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
-    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
-    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
-    .nav-dropdown { position: relative; display: inline-block; }
-    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
-    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
-    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
-    .nav-dropdown-menu a:hover { background: #f1f3f5; }
-    @media (max-width: 768px) {
-      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
-      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
-      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    }
-    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
-    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
-    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
-    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
-    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
-    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
-    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
-    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
-    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
-    @media (max-width: 768px) {
-      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
-      .app-navbar-toggler { display: inline-block; }
-      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
-      .app-nav-menu.open { display: flex !important; }
-      .app-nav-menu .btn { width: 100%; justify-content: center; }
-    }
-  </style>
   <nav class="app-navbar">
     <div class="container">
-      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
       <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
       <div class="app-nav-menu" id="appNavMenu"></div>
     </div>
@@ -330,6 +285,7 @@
     <nav id="nav">
       <ul>
         <li><a href="#intro">제도 소개</a></li>
+        <li><a href="#reform2026">2026년 개정</a></li>
         <li><a href="#calc">예상 연금 계산기</a></li>
         <li><a href="#age">수령 조건·나이</a></li>
         <li><a href="#faq">자주 묻는 질문</a></li>
@@ -350,7 +306,6 @@
   <!-- 1. 제도 소개 / 가입 대상 -->
   <section id="intro">
     <div class="sec-head">
-      <div class="tag">ABOUT</div>
       <h2>국민연금 제도 소개</h2>
       <p>노후·장애·사망 시 본인과 가족의 생활을 보장하는 사회보험 제도입니다.</p>
     </div>
@@ -368,11 +323,12 @@
       <div class="card">
         <div class="ico">💳</div>
         <h3>보험료율</h3>
-        <p>기준소득월액의 <strong>9%</strong>를 납부합니다.</p>
+        <p>기준소득월액의 <strong>9%</strong>를 납부합니다. <strong style="color:var(--accent)">2026년 개정으로 9.5%로 인상 후 단계적으로 13%까지 오릅니다.</strong></p>
         <ul>
-          <li>사업장가입자: 본인 4.5% + 사업주 4.5%</li>
-          <li>지역가입자: 전액 본인 부담(9%)</li>
+          <li>사업장가입자: 본인 절반 + 사업주 절반 부담</li>
+          <li>지역가입자: 전액 본인 부담</li>
           <li>최소 <strong>10년(120개월)</strong> 이상 납부 시 노령연금 수급</li>
+          <li><a href="#reform2026">2026년 개정 내용 자세히 보기 ↓</a></li>
         </ul>
       </div>
       <div class="card">
@@ -395,6 +351,86 @@
           <li>수급 중 물가 상승분 자동 반영</li>
         </ul>
       </div>
+    </div>
+  </section>
+
+  <!-- 1-1. 2026년 개정 국민연금법 핵심 정리 -->
+  <section id="reform2026">
+    <div class="sec-head">
+      <div class="tag">2026 REFORM</div>
+      <h2>2026년 개정, 무엇이 달라지나요</h2>
+      <p>2025년 3월 국회를 통과해 2026년 1월 1일부터 시행된, 2007년 이후 18년 만의 연금개혁입니다.</p>
+    </div>
+
+    <div class="pill-row">
+      <div class="pill">
+        <h4>💳 보험료율</h4>
+        <p class="big">9% → 13%</p>
+        <p style="color:var(--muted)">2026년 9.5%로 인상된 뒤 매년 0.5%p씩 올라 2033년 13%에 도달합니다.</p>
+      </div>
+      <div class="pill">
+        <h4>📈 소득대체율</h4>
+        <p class="big">43%로 고정</p>
+        <p style="color:var(--muted)">2028년까지 40%로 낮아질 예정이었으나, 이번 개정으로 43%에 고정됐습니다.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:24px">
+      <table>
+        <thead><tr><th>적용 연도</th><th>보험료율 (사업장가입자 등)</th></tr></thead>
+        <tbody>
+          <tr><td>2026년</td><td>9.5%</td></tr>
+          <tr><td>2027년</td><td>10.0%</td></tr>
+          <tr><td>2028년</td><td>10.5%</td></tr>
+          <tr><td>2029년</td><td>11.0%</td></tr>
+          <tr><td>2030년</td><td>11.5%</td></tr>
+          <tr><td>2031년</td><td>12.0%</td></tr>
+          <tr><td>2032년</td><td>12.5%</td></tr>
+          <tr class="hl"><td>2033년</td><td>13.0% (최종)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:10px">
+      지역가입자·임의가입자·임의계속가입자는 2026년 9.5%에서 시작해 2032년까지 매년 0.5%p씩 인상되는 별도의 경과 조치가 적용됩니다.
+    </p>
+
+    <div class="grid" style="margin-top:32px">
+      <div class="card">
+        <div class="ico">👶</div>
+        <h3>출산 크레딧 확대</h3>
+        <p>기존 <strong>둘째 자녀부터</strong> 적용되던 가입기간 추가 인정이 <strong>첫째 자녀부터</strong>로 확대됩니다. 자녀 1명당 <strong>12개월</strong>씩 가입기간을 추가로 인정받습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🪖</div>
+        <h3>군복무 크레딧 확대</h3>
+        <p>기존에는 복무기간 중 <strong>6개월</strong>만 인정됐지만, 2026년 1월 1일 이후 6개월 이상 병역의무를 이행하면 <strong>최대 12개월</strong>까지 인정 범위가 넓어졌습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🕊️</div>
+        <h3>유족연금 수급 요건</h3>
+        <p>사망일 5년 전부터 3년 이상 보험료를 낸 가입자(체납 3년 이상은 제외) 등이 기본 요건입니다. <strong>2026년 신설</strong> — 미성년 자녀 부양의무를 다하지 않아 법원 판결로 상속권을 상실한 부모는, 자녀가 사망해도 유족연금 등 사망관련 급여를 받을 수 없습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🏛️</div>
+        <h3>국가 지급보장 명문화</h3>
+        <p>국가가 연금 급여를 안정적·지속적으로 지급하도록 보장한다는 조항이 <strong>국민연금법 제3조의2, 제88조제3항, 부칙 제4조</strong>에 명문화되어 제도 신뢰도를 높였습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">💼</div>
+        <h3>일하는 어르신 감액 완화</h3>
+        <p>소득이 있는 수급자의 연금액을 깎던 <strong>재직자 노령연금 감액제도</strong>를 완화하는 방향으로 개정안이 통과됐습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧮</div>
+        <h3>추후납부(추납) 계산기준 변경</h3>
+        <p>추납 시 적용하는 보험료율과 소득대체율 모두, 과거 기준이 아니라 <strong>실제로 납부하는 시점(달) 기준</strong>으로 계산합니다.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer" style="margin-top:28px">
+      💡 <strong>한 줄 요약</strong> — 이번 개혁의 핵심은 <strong>"더 내고 더 받는"</strong> 구조입니다.
+      아래 예상 연금 계산기는 개정 이전 산정식을 단순화한 참고용이라 인상된 보험료율·고정된 소득대체율은 반영돼 있지 않습니다.
+      본인의 정확한 예상 연금액·가입기간은 <a href="https://www.nps.or.kr" target="_blank" rel="noopener">국민연금공단</a> 「내 연금 알아보기」에서 확인하세요.
     </div>
   </section>
 
@@ -578,13 +614,26 @@
     </div>
   </section>
 
+  <section style="padding-top:8px;">
+    <div class="consult-cta">
+      <div>
+        <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
+        <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
+      </div>
+      <a class="consult-cta-btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+    </div>
+  </section>
+
 </main>
 
 <footer>
-  <p>본 사이트는 국민연금 제도 이해를 돕기 위한 <strong>비공식 안내 페이지</strong>입니다.</p>
-  <p class="official">정확한 정보·신청·상담은 국민연금공단
-    <a href="https://www.nps.or.kr" target="_blank" rel="noopener">www.nps.or.kr</a>
-    또는 국번없이 <strong>☎ 1355</strong></p>
+  <div class="footer-inner">
+    <div class="footer-brand">🏛️ 국민연금 안내</div>
+    <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 국민연금 제도 이해를 돕기 위한 비공식 안내 페이지예요. 특정 금융회사나 상품을 권유하지 않아요.</p>
+    <div class="disclaimer">
+      정확한 정보·신청·상담은 국민연금공단 <a href="https://www.nps.or.kr" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">www.nps.or.kr</a> 또는 국번없이 <strong>☎ 1355</strong>로 문의하세요. 본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다.
+    </div>
+  </div>
 </footer>
 
 <script>

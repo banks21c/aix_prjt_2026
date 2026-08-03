@@ -55,18 +55,20 @@
             box-shadow: 0 14px 34px rgba(13,71,161,0.16), 0 3px 8px rgba(13,71,161,0.08);
         }
         .ec-card h2 { font-size: 19px; font-weight: 800; color: #0d47a1; margin: 0 0 20px; }
-        /* 전문가 사진을 아직 받지 못했다. 사람 사진처럼 보이는 스톡 이미지를 쓰지 않기 위해
-           이니셜을 넣은 중립적인 원형 도형으로 자리만 잡아둔다. 실제 사진을 받으면
-           articles/static/articles/ 에 넣고 이 div를 <img>로 교체한다. */
         .ec-photo {
             width: 150px; height: 150px; border-radius: 50%;
             background: #e3ecfa; color: #0d47a1;
             display: flex; align-items: center; justify-content: center;
             font-size: 46px; font-weight: 800; flex: 0 0 auto;
+            /* 원본이 세로로 긴 증명사진이라 object-fit:cover 기본(중앙 정렬)이면 위쪽
+               머리카락이 잘린다. 세로 정렬 기준을 위쪽으로 당겨 머리 대신 아래쪽
+               가슴 부분이 잘리게 한다. */
+            object-fit: cover; object-position: 50% 10%;
         }
-        .ec-profile { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
-        /* 제목·사진·이름·직함을 한 덩어리로 묶어 세로로 쌓는다. 제목까지 이 칸으로 내려야
-           오른쪽 박스들이 카드 맨 위부터 시작해 사진 아래 세로 여백이 줄어든다.
+        /* 사진 영역(.ec-identity)이 오른쪽 경력/자격 박스보다 낮아서, 세로 가운데 정렬로
+           맞춘다. */
+        .ec-profile { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+        /* 제목·사진·이름·직함을 한 덩어리로 묶어 세로로 쌓는다.
            폭은 사진(150px)보다 넓게 잡아 이름·직함이 두 줄로 접히지 않게 한다. */
         .ec-identity {
             flex: 0 0 auto; width: 215px;
@@ -150,6 +152,23 @@
         #consult { scroll-margin-top: 76px; }
         .ec-form label { font-size: 13px; font-weight: 700; color: #343a40; margin-bottom: 6px; }
         .ec-form .form-control, .ec-form .form-select { font-size: 14px; }
+        /* Bootstrap 기본 파랑(#0d6efd/#0b5ed7/#0a58ca)은 위 히어로의 네이비와 겉돌아서,
+           신청 버튼도 같은 네이비 계열로 덮어쓴다. */
+        .btn-primary {
+            background: linear-gradient(135deg, #0a2647, #144272);
+            border-color: #0a2647;
+        }
+        .btn-primary:hover, .btn-primary:focus-visible {
+            background: linear-gradient(135deg, #081d38, #0f3359);
+            border-color: #081d38;
+        }
+        .btn-primary:active {
+            background: linear-gradient(135deg, #06182c, #0c2a4a);
+            border-color: #06182c;
+        }
+        .btn-primary:focus-visible {
+            box-shadow: 0 0 0 0.25rem rgba(10, 38, 71, 0.35);
+        }
         /* 허니팟 — 사람에게는 보이지 않고 봇만 채우도록 화면 밖으로 밀어낸다.
            display:none은 일부 봇이 건너뛰므로 쓰지 않는다. */
         .ec-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
@@ -163,6 +182,8 @@
             .ec-facts { grid-template-columns: 1fr; }
         }
     </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
 </head>
 <body>
 {% include "articles/_header.html" %}
@@ -178,11 +199,11 @@
     <div class="ec-card ec-profile-card">
         <div class="ec-profile">
             <div class="ec-identity">
-                <h2>상담을 맡는 전문가</h2>
-                <div class="ec-photo" aria-hidden="true">NF</div>
+                <h2 style="text-align:center">상담 전문가</h2>
+                <img class="ec-photo" src="{% static 'articles/expert1.png' %}" alt="장창근">
                 <div class="ec-identity-text">
-                    <p class="ec-profile-name">홍길동</p>
-                    <p class="ec-profile-title">종합자산관리 FC</p>
+                    <p class="ec-profile-name">장창근</p>
+                    <p class="ec-profile-title">종합자산관리 FP</p>
                 </div>
             </div>
             <div style="flex: 1; min-width: 260px;">
@@ -191,10 +212,10 @@
                         <dt>경력</dt>
                         <dd>
                             <ul class="ec-fact-list">
-                                <li><span>뉴욕생명</span><span class="ec-year">2002</span></li>
-                                <li><span>한국금융판매</span><span class="ec-year">2010</span></li>
-                                <li><span>골든브릿지</span><span class="ec-year">2013</span></li>
-                                <li><span>밸류마크</span><span class="ec-year">2013</span></li>
+                                <li><span>뉴욕생명</span><span class="ec-year">2002~2007</span></li>
+                                <li><span>골든브릿지</span><span class="ec-year">2008~2011</span></li>
+                                <li><span>한국금융판매</span><span class="ec-year">2012~2013</span></li>
+                                <li><span>밸류마크</span><span class="ec-year">2013~2025</span></li>
                             </ul>
                         </dd>
                     </dl>
@@ -205,9 +226,9 @@
                                 <li><span>생명보험자격증</span><span class="ec-year">2002</span></li>
                                 <li><span>손해보험자격증</span><span class="ec-year">2003</span></li>
                                 <li><span>변액보험자격증</span><span class="ec-year">2006</span></li>
-                                <li><span>부동산Fund자격증</span><span class="ec-year">2011</span></li>
-                                <li><span>증권Fund자격증</span><span class="ec-year">2011</span></li>
-                                <li><span>AFPK자격증</span><span class="ec-year">2013</span></li>
+                                <li><span>부동산펀드자격증</span><span class="ec-year">2009</span></li>
+                                <li><span>AFPK자격증취득</span><span class="ec-year">2009</span></li>
+                                <li><span>증권펀드자격증</span><span class="ec-year">2009</span></li>
                             </ul>
                         </dd>
                     </dl>
@@ -218,7 +239,7 @@
                                 <li><span>뉴욕생명</span><span class="ec-note">Ten A Month</span></li>
                                 <li><span>한국금융판매</span><span class="ec-note">우수컨설턴트</span></li>
                                 <li><span>골든브릿지</span><span class="ec-note">우수컨설턴트</span></li>
-                                <li><span>밸류마크</span></li>
+                                <li><span>밸류마크AWARD</span></li>
                             </ul>
                         </dd>
                     </dl>
