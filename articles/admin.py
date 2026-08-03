@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
@@ -360,11 +362,17 @@ class ConsultRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description='이름')
     def name_with_sheet_link(self, obj):
-        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결
-        return format_html(
-            '<a href="{}" target="_blank">{}</a>',
-            reverse('financial_consult_sheet'), obj.name,
-        )
+        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결.
+        # ConsultRequest는 오직 사이트의 온라인 상담 신청 폼(consult_request_view)을 통해서만
+        # 생성되므로 신청경로는 항상 "온라인 상담신청"으로 넘긴다.
+        params = urlencode({
+            'name': obj.name,
+            'phone': obj.phone,
+            'apply_date': obj.created_at.strftime('%Y-%m-%d'),
+            'channel': '온라인 상담신청',
+        })
+        url = f"{reverse('financial_consult_sheet')}?{params}"
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.name)
 
 
 # 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)

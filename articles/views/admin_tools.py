@@ -408,7 +408,16 @@ def financial_consult_sheet_view(request):
     # FC/PB가 상담 중 사용하는 내부 전용 종합 재무상담 시트.
     # "저장" 버튼을 누르면 financial_consult_sheet_save_view로 전체 입력값을 JSON으로 전송해
     # FinancialConsultSheet에 기록하고, 별도로 인쇄/PDF 저장도 가능하다.
-    return render(request, 'articles/financial_consult_sheet.html', {'site_title': 'NextFinUp - 종합 재무상담 시트'})
+    # ConsultRequest 관리자 목록의 이름 링크(articles/admin.py name_with_sheet_link)가
+    # name/phone/apply_date/channel을 쿼리스트링으로 넘겨, 그 리드의 기본정보를 미리 채워준다.
+    context = {
+        'site_title': 'NextFinUp - 종합 재무상담 시트',
+        'prefill_name': request.GET.get('name', ''),
+        'prefill_phone': request.GET.get('phone', ''),
+        'prefill_apply_date': request.GET.get('apply_date', ''),
+        'prefill_channel': request.GET.get('channel', ''),
+    }
+    return render(request, 'articles/financial_consult_sheet.html', context)
 
 
 @staff_member_required

@@ -339,9 +339,16 @@
       <div><label>상담일자</label><input type="date" name="meta_consult_date" /></div>
       <div><label>상담자 (FC/PB)</label><input type="text" placeholder="이름 입력" name="meta_consultant" /></div>
       <div><label>신청 경로</label>
-        <select name="meta_channel"><option value="">선택</option><option>전화 상담신청</option><option>온라인 상담신청</option><option>방문 상담신청</option><option>소개/추천</option><option>기타</option></select>
+        <select name="meta_channel">
+          <option value="">선택</option>
+          <option {% if prefill_channel == '전화 상담신청' %}selected{% endif %}>전화 상담신청</option>
+          <option {% if prefill_channel == '온라인 상담신청' %}selected{% endif %}>온라인 상담신청</option>
+          <option {% if prefill_channel == '방문 상담신청' %}selected{% endif %}>방문 상담신청</option>
+          <option {% if prefill_channel == '소개/추천' %}selected{% endif %}>소개/추천</option>
+          <option {% if prefill_channel == '기타' %}selected{% endif %}>기타</option>
+        </select>
       </div>
-      <div><label>신청일</label><input type="date" name="meta_apply_date" /></div>
+      <div><label>신청일</label><input type="date" name="meta_apply_date" value="{{ prefill_apply_date }}" /></div>
     </div>
     <fieldset style="border:none;margin:0;padding:0;">
       <legend style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">상담 목적 (해당 항목 모두 선택)</legend>
@@ -367,9 +374,9 @@
     <div class="card-head"><span class="num">01</span><h2>고객 기본정보</h2><span class="en">Client Profile</span></div>
     <div class="card-body">
       <div class="field-grid">
-        <div class="field"><label>성명<span class="req">*</span></label><input type="text" name="s1_name" /></div>
+        <div class="field"><label>성명<span class="req">*</span></label><input type="text" name="s1_name" value="{{ prefill_name }}" /></div>
         <div class="field"><label>생년월일 (만 나이)</label><input type="date" name="s1_birth" /></div>
-        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" name="s1_phone" /></div>
+        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" name="s1_phone" value="{{ prefill_phone }}" /></div>
         <div class="field"><label>이메일</label><input type="text" name="s1_email" /></div>
         <div class="field"><label>직업 / 직장</label><input type="text" name="s1_job" /></div>
         <div class="field"><label>결혼 여부 / 배우자 직업</label><input type="text" name="s1_marital" /></div>
