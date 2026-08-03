@@ -20,9 +20,10 @@ class NewsletterSubscriber(models.Model):
 
 
 class NewsletterIssue(models.Model):
-    """뉴스레터 발행 1회분. generate_newsletter_draft 커맨드가 최근 기사로 초안(DRAFT)을 자동
-    작성해두면, 관리자가 Admin 화면에서 제목/본문을 직접 확인·수정한 뒤 상태를 READY로 바꾼다.
-    send_newsletter 커맨드는 READY 상태인 건만 골라 발송하고 SENT로 넘긴다."""
+    """뉴스레터 발행 1회분. generate_newsletter_draft 커맨드가 최근 기사로 자동 작성과 동시에
+    상태를 곧장 READY로 만든다(관리자 검토 단계 없음 — 매일 밤 자동 발송). send_newsletter
+    커맨드는 READY 상태인 건만 골라 발송하고 SENT로 넘긴다. DRAFT는 과거 수동 검토 플로우의
+    잔재로, Admin에서 수동으로 초안을 만들어 검토하고 싶을 때를 위해 남겨둔 상태값이다."""
     STATUS_CHOICES = [
         ('DRAFT', '초안(검토 대기)'),
         ('READY', '발송 대기(다음 자동발송 때 전송)'),

@@ -222,9 +222,19 @@ def movers_to_text(movers, reports=None):
     if others:
         lines.append("")
         lines.append("[오늘의 증권사 리포트 (특징주 외)]")
-        lines += [f"- {r['name']}({r['ticker']}): {r['text']}" for r in others]
+        lines += [f"- {_report_line_prefix(r)}{r['text']}" for r in others]
 
     return "\n".join(lines)
+
+
+def _report_line_prefix(report):
+    """리포트 종목의 당일 등락 정보를 앞에 붙인다. 실시간 시세가 없는 종목(휴장일 수집 실패 등)은
+    가격 없이 이름만 붙인다."""
+    price = report.get('price')
+    change_pct = report.get('change_pct')
+    if price is None or change_pct is None:
+        return f"{report['name']}({report['ticker']}): "
+    return f"{report['name']}({report['ticker']}, {price:,.0f}원 {change_pct:+.2f}%): "
 
 
 # articles/thumbnail.py SIGNAL_COLORS의 BUY/SELL 색상과 동일 — 국내 관례대로 상승=빨강, 하락=파랑
@@ -256,9 +266,15 @@ def _movers_list_html(movers_subset):
 
 
 def _reports_list_html(reports_subset):
-    items = "".join(
-        f"<li>{_naver_finance_link(r['ticker'], r['name'])}: {r['text']}</li>" for r in reports_subset
-    )
+    def report_item(r):
+        price = r.get('price')
+        change_pct = r.get('change_pct')
+        link = _naver_finance_link(r['ticker'], r['name'])
+        if price is None or change_pct is None:
+            return f"<li>{link}: {r['text']}</li>"
+        return f"<li>{link} ({price:,.0f}원, {_colored_pct(change_pct)}): {r['text']}</li>"
+
+    items = "".join(report_item(r) for r in reports_subset)
     return f"<ul>{items}</ul>"
 
 

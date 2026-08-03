@@ -72,18 +72,33 @@ to sync in either direction). Also viewable read-only at `/admin-tools/cron/` vi
 */5 * * * *  collect_kis_news                # 종합 시황/공시 headlines via KIS API
 */5 * * * *  collect_stock_realtime_price    # KIS realtime price (StockRealtimePrice)
 */5 * * * *  collect_fluctuation_ranking     # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
-0  8 * * *   generate_newsletter_draft       # build the day's NewsletterIssue draft
-0 18 * * *   send_newsletter                 # email the draft to NewsletterSubscriber list
+0 13 * * 1-5 generate_featured_stock_briefing --session=midday  # AI 특징주 브리핑 (AnalyzedArticle, source_type=AI_BRIEFING)
+40 15 * * 1-5 generate_featured_stock_briefing --session=close  # 마감 후 AI 특징주 브리핑
+5  13 * * 1-5 post_to_wordpress --limit 1     # publish that session's newest ai_generated candidate per enabled account
+5  13 * * 1-5 post_to_blogger --limit 1
+45 15 * * 1-5 post_to_wordpress --limit 1
+45 15 * * 1-5 post_to_blogger --limit 1
+0 16 * * 1-5 generate_newsletter_draft       # dress that day's close-session briefing as a NewsletterIssue, status=READY (no manual review)
+0 21 * * *   send_newsletter                 # email READY issues to NewsletterSubscriber list as HTML, mark SENT
 ```
+`generate_newsletter_draft` depends on the close-session briefing already existing for the day — it
+looks up `AnalyzedArticle` by the pseudo-URL `internal://featured-briefing/<date>/close` and skips
+(no issue created) if that briefing hasn't run yet, so its cron time must stay after 15:40.
 `collect_stock_data` and `run_stock_prediction` are heavy (full yfinance re-pull / model
 retraining) and are run manually/less frequently, not on the 5-minute cron cadence.
 
 Publishing (per-user, driven by each member's `BlogPostingAccount` + `UserPreference`, not global
-config — see Architecture):
+config — see Architecture). Live and publishes immediately (not draft):
 ```
 python manage.py post_to_wordpress   # real WordPress REST API publish, publishes live (status=publish)
 python manage.py post_to_blogger     # real Blogger v3 API publish (OAuth refresh token per account), publishes live (isDraft=false)
 ```
+Both commands loop every `BlogPostingAccount` with `is_enabled=True` and
+`UserPreference.auto_posting_enabled=True`, and publish `select_candidates()` (newest
+`ai_generated=True` `AnalyzedArticle` not yet posted to that account, filtered by
+`interested_keywords`/`post_all_articles`) — with no `--limit`, that means *every* unposted
+matching backlog article, not just the newest one. On the twice-daily cron above, `--limit 1`
+keeps each run to just that session's fresh featured-stock briefing.
 Tistory and Naver are no longer supported publishing platforms — Tistory shut down its Open API
 (post-write endpoint) entirely by February 2024, and Naver never had a public blog-posting API to
 begin with. Both `post_to_tistory`/`post_to_naver` commands and the `TISTORY`/`NAVER`

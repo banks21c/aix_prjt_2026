@@ -54,6 +54,49 @@ PIPELINE_COMMANDS = {
         'log_prefix': 'generate_featured_stock_briefing_manual_close',
         'note': 'AI 1회 호출로 수 초~수십 초 내 끝납니다. --force로 오늘 이미 생성된 브리핑도 덮어씁니다.',
     },
+    'post_wordpress': {
+        'label': '워드프레스 자동 포스팅 즉시 발행',
+        'command': 'post_to_wordpress',
+        'args': ['--limit', '1'],
+        'log_prefix': 'post_to_wordpress_manual',
+        'note': (
+            '자동 포스팅을 켠 회원 계정마다 아직 발행 안 된 기사 중 가장 최근 것 1건을 실제 '
+            '워드프레스에 라이브로 발행합니다(초안 아님). 정기 크론(13:05/15:45)이 실패했을 때 '
+            '수동으로 대신 실행하는 용도 — 여러 건 밀렸으면 여러 번 눌러서 하나씩 발행하세요.'
+        ),
+    },
+    'post_blogger': {
+        'label': '블로거 자동 포스팅 즉시 발행',
+        'command': 'post_to_blogger',
+        'args': ['--limit', '1'],
+        'log_prefix': 'post_to_blogger_manual',
+        'note': (
+            '자동 포스팅을 켠 회원 계정마다 아직 발행 안 된 기사 중 가장 최근 것 1건을 실제 '
+            '블로거에 라이브로 발행합니다(초안 아님). 정기 크론(13:05/15:45)이 실패했을 때 '
+            '수동으로 대신 실행하는 용도 — 여러 건 밀렸으면 여러 번 눌러서 하나씩 발행하세요.'
+        ),
+    },
+    'newsletter_draft': {
+        'label': '뉴스레터 초안 즉시 생성',
+        'command': 'generate_newsletter_draft',
+        'args': [],
+        'log_prefix': 'generate_newsletter_draft_manual',
+        'note': (
+            '그날 마감 특징주 브리핑을 이메일 옷을 입혀 NewsletterIssue(status=READY)로 만듭니다. '
+            '마감 브리핑이 아직 없거나 이미 READY 상태 초안이 있으면 아무것도 만들지 않고 '
+            '건너뜁니다 — 안전하게 여러 번 눌러도 됩니다.'
+        ),
+    },
+    'newsletter_send': {
+        'label': '뉴스레터 즉시 발송',
+        'command': 'send_newsletter',
+        'args': [],
+        'log_prefix': 'send_newsletter_manual',
+        'note': (
+            'READY 상태인 뉴스레터를 활성 구독자 전원에게 지금 바로 이메일로 발송하고 SENT로 '
+            '표시합니다(정기 발송은 21:00). READY 상태가 없으면 아무 것도 보내지 않습니다.'
+        ),
+    },
 }
 
 # 배포 방식이 서버마다 다를 수 있어(이 서버는 Cloudflare Origin 인증서, 예전 서버는 certbot) 존재하는

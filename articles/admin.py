@@ -384,3 +384,32 @@ class FinancialConsultSheetAdmin(admin.ModelAdmin):
     readonly_fields = ('customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'data', 'created_by', 'created_at')
     ordering = ('-created_at',)
 
+
+# 14. Django Admin 목록(NextFinUp 관리 앱)에서 발행 기록(PostedArticle) 바로 아래에 파이프라인
+# 수동 실행 화면(/admin-tools/pipeline/, articles.views.admin_tools.pipeline_status_view) 링크를
+# 끼워 넣는다. 실제 모델/DB 테이블은 없는 화면이라 ModelAdmin으로 등록할 수 없어, Django가
+# 앱 목록을 만들 때 쓰는 get_app_list를 감싸서 모델 항목처럼 보이는 dict 하나를 삽입한다.
+_original_get_app_list = admin.site.get_app_list
+
+
+def _get_app_list_with_pipeline_link(request, app_label=None):
+    app_list = _original_get_app_list(request, app_label=app_label)
+    for app in app_list:
+        if app['app_label'] != 'articles':
+            continue
+        models = app['models']
+        idx = next((i for i, m in enumerate(models) if m['object_name'] == 'PostedArticle'), None)
+        if idx is None:
+            continue
+        models.insert(idx + 1, {
+            'name': '발행 파이프라인 즉시 실행',
+            'object_name': 'PipelineTrigger',
+            'admin_url': reverse('pipeline_status'),
+            'add_url': None,
+            'view_only': True,
+        })
+    return app_list
+
+
+admin.site.get_app_list = _get_app_list_with_pipeline_link
+

@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from articles import article_ai, thumbnail
+from articles.kis_client import get_stock_close_price
 from articles.models import AnalyzedArticle, MarketHoliday, RankedMover
 
 SESSION_LABELS = {'midday': '장중', 'close': '마감후'}
@@ -67,13 +68,32 @@ class Command(BaseCommand):
             AnalyzedArticle.objects
             .filter(title__startswith='[리포트 브리핑]', scraped_at__date=today)
             .exclude(stock=None)
-            .select_related('stock')
+            .select_related('stock', 'stock__realtime_price')
             .order_by('scraped_at')
         )
-        reports = [
-            {'ticker': r.stock.ticker, 'name': r.stock.name, 'text': _report_thesis_text(r.title, r.stock.name)}
-            for r in reports_qs
-        ]
+        def _report_dict(r):
+            rt_price = getattr(r.stock, 'realtime_price', None)
+            price, change_pct = None, None
+            if rt_price:
+                price, change_pct = rt_price.close_price, rt_price.change_pct
+            else:
+                # 코스피200·코스닥150 밖이라 5분 캐시(StockRealtimePrice)가 없는 종목은 chatbot_client의
+                # 온디맨드 조회와 같은 방식으로 KIS에 직접 조회한다 — 실시간 시세는 종목코드만 있으면
+                # 지수 편입 여부와 무관하게 조회 가능하다. 조회마저 실패하면 가격 없이 이름만 남긴다.
+                try:
+                    fetched = get_stock_close_price(r.stock.ticker)
+                    price, change_pct = fetched['close'], fetched['change_pct']
+                except Exception:
+                    pass
+            return {
+                'ticker': r.stock.ticker,
+                'name': r.stock.name,
+                'text': _report_thesis_text(r.title, r.stock.name),
+                'price': price,
+                'change_pct': change_pct,
+            }
+
+        reports = [_report_dict(r) for r in reports_qs]
 
         self.stdout.write(self.style.SUCCESS(
             f"🚀 {today} {session_label} AI 특징주 브리핑을 생성합니다. (증권사 리포트 {len(reports)}건 포함)"
