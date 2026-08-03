@@ -158,29 +158,35 @@ def _generate_restricted_draft(title, related_stock_name=None):
 
 BRIEFING_SYSTEM_PROMPT = """당신은 NextFinUp의 금융 뉴스 AI 에디터입니다. 아래 [특징주 목록](KIS 등락률
 상위 종목, 가격/등락률만 제공됨)을 바탕으로, 개별 기사가 아니라 하루 {session_label}용 통합 시황
-브리핑 1건을 작성합니다. 애드센스 등 광고 심사를 통과하려면 너무 짧은 콘텐츠는 안 되므로,
-blog_content는 A4 용지 한 장 분량(공백 포함 한글 1,800~2,500자 정도)의 충실한 글로 작성하세요.
-- [특징주 목록]에 있는 종목명/가격/등락률 수치, 그리고 각 종목 줄 아래 "↳ 관련 증권사 리포트"로
-  달려있는 내용 외의 사실을 지어내지 마세요. 실적 발표, 공시, 뉴스, 수급 주체(외국인/기관) 등
-  제공되지 않은 구체적인 원인은 절대 언급하지 마세요.
+브리핑에 들어갈 해설 문단들을 작성합니다.
+- 종목별 가격·등락률 수치가 나열된 목록(상승률 상위/하락률 상위/증권사 리포트)은 시스템이 원본
+  데이터에서 직접, 정확한 값으로 별도 렌더링합니다 — 당신은 그 목록을 다시 나열하지 마세요.
+  숫자를 옮겨적다 실수하면(부호가 바뀌는 등) 그대로 발행되므로, 개별 종목의 정확한 가격/등락률
+  수치를 본문에 직접 인용하지 말고 "상승률 상위 5개 종목", "하락 폭이 큰 종목들" 처럼 뭉뚱그려
+  서술하세요. 예외적으로 대표 종목 1~2개의 이름과 대략적인 방향(상승/하락)만 언급하는 것은
+  괜찮지만, 정확한 %/원 수치는 쓰지 마세요 (시스템이 렌더링하는 목록과 중복·불일치 위험).
+- [특징주 목록]에 있는 종목명, 그리고 각 종목 줄 아래 "↳ 관련 증권사 리포트"로 달려있는 내용
+  외의 사실을 지어내지 마세요. 실적 발표, 공시, 뉴스, 수급 주체(외국인/기관) 등 제공되지 않은
+  구체적인 원인은 절대 언급하지 마세요.
 - "↳ 관련 증권사 리포트"가 달려있는 종목은 그 리포트 내용을 등락의 참고 배경으로 자연스럽게
   녹여서 설명하세요. 단, 리포트 시점이 오늘 등락과 인과관계가 명확히 확인된 것은 아니므로
   "오늘 상승은 이 리포트 때문이다"처럼 단정하지 말고 "증권사에서는 ~라는 의견을 냈다" 식으로
   참고 정보로만 소개하세요. "↳ 관련 증권사 리포트"가 없는 종목은 원인을 절대 추측하지 마세요.
-- [오늘의 증권사 리포트 (특징주 외)] 섹션이 있으면, 이는 오늘 특징주 등락과 직접 연결되지 않은
-  별도의 증권사 리포트 모음이니 마지막에 "오늘의 증권사 리포트" 같은 별도 소제목 섹션으로 간단히
-  정리하세요 (특징주의 등락 원인으로 엮지 마세요).
-- 분량을 채우는 방법은 사실 날조가 아니라: (1) 상승/하락 상위 종목 각각의 등락률·가격 수치를 표나
-  목록으로 자세히 정리, (2) "등락률 상위 종목"이 시장에서 어떤 의미를 갖는지, KIS 등락률 순위가
-  무엇을 보여주는지 등 일반적인 투자 지식 수준의 배경 설명 보충, (3) 단기 급등락 종목 투자 시
-  일반적으로 유의할 점(변동성, 추격매수 위험 등)에 대한 원론적인 조언으로 채우세요.
+  [오늘의 증권사 리포트 (특징주 외)] 섹션의 리포트는 시스템이 별도 목록으로 렌더링하니 본문에서
+  다시 나열하지 마세요.
+- 분량을 채우는 방법은 사실 날조가 아니라: (1) "등락률 상위 종목"이 시장에서 어떤 의미를 갖는지,
+  KIS 등락률 순위가 무엇을 보여주는지 등 일반적인 투자 지식 수준의 배경 설명, (2) 단기 급등락
+  종목 투자 시 일반적으로 유의할 점(변동성, 추격매수 위험 등)에 대한 원론적인 조언으로 채우세요.
 - 날짜는 언급하지 마세요 (제목에도 넣지 마세요) — 별도로 시스템이 붙입니다.
 - 한국어로, 명확하고 자연스럽게 작성하세요. 같은 문장을 반복하며 억지로 늘리지 마세요.
 - 반드시 아래 JSON 형식으로만 답하세요. 그 외 설명이나 마크다운 코드블록은 절대 붙이지 마세요.
 {{
-  "ai_summary": "핵심 내용을 3줄로 요약한 문자열 (줄바꿈 문자로 구분)",
-  "ai_analysis": "상승/하락 상위 종목의 등락률 분포와 (있다면) 관련 증권사 리포트에 대한 3~5문장 설명 (제공되지 않은 원인 추측 금지)",
-  "blog_content": "블로그 포스팅용 본문 HTML. <h3>/<p>/<ul><li> 등 간단한 태그만 사용해 여러 소제목 섹션으로 구성하고 공백 포함 한글 1,800~2,500자 분량으로 작성"
+  "ai_summary": "핵심 내용을 3줄로 요약한 문자열 (줄바꿈 문자로 구분, 정확한 수치 인용 금지)",
+  "ai_analysis": "상승/하락 상위 종목의 등락률 분포와 (있다면) 관련 증권사 리포트에 대한 3~5문장 설명 (제공되지 않은 원인 추측 금지, 정확한 수치 인용 금지)",
+  "intro": "오늘 시황을 여는 1~2문단 (정확한 수치 인용 금지)",
+  "gainers_meaning": "상승률 상위 종목의 의미를 설명하는 1문단 (정확한 수치 인용 금지)",
+  "losers_meaning": "하락률 상위 종목의 의미를 설명하는 1문단 (정확한 수치 인용 금지)",
+  "investment_notes": "단기 급등락 종목 투자 시 유의사항 1문단"
 }}
 """
 
@@ -221,19 +227,74 @@ def movers_to_text(movers, reports=None):
     return "\n".join(lines)
 
 
-def _simulation_briefing(session_label, movers_text):
+def _movers_list_html(movers_subset):
+    """상승률/하락률 상위 목록을 원본 RankedMover 값에서 직접 렌더링한다 — AI가 이 수치를
+    산문으로 옮겨적다 부호를 틀리는 사고(예: 하락 목록에 +% 종목이 섞이는 것)를 원천 차단하기
+    위해, 목록 자체는 AI를 거치지 않고 시스템이 그린다."""
+    items = "".join(
+        f"<li>{m['name']}: {m['price']:,.0f}원, {m['change_pct']:+.2f}%</li>" for m in movers_subset
+    )
+    return f"<ul>{items}</ul>"
+
+
+def _reports_list_html(reports_subset):
+    items = "".join(f"<li>{r['name']}: {r['text']}</li>" for r in reports_subset)
+    return f"<ul>{items}</ul>"
+
+
+def _assemble_blog_content(sections, movers, reports):
+    """AI가 쓴 해설 문단(sections)과, 시스템이 원본 데이터에서 직접 그린 종목/리포트 목록을
+    합쳐 최종 blog_content HTML을 만든다."""
+    reports = reports or []
+    gainers = [m for m in movers if m['rank_type'] == 'GAINER']
+    losers = [m for m in movers if m['rank_type'] == 'LOSER']
+    matched_tickers = {r['ticker'] for r in reports} & {m['ticker'] for m in movers}
+    others = [r for r in reports if r['ticker'] not in matched_tickers]
+
+    parts = [
+        "<h3>오늘 주식 시장 시황</h3>",
+        f"<p>{sections['intro']}</p>",
+    ]
+    if gainers:
+        parts += ["<h3>상승률 상위 종목</h3>", _movers_list_html(gainers)]
+    if losers:
+        parts += ["<h3>하락률 상위 종목</h3>", _movers_list_html(losers)]
+    if gainers:
+        parts += ["<h3>상승률 상위 종목의 의미</h3>", f"<p>{sections['gainers_meaning']}</p>"]
+    if losers:
+        parts += ["<h3>하락률 상위 종목의 의미</h3>", f"<p>{sections['losers_meaning']}</p>"]
+    parts += ["<h3>투자 시 유의사항</h3>", f"<p>{sections['investment_notes']}</p>"]
+    if others:
+        parts += ["<h3>오늘의 증권사 리포트</h3>", _reports_list_html(others)]
+
+    return "\n".join(parts)
+
+
+def _simulation_briefing(session_label, movers, reports):
+    sections = {
+        'intro': SIMULATION_ANALYSIS,
+        'gainers_meaning': SIMULATION_ANALYSIS,
+        'losers_meaning': SIMULATION_ANALYSIS,
+        'investment_notes': SIMULATION_ANALYSIS,
+    }
     return {
         'ai_summary': SIMULATION_SUMMARY,
         'ai_analysis': SIMULATION_ANALYSIS,
-        'blog_content': f"<p>{movers_text.replace(chr(10), '<br>')}</p>",
+        'blog_content': _assemble_blog_content(sections, movers, reports),
     }
 
 
-def _error_briefing(session_label, movers_text):
+def _error_briefing(session_label, movers, reports):
+    sections = {
+        'intro': ERROR_ANALYSIS,
+        'gainers_meaning': ERROR_ANALYSIS,
+        'losers_meaning': ERROR_ANALYSIS,
+        'investment_notes': ERROR_ANALYSIS,
+    }
     return {
         'ai_summary': ERROR_SUMMARY,
         'ai_analysis': ERROR_ANALYSIS,
-        'blog_content': f"<p>{movers_text.replace(chr(10), '<br>')}</p>",
+        'blog_content': _assemble_blog_content(sections, movers, reports),
     }
 
 
@@ -243,13 +304,16 @@ def generate_featured_briefing(session_label, movers, reports=None):
     reports는 그날의 [리포트 브리핑] 기사를 [{'ticker','name','text'}, ...]로 넘긴 것으로,
     ticker가 movers와 겹치면 해당 종목의 등락 참고 근거로, 안 겹치면 별도 섹션으로 반영된다
     (movers_to_text 참고). 하루 두 번(장중/마감후)만 호출되므로 매 기사마다 AI를 호출하는
-    기존 방식보다 토큰 비용이 훨씬 적다."""
+    기존 방식보다 토큰 비용이 훨씬 적다.
+    상승률/하락률 상위 종목 목록과 증권사 리포트 목록은 AI에게 다시 쓰게 하지 않고 원본 데이터로
+    직접 렌더링한다 — AI는 그 사이에 들어갈 해설 문단만 작성한다."""
+    reports = reports or []
     movers_text = movers_to_text(movers, reports)
     if not movers:
-        return _simulation_briefing(session_label, movers_text)
+        return _simulation_briefing(session_label, movers, reports)
 
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
-        return _simulation_briefing(session_label, movers_text)
+        return _simulation_briefing(session_label, movers, reports)
 
     try:
         client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -259,16 +323,22 @@ def generate_featured_briefing(session_label, movers, reports=None):
                 {'role': 'system', 'content': BRIEFING_SYSTEM_PROMPT.format(session_label=session_label)},
                 {'role': 'user', 'content': f"[특징주 목록]\n{movers_text}"},
             ],
-            max_tokens=3000,
+            max_tokens=2000,
             temperature=0.4,
             response_format={'type': 'json_object'},
         )
         data = json.loads(response.choices[0].message.content)
+        sections = {
+            'intro': (data.get('intro') or '').strip() or SIMULATION_ANALYSIS,
+            'gainers_meaning': (data.get('gainers_meaning') or '').strip() or SIMULATION_ANALYSIS,
+            'losers_meaning': (data.get('losers_meaning') or '').strip() or SIMULATION_ANALYSIS,
+            'investment_notes': (data.get('investment_notes') or '').strip() or SIMULATION_ANALYSIS,
+        }
         return {
             'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
             'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,
-            'blog_content': (data.get('blog_content') or '').strip() or f"<p>{movers_text}</p>",
+            'blog_content': _assemble_blog_content(sections, movers, reports),
         }
     except Exception:
         logger.exception("특징주 브리핑 AI 생성 실패 (session=%r)", session_label)
-        return _error_briefing(session_label, movers_text)
+        return _error_briefing(session_label, movers, reports)
