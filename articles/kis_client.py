@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 import requests
 from django.conf import settings
@@ -8,6 +8,23 @@ from .models import KisAccessToken, MarketHoliday
 
 # 만료 시각 이 정도 전부터는 미리 새 토큰을 받아 온다 (경계 시점 요청 실패 방지)
 EXPIRY_BUFFER = timedelta(minutes=10)
+
+KST = dt_timezone(timedelta(hours=9))
+
+# 정규장 시간(KST). 이 구간 밖에서는 주식현재가 조회(FHKST01010100)의 stck_prpr가 시간외단일가 등
+# 정규장 종가가 아닌 값으로 바뀔 수 있어, 종가 기준 시세가 필요한 호출부는 get_stock_close_price를
+# 통해 국내주식기간별시세(일봉)의 정산된 종가를 대신 써야 한다.
+MARKET_OPEN_HOUR, MARKET_OPEN_MINUTE = 9, 0
+MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE = 15, 30
+
+
+def is_regular_session_open():
+    """지금이 정규장 시간(09:00~15:30 KST)인지 여부를 반환합니다. 주말/공휴일 여부는 보지
+    않으므로, 개장일 여부까지 확인하려면 is_market_open()과 함께 써야 합니다."""
+    now_kst = datetime.now(KST)
+    open_t = now_kst.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
+    close_t = now_kst.replace(hour=MARKET_CLOSE_HOUR, minute=MARKET_CLOSE_MINUTE, second=0, microsecond=0)
+    return open_t <= now_kst < close_t
 
 
 def get_access_token():
@@ -274,10 +291,44 @@ def get_stock_daily_price(ticker, start_date, end_date):
             'high': float(row['stck_hgpr']),
             'low': float(row['stck_lwpr']),
             'close': float(row['stck_clpr']),
+            'volume': int(row.get('acml_vol') or 0),
         })
 
     rows.sort(key=lambda r: r['date'])
     return rows
+
+
+def get_stock_close_price(ticker):
+    """
+    종가 기준 시세가 필요한 호출부(AI 요약 언급 종목 시세표 등)를 위한 헬퍼.
+    정규장 중(is_regular_session_open())엔 주식현재가 조회(get_stock_current_price)를 그대로 쓰고,
+    정규장 마감 후~다음 개장 전에는 대신 국내주식기간별시세(get_stock_daily_price)의 정산된 종가
+    (stck_clpr)를 쓴다 — 주식현재가 조회는 이 구간에서 시간외단일가 등 정규장 종가가 아닌 값을
+    돌려줄 수 있기 때문. 전일대비/등락률은 API가 주는 값 대신, 함께 받아온 최근 2개 영업일
+    종가로 직접 계산해 일봉 응답의 필드명에 의존하지 않는다.
+    """
+    if is_regular_session_open():
+        return get_stock_current_price(ticker)
+
+    end_date = datetime.now(KST).date()
+    start_date = end_date - timedelta(days=14)
+    rows = get_stock_daily_price(ticker, start_date.strftime('%Y%m%d'), end_date.strftime('%Y%m%d'))
+    if len(rows) < 2:
+        raise RuntimeError(f"{ticker}: 종가를 계산할 만큼의 일봉 데이터가 없습니다.")
+
+    today_row, prev_row = rows[-1], rows[-2]
+    close, prev_close = today_row['close'], prev_row['close']
+    change = close - prev_close
+    change_pct = (change / prev_close * 100) if prev_close else 0.0
+    return {
+        'close': close,
+        'open': today_row['open'],
+        'high': today_row['high'],
+        'low': today_row['low'],
+        'change': change,
+        'change_pct': change_pct,
+        'volume': today_row['volume'],
+    }
 
 
 # 주식당일분봉조회 TR_ID (v1_국내주식-022) - 한 번 호출에 최근 30건(1분 간격)만 내려옴

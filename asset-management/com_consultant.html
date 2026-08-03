@@ -1,0 +1,140 @@
+<!--
+  com_consultant.html — 자산관리(asset-management) 정적 페이지 전용 "전문가 상담 신청" 공통 컴포넌트.
+
+  이 파일은 nginx가 직접 서빙하는 별도 페이지가 아니라, asset-management/index.html 안에
+  그대로 붙여 넣어 쓰는 참고/원본 스니펫이다(이 트리의 다른 asset-management 페이지들도
+  전부 공통 CSS를 파일마다 복붙해 쓰는 방식이라 동일 관례를 따른다). 실제 제출은
+  articles.views.public.consult_request_view(csrf_exempt, /api/consult/)로 들어가며,
+  articles/templates/articles/expert_consult.html의 제출 로직과 동일한 계약을 쓴다
+  (product/name/phone/interest/goal/message/website JSON, honeypot=website).
+
+  .consult-panel / .consult / .consult-grid / .btn / .btn-block / .sec / .section-head /
+  .section-title / .sec-desc 클래스는 asset-management/index.html <head>의 기존 스타일을
+  그대로 쓴다. 아래 <style>은 이 컴포넌트에서 새로 쓰는 클래스만 담는다.
+-->
+<style>
+  .consult-alert { display:none; margin-top:14px; padding:12px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+  .consult-alert.consult-success { background:var(--success-bg); color:var(--success); }
+  .consult-alert.consult-error { background:#fdecea; color:#c62828; }
+  .consult-privacy { font-size:12px; color:var(--muted); margin:14px 0 0; line-height:1.7; }
+</style>
+
+<h2 class="sec" id="consult-heading">전문가 상담</h2>
+<div class="consult-panel">
+  <div class="consult">
+    <div class="section-head">
+      <h2 class="section-title" id="consult">혼자 고민하지 마세요</h2>
+      <span class="section-note">상담 신청은 1분이면 충분해요</span>
+    </div>
+    <p class="sec-desc" style="margin-top:-8px;">국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요.</p>
+
+    <div class="consult-alert consult-error" id="consultError" role="alert"></div>
+    <div class="consult-alert consult-success" id="consultSuccess" role="status">신청이 접수되었습니다. 남겨주신 연락처로 순차적으로 연락드리겠습니다.</div>
+
+    <form id="consultForm" novalidate>
+      <div class="consult-grid">
+        <div>
+          <label for="cName">이름 <span style="color:#e03131;">*</span></label>
+          <input id="cName" type="text" required maxlength="50" placeholder="홍길동">
+        </div>
+        <div>
+          <label for="cPhone">연락처 <span style="color:#e03131;">*</span></label>
+          <input id="cPhone" type="tel" required maxlength="20" placeholder="010-1234-5678">
+        </div>
+        <div>
+          <label for="cInterest">관심 분야</label>
+          <select id="cInterest">
+            <option>국민연금</option>
+            <option>연금저축</option>
+            <option>IRP</option>
+            <option>ISA</option>
+            <option>보험</option>
+            <option>채권</option>
+            <option>부동산</option>
+            <option>청년저축</option>
+            <option selected>전체 자산 진단</option>
+          </select>
+        </div>
+        <div>
+          <label for="cGoal">상담 목표</label>
+          <input id="cGoal" type="text" maxlength="200" placeholder="예: 세액공제 한도 다 채우고 싶어요">
+        </div>
+        <div class="full">
+          <label for="cMsg">문의사항</label>
+          <textarea id="cMsg" rows="3" placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
+        </div>
+        <div class="full consult-honeypot" aria-hidden="true">
+          <label for="cWebsite">웹사이트</label>
+          <input id="cWebsite" type="text" tabindex="-1" autocomplete="off">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-block" id="consultSubmit">상담 신청하기</button>
+      <p class="consult-privacy">
+        남겨주신 정보는 상담 목적으로만 사용하며, 자세한 내용은
+        <a href="privacy-policy/index.html">개인정보처리방침</a>을 확인해주세요.
+      </p>
+    </form>
+  </div>
+</div>
+<script>
+  // 기존 데모(로컬 성공 메시지만 표시)를 실제 접수로 바꾼다 — 이 엔드포인트는 이미
+  // expert_consult.html·보험탭 "전문가 무료 상담 신청" 버튼이 기대하고 있던 것과 같다.
+  (function () {
+    var form = document.getElementById('consultForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      var errorBox = document.getElementById('consultError');
+      var successBox = document.getElementById('consultSuccess');
+      var submitBtn = document.getElementById('consultSubmit');
+      errorBox.style.display = 'none';
+      successBox.style.display = 'none';
+
+      var name = document.getElementById('cName').value.trim();
+      var phone = document.getElementById('cPhone').value.trim();
+      if (!name || !phone) {
+        errorBox.textContent = '이름과 연락처를 입력해주세요.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '접수 중...';
+
+      try {
+        var response = await fetch('/api/consult/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product: 'ASSET',
+            name: name,
+            phone: phone,
+            interest: document.getElementById('cInterest').value,
+            goal: document.getElementById('cGoal').value.trim(),
+            message: document.getElementById('cMsg').value.trim(),
+            website: document.getElementById('cWebsite').value.trim(),
+          }),
+        });
+        var data = await response.json();
+
+        if (response.ok && data.ok) {
+          successBox.style.display = 'block';
+          form.reset();
+        } else {
+          errorBox.textContent = data.error === 'name_phone_required'
+            ? '이름과 연락처를 입력해주세요.'
+            : '접수에 실패했습니다. 잠시 후 다시 시도해주세요.';
+          errorBox.style.display = 'block';
+        }
+      } catch (err) {
+        errorBox.textContent = '통신에 실패했습니다. 잠시 후 다시 시도해주세요.';
+        errorBox.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '상담 신청하기';
+      }
+    });
+  })();
+</script>

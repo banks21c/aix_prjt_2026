@@ -2,7 +2,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from articles.models import StockItem, AnalyzedArticle
-from articles.utils import fetch_article_content
+from articles.utils import fetch_article_content, detect_reuse_restriction
 
 class Command(BaseCommand):
     help = '한국경제 및 매일경제 실시간 증권 뉴스 통합 수집 및 AI 에이전트 가공 파이프라인'
@@ -65,13 +65,15 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.SUCCESS(f"    ↳ [경제지 기사 발견] {stock.name} ➔ {title[:22]}..."))
 
                         # ----------------------------------------------------
+                        content = fetch_article_content(link)
                         AnalyzedArticle.objects.create(
                             stock=stock,
                             title=title,
                             original_url=link,
                             source_media=feed['media'],
                             source_type=AnalyzedArticle.SOURCE_RSS,
-                            original_content=fetch_article_content(link),
+                            original_content=content,
+                            has_reuse_restriction=detect_reuse_restriction(content),
                             applied_template='T1',
                             is_premium=False,
                             is_posted=False

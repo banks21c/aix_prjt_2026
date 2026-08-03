@@ -5,50 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="지역을 선택하고 예산·목적을 입력하면 맞춤 부동산 투자 분석과 유형 추천을 보여주는 홈페이지">
 <title>부동산 — 지역과 예산으로 찾는 맞춤 투자</title>
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
-  <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-  <style>
-    /* _header.html과 동일한 규칙을 여기 그대로 복제해, 로고/네비바가 처음부터
-       최종 모습으로 그려지게 한다 (아래 fetch는 메뉴 항목만 채워 넣지, 이 nav
-       자체를 통째로 교체하지 않는다 — 그래서 페이지 이동마다 로고가 흔들리던
-       현상이 사라진다). */
-    .app-navbar { background: #fff; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1020; }
-    .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-    .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
-    .app-nav-menu { display: flex; align-items: center; gap: 8px; }
-    .nav-dropdown { position: relative; display: inline-block; }
-    .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
-    .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
-    .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    .nav-dropdown-menu a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-radius: 6px; white-space: nowrap; }
-    .nav-dropdown-menu a:hover { background: #f1f3f5; }
-    @media (max-width: 768px) {
-      .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
-      .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
-      .nav-dropdown:hover .nav-dropdown-menu { display: block; }
-    }
-    .app-navbar .btn { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; line-height: normal; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
-    .app-navbar .btn-outline-secondary { border-color: #ced4da; color: #495057; background: #fff; }
-    .app-navbar .btn-outline-secondary:hover { background: #f1f3f5; color: #495057; border-color: #ced4da; }
-    .app-navbar .btn-primary { background: #0d47a1; border-color: #0d47a1; color: #fff; }
-    .app-navbar .btn-primary:hover { background: #0b3c8a; border-color: #0b3c8a; }
-    .app-navbar .btn-outline-danger { border-color: #dc3545; color: #dc3545; background: #fff; }
-    .app-navbar .btn-outline-danger:hover { background: #dc3545; color: #fff; }
-    .provider-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 11px; font-weight: 700; border-radius: 50%; }
-    .app-navbar-toggler { display: none; background: none; border: 1px solid #ced4da; border-radius: 6px; font-size: 18px; line-height: 1; padding: 4px 10px; cursor: pointer; }
-    @media (max-width: 768px) {
-      .app-navbar .container { position: relative; height: auto; padding: 12px 20px; flex-wrap: nowrap; }
-      .app-navbar-toggler { display: inline-block; }
-      .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
-      .app-nav-menu.open { display: flex !important; }
-      .app-nav-menu .btn { width: 100%; justify-content: center; }
-    }
-  </style>
   <nav class="app-navbar">
     <div class="container">
-      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI 자산 허브</span></a>
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
       <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
       <div class="app-nav-menu" id="appNavMenu"></div>
     </div>
@@ -121,7 +85,7 @@
   }
   /* 사이트 공통 본문 폭(960px). 주입되는 네비 바가 같은 칼럼에 정렬된다. */
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
-  section { padding: 56px 0; border-top: 1px solid var(--line); }
+  section { padding: 32px 0; border-top: 1px solid var(--line); }
 
   .eyebrow {
     font-size: 12px; font-weight: 700; letter-spacing: 0.22em;
@@ -302,14 +266,14 @@
   .ccard p { margin: 0; color: var(--ink-soft); font-size: 14px; }
   .ccard p code { background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 12.5px; color: var(--teal); font-weight: 700; }
 
-  /* ---------- Footer ---------- */
-  footer { border-top: 1px solid var(--line); padding: 40px 0 60px; }
-  .disc { background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: var(--radius); padding: 20px 24px; display: flex; gap: 14px; }
-  .disc .i { color: var(--warn); font-weight: 800; font-size: 18px; flex: none; }
-  .disc p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
-  .disc p b { color: var(--ink); }
-  .foot-meta { margin-top: 26px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--ink-faint); }
-  .foot-meta .brand { font-size: 13px; }
+  /* ---------- 상담 유도 배너 ---------- */
+  .consult-cta {
+    background: var(--teal); color: #fff; border-radius: 12px; padding: 28px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .consult-cta h3 { font-size: 18px; margin: 0 0 4px; }
+  .consult-cta p { margin: 0; font-size: 13.5px; opacity: 0.88; }
+  .consult-cta .btn { background: #fff; color: var(--teal); }
 
   .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
   .reveal.in { opacity: 1; transform: none; }
@@ -320,23 +284,6 @@
   .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
   .pt-title .pt-icon { font-size: 28px; line-height: 1; }
   .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0 0 20px; }
-
-  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
-  .am-tabs { background:#fff; border-bottom:1px solid #e9ecef; }
-  .am-tabs-inner { max-width:960px; margin:0 auto; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
-  .am-tab { padding:14px 16px; font-size:14px; font-weight:700; color:#868e96; white-space:nowrap;
-            border-bottom:3px solid transparent; text-decoration:none; }
-  .am-tab:hover { color:#0d47a1; }
-  .am-tab.is-active { color:#0d47a1; border-bottom-color:#0d47a1; }
-  .am-tab-new { position: relative; }
-  .am-tab-sparkle {
-    position: absolute; top: 2px; right: 2px; font-size: 11px; line-height: 1;
-    animation: am-sparkle-twinkle 1.3s ease-in-out infinite;
-  }
-  @keyframes am-sparkle-twinkle {
-    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
-    50% { opacity: 0.25; transform: scale(0.65) rotate(15deg); }
-  }
 </style>
 
 <header class="top">
@@ -455,17 +402,26 @@
       </div>
     </div>
   </section>
+
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <div class="consult-cta">
+        <div>
+          <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
+          <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
+        </div>
+        <a class="btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
-  <div class="wrap">
-    <div class="disc">
-      <span class="i" aria-hidden="true">⚠</span>
-      <p><b>투자 유의 안내.</b> 이 페이지의 지역 분석·수익률·추천은 일반적인 시장 원리에 기반한 <b>교육용 참고 자료</b>이며, 특정 물건의 수익을 보장하지 않습니다. 실제 투자 전에는 반드시 <b>세무사·공인중개사 등 전문가 상담</b>과 본인의 재무 상황 점검, 현장 임장을 병행하세요. 부동산은 정부 정책·금리·지역 여건에 따라 크게 달라집니다.</p>
-    </div>
-    <div class="foot-meta">
-      <span class="brand"><span class="mark" style="width:20px;height:20px;display:inline-block;vertical-align:-4px;margin-right:6px;"></span>부동산 투자 길잡이</span>
-      <span>지역·유형 맞춤 분석 · 교육용 자료 · 2026</span>
+  <div class="footer-inner">
+    <div class="footer-brand">🏠 부동산 투자 길잡이</div>
+    <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 지역·유형 맞춤 분석을 담은 교육용 참고 자료예요. 특정 물건의 수익을 보장하지 않아요.</p>
+    <div class="disclaimer">
+      투자 유의 안내: 이 페이지의 지역 분석·수익률·추천은 일반적인 시장 원리에 기반한 교육용 참고 자료이며, 특정 물건의 수익을 보장하지 않습니다. 실제 투자 전에는 반드시 세무사·공인중개사 등 전문가 상담과 본인의 재무 상황 점검, 현장 임장을 병행하세요. 부동산은 정부 정책·금리·지역 여건에 따라 크게 달라집니다.
     </div>
   </div>
 </footer>

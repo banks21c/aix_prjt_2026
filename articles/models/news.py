@@ -99,6 +99,16 @@ class AnalyzedArticle(models.Model):
     blog_content = models.TextField(blank=True, default='', verbose_name="블로그/티스토리 포스팅용 원고")
     original_content = models.TextField(blank=True, default='', verbose_name="원문 본문(스크래핑)")
 
+    # articles/thumbnail.py로 AI 요약과 함께 생성되는 발행용 썸네일. 원문 기사의 사진은 절대
+    # 재사용하지 않고(무단전재 이슈), 종목명/등락 시그널 등 자체 데이터로 매번 새로 그린다.
+    thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/', blank=True, null=True, verbose_name="발행용 썸네일")
+
+    # utils.detect_reuse_restriction으로 스크래핑 시점에 판별해 저장 ("무단전재 배포금지,
+    # AI 학습 및 활용 금지" 류의 문구 감지 여부). True인 기사는 article_ai.generate_draft가
+    # original_content를 AI 프롬프트에 전혀 넣지 않고 제목/구조화된 사실만으로 NextFinUp
+    # 자체 해설을 생성하는 분기를 탄다 — 원문 인용/재구성 없이 attribution(출처)은 그대로 유지.
+    has_reuse_restriction = models.BooleanField(default=False, verbose_name="원문 재사용 제한 문구 감지")
+
     TEMPLATE_CHOICES = [
         ('T1', '템플릿 1 (뉴스 요약형)'),
         ('T2', '템플릿 2 (종목 분석형)'),

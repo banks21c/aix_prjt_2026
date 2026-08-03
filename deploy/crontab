@@ -12,6 +12,7 @@
 */5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_market_index >> /home/ubuntu/nextfinup/logs/collect_market_index.log 2>&1
 */5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_kis_news >> /home/ubuntu/nextfinup/logs/collect_kis_news.log 2>&1
 */5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_stock_realtime_price >> /home/ubuntu/nextfinup/logs/collect_stock_realtime_price.log 2>&1
+*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_fluctuation_ranking >> /home/ubuntu/nextfinup/logs/collect_fluctuation_ranking.log 2>&1
 0 8 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_newsletter_draft >> /home/ubuntu/nextfinup/logs/generate_newsletter_draft.log 2>&1
 0 18 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py send_newsletter >> /home/ubuntu/nextfinup/logs/send_newsletter.log 2>&1
 0 13 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_featured_stock_briefing --session=midday >> /home/ubuntu/nextfinup/logs/generate_featured_stock_briefing.log 2>&1

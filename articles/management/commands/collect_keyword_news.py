@@ -2,7 +2,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from articles.models import NewsSource, NewsKeyword, AnalyzedArticle
-from articles.utils import fetch_article_content
+from articles.utils import fetch_article_content, detect_reuse_restriction
 
 
 class Command(BaseCommand):
@@ -68,6 +68,7 @@ class Command(BaseCommand):
 
                     self.stdout.write(self.style.SUCCESS(f"    ↳ [키워드 '{keyword.keyword}' 매칭] {title[:30]}..."))
 
+                    content = fetch_article_content(link)
                     AnalyzedArticle.objects.create(
                         stock=keyword.linked_stock,
                         matched_keyword=keyword,
@@ -75,7 +76,8 @@ class Command(BaseCommand):
                         original_url=link,
                         source_media=source.name,
                         source_type=AnalyzedArticle.SOURCE_RSS,
-                        original_content=fetch_article_content(link),
+                        original_content=content,
+                        has_reuse_restriction=detect_reuse_restriction(content),
                         applied_template='T1',
                         is_premium=False,
                         is_posted=False,

@@ -2,14 +2,15 @@ import time
 
 from django.core.management.base import BaseCommand
 
-from articles.kis_client import get_stock_current_price, is_market_open
+from articles.kis_client import get_stock_current_price, is_market_open, is_regular_session_open
 from articles.models import StockItem, StockRealtimePrice
 
 
 class Command(BaseCommand):
     help = (
         '한국투자증권(KIS) 주식현재가 시세 API로 코스피200/코스닥150 종목의 실시간 현재가를 '
-        '조회하여 StockRealtimePrice에 캐싱합니다 (종목 상세 페이지가 이 캐시를 읽음).'
+        '조회하여 StockRealtimePrice에 캐싱합니다 (종목 상세 페이지가 이 캐시를 읽음). '
+        '정규장 마감(15:30 KST) 이후에는 시간외단일가로 캐시가 덮어써지지 않도록 수집을 건너뜁니다.'
     )
 
     def add_arguments(self, parser):
@@ -19,6 +20,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not is_market_open():
             self.stdout.write(self.style.WARNING("[-] 오늘은 휴장일입니다. 실시간 현재가 수집을 건너뜁니다."))
+            return
+
+        if not is_regular_session_open():
+            self.stdout.write(self.style.WARNING(
+                "[-] 정규장 시간(09:00~15:30 KST)이 아닙니다. 시간외단일가 등으로 캐시가 덮어써지지 "
+                "않도록 실시간 현재가 수집을 건너뜁니다 (마감가 캐시를 그대로 유지)."
+            ))
             return
 
         sleep_sec = options['sleep']

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -19,6 +20,8 @@
         .news-post-action { flex-shrink: 0; width: 110px; text-align: right; }
         .post-toolbar { position: sticky; top: 0; z-index: 5; }
     </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
 </head>
 <body>
 
@@ -33,7 +36,7 @@
                     <p class="text-muted">AI 에이전트가 수집·분석한 증권/경제 뉴스 목록입니다.</p>
                 </div>
                 {% if user.is_authenticated %}
-                <a href="{% url 'news_scrape' %}" class="btn btn-primary btn-sm flex-shrink-0">뉴스 포스팅</a>
+                <a href="{% url 'news_scrape' %}" class="btn btn-primary btn-sm flex-shrink-0">직접 수집</a>
                 {% endif %}
             </div>
         </div>
@@ -62,33 +65,32 @@
             <p class="text-muted small">기사를 골라 내 블로그에 직접 포스팅하려면 <a href="{% url 'login' %}">로그인</a>이 필요합니다.</p>
         {% elif not user_blog_accounts %}
             <p class="text-muted small">아직 등록된 블로그 계정이 없습니다. <a href="{% url 'my_page' %}">마이페이지</a>에서 먼저 등록해주세요.</p>
-        {% else %}
-        <form method="get" class="card card-custom bg-white p-3 mb-3 post-toolbar d-flex flex-row align-items-center gap-2">
-            {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-            <label class="fw-semibold small mb-0">포스팅 계정</label>
-            <select name="account" class="form-select form-select-sm" style="max-width: 260px;" onchange="this.form.submit()">
-                {% for account in user_blog_accounts %}
-                <option value="{{ account.pk }}" {% if selected_account.pk == account.pk %}selected{% endif %}>{{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})</option>
-                {% endfor %}
-            </select>
-            {% if selected_account.site_url %}
-            <a href="{{ selected_account.site_url }}" target="_new" rel="noopener noreferrer" class="small">사이트 방문 ↗</a>
-            {% endif %}
-            <span class="text-muted small">여기서 고른 계정 기준으로 각 기사의 포스팅/포스팅완료 상태가 표시됩니다.</span>
-        </form>
         {% endif %}
 
-        <form method="post" action="{% url 'post_articles' %}">
+        <form method="post" action="{% url 'post_articles' %}" id="newsBoardForm">
             {% csrf_token %}
-            {% if selected_account %}
-            <input type="hidden" name="account_id" value="{{ selected_account.pk }}">
+            {% if user_blog_accounts %}
             <input type="hidden" name="next" value="{{ next_url }}">
+            <div class="card card-custom bg-white p-3 mb-3 d-flex flex-row align-items-center flex-wrap gap-2">
+                <label class="fw-semibold small mb-0">포스팅 계정</label>
+                {% for account in user_blog_accounts %}
+                <div class="form-check form-check-inline mb-0">
+                    <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="acct-{{ account.pk }}" checked>
+                    <label class="form-check-label small" for="acct-{{ account.pk }}">
+                        {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
+                    </label>
+                    {% if account.site_url %}
+                    <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
             <div class="card card-custom bg-white p-3 mb-3 d-flex flex-row align-items-center gap-2">
                 <div class="form-check mb-0">
                     <input type="checkbox" class="form-check-input" id="selectAll" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
                     <label class="form-check-label small" for="selectAll">전체 선택</label>
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm" {% if posting_stats.remaining == 0 %}disabled{% endif %}>선택 포스팅</button>
+                <button type="submit" class="btn btn-primary btn-sm" data-loading-text="⏳ 포스팅 중..." {% if posting_stats.remaining == 0 %}disabled{% endif %}>선택 포스팅</button>
                 {% for message in messages %}
                 {% if 'post-count' in message.tags %}
                 <span class="text-success small fw-semibold">{{ message }}</span>
@@ -118,7 +120,7 @@
                 {% if page_obj.object_list %}
                     {% for article in page_obj %}
                     <div class="news-row d-flex align-items-start">
-                        {% if selected_account and article.ai_generated and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
+                        {% if user_blog_accounts and article.ai_generated and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
                         <div class="form-check pt-1 pe-2">
                             <input type="checkbox" class="form-check-input article-check" name="article_ids" value="{{ article.pk }}">
                         </div>
@@ -141,16 +143,16 @@
                         <div class="news-post-action ps-3 d-flex flex-column align-items-end gap-1">
                             {% if not article.ai_generated %}
                                 {% if user.is_authenticated %}
-                                <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary"
+                                <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
                                         {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                                 {% endif %}
-                            {% elif selected_account %}
+                            {% elif user_blog_accounts %}
                                 {% if article.pk in posted_article_ids %}
                                 <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
                                 {% elif posting_stats.remaining == 0 %}
                                 <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
                                 {% else %}
-                                <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary">포스팅</button>
+                                <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">포스팅</button>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -168,25 +170,33 @@
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
-                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&laquo;</a>
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">&laquo;</a>
                 </li>
                 <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&lsaquo;</a>
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}">&lsaquo;</a>
                 </li>
                 {% for n in page_range %}
                 <li class="page-item{% if n == page_obj.number %} active{% endif %}">
-                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">{{ n }}</a>
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}">{{ n }}</a>
                 </li>
                 {% endfor %}
                 <li class="page-item{% if not next_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&rsaquo;</a>
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}">&rsaquo;</a>
                 </li>
                 <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">&raquo;</a>
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}">&raquo;</a>
                 </li>
             </ul>
         </nav>
         {% endif %}
+    </div>
+
+    <!-- AI 요약/포스팅 버튼은 실제 서버 처리(OpenAI 호출 등)가 몇 초 걸리는 일반 폼 submit이라,
+         클릭 후 아무 반응이 없어 보이는 동안 회원이 다시 누르지 않도록 전체 화면을 잠그는 오버레이 -->
+    <div id="formLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; flex-direction:column; color:#fff; font-family:'Pretendard', sans-serif; text-align:center; padding:20px;">
+        <div class="spinner-border text-light mb-3" role="status" style="width:3rem; height:3rem;"></div>
+        <div id="formLoadingText" style="font-size:15px; font-weight:600;">처리 중입니다...</div>
+        <div style="font-size:12px; color:#cbd5e1; margin-top:4px;">잠시만 기다려주세요. 화면을 벗어나지 마세요.</div>
     </div>
 
     <script>
@@ -209,6 +219,35 @@
                 updateCount();
             });
         }
+
+        const newsBoardForm = document.getElementById('newsBoardForm');
+        const loadingOverlay = document.getElementById('formLoadingOverlay');
+        const loadingText = document.getElementById('formLoadingText');
+
+        if (newsBoardForm && loadingOverlay) {
+            newsBoardForm.addEventListener('submit', function (e) {
+                const submitter = e.submitter || document.activeElement;
+                if (!submitter || submitter.type !== 'submit') return;
+
+                if (submitter.dataset.loadingText) {
+                    submitter.textContent = submitter.dataset.loadingText;
+                    loadingText.textContent = submitter.dataset.loadingText.replace(/^[⏳✨]\s*/, '');
+                }
+                loadingOverlay.style.display = 'flex';
+
+                // submitter.disabled를 이 자리에서 바로 true로 바꾸면 브라우저가 아직 이 버튼의
+                // name=value(예: solo_article_id)를 폼 데이터에 담기 전에 "비활성화된 필드"로
+                // 판단해 아예 빠뜨릴 수 있다 — 실제 제출용 데이터 구성이 끝난 다음 틱에서 비활성화한다.
+                setTimeout(function () { submitter.disabled = true; }, 0);
+            });
+        }
+
+        // 뒤로가기로 캐시된(bfcache) 페이지가 복원될 때 오버레이/비활성화가 그대로 남지 않게 초기화
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted && loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
+        });
     </script>
 {% include "articles/_cookie_banner.html" %}
 </body>
