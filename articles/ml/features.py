@@ -90,18 +90,26 @@ def add_features_for_one_stock(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=None) -> list:
+def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=None,
+                            include_all: bool = False) -> list:
     """학습 대상 종목 id 목록을, 일봉 데이터를 메모리에 전혀 올리지 않고 DB 집계(COUNT)만으로 뽑아냅니다.
 
     메모리가 빠듯한 서버에서 350개 종목(코스피200/코스닥150) x 10년치 일봉을 한 번에 하나의
     DataFrame으로 합치면(구 build_feature_dataframe) 700만 행 가까이 쌓여 스왑을 다 채우고
     서버가 멎을 수 있습니다. 그래서 이 함수로 "학습 가능한 종목 id"만 가볍게 먼저 뽑고,
     run_stock_prediction이 build_feature_dataframe_for_stock()으로 종목을 하나씩 순차 처리합니다.
+
+    기본은 collect_stock_data와 동일하게 is_major_index=True(코스피200/코스닥150)만 대상으로
+    좁히고, include_all=True(run_stock_prediction --all)일 때만 is_active=True 전체 종목을
+    대상으로 합니다.
     """
     from django.db.models import Count
     from articles.models import StockDailyPrice
 
-    qs = StockDailyPrice.objects.filter(stock__is_major_index=True, stock__is_active=True)
+    stock_filter = {'stock__is_active': True}
+    if not include_all:
+        stock_filter['stock__is_major_index'] = True
+    qs = StockDailyPrice.objects.filter(**stock_filter)
     if stock_ids is not None:
         qs = qs.filter(stock_id__in=stock_ids)
 

@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from articles.fields import EncryptedCharField
+
 
 # ==========================================
 # 4. 유저 구독 정보 테이블 (월 1만원 비즈니스 모델용)
@@ -42,6 +44,11 @@ class MemberGrade(models.Model):
 
     def __str__(self):
         return f"{self.level}. {self.name}"
+
+    @classmethod
+    def default_grade(cls):
+        """신규 회원에게 자동 부여할 기본 등급(가장 낮은 level). 등급이 하나도 없으면 None."""
+        return cls.objects.order_by('level').first()
 
 
 # ==========================================
@@ -95,7 +102,9 @@ class BlogPostingAccount(models.Model):
     # 블로거는 OAuth 연동이라 account_id에 블로그 ID를 자동으로 채워넣음(사용자 직접 입력 아님)
     account_id = models.CharField(max_length=150, blank=True, verbose_name="계정 ID / 블로그 ID")
     # 블로거는 비밀번호가 아니라 구글 OAuth 리프레시 토큰을 저장(구글 로그인 연동 시 자동으로 채워넣음)
-    credential = models.CharField(max_length=255, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
+    # DB에는 Fernet으로 암호화되어 저장되고(articles/fields.py), 파이썬 쪽에는 평문으로 노출된다.
+    # 암호화 오버헤드 때문에 실제 저장 길이가 평문보다 길어져 max_length를 넉넉히 잡았다.
+    credential = EncryptedCharField(max_length=1024, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
     class Meta:

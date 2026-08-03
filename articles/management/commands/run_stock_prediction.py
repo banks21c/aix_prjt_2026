@@ -33,9 +33,10 @@ RF_PARAMS = dict(n_estimators=100, max_depth=6, min_samples_leaf=20, random_stat
 
 class Command(BaseCommand):
     help = (
-        'KOSPI200/KOSDAQ150 종목의 일봉 데이터를 학습하여 내일 방향성/수익률을 예측합니다. '
-        '원본 가격 대신 수익률·기술적 지표 피처를 쓰고, 최근 구간을 홀드아웃으로 떼어내 '
-        '단순 기준선(baseline) 대비 모델이 실제로 더 나은지 검증한 뒤 신호를 결정합니다.'
+        '기본적으로 is_major_index=True(코스피200/코스닥150) 종목의 일봉 데이터를 학습하여 내일 '
+        '방향성/수익률을 예측합니다. --all 지정 시 is_active 전체 종목 대상. 원본 가격 대신 '
+        '수익률·기술적 지표 피처를 쓰고, 최근 구간을 홀드아웃으로 떼어내 단순 기준선(baseline) '
+        '대비 모델이 실제로 더 나은지 검증한 뒤 신호를 결정합니다.'
     )
 
     def add_arguments(self, parser):
@@ -44,18 +45,26 @@ class Command(BaseCommand):
             help='한 번에 학습할 최대 종목 수 (생략 시 전체 종목). 메모리가 넉넉하지 않은 서버에서 '
                  '테스트 삼아 일부만 돌려볼 때 사용.',
         )
+        parser.add_argument(
+            '--all', action='store_true',
+            help='is_major_index 여부와 무관하게 is_active=True 전체 종목을 대상으로 학습합니다.',
+        )
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS("🚀 AI 주가 예측 머신러닝 모델 학습 및 예측을 시작합니다."))
 
+        include_all = options.get('all', False)
         stock_ids = None
         limit = options.get('limit')
         if limit is not None:
             # DB 조회/피처 계산 단계에서부터 대상 종목을 줄여야 메모리가 부족한 서버에서
             # --limit이 실제로 효과가 있습니다(전체 종목을 다 로드한 뒤 자르면 의미가 없음).
+            stock_filter = {'is_active': True}
+            if not include_all:
+                stock_filter['is_major_index'] = True
             stock_ids = list(
                 StockItem.objects
-                .filter(is_major_index=True, is_active=True)
+                .filter(**stock_filter)
                 .order_by('id')
                 .values_list('id', flat=True)[:limit]
             )
@@ -63,9 +72,10 @@ class Command(BaseCommand):
         # 350개 종목 x 10년치 일봉을 하나의 DataFrame으로 한 번에 합치면(구 버전) 메모리가
         # 빠듯한 서버에서 스왑을 다 채우고 멎어버릴 수 있어, 학습 가능한 종목 id만 가볍게(DB
         # COUNT 집계만으로) 먼저 뽑고 종목을 하나씩 순차 처리한다(피크 메모리 = 종목 1개 분량).
-        eligible_ids = get_eligible_stock_ids(stock_ids=stock_ids)
+        eligible_ids = get_eligible_stock_ids(stock_ids=stock_ids, include_all=include_all)
         if not eligible_ids:
-            self.stdout.write(self.style.WARNING("[-] 학습할 데이터가 없습니다 (KOSPI200/KOSDAQ150 종목 OHLCV 미수집)."))
+            scope = "is_active=True" if include_all else "KOSPI200/KOSDAQ150"
+            self.stdout.write(self.style.WARNING(f"[-] 학습할 데이터가 없습니다 ({scope} 종목 OHLCV 미수집)."))
             return
 
         target_cols = ['target_next_return', 'target_5d_return', 'target_up']

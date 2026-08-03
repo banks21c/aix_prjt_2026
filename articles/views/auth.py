@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 
 from ..email_utils import TOKEN_VALID_HOURS, send_verification_email
 from ..forms import LoginForm, SignUpForm
-from ..models import LoginLog, SocialAccount, UserPreference, UserSubscription
+from ..models import LoginLog, MemberGrade, SocialAccount, UserPreference, UserSubscription
 from ..utils import get_client_ip
 
 
@@ -124,7 +124,9 @@ def verify_email_view(request, uidb64, token):
         messages.error(request, "유효하지 않은 인증 링크입니다.")
         return redirect('login')
 
-    preference, _ = UserPreference.objects.get_or_create(user=user)
+    preference, _ = UserPreference.objects.get_or_create(
+        user=user, defaults={'grade': MemberGrade.default_grade()}
+    )
     is_valid_token = (
         preference.pending_email
         and preference.email_verification_token

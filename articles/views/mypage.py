@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from ..email_utils import send_verification_email
 from ..forms import BlogAccountForm, UserContactForm, UserPreferenceForm
-from ..models import BlogPostingAccount, UserPreference
+from ..models import BlogPostingAccount, MemberGrade, UserPreference
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def my_page_view(request):
-    preference, _ = UserPreference.objects.get_or_create(user=request.user)
+    preference, _ = UserPreference.objects.get_or_create(
+        user=request.user, defaults={'grade': MemberGrade.default_grade()}
+    )
 
     accounts = {}
     for platform_code, _label in BlogPostingAccount.PLATFORM_CHOICES:

@@ -36,9 +36,9 @@ PIPELINE_COMMANDS = {
     'run_stock_prediction': {
         'label': 'AI 주가 예측 모델 재학습 (전 종목)',
         'command': 'run_stock_prediction',
-        'args': [],
+        'args': ['--all'],
         'log_prefix': 'run_stock_prediction_manual',
-        'note': '전 종목 RandomForest 재학습 — CPU를 많이 씁니다.',
+        'note': '전 종목(is_active) LightGBM+RandomForest 앙상블 재학습 — CPU를 많이 씁니다.',
     },
     'featured_briefing_midday': {
         'label': '특징주 브리핑 생성 (장중)',

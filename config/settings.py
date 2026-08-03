@@ -212,6 +212,11 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY_HERE')
 # https://apiportal.koreainvestment.com
 KIS_APP_KEY = os.environ.get('KIS_APP_KEY')
 KIS_APP_SECRET = os.environ.get('KIS_APP_SECRET')
+
+# BlogPostingAccount.credential(비밀번호/OAuth 리프레시 토큰) 암호화용 Fernet 키
+# (articles/fields.py의 EncryptedCharField 참고). 분실 시 기존 저장된 credential을 복호화할
+# 수 없게 되므로 안전하게 백업해둘 것.
+CREDENTIAL_ENCRYPTION_KEY = os.environ.get('CREDENTIAL_ENCRYPTION_KEY')
 KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"  # 실전투자 서버
 
 # Gmail SMTP (회원가입/마이페이지 이메일 인증 메일 발송용, articles/email_utils.py 참고)
