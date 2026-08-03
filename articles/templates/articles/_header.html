@@ -35,6 +35,9 @@
         </div>
     </div>
 </nav>
+<div class="ticker-bar" id="stockTicker" aria-hidden="true">
+    <div class="ticker-track" id="stockTickerTrack"></div>
+</div>
 <style>
     .app-navbar {
         background: #fff;
@@ -43,6 +46,42 @@
         top: 0;
         z-index: 1020;
     }
+    /* 실시간 시세 티커: KOSPI/KOSDAQ 지수 + 등락률 상위/하위 종목이 오른쪽에서 왼쪽으로 흘러감.
+       내용을 두 번 반복해 붙이고 -50% 지점까지만 이동시키면 이음매 없이 무한 반복되는 것처럼
+       보인다(한국투자증권 홈페이지 지수 티커와 동일한 기법). */
+    .ticker-bar {
+        background: #0d1b2a;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .ticker-track {
+        display: inline-flex;
+        align-items: center;
+        animation: ticker-scroll 40s linear infinite;
+        will-change: transform;
+    }
+    .ticker-bar:hover .ticker-track { animation-play-state: paused; }
+    @keyframes ticker-scroll {
+        from { transform: translateX(0); }
+        to { transform: translateX(-50%); }
+    }
+    .ticker-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 20px;
+        font-size: 13px;
+        white-space: nowrap;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .ticker-item .ticker-name { font-weight: 700; color: #fff; }
+    .ticker-item .ticker-price, .ticker-item .ticker-change {
+        color: #cfd8e3;
+        font-variant-numeric: tabular-nums;
+    }
+    .ticker-item .ticker-change.up { color: #ff5252; }
+    .ticker-item .ticker-change.down { color: #4fa8ff; }
+    .ticker-item .ticker-change.zero { color: #9aa5b1; }
     .app-navbar .container {
         max-width: 1140px;
         margin: 0 auto;
@@ -190,3 +229,53 @@
         .app-nav-menu .btn { width: 100%; justify-content: center; }
     }
 </style>
+<script>
+(function () {
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function renderItemsHtml(items) {
+        return items.map(function (it) {
+            var pct = it.change_pct || 0;
+            var dir = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'zero');
+            var arrow = dir === 'up' ? '▲' : (dir === 'down' ? '▼' : '－');
+            var priceStr = Number(it.price).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+            var pctStr = Math.abs(pct).toFixed(2);
+            return '<span class="ticker-item">' +
+                '<span class="ticker-name">' + escapeHtml(it.name) + '</span>' +
+                '<span class="ticker-price">' + priceStr + '</span>' +
+                '<span class="ticker-change ' + dir + '">' + arrow + ' ' + pctStr + '%</span>' +
+                '</span>';
+        }).join('');
+    }
+
+    function fitAnimationSpeed(track) {
+        // 항목 개수에 관계없이 체감 속도가 일정하도록, 실제 폭에 맞춰 애니메이션 길이를 다시 계산한다.
+        var singleLoopWidth = track.scrollWidth / 2; // 내용을 두 번 반복했으므로 절반이 한 바퀴
+        var pxPerSecond = 60;
+        var duration = Math.max(singleLoopWidth / pxPerSecond, 15);
+        track.style.animationDuration = duration + 's';
+    }
+
+    function loadTicker() {
+        var track = document.getElementById('stockTickerTrack');
+        if (!track) return;
+        fetch('/api/ticker/')
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                var items = data.items || [];
+                if (!items.length) return;
+                var html = renderItemsHtml(items);
+                track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
+                fitAnimationSpeed(track);
+            })
+            .catch(function () { /* 다음 폴링에서 재시도 */ });
+    }
+
+    loadTicker();
+    setInterval(loadTicker, 60000);
+})();
+</script>

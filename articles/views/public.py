@@ -89,6 +89,32 @@ def header_fragment_view(request):
     return render(request, 'articles/_header.html')
 
 
+def ticker_data_view(request):
+    """_header.html의 흘러가는 시세 티커가 폴링하는 JSON API. KOSPI/KOSDAQ 지수(MarketIndex,
+    5분 주기 collect_market_index) + 등락률 상위 5/하위 5(RankedMover, 5분 주기
+    collect_fluctuation_ranking)를 합쳐서 내려준다 — 둘 다 이미 도는 크론이 채워주는 캐시라
+    이 뷰는 그냥 최신 값을 읽기만 한다."""
+    items = []
+
+    for market_type, label in (('KOSPI', '코스피'), ('KOSDAQ', '코스닥')):
+        idx = MarketIndex.objects.filter(market_type=market_type).order_by('-date').first()
+        if idx:
+            items.append({
+                'name': label,
+                'price': float(idx.close_price),
+                'change_pct': idx.change_pct if idx.change_pct is not None else 0.0,
+            })
+
+    for mover in RankedMover.objects.order_by('rank_type', 'rank'):
+        items.append({
+            'name': mover.name,
+            'price': float(mover.price),
+            'change_pct': mover.change_pct,
+        })
+
+    return JsonResponse({'items': items})
+
+
 @csrf_exempt
 @require_POST
 def consult_request_view(request):
