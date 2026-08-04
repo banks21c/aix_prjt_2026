@@ -10,7 +10,7 @@ from .models import (
     StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
-    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, TickerKeyword, ConsultRequest,
+    StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover,
 )
 
@@ -350,15 +350,6 @@ class MenuAdmin(admin.ModelAdmin):
     list_filter = ('menu_type', 'is_active')
     search_fields = ('name', 'url_name', 'external_url')
     ordering = ('menu_type', 'order')
-
-# 11-1. 헤더 하단 키워드 티커 관리 (articles/views/public.py의 ticker_data_view가 is_active만 읽음)
-@admin.register(TickerKeyword)
-class TickerKeywordAdmin(admin.ModelAdmin):
-    list_display = ('keyword', 'order', 'is_active', 'created_at')
-    list_editable = ('order', 'is_active')
-    list_filter = ('is_active',)
-    search_fields = ('keyword',)
-    ordering = ('order', 'id')
 
 # 12. 상담 신청 (ISA/IRP/연금저축 등 분리된 정적 페이지에서 들어오는 리드)
 @admin.register(ConsultRequest)

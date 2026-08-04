@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from ..forms import NewsletterForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, MarketIndex, NewsletterSubscriber, RankedMover, StockItem,
-    StockPrediction, TickerKeyword,
+    StockPrediction,
 )
 from ..utils import get_client_ip
 
@@ -90,10 +90,9 @@ def header_fragment_view(request):
 
 
 def ticker_data_view(request):
-    """_header.html의 흘러가는 시세 티커가 폴링하는 JSON API. KOSPI/KOSDAQ 지수(MarketIndex,
-    5분 주기 collect_market_index) + 등락률 상위 5/하위 5(RankedMover, 5분 주기
-    collect_fluctuation_ranking)를 합쳐서 내려준다 — 둘 다 이미 도는 크론이 채워주는 캐시라
-    이 뷰는 그냥 최신 값을 읽기만 한다."""
+    """_header.html의 첫 번째(시세) 티커가 폴링하는 JSON API. 지금은 KOSPI/KOSDAQ 국내지수
+    (MarketIndex, 5분 주기 collect_market_index)만 내려준다 — 해외지수/환율/금리/유가/금시세/
+    원자재는 아직 소스가 정해지지 않아 추가 전."""
     items = []
 
     for market_type, label in (('KOSPI', '코스피'), ('KOSDAQ', '코스닥')):
@@ -105,24 +104,17 @@ def ticker_data_view(request):
                 'change_pct': idx.change_pct if idx.change_pct is not None else 0.0,
             })
 
-    for mover in RankedMover.objects.order_by('rank_type', 'rank'):
-        items.append({
-            'name': mover.name,
-            'price': float(mover.price),
-            'change_pct': mover.change_pct,
-        })
-
     return JsonResponse({'items': items})
 
 
-def ticker_keywords_view(request):
-    """_header.html의 시세 티커 바로 아래, 경제/AI/업무 키워드가 흘러가는 두 번째 티커가 폴링하는
-    JSON API. TickerKeyword(관리자 화면에서 직접 추가/순서변경/숨김 처리) 중 is_active만 order순
-    으로 내려준다."""
-    keywords = list(
-        TickerKeyword.objects.filter(is_active=True).order_by('order', 'id').values_list('keyword', flat=True)
-    )
-    return JsonResponse({'keywords': keywords})
+def ticker_stocks_view(request):
+    """_header.html의 두 번째(개별 종목) 티커가 폴링하는 JSON API. 등락률 상위 5/하위 5
+    (RankedMover, 5분 주기 collect_fluctuation_ranking)를 내려준다."""
+    items = [
+        {'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct}
+        for mover in RankedMover.objects.order_by('rank_type', 'rank')
+    ]
+    return JsonResponse({'items': items})
 
 
 @csrf_exempt

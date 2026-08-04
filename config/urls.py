@@ -23,7 +23,7 @@ from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
     privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view, header_fragment_view,
-    ticker_data_view, ticker_keywords_view,
+    ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
@@ -64,8 +64,8 @@ urlpatterns = [
     path('experts/', expert_consult_view, name='expert_consult'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
     path('partials/header/', header_fragment_view, name='header_fragment'),
-    path('api/ticker/', ticker_data_view, name='ticker_data'),  # ◀ _header.html 흘러가는 시세 티커가 폴링하는 JSON
-    path('api/ticker/keywords/', ticker_keywords_view, name='ticker_keywords'),  # ◀ 키워드 티커(TickerKeyword)가 폴링하는 JSON
+    path('api/ticker/', ticker_data_view, name='ticker_data'),  # ◀ 첫 번째(시세) 티커가 폴링하는 JSON
+    path('api/ticker/stocks/', ticker_stocks_view, name='ticker_stocks'),  # ◀ 두 번째(개별 종목) 티커가 폴링하는 JSON
     path('api/consult/', consult_request_view, name='consult_request'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API

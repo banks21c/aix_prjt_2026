@@ -12,7 +12,7 @@ from .members import (
 )
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import (
-    NewsletterSubscriber, NewsletterIssue, Menu, TickerKeyword, ConsultRequest, FinancialConsultSheet,
+    NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet,
 )
 
 __all__ = [
@@ -21,6 +21,6 @@ __all__ = [
     'UserSubscription', 'MemberGrade', 'UserPreference', 'BlogPostingAccount', 'LoginLog',
     'MenuAccessLog', 'ChatMessage', 'SocialAccount',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
-    'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'TickerKeyword', 'ConsultRequest',
+    'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
     'FinancialConsultSheet',
 ]

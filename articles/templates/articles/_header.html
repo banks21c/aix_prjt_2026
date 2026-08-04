@@ -35,11 +35,11 @@
         </div>
     </div>
 </nav>
-<div class="ticker-bar" id="stockTicker" aria-hidden="true">
-    <div class="ticker-track" id="stockTickerTrack"></div>
+<div class="ticker-bar" id="indexTicker" aria-hidden="true">
+    <div class="ticker-track" id="indexTickerTrack"></div>
 </div>
-<div class="ticker-bar keyword-ticker" id="keywordTicker" aria-hidden="true">
-    <div class="ticker-track" id="keywordTickerTrack"></div>
+<div class="ticker-bar ticker-bar-alt" id="stockTicker" aria-hidden="true">
+    <div class="ticker-track" id="stockTickerTrack"></div>
 </div>
 <style>
     .app-navbar {
@@ -57,20 +57,19 @@
         overflow: hidden;
         white-space: nowrap;
     }
-    .ticker-bar.keyword-ticker {
-        background: #142a3d; /* 주식 티커보다 살짝 밝은 톤으로 구분 */
+    .ticker-bar.ticker-bar-alt {
+        background: #142a3d; /* 위 지수 티커보다 살짝 밝은 톤으로 구분 */
     }
-    .keyword-ticker .ticker-item .ticker-name { color: #d8e6f5; font-weight: 500; }
     .ticker-track {
         display: inline-flex;
         align-items: center;
         animation: ticker-scroll 40s linear infinite;
         will-change: transform;
     }
-    /* 키워드 티커는 방향을 반대로(왼쪽→오른쪽) + 속도/시작 시점도 따로 둬서, 위 시세 티커와
+    /* 개별 종목 티커는 방향을 반대로(왼쪽→오른쪽) + 속도/시작 시점도 따로 둬서, 위 지수 티커와
        같은 타이밍으로 묶여 움직이는 것처럼 보이지 않게 한다(각 트랙에 JS가 서로 다른
        animationDuration/animationDelay를 부여함 — 아래 fitAnimationSpeed 참고). */
-    .keyword-ticker .ticker-track {
+    .ticker-bar-alt .ticker-track {
         animation-name: ticker-scroll-reverse;
     }
     .ticker-bar:hover .ticker-track { animation-play-state: paused; }
@@ -279,8 +278,9 @@
         track.style.animationDelay = (-delaySeconds) + 's';
     }
 
-    function loadTicker() {
-        var track = document.getElementById('stockTickerTrack');
+    // 1번째 티커: 국내지수(+ 추후 해외지수/환율/금리/유가/금시세/원자재)
+    function loadIndexTicker() {
+        var track = document.getElementById('indexTickerTrack');
         if (!track) return;
         fetch('/api/ticker/')
             .then(function (res) { return res.json(); })
@@ -294,31 +294,25 @@
             .catch(function () { /* 다음 폴링에서 재시도 */ });
     }
 
-    // 경제/AI/업무 키워드 티커 — 관리자 > TickerKeyword 화면에서 추가/순서변경/숨김 처리한다.
-    function renderKeywordsHtml(keywords) {
-        return keywords.map(function (kw) {
-            return '<span class="ticker-item"><span class="ticker-name">#' + escapeHtml(kw) + '</span></span>';
-        }).join('');
-    }
-
-    function loadKeywordTicker() {
-        var track = document.getElementById('keywordTickerTrack');
+    // 2번째 티커: 등락률 상위/하위 개별 종목(RankedMover)
+    function loadStockTicker() {
+        var track = document.getElementById('stockTickerTrack');
         if (!track) return;
-        fetch('/api/ticker/keywords/')
+        fetch('/api/ticker/stocks/')
             .then(function (res) { return res.json(); })
             .then(function (data) {
-                var keywords = data.keywords || [];
-                if (!keywords.length) return;
-                var html = renderKeywordsHtml(keywords);
+                var items = data.items || [];
+                if (!items.length) return;
+                var html = renderItemsHtml(items);
                 track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
                 fitAnimationSpeed(track, 38, 6);
             })
             .catch(function () { /* 다음 폴링에서 재시도 */ });
     }
 
-    loadTicker();
-    setInterval(loadTicker, 60000);
-    loadKeywordTicker();
-    setInterval(loadKeywordTicker, 60000);
+    loadIndexTicker();
+    setInterval(loadIndexTicker, 60000);
+    loadStockTicker();
+    setInterval(loadStockTicker, 60000);
 })();
 </script>
