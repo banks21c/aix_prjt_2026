@@ -264,7 +264,9 @@
             .hero h1 { font-size: 30px; }
         }
 
-        /* 챗봇 위젯 */
+        /* 챗봇 위젯. 다른 어떤 레이어(헤더/쿠키 배너 등)보다도 항상 위에 뜨도록 z-index를
+           최대한 높게 잡는다 — 텍스트 말풍선 힌트 없이 동그란 버튼의 점 애니메이션만으로
+           시선을 끈다. */
         .chatbot-toggle {
             position: fixed;
             right: 24px;
@@ -278,7 +280,7 @@
             font-size: 24px;
             box-shadow: 0 6px 16px rgba(13,71,161,0.35);
             cursor: pointer;
-            z-index: 10000;
+            z-index: 2147483000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -292,54 +294,6 @@
             letter-spacing: 2px;
             line-height: 1;
             text-align: left;
-        }
-
-        /* 챗봇 버튼 위 말풍선 힌트 — 버튼만 있으면 밋밋해서, 먼저 말을 거는 느낌으로 시선을 끈다 */
-        .chatbot-hint {
-            position: fixed;
-            right: 24px;
-            bottom: 92px;
-            max-width: 200px;
-            background: #fff;
-            color: #212529;
-            font-size: 13px;
-            font-weight: 600;
-            line-height: 1.5;
-            padding: 12px 32px 12px 16px;
-            border-radius: 14px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-            z-index: 10000;
-            cursor: pointer;
-            animation: hintPop 0.25s ease-out;
-        }
-        .chatbot-hint::after {
-            content: '';
-            position: absolute;
-            right: 22px;
-            bottom: -7px;
-            width: 14px;
-            height: 14px;
-            background: #fff;
-            transform: rotate(45deg);
-            box-shadow: 3px 3px 4px rgba(0,0,0,0.04);
-        }
-        .chatbot-hint-close {
-            position: absolute;
-            top: 4px;
-            right: 6px;
-            background: none;
-            border: none;
-            color: #adb5bd;
-            font-size: 14px;
-            line-height: 1;
-            cursor: pointer;
-            padding: 6px;
-        }
-        .chatbot-hint-close:hover { color: #6c757d; }
-        .chatbot-hint.hidden { display: none; }
-        @keyframes hintPop {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .chatbot-panel {
@@ -356,7 +310,7 @@
             display: none;
             flex-direction: column;
             overflow: hidden;
-            z-index: 10000;
+            z-index: 2147483000;
         }
         .chatbot-panel.open { display: flex; }
         .chatbot-header {
@@ -600,10 +554,6 @@
 
     <!-- 주식/경제 챗봇 위젯 -->
     {% csrf_token %}
-    <div class="chatbot-hint" id="chatbotHint">
-        무엇이든 물어보세요!
-        <button type="button" class="chatbot-hint-close" id="chatbotHintClose" aria-label="말풍선 닫기">&times;</button>
-    </div>
     <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기"><span class="chatbot-toggle-dots" id="chatbotToggleDots">.</span></button>
     <div class="chatbot-panel" id="chatbotPanel">
         <div class="chatbot-header">
@@ -638,38 +588,8 @@
             toggleBtn.addEventListener('click', () => {
                 panel.classList.toggle('open');
                 if (panel.classList.contains('open')) input.focus();
-                dismissHint();
             });
             closeBtn.addEventListener('click', () => panel.classList.remove('open'));
-
-            // 챗봇 버튼 위 말풍선 힌트 — 한 번 닫거나 챗봇을 열면 이후 방문에서는 다시 안 뜨게 기억한다
-            // (쿠키 배너와 동일하게 localStorage 사용, 접근 불가 환경에서는 조용히 무시)
-            const HINT_KEY = 'nextfinup_chat_hint_dismissed';
-            const hintEl = document.getElementById('chatbotHint');
-            const hintCloseBtn = document.getElementById('chatbotHintClose');
-
-            function dismissHint() {
-                if (!hintEl) return;
-                hintEl.classList.add('hidden');
-                try { localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
-            }
-
-            try {
-                if (hintEl && localStorage.getItem(HINT_KEY)) hintEl.classList.add('hidden');
-            } catch (e) {}
-
-            if (hintEl) {
-                hintEl.addEventListener('click', () => {
-                    dismissHint();
-                    toggleBtn.click();
-                });
-            }
-            if (hintCloseBtn) {
-                hintCloseBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();  // 부모(hintEl)의 클릭(=챗봇 열기)으로 안 번지게
-                    dismissHint();
-                });
-            }
 
             // 챗봇 아이콘에 '.' → '..' → '...' 점 애니메이션을 반복해 눈에 띄게 한다.
             const toggleDots = document.getElementById('chatbotToggleDots');
