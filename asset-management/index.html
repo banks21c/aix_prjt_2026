@@ -135,7 +135,7 @@
     <h1 class="pt-title"><span class="pt-icon">💼</span>흩어진 내 자산, 여기서 한 번에 정리하세요</h1>
     <p class="pt-desc">국민연금·연금저축·IRP·ISA·보험·채권·부동산·청년저축까지 — 어디서부터 시작해야 할지 막막했던 8가지를 한자리에 모았어요. 직접 계산해보고, 막히면 전문가에게 무료로 물어보세요.</p>
     <div class="hero-ctas">
-      <a href="#consult" class="btn">💬 전문가 무료 상담 신청</a>
+      <a href="/experts/" class="btn">💬 전문가 무료 상담 신청</a>
       <a href="#cards" class="btn-outline">8개 영역 살펴보기</a>
     </div>
     <div class="trust-strip">
@@ -166,60 +166,13 @@
     </div>
 
     <h2 class="sec" id="consult-heading">전문가 상담</h2>
-    <div class="consult-panel">
-      <div class="consult">
-        <div class="section-head">
-          <h2 class="section-title" id="consult">혼자 고민하지 마세요</h2>
-          <span class="section-note">상담 신청은 1분이면 충분해요</span>
+    <div class="consult-panel" id="consult">
+      <div class="consult" style="text-align:center;">
+        <div class="section-head" style="justify-content:center;">
+          <h2 class="section-title">혼자 고민하지 마세요</h2>
         </div>
-        <p class="sec-desc" style="margin-top:-8px;">국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요.</p>
-
-        <div class="consult-alert consult-error" id="consultError" role="alert"></div>
-        <div class="consult-alert consult-success" id="consultSuccess" role="status">신청이 접수되었습니다. 남겨주신 연락처로 순차적으로 연락드리겠습니다.</div>
-
-        <form id="consultForm" novalidate>
-          <div class="consult-grid">
-            <div>
-              <label for="cName">이름 <span style="color:#e03131;">*</span></label>
-              <input id="cName" type="text" required maxlength="50" placeholder="홍길동">
-            </div>
-            <div>
-              <label for="cPhone">연락처 <span style="color:#e03131;">*</span></label>
-              <input id="cPhone" type="tel" required maxlength="20" placeholder="010-1234-5678">
-            </div>
-            <div>
-              <label for="cInterest">관심 분야</label>
-              <select id="cInterest">
-                <option>국민연금</option>
-                <option>연금저축</option>
-                <option>IRP</option>
-                <option>ISA</option>
-                <option>보험</option>
-                <option>채권</option>
-                <option>부동산</option>
-                <option>청년저축</option>
-                <option selected>전체 자산 진단</option>
-              </select>
-            </div>
-            <div>
-              <label for="cGoal">상담 목표</label>
-              <input id="cGoal" type="text" maxlength="200" placeholder="예: 세액공제 한도 다 채우고 싶어요">
-            </div>
-            <div class="full">
-              <label for="cMsg">문의사항</label>
-              <textarea id="cMsg" rows="2" placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
-            </div>
-            <div class="full consult-honeypot" aria-hidden="true">
-              <label for="cWebsite">웹사이트</label>
-              <input id="cWebsite" type="text" tabindex="-1" autocomplete="off">
-            </div>
-          </div>
-          <button type="submit" class="btn btn-block" id="consultSubmit">상담 신청하기</button>
-          <p class="consult-privacy">
-            남겨주신 정보는 상담 목적으로만 사용하며, 자세한 내용은
-            <a href="privacy-policy/index.html">개인정보처리방침</a>을 확인해주세요.
-          </p>
-        </form>
+        <p class="sec-desc" style="margin-top:-8px;">국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요. 상담 신청은 NextFinUp 전문가 상담 페이지에서 1분이면 충분해요.</p>
+        <a href="/experts/" class="btn">💬 전문가 무료 상담 신청하기</a>
       </div>
     </div>
 
@@ -234,70 +187,6 @@
       </div>
     </div>
   </footer>
-
-  <script>
-    // 이전에는 로컬에서 성공 메시지만 보여주는 데모였다. 이제 /api/consult/(articles.views.public.
-    // consult_request_view)로 실제 접수되며, expert_consult.html·보험탭 CTA 버튼이 기대하는 것과 같은
-    // 요청 계약(product/name/phone/interest/goal/message/website, honeypot=website)을 쓴다.
-    (function () {
-      var form = document.getElementById('consultForm');
-      if (!form) return;
-
-      form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        var errorBox = document.getElementById('consultError');
-        var successBox = document.getElementById('consultSuccess');
-        var submitBtn = document.getElementById('consultSubmit');
-        errorBox.style.display = 'none';
-        successBox.style.display = 'none';
-
-        var name = document.getElementById('cName').value.trim();
-        var phone = document.getElementById('cPhone').value.trim();
-        if (!name || !phone) {
-          errorBox.textContent = '이름과 연락처를 입력해주세요.';
-          errorBox.style.display = 'block';
-          return;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = '접수 중...';
-
-        try {
-          var response = await fetch('/api/consult/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              product: 'ASSET',
-              name: name,
-              phone: phone,
-              interest: document.getElementById('cInterest').value,
-              goal: document.getElementById('cGoal').value.trim(),
-              message: document.getElementById('cMsg').value.trim(),
-              website: document.getElementById('cWebsite').value.trim(),
-            }),
-          });
-          var data = await response.json();
-
-          if (response.ok && data.ok) {
-            successBox.style.display = 'block';
-            form.reset();
-          } else {
-            errorBox.textContent = data.error === 'name_phone_required'
-              ? '이름과 연락처를 입력해주세요.'
-              : '접수에 실패했습니다. 잠시 후 다시 시도해주세요.';
-            errorBox.style.display = 'block';
-          }
-        } catch (err) {
-          errorBox.textContent = '통신에 실패했습니다. 잠시 후 다시 시도해주세요.';
-          errorBox.style.display = 'block';
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = '상담 신청하기';
-        }
-      });
-    })();
-  </script>
 
   <div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#16213a; color:#fff; padding:16px 20px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
