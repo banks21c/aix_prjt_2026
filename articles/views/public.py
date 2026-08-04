@@ -27,7 +27,7 @@ def landing_page_view(request):
     # 예측 대상 범위(is_active 전체)와 일치해야 한다. collect_stock_data/run_stock_prediction이
     # 매일 새벽 --all(is_active 전체)로 돌아 최신 유지된다(deploy/crontab 02:00/04:30 KST).
     active_stock_count = StockItem.objects.filter(is_active=True).count()
-    latest_articles = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:3]
+    latest_articles = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:6]
 
     context = {
         'site_title': 'NextFinUp - AI 차세대 자산 분석 포털',
