@@ -122,7 +122,7 @@ def build_mentioned_stocks_table(text):
         '</tr>'
     )
     return (
-        '<h3>📊 언급 종목 시세</h3>'
+        '<h3>📊 관련 종목 시세</h3>'
         '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0">'
         f'<thead style="background:#0d47a1;color:#fff">{header}</thead>'
         f'<tbody>{"".join(rows)}</tbody>'
