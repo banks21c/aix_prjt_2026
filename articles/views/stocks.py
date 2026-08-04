@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone as dt_timezone
 import pandas as pd
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.utils import timezone
 
 from .. import kis_client
 from ..ml.features import compute_display_indicators
@@ -107,6 +108,24 @@ def stock_detail_view(request, ticker):
             'change_pct': realtime_cache.change_pct,
             'updated_at': realtime_cache.updated_at,
         }
+    else:
+        # 코스피200·코스닥150 밖이라 5분 주기 캐시(StockRealtimePrice) 대상이 아닌 종목은,
+        # chatbot_client.py/generate_featured_stock_briefing.py와 같은 방식으로 KIS에
+        # 온디맨드 조회해 등락률/전일대비를 채운다 — 이게 없으면 종가만 보이고 등락 정보가
+        # 통째로 빠진다.
+        try:
+            fetched = kis_client.get_stock_close_price(stock.ticker)
+            realtime = {
+                'close': fetched['close'],
+                'open': fetched['open'],
+                'high': fetched['high'],
+                'low': fetched['low'],
+                'change': fetched['change'],
+                'change_pct': fetched['change_pct'],
+                'updated_at': timezone.now(),
+            }
+        except Exception:
+            logger.exception("KIS 온디맨드 현재가 조회 실패: %s", stock.ticker)
 
     context = {
         'site_title': f'NextFinUp - {stock.name}',
