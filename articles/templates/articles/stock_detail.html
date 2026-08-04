@@ -298,11 +298,6 @@
             overlaySeries.bbLower.setData([]);
         }
 
-        function clearOverlayData() {
-            if (!overlaySeries) return;
-            Object.values(overlaySeries).forEach(s => s.setData([]));
-        }
-
         function toggleOverlaySeries() {
             overlayVisible = document.getElementById('toggleOverlay').checked;
             setOverlayVisible(overlayVisible);
@@ -403,10 +398,8 @@
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
             // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });
-            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨기고,
-            // 데이터도 비운다(숨기기만 하면 시간축 계산에 여전히 남아있는 문제 — setPeriodOverlayData 주석 참고)
+            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨긴다
             setOverlayVisible(false);
-            clearOverlayData();
 
             if (minuteCache) {
                 series.setData(minuteCache);
