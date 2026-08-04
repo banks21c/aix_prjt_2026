@@ -220,6 +220,7 @@ def news_article_preview_view(request, pk):
         'title': article.title,
         'source_media': article.source_media,
         'scraped_at': article.scraped_at.strftime('%Y-%m-%d %H:%M'),
+        'original_content': article.original_content,
         'ai_summary': article.ai_summary,
         'ai_analysis': article.ai_analysis,
         'detail_url': reverse('news_detail', args=[article.pk]),
@@ -292,8 +293,11 @@ def news_ai_summarize_view(request, pk):
 @login_required
 def news_scrape_view(request):
     """회원이 임의의 기사 URL을 입력하면 trafilatura로 본문만 스크래핑해 ai_generated=False인
-    AnalyzedArticle을 만들고 바로 편집 화면(news_edit)으로 넘기는 수동 등록 진입점. AI 3줄 요약/
-    투자 분석/블로그 초안 생성은 여기서 하지 않고, news_edit/news_board의 'AI 요약' 버튼
+    AnalyzedArticle을 만드는 수동 등록 진입점. 예전엔 성공 시 바로 편집 화면(news_edit)으로
+    넘겼지만, 스크래핑 직후 편집 화면으로 튕기면 방금 뭘 긁어왔는지 확인할 새도 없이 넘어가는
+    느낌이라 이제는 이 페이지에 머물면서 스크랩한 원문을 바로 아래에 보여준다(?scraped=<pk>로
+    자기 자신에게 리다이렉트 — POST 새로고침 방지 겸 GET 컨텍스트에서 프리뷰를 채움). AI 3줄
+    요약/투자 분석/블로그 초안 생성은 여기서 하지 않고, news_edit/news_board의 'AI 요약' 버튼
     (news_ai_summarize_view, 별도 일일 한도)으로 회원이 원할 때 따로 트리거한다 — 스크래핑만으로도
     끝낼 수 있는 회원과 AI 한도를 분리해 관리하기 위함. RSS 자동 수집(scraped_ai_news 등)과 달리
     회원이 임의 사이트를 직접 골라 등록할 때 쓴다. 등급별 일일 한도(MemberGrade.daily_scrape_limit)
@@ -306,8 +310,8 @@ def news_scrape_view(request):
 
         existing = AnalyzedArticle.objects.filter(original_url=url).first()
         if existing:
-            messages.info(request, "이미 등록된 URL입니다. 기존 기사를 편집합니다.")
-            return redirect('news_edit', pk=existing.pk)
+            messages.info(request, "이미 등록된 URL입니다. 아래에서 기존 기사를 확인해주세요.")
+            return redirect(f"{reverse('news_scrape')}?scraped={existing.pk}")
 
         if stats['remaining'] == 0:
             grade_name = stats['grade'].name if stats['grade'] else '일반'
@@ -335,13 +339,18 @@ def news_scrape_view(request):
                 applied_template='T1',
                 scraped_by=request.user,
             )
-            messages.success(request, "스크래핑이 완료되었습니다. 내용을 확인한 뒤 'AI 요약' 버튼으로 AI 초안을 생성해주세요.")
-            return redirect('news_edit', pk=article.pk)
+            messages.success(request, "스크래핑이 완료되었습니다. 아래에서 내용을 확인한 뒤 'AI 요약' 버튼으로 AI 초안을 생성해주세요.")
+            return redirect(f"{reverse('news_scrape')}?scraped={article.pk}")
+
+    scraped_article_id = request.GET.get('scraped')
+    if scraped_article_id and not scraped_article_id.isdigit():
+        scraped_article_id = None
 
     context = {
         'site_title': 'NextFinUp - 뉴스 수집',
         'form': form,
         'scraping_stats': stats,
+        'scraped_article_id': scraped_article_id,
     }
     return render(request, 'articles/news_scrape.html', context)
 

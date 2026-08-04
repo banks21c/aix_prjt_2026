@@ -94,6 +94,10 @@
             <h5 class="fw-bold mb-1" id="previewTitle"></h5>
             <div class="small text-muted mb-3" id="previewMeta"></div>
             <div class="mb-3">
+                <div class="fw-semibold mb-1">스크랩한 내용</div>
+                <textarea class="form-control small" id="previewContent" rows="8" readonly></textarea>
+            </div>
+            <div class="mb-3">
                 <div class="fw-semibold mb-1">AI 3줄 요약</div>
                 <div id="previewSummary" class="small" style="white-space: pre-line;"></div>
             </div>
@@ -123,11 +127,13 @@
             const previewBox = document.getElementById('registeredPreview');
             const previewTitle = document.getElementById('previewTitle');
             const previewMeta = document.getElementById('previewMeta');
+            const previewContent = document.getElementById('previewContent');
             const previewSummary = document.getElementById('previewSummary');
             const previewAnalysis = document.getElementById('previewAnalysis');
             const previewDetailLink = document.getElementById('previewDetailLink');
             const previewEditLink = document.getElementById('previewEditLink');
             const previewUrlTemplate = '{% url "news_article_preview" pk=0 %}';
+            const scrapedArticleId = '{{ scraped_article_id|default:"" }}';
 
             let debounceTimer = null;
             let requestSeq = 0;
@@ -146,22 +152,29 @@
                 }
             });
 
-            function showRegisteredPreview(articleId) {
+            function showRegisteredPreview(articleId, scrollTo) {
                 fetch(previewUrlTemplate.replace('0', articleId))
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         previewTitle.textContent = data.title;
                         previewMeta.textContent = `${data.source_media} · ${data.scraped_at}`;
+                        previewContent.value = data.original_content || '(스크랩한 원문이 없습니다)';
                         previewSummary.textContent = data.ai_summary || '(AI 요약이 아직 없습니다)';
                         previewAnalysis.textContent = data.ai_analysis || '(AI 분석이 아직 없습니다)';
                         previewDetailLink.href = data.detail_url;
                         previewEditLink.href = data.edit_url;
                         previewBox.classList.remove('d-none');
-                        previewBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        if (scrollTo !== false) {
+                            previewBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
                     })
                     .catch(function () {
                         searchStatus.textContent = '기사 내용을 불러오지 못했습니다.';
                     });
+            }
+
+            if (scrapedArticleId) {
+                showRegisteredPreview(scrapedArticleId, false);
             }
 
             function submitScrapeFor(link) {
