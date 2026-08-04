@@ -16,7 +16,7 @@ from ..forms import NewsArticleEditForm, NewsScrapeForm, NewsWriteForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
 from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
-    fetch_article_metadata, scraping_stats,
+    fetch_article_metadata, limit_label, scraping_stats,
 )
 
 
@@ -36,7 +36,7 @@ def news_board_view(request):
             Q(title__icontains=query) | Q(stock__name__icontains=query) | Q(matched_keyword__keyword__icontains=query)
         )
 
-    paginator = Paginator(articles, 20)
+    paginator = Paginator(articles, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     # 페이지 번호를 10개 단위 블록으로 묶어 보여준다 (<< < 1..10 > >>).
@@ -123,13 +123,11 @@ def post_articles_view(request):
     stats = blog_posting.posting_stats(request.user)
     remaining = stats['remaining']
     if remaining is not None:
-        grade_name = stats['grade'].name if stats['grade'] else '일반'
-        daily_limit = stats['grade'].daily_post_limit if stats['grade'] else 0
         if remaining <= 0:
             messages.error(
                 request,
-                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
-                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 등급 업그레이드를 문의해주세요.",
+                f"{limit_label(stats)}은(는) 하루 {stats['limit']}건까지만 AI 콘텐츠를 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 내일 다시 시도하거나 구독을 문의해주세요.",
             )
             return redirect(request.POST.get('next') or 'news_board')
         # 계정을 여러 개 체크하면 기사 하나당 실제 발행 시도가 계정 수만큼 반복되므로,
@@ -139,7 +137,7 @@ def post_articles_view(request):
             max_articles = max(1, remaining // len(connected_accounts))
             messages.warning(
                 request,
-                f"{grade_name} 등급은 하루 {daily_limit}건까지만 가능해서, 이번엔 {len(connected_accounts)}개 계정 × "
+                f"{limit_label(stats)}은(는) 하루 {stats['limit']}건까지만 가능해서, 이번엔 {len(connected_accounts)}개 계정 × "
                 f"{max_articles}건만 발행합니다.",
             )
             article_ids = article_ids[:max_articles]
@@ -251,11 +249,9 @@ def repost_article_view(request, pk):
     else:
         stats = blog_posting.posting_stats(request.user)
         if stats['remaining'] is not None and stats['remaining'] < len(accounts):
-            grade_name = stats['grade'].name if stats['grade'] else '일반'
-            daily_limit = stats['grade'].daily_post_limit if stats['grade'] else 0
             messages.error(
                 request,
-                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
+                f"{limit_label(stats)}은(는) 하루 {stats['limit']}건까지만 포스팅할 수 있습니다. "
                 "오늘 가능한 건수를 모두 사용했어요 — 계정을 더 적게 선택하거나 내일 다시 시도해주세요.",
             )
         else:
@@ -322,10 +318,9 @@ def news_ai_summarize_view(request, pk):
 
         stats = ai_summarize_stats(request.user)
         if stats['remaining'] == 0:
-            grade_name = stats['grade'].name if stats['grade'] else '일반'
             messages.error(
                 request,
-                f"{grade_name} 등급은 하루 {stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
+                f"{limit_label(stats)}은(는) 하루 {stats['limit']}건까지만 AI 요약을 사용할 수 있습니다. "
                 "오늘 가능한 건수를 모두 사용했어요.",
             )
             return _go('news_board')
@@ -500,10 +495,9 @@ def news_write_view(request):
 
     if request.method == 'POST' and form.is_valid() and action == 'ai_summarize':
         if summarize_stats['remaining'] == 0:
-            grade_name = summarize_stats['grade'].name if summarize_stats['grade'] else '일반'
             messages.error(
                 request,
-                f"{grade_name} 등급은 하루 {summarize_stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
+                f"{limit_label(summarize_stats)}은(는) 하루 {summarize_stats['limit']}건까지만 AI 요약을 사용할 수 있습니다. "
                 "오늘 가능한 건수를 모두 사용했어요.",
             )
         else:
@@ -529,18 +523,13 @@ def news_write_view(request):
                 return redirect('news_detail', pk=article.pk)
 
     elif request.method == 'POST' and form.is_valid() and action == 'post_now':
+        # AI를 호출하지 않고 직접 쓴 본문을 그대로 발행하는 경로라 posting_stats의 한도 대상이
+        # 아니다 — blog_posting.posting_stats가 애초에 article__ai_summarized_by가 채워진
+        # (AI가 실제로 개입한) 발행만 세므로, 여기서는 한도 체크 자체를 하지 않는다.
         account_ids = request.POST.getlist('account_ids')
         accounts = [a for a in user_blog_accounts if str(a.pk) in account_ids]
         if not accounts:
             messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
-        elif posting_stats_val['remaining'] is not None and posting_stats_val['remaining'] < len(accounts):
-            grade_name = posting_stats_val['grade'].name if posting_stats_val['grade'] else '일반'
-            daily_limit = posting_stats_val['grade'].daily_post_limit if posting_stats_val['grade'] else 0
-            messages.error(
-                request,
-                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
-                "오늘 가능한 건수를 모두 사용했어요 — 계정을 더 적게 선택하거나 내일 다시 시도해주세요.",
-            )
         else:
             title = form.cleaned_data['title']
             content = form.cleaned_data['content']

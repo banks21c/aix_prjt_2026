@@ -104,13 +104,9 @@
                         <span class="badge bg-light text-dark border me-2">AI 요약 오늘 {{ summarize_stats.remaining }}건 남음</span>
                     {% endif %}
                     {% if posting_stats.remaining is None %}
-                        {% if posting_stats.is_admin %}
                         <span class="badge bg-dark me-2">관리자 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
-                        {% elif posting_stats.is_premium %}
-                        <span class="badge bg-warning text-dark me-2">프리미엄 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
-                        {% else %}
-                        <span class="badge bg-warning text-dark me-2">{{ posting_stats.grade.name|default:"일반" }} · 무제한 · {{ posting_stats.total_count }}건 완료</span>
-                        {% endif %}
+                    {% elif posting_stats.is_premium %}
+                        <span class="badge bg-warning text-dark me-2">프리미엄 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
                     {% else %}
                         <span class="badge bg-light text-dark border me-2">{{ posting_stats.grade.name|default:"일반" }} 회원 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
                     {% endif %}

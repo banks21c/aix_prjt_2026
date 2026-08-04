@@ -14,6 +14,15 @@ def format_volume(volume):
     return f"{volume:,.0f}주"
 
 
+def limit_label(stats):
+    """scraping_stats/ai_summarize_stats/posting_stats 결과의 등급 표시명. 프리미엄은 등급이
+    아니라 UserSubscription 쪽 고정 한도를 쓰므로, 한도 초과 안내 문구에는 등급명 대신
+    '프리미엄'을 보여준다."""
+    if stats.get('is_premium'):
+        return '프리미엄'
+    return stats['grade'].name if stats['grade'] else '일반'
+
+
 def format_trading_value(amount):
     """거래대금은 원 단위 그대로면 자릿수가 너무 많아, 조/억/만 단위로 줄여서 보여준다."""
     amount = float(amount)
@@ -165,15 +174,23 @@ def scraping_stats(user):
 
 
 def ai_summarize_stats(user):
-    """뉴스 게시판의 'AI 요약' 버튼(news_ai_summarize_view)에 표시할 회원의 오늘 사용 현황.
-    scraping_stats와 동일한 패턴으로 MemberGrade.daily_ai_summarize_limit 기준 계산한다 —
-    등급이 없거나 한도가 비어있으면(NULL) 무제한. 관리자는 등급과 무관하게 항상 무제한."""
+    """뉴스 게시판의 'AI 요약' 버튼(news_ai_summarize_view) — 수집 기사 AI 요약, URL 스크랩 후
+    AI 요약, 직접 작성 후 AI 요약(news_write_view) 세 경로가 모두 ai_summarized_by/
+    ai_summarized_at을 채우므로 이 함수 하나로 셋을 함께 카운트한다.
+    scraping_stats와 동일한 패턴으로 MemberGrade.daily_ai_summarize_limit 기준 계산하되,
+    프리미엄 구독(UserSubscription.is_active_premium)은 등급과 무관하게 하루
+    UserSubscription.PREMIUM_DAILY_AI_SUMMARIZE_LIMIT건으로 고정한다 — gpt-4o-mini 호출
+    비용 때문에 등급처럼 비워서(NULL) 무제한으로 두지 않는다. 관리자는 여전히 항상 무제한."""
     from django.utils import timezone
-    from .models import AnalyzedArticle
+    from .models import AnalyzedArticle, UserSubscription
 
+    subscription, _ = UserSubscription.objects.get_or_create(user=user)
     grade = getattr(getattr(user, 'preference', None), 'grade', None)
     is_admin = user.is_staff or user.is_superuser
-    limit = grade.daily_ai_summarize_limit if grade else None
+    if subscription.is_active_premium:
+        limit = UserSubscription.PREMIUM_DAILY_AI_SUMMARIZE_LIMIT
+    else:
+        limit = grade.daily_ai_summarize_limit if grade else None
     is_unlimited = is_admin or limit is None
     today_count = AnalyzedArticle.objects.filter(
         ai_summarized_by=user, ai_summarized_at__date=timezone.localdate()
@@ -182,6 +199,8 @@ def ai_summarize_stats(user):
     return {
         'grade': grade,
         'is_admin': is_admin,
+        'is_premium': subscription.is_active_premium,
+        'limit': limit,
         'remaining': remaining,
         'today_count': today_count,
     }

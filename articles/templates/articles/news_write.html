@@ -45,6 +45,8 @@
                     {% else %}
                     <span class="badge bg-warning text-dark">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} · 무제한</span>
                     {% endif %}
+                {% elif summarize_stats.is_premium %}
+                    <span class="badge bg-light text-dark border">AI 요약 · 프리미엄 · 오늘 {{ summarize_stats.remaining }}건 남음</span>
                 {% else %}
                     <span class="badge bg-light text-dark border">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ summarize_stats.remaining }}건 남음</span>
                 {% endif %}
@@ -54,6 +56,8 @@
                     {% else %}
                     <span class="badge bg-warning text-dark">포스팅 · {{ posting_stats.grade.name|default:"일반" }} · 무제한</span>
                     {% endif %}
+                {% elif posting_stats.is_premium %}
+                    <span class="badge bg-light text-dark border">포스팅(AI 콘텐츠) · 프리미엄 · 오늘 {{ posting_stats.remaining }}건 남음 · 직접 작성은 무제한</span>
                 {% else %}
                     <span class="badge bg-light text-dark border">포스팅 · {{ posting_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ posting_stats.remaining }}건 남음</span>
                 {% endif %}
@@ -103,7 +107,7 @@
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     {% if user_blog_accounts %}
-                    <button type="submit" name="action" value="post_now" class="btn btn-outline-primary" id="writePostBtn" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
+                    <button type="submit" name="action" value="post_now" class="btn btn-outline-primary" id="writePostBtn">
                         바로 포스팅
                     </button>
                     {% endif %}

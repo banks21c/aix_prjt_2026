@@ -24,22 +24,33 @@ BLOGGER_IS_DRAFT = False  # 검증 완료 후 바로 공개 발행으로 전환.
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
     하루 발행 가능 건수는 회원 등급(MemberGrade.daily_post_limit)을 기준으로 계산한다 — 등급이
-    없거나 한도가 비어있으면(NULL) 무제한. 프리미엄 구독(UserSubscription.is_active_premium)과
-    관리자(is_staff/is_superuser)는 등급과 무관하게 항상 무제한으로 취급한다."""
+    없거나 한도가 비어있으면(NULL) 무제한. 프리미엄 구독(UserSubscription.is_active_premium)은
+    등급과 무관하게 하루 UserSubscription.PREMIUM_DAILY_POST_LIMIT건으로 고정한다 — AI 요약
+    한도(ai_summarize_stats)와 같은 숫자로 맞춰야 "AI 요약은 10건인데 발행은 무제한"처럼
+    한쪽만 열려서 사실상 못 쓰는 반쪽짜리 혜택이 되지 않는다. 관리자(is_staff/is_superuser)는
+    등급·프리미엄과 무관하게 항상 무제한.
+
+    카운트 자체도 AI가 실제로 개입한 발행만 센다 — article.ai_summarized_by가 채워진(=AI
+    요약을 거친) AnalyzedArticle의 발행만 today_count/total_count에 넣고, 직접 작성해 AI 호출
+    없이 그대로 발행한 글(news_write_view의 '바로 포스팅')은 셈에서 빼서 무제한으로 둔다 —
+    이쪽은 애초에 비용이 들지 않으므로 한도를 걸 이유가 없다."""
     subscription, _ = UserSubscription.objects.get_or_create(user=user)
     grade = getattr(getattr(user, 'preference', None), 'grade', None)
     is_admin = user.is_staff or user.is_superuser
-    limit = grade.daily_post_limit if grade else None
-    is_unlimited = subscription.is_active_premium or is_admin or limit is None
-    today_count = PostedArticle.objects.filter(
-        blog_account__user=user, posted_at__date=timezone.localdate()
-    ).count()
-    total_count = PostedArticle.objects.filter(blog_account__user=user).count()
+    if subscription.is_active_premium:
+        limit = UserSubscription.PREMIUM_DAILY_POST_LIMIT
+    else:
+        limit = grade.daily_post_limit if grade else None
+    is_unlimited = is_admin or limit is None
+    ai_posted = PostedArticle.objects.filter(blog_account__user=user, article__ai_summarized_by__isnull=False)
+    today_count = ai_posted.filter(posted_at__date=timezone.localdate()).count()
+    total_count = ai_posted.count()
     remaining = None if is_unlimited else max(0, limit - today_count)
     return {
         'is_premium': subscription.is_active_premium,
         'is_admin': is_admin,
         'grade': grade,
+        'limit': limit,
         'remaining': remaining,
         'today_count': today_count,
         'total_count': total_count,
