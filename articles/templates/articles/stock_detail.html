@@ -274,9 +274,23 @@
             overlaySeries.bbLower.setData(indicatorData.bb_lower);
         }
 
-        function setOverlayVisible(visible) {
+        function setOverlayVisible(visible, includeBands = true) {
             if (!overlaySeries) return;
-            Object.values(overlaySeries).forEach(s => s.applyOptions({ visible }));
+            overlaySeries.ma5.applyOptions({ visible });
+            overlaySeries.ma20.applyOptions({ visible });
+            overlaySeries.ma60.applyOptions({ visible });
+            overlaySeries.bbUpper.applyOptions({ visible: includeBands && visible });
+            overlaySeries.bbLower.applyOptions({ visible: includeBands && visible });
+        }
+
+        // 주봉/월봉은 일봉용 이동평균(ma5/ma20/ma60) 대신, 서버가 봉 자체 종가로 다시 계산해준
+        // 이동평균으로 오버레이 데이터를 갈아끼운다. 볼린저밴드는 주봉/월봉 기준으로 계산해두지
+        // 않았으므로 표시하지 않는다(setOverlayVisible의 includeBands=false).
+        function setPeriodOverlayData(data) {
+            if (!overlaySeries) return;
+            overlaySeries.ma5.setData(data.ma5 || []);
+            overlaySeries.ma20.setData(data.ma20 || []);
+            overlaySeries.ma60.setData(data.ma60 || []);
         }
 
         function toggleOverlaySeries() {
@@ -319,6 +333,12 @@
             document.getElementById('minuteChartError').style.display = 'none';
             chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
             series.setData(dailyOhlc);
+            // 주봉/월봉 보다가 돌아온 경우 오버레이가 그쪽 이동평균 데이터로 바뀌어 있을 수 있으므로 복원
+            if (overlaySeries && indicatorData) {
+                overlaySeries.ma5.setData(indicatorData.ma5);
+                overlaySeries.ma20.setData(indicatorData.ma20);
+                overlaySeries.ma60.setData(indicatorData.ma60);
+            }
             setOverlayVisible(overlayVisible);
             chart.timeScale().fitContent();
             setActiveButton('btnDaily');
@@ -331,15 +351,14 @@
             document.getElementById('chartTitle').textContent = `📈 ${label} 차트`;
             setActiveButton(period === 'weekly' ? 'btnWeekly' : 'btnMonthly');
             chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
-            // 주봉/월봉은 10년치 일봉을 서버에서 리샘플링한 값이라, 표시 주기가 다른
-            // 일봉용 이동평균/볼린저밴드를 그대로 겹치면 어긋나 보이므로 숨긴다
-            setOverlayVisible(false);
 
             const errorEl = document.getElementById('minuteChartError');
             errorEl.style.display = 'none';
 
             if (periodCache[period]) {
-                series.setData(periodCache[period]);
+                series.setData(periodCache[period].ohlc);
+                setPeriodOverlayData(periodCache[period]);
+                setOverlayVisible(overlayVisible, false);
                 chart.timeScale().fitContent();
                 return;
             }
@@ -352,8 +371,10 @@
                         errorEl.style.display = 'block';
                         return;
                     }
-                    periodCache[period] = data.ohlc;
-                    series.setData(periodCache[period]);
+                    periodCache[period] = data;
+                    series.setData(data.ohlc);
+                    setPeriodOverlayData(data);
+                    setOverlayVisible(overlayVisible, false);
                     chart.timeScale().fitContent();
                 })
                 .catch(() => {

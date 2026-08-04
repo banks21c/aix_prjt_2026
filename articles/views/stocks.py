@@ -188,6 +188,11 @@ def stock_period_chart_view(request, ticker, period):
         'open_price': 'first', 'high_price': 'max', 'low_price': 'min', 'close_price': 'last',
     }).dropna(subset=['open_price'])
 
+    # 이동평균은 일봉 기준(ma5/ma20/ma60)이 아니라, 주봉/월봉 자체 종가로 다시 계산한
+    # 봉 개수 기준 이동평균이다 — 그래야 차트에 겹쳤을 때 봉 간격과 어긋나지 않는다.
+    for window in (5, 20, 60):
+        agg[f'ma{window}'] = agg['close_price'].rolling(window).mean()
+
     ohlc = [
         {
             'time': idx.strftime('%Y-%m-%d'),
@@ -196,7 +201,18 @@ def stock_period_chart_view(request, ticker, period):
         }
         for idx, row in agg.iterrows()
     ]
-    return JsonResponse({'ohlc': ohlc})
+
+    def _ma_series(col):
+        return [
+            {'time': idx.strftime('%Y-%m-%d'), 'value': round(float(row[col]), 4)}
+            for idx, row in agg.iterrows()
+            if pd.notna(row[col])
+        ]
+
+    return JsonResponse({
+        'ohlc': ohlc,
+        'ma5': _ma_series('ma5'), 'ma20': _ma_series('ma20'), 'ma60': _ma_series('ma60'),
+    })
 
 
 def market_index_minute_chart_view(request, market_type):
