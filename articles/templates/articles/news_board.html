@@ -119,6 +119,10 @@
             </div>
             {% endif %}
 
+            {% if user.is_authenticated %}
+            <p class="text-muted small mb-2">※ AI요약이 되지 않은 기사에는 "AI 요약" 버튼이 활성화됩니다.</p>
+            {% endif %}
+
             <div class="card card-custom bg-white p-4">
                 {% if page_obj.object_list %}
                     {% for article in page_obj %}
@@ -139,9 +143,9 @@
                                 {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
                                 {% if article.ai_generated %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
                             </div>
-                            <div class="news-summary">
-                                {% if article.ai_summary %}{{ article.ai_summary|truncatechars:120 }}{% else %}<span class="text-muted fst-italic">아직 AI 요약이 생성되지 않았습니다.</span>{% endif %}
-                            </div>
+                            {% if article.ai_summary %}
+                            <div class="news-summary">{{ article.ai_summary|truncatechars:120 }}</div>
+                            {% endif %}
                         </div>
                         <div class="news-post-action ps-3 d-flex flex-column align-items-end gap-1">
                             {% if not article.ai_generated %}
