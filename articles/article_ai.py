@@ -1,13 +1,22 @@
 import base64
 import json
 import logging
+import time
 
 from django.conf import settings
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
+
+# Gemini가 "high demand"로 503을 반환하는 건 구글 쪽의 일시적 과부하이지 요청 자체의 문제가
+# 아니라, google-genai SDK 내부 재시도(tenacity)가 이미 실패한 뒤에도 여기서 한 번 더
+# 짧은 간격으로 재시도한다 — 회원이 'AI 요약' 버튼을 눌렀을 때 흔한 순간적 스파이크로 바로
+# 실패 처리되는 걸 줄이기 위함(실측: 같은 기사에서 몇 분 간격으로 반복 실패한 사례 확인).
+GEMINI_RETRY_ATTEMPTS = 3
+GEMINI_RETRY_BACKOFF_SECONDS = 3
 
 # 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 별칭(latest)을 써서
 # 특정 날짜 버전이 신규 사용자에게 막히거나(예: gemini-2.5-flash) 무료 쿼터가 갑자기 0으로
@@ -81,19 +90,33 @@ def _error_draft(content):
 def _call_gemini_json(system_prompt, user_prompt, max_output_tokens):
     """Gemini에 system_instruction+user prompt를 보내 JSON 객체로 파싱해 반환한다.
     response_mime_type='application/json'으로 OpenAI의 response_format=json_object와
-    동일하게 JSON만 반환하도록 강제한다."""
+    동일하게 JSON만 반환하도록 강제한다. 503(과부하) 등 일시적 오류는 SDK 내부 재시도가 이미
+    실패한 뒤에도 여기서 짧게 한 번 더 재시도한다."""
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=user_prompt,
-        config=genai_types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type='application/json',
-            max_output_tokens=max_output_tokens,
-            temperature=0.4,
-        ),
-    )
-    return json.loads(response.text)
+
+    last_error = None
+    for attempt in range(1, GEMINI_RETRY_ATTEMPTS + 1):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=user_prompt,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type='application/json',
+                    max_output_tokens=max_output_tokens,
+                    temperature=0.4,
+                ),
+            )
+            return json.loads(response.text)
+        except genai_errors.ServerError as exc:
+            last_error = exc
+            if attempt < GEMINI_RETRY_ATTEMPTS:
+                logger.warning(
+                    "Gemini 서버 오류(%s), %d/%d회 재시도 대기 중: %s",
+                    exc.code, attempt, GEMINI_RETRY_ATTEMPTS, exc,
+                )
+                time.sleep(GEMINI_RETRY_BACKOFF_SECONDS * attempt)
+    raise last_error
 
 
 def generate_draft(title, content, restricted=False, related_stock_name=None):

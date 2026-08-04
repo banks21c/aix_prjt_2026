@@ -266,8 +266,10 @@ def news_ai_summarize_view(request, pk):
         )
         if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
             # OPENAI_API_KEY 미설정이거나 호출 자체가 실패한 경우 — 한도를 쓰지 않고 알려준다.
+            # news_board로 보내면 이 기사를 다시 찾아야 해서, 같은 편집 화면에 머물러 바로
+            # 재시도(AI 요약 버튼 다시 클릭)할 수 있게 한다.
             messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
-            return redirect('news_board')
+            return redirect('news_edit', pk=article.pk)
 
         article.ai_summary = draft['ai_summary']
         article.ai_analysis = draft['ai_analysis']
