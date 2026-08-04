@@ -83,6 +83,10 @@
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.01em;
   }
+  /* 다른 asset-management 페이지(채권·ISA 등)는 이 리셋이 있어 <a>가 항상 주변 글자색을
+     따라가는데, 이 페이지엔 빠져 있어서 색을 따로 안 준 링크(#nav a 등)가 브라우저 기본
+     파란 링크색(rgb(0,0,238))으로 떠 보였다. */
+  a { color: inherit; }
   /* 사이트 공통 본문 폭(960px). 주입되는 네비 바가 같은 칼럼에 정렬된다. */
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
   section { padding: 32px 0; border-top: 1px solid var(--line); }
