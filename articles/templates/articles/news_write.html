@@ -72,6 +72,17 @@
                 </div>
                 {% endfor %}
 
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">썸네일</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="thumbnailGenBtn">🖼️ 썸네일 생성</button>
+                        <span class="small text-muted" id="thumbnailStatus"></span>
+                    </div>
+                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="생성된 썸네일 미리보기">
+                    <input type="hidden" name="pending_thumbnail" id="pendingThumbnailInput">
+                    <div class="form-text">생성하지 않고 등록하면 자동으로 기본 썸네일이 만들어집니다.</div>
+                </div>
+
                 {% if user_blog_accounts %}
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded">
                     <label class="fw-semibold small mb-0">포스팅 계정</label>
@@ -120,6 +131,56 @@
                     submitBtn.textContent = '⏳ AI 요약 중... (최대 30초 소요)';
                     setTimeout(function () { submitBtn.disabled = true; if (postBtn) postBtn.disabled = true; }, 0);
                 }
+            });
+        })();
+
+        (function () {
+            const genBtn = document.getElementById('thumbnailGenBtn');
+            const statusEl = document.getElementById('thumbnailStatus');
+            const preview = document.getElementById('thumbnailPreview');
+            const pendingInput = document.getElementById('pendingThumbnailInput');
+            const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+            const contentInput = document.getElementById('{{ form.content.id_for_label }}');
+            if (!genBtn) return;
+
+            genBtn.addEventListener('click', function () {
+                const title = titleInput.value.trim();
+                if (!title) {
+                    statusEl.textContent = '제목을 먼저 입력해주세요.';
+                    return;
+                }
+                genBtn.disabled = true;
+                statusEl.textContent = '⏳ 이미지 생성 중... (최대 30초 소요)';
+
+                const body = new URLSearchParams();
+                body.set('title', title);
+                body.set('content', contentInput.value);
+
+                fetch('{% url "news_write_thumbnail" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: body.toString(),
+                })
+                    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                    .then(function (result) {
+                        if (!result.ok) {
+                            statusEl.textContent = result.data.error || '썸네일 생성에 실패했습니다.';
+                            return;
+                        }
+                        preview.src = result.data.url;
+                        preview.classList.remove('d-none');
+                        pendingInput.value = result.data.token;
+                        statusEl.textContent = '생성 완료 — 등록 시 이 이미지가 함께 첨부됩니다.';
+                    })
+                    .catch(function () {
+                        statusEl.textContent = '썸네일 생성 중 오류가 발생했습니다.';
+                    })
+                    .finally(function () {
+                        genBtn.disabled = false;
+                    });
             });
         })();
     </script>

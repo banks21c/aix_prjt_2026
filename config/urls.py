@@ -28,7 +28,7 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -73,6 +73,7 @@ urlpatterns = [
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
     path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑
     path('post/write/', news_write_view, name='news_write'),  # ◀ 원문 링크 없이 제목+본문 직접 입력 → AI 요약
+    path('post/write/thumbnail/', news_write_thumbnail_view, name='news_write_thumbnail'),  # ◀ 직접작성하기 썸네일 미리 생성 AJAX
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
     path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX
