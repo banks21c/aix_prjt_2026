@@ -393,10 +393,13 @@ def news_write_view(request):
                 messages.success(request, "AI 요약이 완료됐습니다.")
                 return redirect('news_detail', pk=article.pk)
 
+    user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+
     context = {
         'site_title': 'NextFinUp - 직접 작성하기',
         'form': form,
         'summarize_stats': stats,
+        'user_blog_accounts': user_blog_accounts,
     }
     return render(request, 'articles/news_write.html', context)
 
