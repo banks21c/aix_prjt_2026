@@ -287,7 +287,7 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(ConsultRequest.objects.count(), 0)
 
     def test_expert_consult_menu_is_seeded_for_both_menu_types(self):
-        menus = Menu.objects.filter(name='전문가 상담')
+        menus = Menu.objects.filter(name='전문가 소개')
 
         self.assertEqual(menus.count(), 2)
         self.assertEqual({m.menu_type for m in menus}, {'INDEX', 'HEADER'})
@@ -310,5 +310,5 @@ class ExpertConsultTests(TestCase):
         landing_response = self.client.get(reverse('landing_page'))
         dashboard_response = self.client.get(reverse('main_dashboard'))
 
-        self.assertContains(landing_response, '전문가 상담')
-        self.assertContains(dashboard_response, '전문가 상담')
+        self.assertContains(landing_response, '전문가 소개')
+        self.assertContains(dashboard_response, '전문가 소개')

@@ -50,6 +50,18 @@
         @media (max-width: 576px) {
             .ec-card { padding: 26px 22px; }
         }
+        /* 자산관리(asset-management) 공통 footer 카드와 동일한 스타일 */
+        footer { padding: 40px 24px 56px; }
+        .footer-inner {
+            max-width: 912px; margin: 0 auto;
+            background: linear-gradient(135deg, #0a2647, #144272); color: #fff;
+            border-radius: 14px; box-shadow: 0 6px 18px rgba(10,38,71,0.22);
+            padding: 34px 30px 38px;
+        }
+        .footer-brand { font-weight: 900; font-size: 1.1rem; margin-bottom: 10px; }
+        .footer-inner .disclaimer {
+            font-size: 0.82rem; opacity: 0.68; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px; margin-top: 28px; line-height: 1.7;
+        }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -179,7 +191,15 @@
     });
 </script>
 
-{% include "articles/_footer.html" with footer_disclaimer="본 페이지를 통해 신청하신 상담은 담당 전문가가 남겨주신 연락처로 개별 연락드리는 방식으로 진행됩니다. 상담 내용은 참고용 정보이며, 최종 가입·투자 판단과 책임은 이용자 본인에게 있습니다." %}
+<footer>
+    <div class="footer-inner">
+      <div class="footer-brand">💼 NextFinUp 전문가 상담 신청</div>
+      <p style="opacity:.85; font-size:.92rem;">국민연금부터 상속·증여까지, 흩어진 자산을 전문가와 함께 점검해보는 상담 신청 페이지입니다. 특정 금융회사나 상품을 권유하지 않아요.</p>
+      <div class="disclaimer">
+        본 페이지를 통해 신청하신 상담은 담당 전문가가 남겨주신 연락처로 개별 연락드리는 방식으로 진행됩니다. 상담 내용은 참고용 정보이며, 최종 가입·투자 판단과 책임은 이용자 본인에게 있습니다.
+      </div>
+    </div>
+  </footer>
 {% include "articles/_cookie_banner.html" %}
 </body>
 </html>
