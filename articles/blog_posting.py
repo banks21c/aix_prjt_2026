@@ -138,26 +138,44 @@ def _subject_label(article):
     )
 
 
+def _is_investment_related(article):
+    """관련 종목/매칭 키워드가 있으면 증시·기업과 직접 연관된 기사로 본다 — 종목/키워드 매칭
+    없이 등록된 기사(회원이 임의 URL을 스크랩했거나 '직접작성하기'로 쓴 글)는 문학·에세이 등
+    투자와 무관한 내용일 수 있어(예: 개인 에세이, 소설 줄거리), 그런 글까지 "투자 인사이트"/
+    "실전 투자 가이드" 같은 금융 톤을 강제로 씌우지 않기 위한 판정이다.
+    thumbnail.build_thumbnail_file의 is_economic_news 기본값과 같은 기준을 쓴다."""
+    return bool(article.stock or article.matched_keyword)
+
+
 def _render_t1(article, safe_summary, blog_content_body, pred_html):
     """템플릿 1 (뉴스 요약형): 뉴스 핵심 요약을 가장 먼저 보여주고, 투자 분석 → 실전 가이드
-    순으로 이어지는 원래(기본) 레이아웃."""
-    return f"""
-    {pred_html}
-    <div style="line-height: 1.8; font-size: 16px; color: #333;">
-        {_section_h3('📰 오늘의 뉴스 핵심 요약')}
+    순으로 이어지는 원래(기본) 레이아웃. 투자와 무관한 글(문학/에세이 등)이거나 AI 요약 없이
+    '바로 포스팅'한 글은 해당 필드가 비어있을 수 있어 그 섹션 자체를 생략하고, 내용이 있어도
+    투자 무관 글이면 제목을 "투자 관점 분석" 대신 "핵심 시사점"처럼 중립적으로 바꾼다."""
+    investment_related = _is_investment_related(article)
+    summary_html = f"""
+        {_section_h3('📰 오늘의 뉴스 핵심 요약' if investment_related else '📝 핵심 요약')}
         <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px;">
             {safe_summary}
         </blockquote>
-
-        {_section_h3('💡 전문 투자 관점 분석')}
+    """ if article.ai_summary else ""
+    analysis_html = f"""
+        {_section_h3('💡 전문 투자 관점 분석' if investment_related else '💡 핵심 시사점')}
         <p>{article.ai_analysis}</p>
+    """ if article.ai_analysis else ""
+    disclaimer_html = _DISCLAIMER_HTML if investment_related else ""
+    return f"""
+    {pred_html}
+    <div style="line-height: 1.8; font-size: 16px; color: #333;">
+        {summary_html}
+        {analysis_html}
 
-        {_HR_HTML}
+        {_HR_HTML if (summary_html or analysis_html) else ""}
 
-        {_section_h3('🚀 실전 투자 가이드 브리핑')}
+        {_section_h3('🚀 실전 투자 가이드 브리핑' if investment_related else '📝 본문')}
         {blog_content_body}
 
-        {_DISCLAIMER_HTML}
+        {disclaimer_html}
     </div>
     """
 
@@ -165,32 +183,40 @@ def _render_t1(article, safe_summary, blog_content_body, pred_html):
 def _render_t2(article, safe_summary, blog_content_body, pred_html):
     """템플릿 2 (종목 분석형): 종목명을 헤더로 내세우고 ML 예측/투자 분석을 먼저 배치, 원본
     뉴스 요약은 맨 뒤에 참고 자료로 축소해서 붙인다 — 뉴스 자체보다 종목 분석이 중심."""
+    investment_related = _is_investment_related(article)
     subject = _subject_label(article)
     header = f"""
     <div style="padding: 16px 20px; background: #0D47A1; color: #fff; border-radius: 10px; margin-bottom: 20px;">
         <h2 style="margin: 0; font-size: 20px;">📊 종목 분석 리포트: {subject}</h2>
     </div>
     """
+    analysis_html = f"""
+        {_section_h3('💡 전문 투자 관점 분석' if investment_related else '💡 핵심 시사점')}
+        <p>{article.ai_analysis}</p>
+
+        {_HR_HTML}
+    """ if article.ai_analysis else ""
+    summary_html = f"""
+        {_HR_HTML}
+
+        {_section_h3('📰 관련 뉴스 요약 (참고)' if investment_related else '📝 요약 (참고)')}
+        <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px; font-size: 14px; color: #555;">
+            {safe_summary}
+        </blockquote>
+    """ if article.ai_summary else ""
+    disclaimer_html = _DISCLAIMER_HTML if investment_related else ""
     return f"""
     {header}
     {pred_html}
     <div style="line-height: 1.8; font-size: 16px; color: #333;">
-        {_section_h3('💡 전문 투자 관점 분석')}
-        <p>{article.ai_analysis}</p>
+        {analysis_html}
 
-        {_HR_HTML}
-
-        {_section_h3('🚀 실전 투자 가이드 브리핑')}
+        {_section_h3('🚀 실전 투자 가이드 브리핑' if investment_related else '📝 본문')}
         {blog_content_body}
 
-        {_HR_HTML}
+        {summary_html}
 
-        {_section_h3('📰 관련 뉴스 요약 (참고)')}
-        <blockquote style="background: #F9F9F9; border-left: 10px solid #CCC; margin: 1.5em 10px; padding: 0.5em 10px; font-size: 14px; color: #555;">
-            {safe_summary}
-        </blockquote>
-
-        {_DISCLAIMER_HTML}
+        {disclaimer_html}
     </div>
     """
 
@@ -198,10 +224,12 @@ def _render_t2(article, safe_summary, blog_content_body, pred_html):
 def _render_t3(article, safe_summary, blog_content_body, pred_html):
     """템플릿 3 (카드뉴스 대본형): 제목/3줄 요약/투자 시사점을 카드뉴스 슬라이드처럼 짧고
     굵은 카드 단위로 나열한 뒤, 실전 가이드 본문을 이어 붙인다."""
+    investment_related = _is_investment_related(article)
     cards = [("HOOK", article.title)]
-    cards += [(f"CARD {i}", line) for i, line in enumerate(
-        (line.strip() for line in article.ai_summary.split('\n') if line.strip()), start=1
-    )]
+    if article.ai_summary:
+        cards += [(f"CARD {i}", line) for i, line in enumerate(
+            (line.strip() for line in article.ai_summary.split('\n') if line.strip()), start=1
+        )]
     if article.ai_analysis:
         cards.append(("INSIGHT", article.ai_analysis))
 
@@ -212,6 +240,7 @@ def _render_t3(article, safe_summary, blog_content_body, pred_html):
         </div>
     """ for label, text in cards)
 
+    disclaimer_html = _DISCLAIMER_HTML if investment_related else ""
     return f"""
     {pred_html}
     <div style="line-height: 1.8; font-size: 16px; color: #333;">
@@ -220,10 +249,10 @@ def _render_t3(article, safe_summary, blog_content_body, pred_html):
 
         {_HR_HTML}
 
-        {_section_h3('🚀 실전 투자 가이드 브리핑')}
+        {_section_h3('🚀 실전 투자 가이드 브리핑' if investment_related else '📝 본문')}
         {blog_content_body}
 
-        {_DISCLAIMER_HTML}
+        {disclaimer_html}
     </div>
     """
 
@@ -262,8 +291,9 @@ def build_post_content(article):
     # 게시판에 뜨는 원본 기사 제목(article.title)을 그대로 살려서, 회원이 블로그 관리자 화면에서
     # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이
     # 만든 콘텐츠"라는 걸 밝히지 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의
-    # 블로그 글처럼 보여야 하기 때문.
-    blog_title = f"[투자 인사이트] {article.title}"
+    # 블로그 글처럼 보여야 하기 때문. 투자와 무관한 글(문학/에세이 등 '직접작성하기'로 쓴 글
+    # 포함)까지 "투자 인사이트"를 붙이면 어색해서, 그런 경우엔 접두사를 붙이지 않는다.
+    blog_title = f"[투자 인사이트] {article.title}" if _is_investment_related(article) else article.title
 
     return blog_title, full_html_content, subject_label
 
