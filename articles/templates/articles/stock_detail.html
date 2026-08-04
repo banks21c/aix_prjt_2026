@@ -285,12 +285,22 @@
 
         // 주봉/월봉은 일봉용 이동평균(ma5/ma20/ma60) 대신, 서버가 봉 자체 종가로 다시 계산해준
         // 이동평균으로 오버레이 데이터를 갈아끼운다. 볼린저밴드는 주봉/월봉 기준으로 계산해두지
-        // 않았으므로 표시하지 않는다(setOverlayVisible의 includeBands=false).
+        // 않았으므로 비운다 — visible:false로 숨기기만 하고 데이터를 그대로 두면, lightweight-charts가
+        // "숨긴" 시리즈의 시각 포인트도 여전히 x축(타임스케일) 계산에 포함시켜서, 최근 180거래일치
+        // 촘촘한 일봉 날짜들이 10년치 월봉의 최근 구간에 섞여 그 부분만 비정상적으로 넓게 벌어지고
+        // 나머지(과거) 구간은 좁게 눌리는("징검다리" 형태) 현상이 생긴다. 반드시 setData([])로 비워야 한다.
         function setPeriodOverlayData(data) {
             if (!overlaySeries) return;
             overlaySeries.ma5.setData(data.ma5 || []);
             overlaySeries.ma20.setData(data.ma20 || []);
             overlaySeries.ma60.setData(data.ma60 || []);
+            overlaySeries.bbUpper.setData([]);
+            overlaySeries.bbLower.setData([]);
+        }
+
+        function clearOverlayData() {
+            if (!overlaySeries) return;
+            Object.values(overlaySeries).forEach(s => s.setData([]));
         }
 
         function toggleOverlaySeries() {
@@ -333,11 +343,13 @@
             document.getElementById('minuteChartError').style.display = 'none';
             chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
             series.setData(dailyOhlc);
-            // 주봉/월봉 보다가 돌아온 경우 오버레이가 그쪽 이동평균 데이터로 바뀌어 있을 수 있으므로 복원
+            // 주봉/월봉/분봉 보다가 돌아온 경우 오버레이가 그쪽 데이터로 바뀌었거나 비어있을 수 있으므로 복원
             if (overlaySeries && indicatorData) {
                 overlaySeries.ma5.setData(indicatorData.ma5);
                 overlaySeries.ma20.setData(indicatorData.ma20);
                 overlaySeries.ma60.setData(indicatorData.ma60);
+                overlaySeries.bbUpper.setData(indicatorData.bb_upper);
+                overlaySeries.bbLower.setData(indicatorData.bb_lower);
             }
             setOverlayVisible(overlayVisible);
             chart.timeScale().fitContent();
@@ -391,8 +403,10 @@
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
             // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });
-            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨긴다
+            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨기고,
+            // 데이터도 비운다(숨기기만 하면 시간축 계산에 여전히 남아있는 문제 — setPeriodOverlayData 주석 참고)
             setOverlayVisible(false);
+            clearOverlayData();
 
             if (minuteCache) {
                 series.setData(minuteCache);
