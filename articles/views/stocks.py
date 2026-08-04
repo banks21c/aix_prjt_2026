@@ -105,6 +105,7 @@ def stock_detail_view(request, ticker):
             'high': realtime_cache.high_price,
             'low': realtime_cache.low_price,
             'change': realtime_cache.change,
+            'change_abs': abs(realtime_cache.change),
             'change_pct': realtime_cache.change_pct,
             'updated_at': realtime_cache.updated_at,
         }
@@ -121,6 +122,7 @@ def stock_detail_view(request, ticker):
                 'high': fetched['high'],
                 'low': fetched['low'],
                 'change': fetched['change'],
+                'change_abs': abs(fetched['change']),
                 'change_pct': fetched['change_pct'],
                 'updated_at': timezone.now(),
             }

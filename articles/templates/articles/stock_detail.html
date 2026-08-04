@@ -1,4 +1,4 @@
-{% load static %}
+{% load static humanize %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -41,14 +41,14 @@
             <div class="col-auto text-end">
                 {% if realtime %}
                 <div class="fs-3 fw-bold">
-                    {{ realtime.close|floatformat:0 }}원
+                    {{ realtime.close|floatformat:0|intcomma }}원
                     <span class="{% if realtime.change > 0 %}up-value{% elif realtime.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 15px;">
-                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change|floatformat:0 }} ({{ realtime.change_pct|floatformat:2 }}%)
+                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_abs|floatformat:0|intcomma }} ({{ realtime.change_pct|floatformat:2 }}%)
                     </span>
                 </div>
                 <div class="text-muted" style="font-size: 11px;">🟢 한국투자증권 · {{ realtime.updated_at|date:"H:i" }} 기준</div>
                 {% elif latest_price %}
-                <div class="fs-3 fw-bold">{{ latest_price.close_price|floatformat:0 }}원</div>
+                <div class="fs-3 fw-bold">{{ latest_price.close_price|floatformat:0|intcomma }}원</div>
                 <div class="text-muted" style="font-size: 11px;">{{ latest_price.date|date:"Y-m-d" }} 종가</div>
                 {% endif %}
                 {% if latest_pred %}
@@ -126,11 +126,11 @@
                 </div>
                 <div class="col">
                     <div class="text-muted small">MA5 / MA20 / MA60</div>
-                    <div class="fw-bold fs-6">{{ latest_indicators.ma5|floatformat:0|default:"-" }} / {{ latest_indicators.ma20|floatformat:0|default:"-" }} / {{ latest_indicators.ma60|floatformat:0|default:"-" }}</div>
+                    <div class="fw-bold fs-6">{{ latest_indicators.ma5|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.ma20|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.ma60|floatformat:0|intcomma|default:"-" }}</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">볼린저밴드 상단/하단</div>
-                    <div class="fw-bold fs-6">{{ latest_indicators.bb_upper|floatformat:0|default:"-" }} / {{ latest_indicators.bb_lower|floatformat:0|default:"-" }}</div>
+                    <div class="fw-bold fs-6">{{ latest_indicators.bb_upper|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.bb_lower|floatformat:0|intcomma|default:"-" }}</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">변동성(20일, 일간수익률 표준편차)</div>
@@ -147,7 +147,7 @@
             <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
                 <div class="col">
                     <div class="text-muted small">내일 예상 종가</div>
-                    <div class="fw-bold fs-5">{{ latest_pred.pred_next_close|floatformat:0 }}원</div>
+                    <div class="fw-bold fs-5">{{ latest_pred.pred_next_close|floatformat:0|intcomma }}원</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">상승 확률</div>
