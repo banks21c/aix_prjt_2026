@@ -200,15 +200,18 @@
 
                     const info = document.createElement('div');
                     const titleClass = item.already_registered ? 'fw-semibold text-primary' : 'fw-semibold';
-                    const titleStyle = item.already_registered ? ' style="cursor:pointer;"' : '';
-                    info.innerHTML = `<div class="${titleClass}"${titleStyle}>${item.title}</div>` +
+                    info.innerHTML = `<div class="${titleClass}" style="cursor:pointer;">${item.title}</div>` +
                         `<div class="small text-muted">${item.source}${item.pub_date ? ' · ' + item.pub_date : ''}` +
                         (item.already_registered ? ' · <span class="text-warning">이미 등록됨</span>' : '') + `</div>`;
-                    if (item.already_registered) {
-                        info.querySelector('div').addEventListener('click', function () {
+                    // 이미 등록된 기사는 클릭 시 바로 프리뷰(AJAX), 아직 없는 기사는 클릭 시
+                    // '스크래핑' 버튼과 동일하게 스크래핑을 트리거해 결과를 아래에 보여준다.
+                    info.querySelector('div').addEventListener('click', function () {
+                        if (item.already_registered) {
                             showRegisteredPreview(item.article_id);
-                        });
-                    }
+                        } else {
+                            submitScrapeFor(item.link);
+                        }
+                    });
                     row.appendChild(info);
 
                     const actionBtn = document.createElement('button');
