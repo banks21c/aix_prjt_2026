@@ -309,6 +309,9 @@
         const moverValues = readJson('mover-values');
         const moverEl = document.getElementById('moverChart');
         if (moverEl && moverLabels.length) {
+            // 상승(빨강)/하락(파랑) 색상 규칙은 사이트 전체 관례와 동일 — 값 하나로 고정된 빨강만
+            // 쓰면 하락 종목까지 빨간 막대로 보여 오해를 준다.
+            const moverColors = moverValues.map(v => v < 0 ? '#1565c0' : '#c62828');
             new Chart(moverEl, {
                 type: 'bar',
                 data: {
@@ -316,7 +319,7 @@
                     datasets: [{
                         label: '등락률(%)',
                         data: moverValues,
-                        backgroundColor: '#c62828',
+                        backgroundColor: moverColors,
                         borderRadius: 6,
                     }]
                 },
