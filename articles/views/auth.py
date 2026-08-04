@@ -93,7 +93,6 @@ def login_view(request):
     if request.method == 'POST' and form.is_valid():
         login(request, form.get_user())
         _log_login(request, form.get_user(), 'GENERAL')
-        messages.success(request, f"{form.get_user().username}님, 환영합니다!")
         return redirect('landing_page')
 
     return render(request, 'articles/login.html', {'form': form, 'site_title': 'NextFinUp - 로그인'})
