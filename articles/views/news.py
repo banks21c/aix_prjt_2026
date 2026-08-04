@@ -342,7 +342,7 @@ def news_scrape_view(request):
             return redirect('news_edit', pk=article.pk)
 
     context = {
-        'site_title': 'NextFinUp - 뉴스 포스팅',
+        'site_title': 'NextFinUp - 뉴스 수집',
         'form': form,
         'scraping_stats': stats,
     }
