@@ -231,7 +231,7 @@ def main_dashboard_view(request):
     kosdaq_index = _build_index_chart('KOSDAQ', days=1095)
 
     # ---- 2행: 주요뉴스 (전체 종목 통틀어 가장 최근 수집된 기사) ----
-    major_news = AnalyzedArticle.objects.select_related('stock', 'matched_keyword').order_by('-scraped_at')[:6]
+    major_news = AnalyzedArticle.objects.select_related('stock', 'matched_keyword').order_by('-scraped_at')[:10]
 
     # ---- 2행: 특징종목 (한국투자증권 등락률 순위 API 기준 상승률 상위 5개 + 하락률 상위 5개) ----
     top_gainers = list(RankedMover.objects.filter(rank_type='GAINER').order_by('rank'))
