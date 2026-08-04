@@ -7,3 +7,4 @@ logs/*.log
 .env
 staticfiles/
 media/
+환율API.txt

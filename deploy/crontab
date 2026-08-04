@@ -25,6 +25,9 @@
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
+# 하나은행 고시 환율은 하루 단위로만 갱신되는 값이라(당일 내내 동일) 5분 주기는 낭비 — 30분마다
+# 확인해 그날 첫 고시가 뜨는 대로 반영한다.
+*/30 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_exchange_rate_fixing.log venv/bin/python manage.py collect_exchange_rate_fixing
 
 # 02:00 KST — 전종목 시세 증분 수집(collect_stock_data --all, 이미 저장된 최신 날짜 이후만 받아옴).
 # 장 시작(09:00 KST) 전 여유 있게 끝나도록 새벽 시간대에 배치. 평일에만 새 거래일 데이터가

@@ -82,6 +82,7 @@ class GlobalMarketQuote(models.Model):
     CATEGORY_CHOICES = [
         ('FOREIGN_INDEX', '해외지수'),
         ('FX_RATE', '국제 시장 환율'),
+        ('FX_FIXING', '환전 고시 환율'),
         ('INTEREST_RATE', '금리'),
     ]
 
@@ -101,6 +102,26 @@ class GlobalMarketQuote(models.Model):
 
     def __str__(self):
         return f"[{self.get_category_display()}] {self.name} ({self.price})"
+
+
+class ExchangeRateSnapshot(models.Model):
+    """한국수출입은행 OpenAPI(환전 고시 환율)의 일별 매매기준율 이력. 이 API는 당일 값만 주고
+    전일대비를 안 내려줘서, collect_exchange_rate_fixing이 날짜별로 하나씩 쌓아두고 그 직전
+    영업일 값과 비교해 change_pct를 직접 계산한 뒤 GlobalMarketQuote(category=FX_FIXING)로
+    올린다."""
+    currency_code = models.CharField(max_length=20, verbose_name="통화 코드")
+    currency_name = models.CharField(max_length=50, verbose_name="통화명")
+    date = models.DateField(verbose_name="고시 일자")
+    deal_bas_r = models.DecimalField(max_digits=14, decimal_places=4, verbose_name="매매기준율")
+
+    class Meta:
+        unique_together = ('currency_code', 'date')
+        ordering = ['currency_code', '-date']
+        verbose_name = "환전 고시 환율 이력 (ExchangeRateSnapshot)"
+        verbose_name_plural = "환전 고시 환율 이력 (ExchangeRateSnapshot)"
+
+    def __str__(self):
+        return f"{self.currency_code} {self.date} = {self.deal_bas_r}"
 
 
 # ==========================================

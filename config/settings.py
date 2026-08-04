@@ -219,6 +219,11 @@ KIS_APP_SECRET = os.environ.get('KIS_APP_SECRET')
 CREDENTIAL_ENCRYPTION_KEY = os.environ.get('CREDENTIAL_ENCRYPTION_KEY')
 KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"  # 실전투자 서버
 
+# 한국수출입은행(koreaexim.go.kr) OpenAPI - 환전 고시 환율(매매기준율). KIS API에는 은행 고시
+# 환율(하나은행 기준 등) 데이터가 없어 헤더 지수 티커의 "환전 고시 환율" 항목만 이 API를 쓴다.
+# https://www.koreaexim.go.kr/ir/HPHKIR019M01
+EXIM_AUTH_KEY = os.environ.get('EXIM_AUTH_KEY')
+
 # Gmail SMTP (회원가입/마이페이지 이메일 인증 메일 발송용, articles/email_utils.py 참고)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

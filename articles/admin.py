@@ -12,6 +12,7 @@ from .models import (
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
+    ExchangeRateSnapshot,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -170,6 +171,16 @@ class GlobalMarketQuoteAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # collect_global_market_data 명령을 통해서만 생성됨
+
+# 1-0-1-4. 환전 고시 환율 일별 이력 조회용 (읽기 전용)
+@admin.register(ExchangeRateSnapshot)
+class ExchangeRateSnapshotAdmin(admin.ModelAdmin):
+    list_display = ('currency_code', 'currency_name', 'date', 'deal_bas_r')
+    list_filter = ('currency_code',)
+    ordering = ('currency_code', '-date')
+
+    def has_add_permission(self, request):
+        return False  # collect_exchange_rate_fixing 명령을 통해서만 생성됨
 
 # 2-1. 일봉 가격(실제 OHLCV) 관리
 @admin.register(StockDailyPrice)
