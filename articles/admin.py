@@ -11,7 +11,7 @@ from .models import (
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
-    FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover,
+    FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -159,6 +159,17 @@ class RankedMoverAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # collect_fluctuation_ranking 명령을 통해서만 생성됨
+
+# 1-0-1-3. 해외지수/국제환율/금리 캐시 조회용 (읽기 전용)
+@admin.register(GlobalMarketQuote)
+class GlobalMarketQuoteAdmin(admin.ModelAdmin):
+    list_display = ('category', 'name', 'code', 'price', 'change_pct', 'order', 'updated_at')
+    list_filter = ('category',)
+    search_fields = ('name', 'code')
+    ordering = ('category', 'order')
+
+    def has_add_permission(self, request):
+        return False  # collect_global_market_data 명령을 통해서만 생성됨
 
 # 2-1. 일봉 가격(실제 OHLCV) 관리
 @admin.register(StockDailyPrice)

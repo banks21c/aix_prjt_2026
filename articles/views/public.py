@@ -14,8 +14,8 @@ from django.views.decorators.http import require_POST
 
 from ..forms import NewsletterForm
 from ..models import (
-    AnalyzedArticle, ConsultRequest, MarketIndex, NewsletterSubscriber, RankedMover, StockItem,
-    StockPrediction,
+    AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
+    StockItem, StockPrediction,
 )
 from ..utils import get_client_ip
 
@@ -90,9 +90,9 @@ def header_fragment_view(request):
 
 
 def ticker_data_view(request):
-    """_header.html의 첫 번째(시세) 티커가 폴링하는 JSON API. 지금은 KOSPI/KOSDAQ 국내지수
-    (MarketIndex, 5분 주기 collect_market_index)만 내려준다 — 해외지수/환율/금리/유가/금시세/
-    원자재는 아직 소스가 정해지지 않아 추가 전."""
+    """_header.html의 첫 번째(시세) 티커가 폴링하는 JSON API. 국내지수(MarketIndex) +
+    해외지수/국제 시장 환율/금리(GlobalMarketQuote, 5분 주기 collect_global_market_data)를
+    내려준다. 유가/금시세/원자재는 KIS API에 데이터 자체가 없어 제외했다."""
     items = []
 
     for market_type, label in (('KOSPI', '코스피'), ('KOSDAQ', '코스닥')):
@@ -103,6 +103,13 @@ def ticker_data_view(request):
                 'price': float(idx.close_price),
                 'change_pct': idx.change_pct if idx.change_pct is not None else 0.0,
             })
+
+    for quote in GlobalMarketQuote.objects.order_by('category', 'order'):
+        items.append({
+            'name': quote.name,
+            'price': float(quote.price),
+            'change_pct': quote.change_pct,
+        })
 
     return JsonResponse({'items': items})
 

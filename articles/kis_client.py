@@ -196,6 +196,124 @@ def get_investor_trend(market_type):
     }
 
 
+# 금리 종합(국내채권/금리) TR_ID (국내주식-155) - 저장소에 있는 KIS API 문서 엑셀
+# ("kis_api/금리 종합(국내채권_금리) [국내주식-155].xlsx")로 확인한 값. output1은 해외금리지표
+# (미국 국채 등), output2는 국내채권/금리(국고채/회사채/CD/콜 등) — 헤더 티커는 output2만 쓴다.
+INTEREST_RATE_TR_ID = "FHPST07020000"
+
+# output2의 bcdt_code(자료코드) 중 헤더 티커에 보여줄 4개와 표시 라벨.
+# 실제 호출 결과 국고채(Y0101)/회사채(Y0102)는 응답 자체가 누락되거나 인코딩이 깨져서 와
+# (2026-08-04 확인, 재현됨 — API 쪽 데이터 이슈로 보임) 정상 수신되는 2개만 우선 노출한다.
+INTEREST_RATE_ITEMS = {
+    'Y0112': 'CD(91일)',
+    'Y0114': '콜금리',
+}
+
+
+def get_interest_rates():
+    """금리 종합(국내채권/금리) API로 CD(91일)/콜금리/국고채(3년)/회사채(3년) 등을 조회합니다.
+    {bcdt_code: {'name':, 'price':, 'change_pct':}} 형태로, output2에 실린 항목 전부를 반환합니다
+    (호출부가 INTEREST_RATE_ITEMS로 필요한 것만 골라 씀)."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/comp-interest"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INTEREST_RATE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "I",
+        "FID_COND_SCR_DIV_CODE": "20702",
+        "FID_DIV_CLS_CODE": "1",
+        "FID_DIV_CLS_CODE1": "",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 금리 종합 조회 실패: {data.get('msg1')}")
+
+    # 앞쪽 일부 행은 필드가 밀려서 오는 데이터 이슈가 있어(2026-08-04 확인, 국고채/회사채가
+    # 이 구간에 걸림) 행 하나가 깨졌다고 나머지까지 못 쓰게 되지 않도록 개별적으로 건너뛴다.
+    result = {}
+    for row in data.get('output2', []):
+        try:
+            result[row['bcdt_code']] = {
+                'name': row['hts_kor_isnm'],
+                'price': float(row['bond_mnrt_prpr']),
+                'change_pct': float(row['bstp_nmix_prdy_ctrt']),
+            }
+        except (KeyError, ValueError):
+            continue
+    return result
+
+
+# 해외지수분봉조회 TR_ID (v1_해외주식-031). 이름과 달리 output1에 해당 종목/지수/환율의
+# "현재가 한 건"이 항상 같이 오므로(output2가 분봉 히스토리), 헤더 티커처럼 현재가만 필요할 땐
+# output1만 읽고 페이지네이션은 하지 않는다. FID_COND_MRKT_DIV_CODE: N=해외지수, X=환율(달러 기준
+# 국제시장), 종목코드(FID_INPUT_ISCD) 값은 실제 호출로 확인한 것들만 GLOBAL_QUOTE_ITEMS에 정리.
+OVERSEAS_INDEX_TR_ID = "FHKST03030200"
+
+# (category, code): 표시 라벨 — category는 GlobalMarketQuote.category, code는 그대로
+# get_overseas_index_price(mrkt_div_code, code)에 넘길 FID_INPUT_ISCD.
+GLOBAL_QUOTE_ITEMS = {
+    'FOREIGN_INDEX': {
+        # 심천(001001 등)은 시도해본 코드가 전부 결과 없음(0.00)으로 나와 아직 못 찾음 — 정확한
+        # FID_INPUT_ISCD 값을 확인하면 여기 추가.
+        '.DJI': ('N', '다우존스'),
+        'COMP': ('N', '나스닥'),
+        'HSCE': ('N', '홍콩H'),
+        'JP#NI225': ('N', '니케이225'),
+    },
+    'FX_RATE': {
+        'FX@JPY': ('X', '달러/엔'),
+        'FX@EUR': ('X', '유로/달러'),
+        'FX@GBP': ('X', '파운드/달러'),
+    },
+}
+
+
+def get_overseas_index_price(mrkt_div_code, iscd):
+    """해외지수분봉조회 API로 해외지수/환율의 현재가 한 건을 조회합니다(output1만 사용).
+    mrkt_div_code: N(해외지수)/X(환율). iscd: '.DJI', 'FX@JPY' 등 GLOBAL_QUOTE_ITEMS 참고."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/inquire-time-indexchartprice"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": OVERSEAS_INDEX_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": mrkt_div_code,
+        "FID_INPUT_ISCD": iscd,
+        "FID_HOUR_CLS_CODE": "0",
+        "FID_PW_DATA_INCU_YN": "N",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 해외지수/환율 조회 실패({iscd}): {data.get('msg1')}")
+
+    output = data.get('output1') or {}
+    if not output.get('ovrs_nmix_prpr'):
+        raise RuntimeError(f"KIS 해외지수/환율 조회 결과 없음: {iscd}")
+
+    return {
+        'name': output.get('hts_kor_isnm') or iscd,
+        'price': float(output['ovrs_nmix_prpr']),
+        'change_pct': float(output['prdy_ctrt']),
+    }
+
+
 # 국내업종 일자별지수 조회 TR_ID (v1_국내주식-065) - 한 번에 최대 100건(영업일 기준)
 INDEX_DAILY_PRICE_TR_ID = "FHPUP02120000"
 

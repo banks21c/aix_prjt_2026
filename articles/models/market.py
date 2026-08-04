@@ -75,6 +75,35 @@ class RankedMover(models.Model):
 
 
 # ==========================================
+# 1-0-1-0-1. 해외지수/국제환율/금리 캐시 (헤더 지수 티커용, collect_global_market_data가
+#  5분 주기로 갱신)
+# ==========================================
+class GlobalMarketQuote(models.Model):
+    CATEGORY_CHOICES = [
+        ('FOREIGN_INDEX', '해외지수'),
+        ('FX_RATE', '국제 시장 환율'),
+        ('INTEREST_RATE', '금리'),
+    ]
+
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name="구분")
+    code = models.CharField(max_length=20, verbose_name="코드")
+    name = models.CharField(max_length=50, verbose_name="이름")
+    price = models.DecimalField(max_digits=14, decimal_places=4, verbose_name="현재가")
+    change_pct = models.FloatField(verbose_name="전일 대비율(%)")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
+
+    class Meta:
+        unique_together = ('category', 'code')
+        ordering = ['category', 'order']
+        verbose_name = "해외지수/환율/금리 (GlobalMarketQuote)"
+        verbose_name_plural = "해외지수/환율/금리 (GlobalMarketQuote)"
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.name} ({self.price})"
+
+
+# ==========================================
 # 1-0-1-1. 한국투자증권(KIS) 주식현재가 시세 캐시
 # 종목 상세 페이지를 열 때마다 KIS API를 직접 호출하면 트래픽이 늘었을 때 호출 제한에
 # 걸리기 쉬워서, collect_stock_realtime_price 명령이 주기적으로 갱신해 저장해두고

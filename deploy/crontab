@@ -24,6 +24,7 @@
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
 
 # 02:00 KST — 전종목 시세 증분 수집(collect_stock_data --all, 이미 저장된 최신 날짜 이후만 받아옴).
 # 장 시작(09:00 KST) 전 여유 있게 끝나도록 새벽 시간대에 배치. 평일에만 새 거래일 데이터가

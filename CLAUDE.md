@@ -74,6 +74,7 @@ actual Korea-time (KST = UTC+9) equivalent that the hour was chosen to hit:**
 */5 * * * *  collect_kis_news                # 종합 시황/공시 headlines via KIS API
 */5 * * * *  collect_stock_realtime_price    # KIS realtime price (StockRealtimePrice)
 */5 * * * *  collect_fluctuation_ranking     # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
+*/5 * * * *  collect_global_market_data      # KIS 해외지수/국제환율/금리 (GlobalMarketQuote; feeds header index ticker)
 0 17 * * *   collect_stock_data --all        # KST 02:00 — incremental (only new trading days) full-universe OHLCV pull
 30 19 * * *  run_stock_prediction --all      # KST 04:30 — full-universe ensemble retrain, ~30min after collect_stock_data starts
 0 4 * * 1-5  generate_featured_stock_briefing --session=midday  # KST 13:00 — AI 특징주 브리핑 (AnalyzedArticle, source_type=AI_BRIEFING)
@@ -143,7 +144,8 @@ venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package,
     `collect_stock_data`, then ML fields — `pred_next_close`, `pred_5day_return`,
     `up_probability`, `down_probability`, `trading_signal` — updated in place by
     `run_stock_prediction`), `MarketIndex`, `MarketHoliday`, `KisAccessToken` (cached KIS OAuth
-    token, see `kis_client.get_access_token`), `RankedMover`, `StockRealtimePrice`.
+    token, see `kis_client.get_access_token`), `RankedMover`, `StockRealtimePrice`,
+    `GlobalMarketQuote` (해외지수/국제환율/금리 cache, feeds the header index ticker).
   - **`news.py`**: `NewsSource`, `NewsKeyword`, `AnalyzedArticle` (scraped article + AI
     summary/analysis/blog draft + optional `stock`/`matched_keyword` FK; `scraped_by` is set only
     for member-submitted URLs and drives per-grade daily scrape limits), `PostedArticle` (records
