@@ -25,6 +25,7 @@ from articles.views import (
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view, consult_request_view, header_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
+    expert_consult_apply_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
@@ -63,6 +64,7 @@ urlpatterns = [
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
     path('experts/', expert_consult_view, name='expert_consult'),
+    path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
     path('insurance/', insurance_compare_view, name='insurance_compare'),
     path('partials/header/', header_fragment_view, name='header_fragment'),
     path('api/ticker/', ticker_data_view, name='ticker_data'),  # ◀ 첫 번째(시세) 티커가 폴링하는 JSON

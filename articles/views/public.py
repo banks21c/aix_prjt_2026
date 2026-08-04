@@ -82,6 +82,13 @@ def expert_consult_view(request):
     return render(request, 'articles/expert_consult.html', {'site_title': 'NextFinUp - 전문가 상담'})
 
 
+def expert_consult_apply_view(request):
+    """expert_consult.html 중 상담 신청 폼만 떼어낸 단독 페이지. 프로필/12가지 약속 없이
+    바로 신청서로 진입하고 싶은 링크(광고, 배너 등)를 위한 것 — 제출 로직은 동일한
+    /api/consult/(consult_request_view)를 그대로 쓴다."""
+    return render(request, 'articles/expert_consult_apply.html', {'site_title': 'NextFinUp - 상담 신청'})
+
+
 def insurance_compare_view(request):
     # 해외여행자보험 비교 데모(프로토타입) — 상품/가격은 전부 예시 데이터이며 실 서비스 아님
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
