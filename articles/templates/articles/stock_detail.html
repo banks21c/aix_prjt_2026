@@ -398,8 +398,18 @@
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
             // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });
-            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨긴다
+            // 이동평균/볼린저밴드를 숨기는 것만으로는 부족하다 — 주봉/월봉을 거쳐온 경우 ma5/ma20/ma60에
+            // 10년치 시각 포인트가 남아있는데, lightweight-charts는 숨긴 시리즈의 시각 포인트도 fitContent()
+            // 범위 계산에 포함시켜서, 당일 하루치 분봉이 10년 범위 안에 파묻혀 사실상 안 보이게 된다.
+            // 데이터 자체를 비워야 한다.
             setOverlayVisible(false);
+            if (overlaySeries) {
+                overlaySeries.ma5.setData([]);
+                overlaySeries.ma20.setData([]);
+                overlaySeries.ma60.setData([]);
+                overlaySeries.bbUpper.setData([]);
+                overlaySeries.bbLower.setData([]);
+            }
 
             if (minuteCache) {
                 series.setData(minuteCache);
