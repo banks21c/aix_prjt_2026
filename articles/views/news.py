@@ -204,8 +204,8 @@ def news_detail_view(request, pk):
 @login_required
 def news_search_view(request):
     """news_scrape_view의 '검색어로 찾기' 모드가 쓰는 AJAX 엔드포인트. 검색 결과는 등록된
-    언론사 RSS 안에서만 찾은 것이라 회원이 그 중 하나를 고르면, 실제 스크래핑/AI 초안 생성은
-    기존 URL 등록 폼에 링크를 채워 넣어 news_scrape_view의 POST 플로우를 그대로 재사용한다."""
+    언론사 RSS 안에서만 찾은 것이라 회원이 그 중 하나를 고르면, 실제 스크래핑은 기존 URL 등록
+    폼에 링크를 채워 넣어 news_scrape_view의 POST 플로우를 그대로 재사용한다."""
     query = request.GET.get('q', '').strip()
     results = search_news_by_keyword(query) if query else []
     return JsonResponse({'results': results})
@@ -289,9 +289,11 @@ def news_ai_summarize_view(request, pk):
 
 @login_required
 def news_scrape_view(request):
-    """회원이 임의의 기사 URL을 입력하면 (1) trafilatura로 본문을 스크래핑하고,
-    (2) article_ai로 3줄 요약/투자 분석/블로그 초안을 생성한 뒤, (3) 바로 편집 화면(news_edit)으로
-    넘겨 검토·수정 후 저장하게 하는 수동 등록 진입점. RSS 자동 수집(scraped_ai_news 등)과 달리
+    """회원이 임의의 기사 URL을 입력하면 trafilatura로 본문만 스크래핑해 ai_generated=False인
+    AnalyzedArticle을 만들고 바로 편집 화면(news_edit)으로 넘기는 수동 등록 진입점. AI 3줄 요약/
+    투자 분석/블로그 초안 생성은 여기서 하지 않고, news_edit/news_board의 'AI 요약' 버튼
+    (news_ai_summarize_view, 별도 일일 한도)으로 회원이 원할 때 따로 트리거한다 — 스크래핑만으로도
+    끝낼 수 있는 회원과 AI 한도를 분리해 관리하기 위함. RSS 자동 수집(scraped_ai_news 등)과 달리
     회원이 임의 사이트를 직접 골라 등록할 때 쓴다. 등급별 일일 한도(MemberGrade.daily_scrape_limit)
     로 제한되며, 관리자(is_staff/is_superuser)는 무제한이다."""
     form = NewsScrapeForm(request.POST or None)
@@ -319,7 +321,6 @@ def news_scrape_view(request):
             messages.error(request, "본문을 스크래핑하지 못했습니다. URL을 확인하거나 다른 기사로 시도해주세요.")
         else:
             restricted = detect_reuse_restriction(scraped['content'])
-            draft = article_ai.generate_draft(scraped['title'], scraped['content'], restricted=restricted)
             article_title = scraped['title'] or url
             article = AnalyzedArticle.objects.create(
                 title=article_title,
@@ -328,17 +329,11 @@ def news_scrape_view(request):
                 source_type=AnalyzedArticle.SOURCE_RSS,
                 original_content=scraped['content'],
                 has_reuse_restriction=restricted,
-                ai_summary=draft['ai_summary'],
-                ai_analysis=draft['ai_analysis'],
-                blog_content=draft['blog_content'] + build_mentioned_stocks_table(scraped['content']),
-                thumbnail=thumbnail.build_thumbnail_file(article_title, ai_summary=draft['ai_summary']),
+                thumbnail=thumbnail.build_thumbnail_file(article_title),
                 applied_template='T1',
                 scraped_by=request.user,
-                ai_generated=True,
-                ai_summarized_by=request.user,
-                ai_summarized_at=timezone.now(),
             )
-            messages.success(request, "스크래핑 및 AI 초안 생성이 완료되었습니다. 내용을 검토하고 저장해주세요.")
+            messages.success(request, "스크래핑이 완료되었습니다. 내용을 확인한 뒤 'AI 요약' 버튼으로 AI 초안을 생성해주세요.")
             return redirect('news_edit', pk=article.pk)
 
     context = {

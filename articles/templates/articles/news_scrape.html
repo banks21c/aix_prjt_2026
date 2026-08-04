@@ -33,8 +33,8 @@
             <h3 class="fw-bold mb-2">🔗 뉴스 수집</h3>
             <p class="text-muted small mb-4">
                 기사 원문 URL을 직접 입력하거나, 키워드로 검색해 등록된 언론사 기사 중에서 골라도 됩니다.
-                본문을 자동으로 스크래핑하고 AI가 3줄 요약·투자 관점 분석·블로그 초안을 생성한 뒤,
-                바로 편집 화면으로 이동해 내용을 검토·수정할 수 있습니다.
+                본문을 자동으로 스크래핑한 뒤 바로 편집 화면으로 이동합니다. AI 3줄 요약·투자 관점 분석·
+                블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
             </p>
 
             <p class="mb-4">
@@ -235,7 +235,7 @@
                 }, 500);
             });
 
-            // 스크래핑 + AI 요약 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
+            // 스크래핑 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
             form.addEventListener('submit', function (e) {
                 if (modeSelect.value === 'keyword' && !urlInput.value) {
                     e.preventDefault();
@@ -243,7 +243,7 @@
                     return;
                 }
                 submitBtn.disabled = true;
-                submitBtn.textContent = '스크래핑 및 AI 분석 중... (최대 30초 소요)';
+                submitBtn.textContent = '스크래핑 중...';
             });
         })();
     </script>
