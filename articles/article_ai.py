@@ -1,27 +1,16 @@
 import base64
 import json
 import logging
-import time
 
 from django.conf import settings
-from google import genai
-from google.genai import errors as genai_errors
-from google.genai import types as genai_types
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Gemini가 "high demand"로 503을 반환하는 건 구글 쪽의 일시적 과부하이지 요청 자체의 문제가
-# 아니라, google-genai SDK 내부 재시도(tenacity)가 이미 실패한 뒤에도 여기서 한 번 더
-# 짧은 간격으로 재시도한다 — 회원이 'AI 요약' 버튼을 눌렀을 때 흔한 순간적 스파이크로 바로
-# 실패 처리되는 걸 줄이기 위함(실측: 같은 기사에서 몇 분 간격으로 반복 실패한 사례 확인).
-GEMINI_RETRY_ATTEMPTS = 3
-GEMINI_RETRY_BACKOFF_SECONDS = 3
-
-# 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 별칭(latest)을 써서
-# 특정 날짜 버전이 신규 사용자에게 막히거나(예: gemini-2.5-flash) 무료 쿼터가 갑자기 0으로
-# 바뀌는 문제(예: gemini-2.0-flash)를 피한다 — 실제 테스트에서 확인된 이슈.
-GEMINI_MODEL = "gemini-flash-latest"
+# 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 한때 Gemini(gemini-flash-latest)를
+# 썼으나 무료 티어 일일 한도(gemini-3.6-flash 기준 20건/일)가 실사용 중 반복적으로 소진돼(429
+# RESOURCE_EXHAUSTED) generate_featured_briefing/썸네일 생성과 같은 OpenAI로 통일했다.
+DRAFT_MODEL = "gpt-4o-mini"
 
 SIMULATION_SUMMARY = (
     "AI 요약 기능은 현재 준비 중입니다. 관리자가 AI 요약용 API 키를 설정하면 "
@@ -94,41 +83,27 @@ def _error_draft(content):
     }
 
 
-def _call_gemini_json(system_prompt, user_prompt, max_output_tokens):
-    """Gemini에 system_instruction+user prompt를 보내 JSON 객체로 파싱해 반환한다.
-    response_mime_type='application/json'으로 OpenAI의 response_format=json_object와
-    동일하게 JSON만 반환하도록 강제한다. 503(과부하) 등 일시적 오류는 SDK 내부 재시도가 이미
-    실패한 뒤에도 여기서 짧게 한 번 더 재시도한다."""
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    last_error = None
-    for attempt in range(1, GEMINI_RETRY_ATTEMPTS + 1):
-        try:
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=user_prompt,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type='application/json',
-                    max_output_tokens=max_output_tokens,
-                    temperature=0.4,
-                ),
-            )
-            return json.loads(response.text)
-        except genai_errors.ServerError as exc:
-            last_error = exc
-            if attempt < GEMINI_RETRY_ATTEMPTS:
-                logger.warning(
-                    "Gemini 서버 오류(%s), %d/%d회 재시도 대기 중: %s",
-                    exc.code, attempt, GEMINI_RETRY_ATTEMPTS, exc,
-                )
-                time.sleep(GEMINI_RETRY_BACKOFF_SECONDS * attempt)
-    raise last_error
+def _call_openai_json(system_prompt, user_prompt, max_tokens):
+    """OpenAI Chat Completions에 system+user 메시지를 보내 JSON 객체로 파싱해 반환한다.
+    response_format=json_object로 JSON만 반환하도록 강제한다. 429/5xx 재시도는 openai
+    SDK 자체 내장 재시도(기본 max_retries=2)에 맡긴다."""
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=DRAFT_MODEL,
+        messages=[
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt},
+        ],
+        max_tokens=max_tokens,
+        temperature=0.4,
+        response_format={'type': 'json_object'},
+    )
+    return json.loads(response.choices[0].message.content)
 
 
 def generate_draft(title, content, restricted=False, related_stock_name=None):
     """스크래핑한 기사 (제목, 본문)으로부터 AI 3줄 요약 / 투자 관점 분석 / 블로그 포스팅용
-    HTML 원고를 생성한다. Gemini API 키가 없으면 chatbot_client와 동일하게 시뮬레이션
+    HTML 원고를 생성한다. OpenAI API 키가 없으면 chatbot_client와 동일하게 시뮬레이션
     모드로 동작해, 스크래핑~편집 화면 진입 흐름 자체는 항상 끊기지 않게 한다.
 
     restricted=True(utils.detect_reuse_restriction으로 원문에서 "무단전재 배포금지, AI 학습
@@ -141,17 +116,13 @@ def generate_draft(title, content, restricted=False, related_stock_name=None):
     if not content:
         return _simulation_draft(content)
 
-    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
         return _simulation_draft(content)
 
     user_prompt = f"[제목]\n{title}\n\n[원문]\n{content[:6000]}"
 
     try:
-        # Gemini(gemini-flash-latest)는 응답 전에 내부적으로 "thinking" 토큰을 먼저 소비하고
-        # 그것도 max_output_tokens에 포함된다 — 실측 결과 thinking에만 2,500~3,500토큰 정도
-        # 쓰였다. 여유 없이 잡으면 thinking만 끝나고 실제 JSON 출력이 중간에 잘린다(finish_reason
-        # MAX_TOKENS), 그래서 OpenAI 때보다 훨씬 넉넉하게 잡는다.
-        data = _call_gemini_json(SYSTEM_PROMPT, user_prompt, max_output_tokens=6000)
+        data = _call_openai_json(SYSTEM_PROMPT, user_prompt, max_tokens=3000)
         return {
             'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
             'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,
@@ -168,7 +139,7 @@ def _generate_restricted_draft(title, related_stock_name=None):
     if not title:
         return _simulation_draft('')
 
-    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
         return _simulation_draft('')
 
     user_prompt = f"[기사 제목]\n{title}"
@@ -176,7 +147,7 @@ def _generate_restricted_draft(title, related_stock_name=None):
         user_prompt += f"\n\n[참고 정보]\n관련 종목: {related_stock_name}"
 
     try:
-        data = _call_gemini_json(RESTRICTED_SYSTEM_PROMPT, user_prompt, max_output_tokens=6000)
+        data = _call_openai_json(RESTRICTED_SYSTEM_PROMPT, user_prompt, max_tokens=3000)
         return {
             'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
             'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,

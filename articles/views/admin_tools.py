@@ -384,8 +384,8 @@ def _integration_status(*values, placeholder=None):
 def integration_status_view(request):
     """.env로만 관리되는 외부 연동 키(소셜로그인/AI/KIS/SMTP 등)가 실제로 설정됐는지, 비어있는지,
     코드에 박힌 플레이스홀더 그대로인지 한눈에 보여준다 (읽기 전용, 값 자체는 절대 노출 안 함).
-    OPENAI_API_KEY/GEMINI_API_KEY가 미설정/플레이스홀더면 article_ai.py/chatbot_client.py가
-    조용히 '시뮬레이션 모드'로 폴백하는데, 그 상태를 확인할 화면이 지금까지 없었다."""
+    OPENAI_API_KEY가 미설정/플레이스홀더면 article_ai.py/chatbot_client.py가 조용히
+    '시뮬레이션 모드'로 폴백하는데, 그 상태를 확인할 화면이 지금까지 없었다."""
     db = settings.DATABASES['default']
 
     groups = [
@@ -411,14 +411,9 @@ def integration_status_view(request):
             'title': 'AI',
             'items': [
                 {
-                    'name': 'OpenAI (챗봇)',
+                    'name': 'OpenAI (챗봇·뉴스 AI 요약·블로그 초안·특징주 브리핑)',
                     'status': _integration_status(settings.OPENAI_API_KEY, placeholder='YOUR_OPENAI_API_KEY_HERE'),
-                    'detail': '미설정/플레이스홀더면 챗봇이 시뮬레이션 모드로 응답합니다.',
-                },
-                {
-                    'name': 'Gemini (뉴스 AI 요약·블로그 초안)',
-                    'status': _integration_status(settings.GEMINI_API_KEY, placeholder='YOUR_GEMINI_API_KEY_HERE'),
-                    'detail': '미설정/플레이스홀더면 AI 요약·블로그 초안 생성이 시뮬레이션 모드로 동작합니다.',
+                    'detail': '미설정/플레이스홀더면 챗봇·AI 요약·블로그 초안 생성이 시뮬레이션 모드로 동작합니다.',
                 },
             ],
         },
