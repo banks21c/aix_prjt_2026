@@ -266,6 +266,7 @@ GLOBAL_QUOTE_ITEMS = {
         # FID_INPUT_ISCD 값을 확인하면 여기 추가.
         '.DJI': ('N', '다우존스'),
         'COMP': ('N', '나스닥'),
+        'SPX': ('N', 'S&P500'),
         'HSCE': ('N', '홍콩H'),
         'JP#NI225': ('N', '니케이225'),
     },
