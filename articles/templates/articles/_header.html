@@ -46,6 +46,7 @@
     <button type="button" class="ticker-popup-close" id="tickerPopupClose" aria-label="닫기">&times;</button>
     <div class="ticker-popup-name" id="tickerPopupName"></div>
     <div class="ticker-popup-row"><span>현재가</span><strong id="tickerPopupPrice"></strong></div>
+    <div class="ticker-popup-row"><span>전일대비</span><strong id="tickerPopupAmount"></strong></div>
     <div class="ticker-popup-row"><span>등락률</span><strong id="tickerPopupChange"></strong></div>
     <a href="#" class="ticker-popup-link" id="tickerPopupLink">종목 상세보기 →</a>
 </div>
@@ -147,6 +148,9 @@
         padding: 3px 0;
     }
     .ticker-popup-row strong { color: #212529; font-variant-numeric: tabular-nums; }
+    .ticker-popup-row strong.up { color: #e03131; }
+    .ticker-popup-row strong.down { color: #1971c2; }
+    .ticker-popup-row strong.zero { color: #495057; }
     .ticker-popup-link {
         display: block;
         margin-top: 10px;
@@ -322,7 +326,14 @@
             // data-ticker는 개별 종목(RankedMover)에만 있고 지수/환율/금리 항목엔 없다 — CSS의
             // .ticker-item[data-ticker] 커서 표시와 클릭 핸들러가 이 값의 유무로 클릭 가능 여부를 가른다.
             var tickerAttr = it.ticker ? ' data-ticker="' + escapeHtml(it.ticker) + '"' : '';
-            return '<span class="ticker-item"' + tickerAttr +
+            // change_amount(전일대비 금액, 부호 포함)는 개별 종목(ticker_stocks_view)에만 있다.
+            var amountAttr = '';
+            if (typeof it.change_amount === 'number') {
+                var amountSign = it.change_amount > 0 ? '+' : (it.change_amount < 0 ? '-' : '');
+                var amountStr = Math.abs(it.change_amount).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+                amountAttr = ' data-amount="' + amountSign + amountStr + '원"';
+            }
+            return '<span class="ticker-item"' + tickerAttr + amountAttr +
                 ' data-name="' + escapeHtml(it.name) + '"' +
                 ' data-price="' + priceStr + '"' +
                 ' data-change="' + arrow + ' ' + pctStr + '%"' +
@@ -389,6 +400,7 @@
     if (stockTickerEl && popup) {
         var popupName = document.getElementById('tickerPopupName');
         var popupPrice = document.getElementById('tickerPopupPrice');
+        var popupAmount = document.getElementById('tickerPopupAmount');
         var popupChange = document.getElementById('tickerPopupChange');
         var popupLink = document.getElementById('tickerPopupLink');
         var popupClose = document.getElementById('tickerPopupClose');
@@ -402,12 +414,13 @@
             var ticker = itemEl.getAttribute('data-ticker');
             if (!ticker) return; // 지수/환율/금리 항목은 클릭 대상 아님
 
+            var dir = itemEl.getAttribute('data-dir');
             popupName.textContent = itemEl.getAttribute('data-name');
             popupPrice.textContent = itemEl.getAttribute('data-price') + '원';
-            var change = itemEl.getAttribute('data-change');
-            var dir = itemEl.getAttribute('data-dir');
-            popupChange.textContent = change;
-            popupChange.className = dir; // up/down/zero 색상 재사용
+            popupAmount.textContent = itemEl.getAttribute('data-amount') || '-';
+            popupAmount.className = dir; // 등(상승)=빨간색, 락(하락)=파란색 — 등락률과 동일한 색 규칙
+            popupChange.textContent = itemEl.getAttribute('data-change');
+            popupChange.className = dir;
             popupLink.href = '/stocks/' + encodeURIComponent(ticker) + '/';
 
             // 클릭한 항목 바로 아래에 뜨도록 위치 계산(화면 밖으로 안 나가게 좌우 보정).

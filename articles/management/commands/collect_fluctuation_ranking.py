@@ -28,6 +28,12 @@ class Command(BaseCommand):
 
         for row in rows:
             rank = int(row['data_rank'])
+            # prdy_vrss(전일 대비)는 부호 없이 크기만 오고, 방향은 prdy_vrss_sign에 따로 옴
+            # (1=상한/2=상승 → +, 4=하한/5=하락 → -, 3=보합 → 0). change_pct의 부호와 맞춰서
+            # 클릭 팝업의 "전일대비" 금액을 부호 있는 값으로 바로 쓸 수 있게 저장해둔다.
+            amount = float(row['prdy_vrss'])
+            if row.get('prdy_vrss_sign') in ('4', '5'):
+                amount = -amount
             RankedMover.objects.update_or_create(
                 rank_type=rank_type,
                 rank=rank,
@@ -36,6 +42,7 @@ class Command(BaseCommand):
                     name=row['hts_kor_isnm'],
                     price=float(row['stck_prpr']),
                     change_pct=float(row['prdy_ctrt']),
+                    change_amount=round(amount, 2),
                 ),
             )
 

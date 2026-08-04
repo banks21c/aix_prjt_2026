@@ -125,7 +125,7 @@ def ticker_stocks_view(request):
     items = [
         {
             'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct,
-            'ticker': mover.ticker,
+            'ticker': mover.ticker, 'change_amount': float(mover.change_amount),
         }
         for mover in RankedMover.objects.order_by('rank_type', 'rank')
     ]

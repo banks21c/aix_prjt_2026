@@ -62,6 +62,9 @@ class RankedMover(models.Model):
     name = models.CharField(max_length=50, verbose_name="종목명")
     price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="현재가")
     change_pct = models.FloatField(verbose_name="전일 대비율(%)")
+    change_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, verbose_name="전일 대비 금액(원, 부호 포함)"
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
 
     class Meta:
