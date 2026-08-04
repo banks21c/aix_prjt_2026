@@ -53,6 +53,10 @@
 <div class="ticker-popup" id="indexFlowPopup" role="dialog" aria-hidden="true">
     <button type="button" class="ticker-popup-close" id="indexFlowPopupClose" aria-label="닫기">&times;</button>
     <div class="ticker-popup-name" id="indexFlowPopupName"></div>
+    <div class="ticker-popup-row"><span>현재지수</span><strong id="indexFlowPopupPrice"></strong></div>
+    <div class="ticker-popup-row"><span>전일대비</span><strong id="indexFlowPopupChangeAmount"></strong></div>
+    <div class="ticker-popup-row"><span>등락률</span><strong id="indexFlowPopupChangePct"></strong></div>
+    <hr style="border:0;border-top:1px solid #e9ecef;margin:6px 0;">
     <div class="ticker-popup-row"><span>개인</span><strong id="indexFlowPopupRetail"></strong></div>
     <div class="ticker-popup-row"><span>외국인</span><strong id="indexFlowPopupForeign"></strong></div>
     <div class="ticker-popup-row"><span>기관</span><strong id="indexFlowPopupInstitution"></strong></div>
@@ -344,13 +348,18 @@
                 amountAttr = ' data-amount="' + amountSign + amountStr + '원"';
             }
             // flows(개인/외국인/기관 순매수 금액, 억원)는 코스피/코스닥(ticker_data_view)에만 있다.
+            // change(전일대비, 포인트 단위)도 코스피/코스닥 팝업이 지수 자체 정보도 같이 보여줄 수
+            // 있도록 함께 싣는다 — 종목의 change_amount(원)와 단위가 달라 별도 속성으로 둔다.
             var flowsAttr = '';
             if (it.flows) {
+                var idxChangeSign = it.change > 0 ? '+' : (it.change < 0 ? '-' : '');
+                var idxChangeStr = Math.abs(it.change || 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
                 flowsAttr =
                     ' data-flows="1"' +
                     ' data-retail="' + it.flows.retail + '"' +
                     ' data-foreign="' + it.flows.foreign + '"' +
-                    ' data-institution="' + it.flows.institution + '"';
+                    ' data-institution="' + it.flows.institution + '"' +
+                    ' data-index-change="' + idxChangeSign + idxChangeStr + '"';
             }
             return '<span class="ticker-item"' + tickerAttr + amountAttr + flowsAttr +
                 ' data-name="' + escapeHtml(it.name) + '"' +
@@ -475,6 +484,9 @@
     var flowPopup = document.getElementById('indexFlowPopup');
     if (indexTickerEl && flowPopup) {
         var flowPopupName = document.getElementById('indexFlowPopupName');
+        var flowPopupPrice = document.getElementById('indexFlowPopupPrice');
+        var flowPopupChangeAmount = document.getElementById('indexFlowPopupChangeAmount');
+        var flowPopupChangePct = document.getElementById('indexFlowPopupChangePct');
         var flowPopupRetail = document.getElementById('indexFlowPopupRetail');
         var flowPopupForeign = document.getElementById('indexFlowPopupForeign');
         var flowPopupInstitution = document.getElementById('indexFlowPopupInstitution');
@@ -499,7 +511,13 @@
         function openFlowPopupFor(itemEl) {
             if (!itemEl.hasAttribute('data-flows')) return; // 해외지수/환율/금리는 클릭 대상 아님
 
+            var dir = itemEl.getAttribute('data-dir');
             flowPopupName.textContent = itemEl.getAttribute('data-name');
+            flowPopupPrice.textContent = itemEl.getAttribute('data-price');
+            flowPopupChangeAmount.textContent = itemEl.getAttribute('data-index-change');
+            flowPopupChangeAmount.className = dir;
+            flowPopupChangePct.textContent = itemEl.getAttribute('data-change');
+            flowPopupChangePct.className = dir;
 
             var retail = itemEl.getAttribute('data-retail');
             flowPopupRetail.textContent = formatFlowAmount(retail);

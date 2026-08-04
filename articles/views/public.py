@@ -108,6 +108,7 @@ def ticker_data_view(request):
                 'name': label,
                 'price': float(idx.close_price),
                 'change_pct': idx.change_pct if idx.change_pct is not None else 0.0,
+                'change': float(idx.change) if idx.change is not None else 0.0,
             }
             if idx.retail_net_amount is not None:
                 item['flows'] = {
