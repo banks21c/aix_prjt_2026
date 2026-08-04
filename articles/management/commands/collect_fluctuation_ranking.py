@@ -28,12 +28,11 @@ class Command(BaseCommand):
 
         for row in rows:
             rank = int(row['data_rank'])
-            # prdy_vrss(전일 대비)는 부호 없이 크기만 오고, 방향은 prdy_vrss_sign에 따로 옴
-            # (1=상한/2=상승 → +, 4=하한/5=하락 → -, 3=보합 → 0). change_pct의 부호와 맞춰서
-            # 클릭 팝업의 "전일대비" 금액을 부호 있는 값으로 바로 쓸 수 있게 저장해둔다.
+            # prdy_vrss(전일 대비)는 실제로는 이미 부호가 포함된 문자열로 온다(하락 종목은
+            # "-10900" 식). prdy_vrss_sign(4=하한/5=하락)을 보고 또 부호를 뒤집으면 이미 음수인
+            # 값이 다시 양수로 바뀌는 이중 반전 버그가 생긴다(실제로 발생해 전일대비가 +로
+            # 잘못 표시됨) — float() 파싱 결과를 그대로 쓴다.
             amount = float(row['prdy_vrss'])
-            if row.get('prdy_vrss_sign') in ('4', '5'):
-                amount = -amount
             RankedMover.objects.update_or_create(
                 rank_type=rank_type,
                 rank=rank,
