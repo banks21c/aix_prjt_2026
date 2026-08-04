@@ -348,22 +348,41 @@ def news_scrape_view(request):
     return render(request, 'articles/news_scrape.html', context)
 
 
+def _create_manual_article(request, title, content, **extra_fields):
+    return AnalyzedArticle.objects.create(
+        title=title,
+        original_url=f"internal://manual-entry/{uuid.uuid4()}",
+        source_media='회원 직접 작성',
+        source_type=AnalyzedArticle.SOURCE_MANUAL,
+        original_content=content,
+        applied_template='T1',
+        scraped_by=request.user,
+        **extra_fields,
+    )
+
+
 @login_required
 def news_write_view(request):
     """스크래핑할 URL이 없는(원문 링크가 없는 사내 기고문 등) 기사를 회원이 제목+본문을 직접
     입력해 등록하는 화면. news_scrape_view와 달리 원문을 그대로 보여줄 필요가 없고(본인이 직접
-    쓴 내용이라 검토가 이미 끝난 상태) AI 요약도 즉시 함께 생성해 바로 상세 화면(news_detail)으로
-    넘긴다. 스크래핑이 아니라 AI 호출이 핵심 비용이라 daily_scrape_limit가 아니라
-    ai_summarize_stats(daily_ai_summarize_limit)로 한도를 건다."""
+    쓴 내용이라 검토가 이미 끝난 상태) 등록 직후 곧바로 이어지는 행동을 버튼 두 개로 고를 수
+    있다 — 'AI 요약'(article_ai로 3줄요약/분석/블로그초안 생성 후 상세 화면 이동, AI 호출이
+    비용이라 daily_scrape_limit가 아니라 ai_summarize_stats로 한도를 건다) 또는 '바로 포스팅'
+    (AI를 아예 호출하지 않고 입력한 본문을 그대로 blog_content로 써서, 그 자리에서 선택한
+    포스팅 계정에 즉시 발행 — post_articles_view와 같은 blog_posting.publish_article을 재사용
+    하고 posting_stats(daily_post_limit)로 한도를 건다)."""
     form = NewsWriteForm(request.POST or None)
-    stats = ai_summarize_stats(request.user)
+    summarize_stats = ai_summarize_stats(request.user)
+    posting_stats_val = blog_posting.posting_stats(request.user)
+    user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+    action = request.POST.get('action', 'ai_summarize')
 
-    if request.method == 'POST' and form.is_valid():
-        if stats['remaining'] == 0:
-            grade_name = stats['grade'].name if stats['grade'] else '일반'
+    if request.method == 'POST' and form.is_valid() and action == 'ai_summarize':
+        if summarize_stats['remaining'] == 0:
+            grade_name = summarize_stats['grade'].name if summarize_stats['grade'] else '일반'
             messages.error(
                 request,
-                f"{grade_name} 등급은 하루 {stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
+                f"{grade_name} 등급은 하루 {summarize_stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
                 "오늘 가능한 건수를 모두 사용했어요.",
             )
         else:
@@ -374,18 +393,12 @@ def news_write_view(request):
             if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
                 messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
             else:
-                article = AnalyzedArticle.objects.create(
-                    title=title,
-                    original_url=f"internal://manual-entry/{uuid.uuid4()}",
-                    source_media='회원 직접 작성',
-                    source_type=AnalyzedArticle.SOURCE_MANUAL,
-                    original_content=content,
+                article = _create_manual_article(
+                    request, title, content,
                     ai_summary=draft['ai_summary'],
                     ai_analysis=draft['ai_analysis'],
                     blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
                     thumbnail=thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
-                    applied_template='T1',
-                    scraped_by=request.user,
                     ai_generated=True,
                     ai_summarized_by=request.user,
                     ai_summarized_at=timezone.now(),
@@ -393,12 +406,46 @@ def news_write_view(request):
                 messages.success(request, "AI 요약이 완료됐습니다.")
                 return redirect('news_detail', pk=article.pk)
 
-    user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+    elif request.method == 'POST' and form.is_valid() and action == 'post_now':
+        account_ids = request.POST.getlist('account_ids')
+        accounts = [a for a in user_blog_accounts if str(a.pk) in account_ids]
+        if not accounts:
+            messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
+        elif posting_stats_val['remaining'] is not None and posting_stats_val['remaining'] < len(accounts):
+            grade_name = posting_stats_val['grade'].name if posting_stats_val['grade'] else '일반'
+            daily_limit = posting_stats_val['grade'].daily_post_limit if posting_stats_val['grade'] else 0
+            messages.error(
+                request,
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 계정을 더 적게 선택하거나 내일 다시 시도해주세요.",
+            )
+        else:
+            title = form.cleaned_data['title']
+            content = form.cleaned_data['content']
+            article = _create_manual_article(
+                request, title, content,
+                blog_content=content,
+                thumbnail=thumbnail.build_thumbnail_file(title),
+                ai_generated=True,
+            )
+
+            success_count = 0
+            for account in accounts:
+                ok, result = blog_posting.publish_article(account, article)
+                if ok:
+                    success_count += 1
+                else:
+                    messages.error(request, f"{account.get_platform_display()} 발행 실패: {result}")
+
+            if success_count:
+                messages.success(request, f"AI 요약 없이 {success_count}개 계정에 바로 포스팅했습니다.")
+            return redirect('news_detail', pk=article.pk)
 
     context = {
         'site_title': 'NextFinUp - 직접 작성하기',
         'form': form,
-        'summarize_stats': stats,
+        'summarize_stats': summarize_stats,
+        'posting_stats': posting_stats_val,
         'user_blog_accounts': user_blog_accounts,
     }
     return render(request, 'articles/news_write.html', context)

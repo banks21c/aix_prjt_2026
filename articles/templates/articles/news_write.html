@@ -33,36 +33,31 @@
             <h3 class="fw-bold mb-2">✍️ 직접 작성하기</h3>
             <p class="text-muted small mb-4">
                 원문 링크 없이 제목과 본문을 직접 입력해 기사를 등록합니다. 'AI 요약'을 누르면
-                입력한 내용으로 AI 3줄 요약·투자 관점 분석·블로그 초안을 바로 생성하고 상세 화면으로
-                이동합니다.
+                입력한 내용으로 AI 3줄 요약·투자 관점 분석·블로그 초안을 생성하고 상세 화면으로
+                이동합니다. 검토가 이미 끝난 원고라면 'AI 요약' 없이 입력한 내용 그대로 바로
+                포스팅할 수도 있습니다.
             </p>
 
-            <p class="mb-4">
+            <p class="mb-4 d-flex flex-wrap gap-2">
                 {% if summarize_stats.remaining is None %}
                     {% if summarize_stats.is_admin %}
-                    <span class="badge bg-dark">관리자 · 무제한 · 오늘 {{ summarize_stats.today_count }}건 요약</span>
+                    <span class="badge bg-dark">AI 요약 · 관리자 · 무제한</span>
                     {% else %}
-                    <span class="badge bg-warning text-dark">{{ summarize_stats.grade.name|default:"일반" }} · 무제한 · 오늘 {{ summarize_stats.today_count }}건 요약</span>
+                    <span class="badge bg-warning text-dark">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} · 무제한</span>
                     {% endif %}
                 {% else %}
-                    <span class="badge bg-light text-dark border">{{ summarize_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ summarize_stats.remaining }}건 남음 · {{ summarize_stats.today_count }}건 요약</span>
+                    <span class="badge bg-light text-dark border">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ summarize_stats.remaining }}건 남음</span>
+                {% endif %}
+                {% if posting_stats.remaining is None %}
+                    {% if posting_stats.is_admin %}
+                    <span class="badge bg-dark">포스팅 · 관리자 · 무제한</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">포스팅 · {{ posting_stats.grade.name|default:"일반" }} · 무제한</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-light text-dark border">포스팅 · {{ posting_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ posting_stats.remaining }}건 남음</span>
                 {% endif %}
             </p>
-
-            {% if user_blog_accounts %}
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-2 bg-light rounded">
-                <label class="fw-semibold small mb-0">포스팅 계정</label>
-                {% for account in user_blog_accounts %}
-                <span class="small">
-                    {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
-                    {% if account.site_url %}
-                    <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="ms-1">↗</a>
-                    {% endif %}
-                </span>
-                {% endfor %}
-                <span class="text-muted small ms-auto">AI 요약 완료 후 상세 화면에서 포스팅할 수 있습니다.</span>
-            </div>
-            {% endif %}
 
             <form method="post" novalidate id="writeForm">
                 {% csrf_token %}
@@ -77,8 +72,31 @@
                 </div>
                 {% endfor %}
 
+                {% if user_blog_accounts %}
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded">
+                    <label class="fw-semibold small mb-0">포스팅 계정</label>
+                    {% for account in user_blog_accounts %}
+                    <div class="form-check form-check-inline mb-0">
+                        <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="wacct-{{ account.pk }}" checked>
+                        <label class="form-check-label small" for="wacct-{{ account.pk }}">
+                            {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
+                        </label>
+                        {% if account.site_url %}
+                        <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <span class="text-muted small ms-auto">'바로 포스팅'은 체크한 계정에만 발행됩니다.</span>
+                </div>
+                {% endif %}
+
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary" id="writeSubmitBtn" {% if summarize_stats.remaining == 0 %}disabled{% endif %}>
+                    {% if user_blog_accounts %}
+                    <button type="submit" name="action" value="post_now" class="btn btn-outline-primary" id="writePostBtn" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
+                        바로 포스팅
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="action" value="ai_summarize" class="btn btn-primary" id="writeSubmitBtn" {% if summarize_stats.remaining == 0 %}disabled{% endif %}>
                         AI 요약
                     </button>
                 </div>
@@ -90,11 +108,18 @@
         (function () {
             const form = document.getElementById('writeForm');
             const submitBtn = document.getElementById('writeSubmitBtn');
+            const postBtn = document.getElementById('writePostBtn');
 
-            // AI 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
-            form.addEventListener('submit', function () {
-                submitBtn.disabled = true;
-                submitBtn.textContent = '⏳ AI 요약 중... (최대 30초 소요)';
+            // AI 호출/발행 API 호출 모두 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
+            form.addEventListener('submit', function (e) {
+                const submitter = e.submitter;
+                if (submitter === postBtn) {
+                    postBtn.textContent = '⏳ 포스팅 중...';
+                    setTimeout(function () { postBtn.disabled = true; if (submitBtn) submitBtn.disabled = true; }, 0);
+                } else {
+                    submitBtn.textContent = '⏳ AI 요약 중... (최대 30초 소요)';
+                    setTimeout(function () { submitBtn.disabled = true; if (postBtn) postBtn.disabled = true; }, 0);
+                }
             });
         })();
     </script>
