@@ -288,6 +288,8 @@ def news_article_preview_view(request, pk):
         'ai_analysis': article.ai_analysis,
         'detail_url': reverse('news_detail', args=[article.pk]),
         'edit_url': reverse('news_edit', args=[article.pk]),
+        'ai_summarize_url': reverse('news_ai_summarize', args=[article.pk]),
+        'ai_generated': article.ai_generated,
     })
 
 
@@ -297,8 +299,14 @@ def news_ai_summarize_view(request, pk):
     """뉴스 게시판에서 아직 진짜 AI 요약이 안 된(ai_generated=False) 자동 수집 기사를 포스팅하기
     직전, 회원이 'AI 요약' 버튼으로 그 기사 하나만 실제 article_ai로 요약을 생성하도록 트리거하는
     엔드포인트. 이미 ai_generated=True인 기사는 한도를 쓰지 않고 그대로 편집 화면으로 보낸다 —
-    특징주 브리핑처럼 이미 실제 AI 요약이 있는 기사를 다시 호출해 토큰을 낭비하지 않기 위함."""
+    특징주 브리핑처럼 이미 실제 AI 요약이 있는 기사를 다시 호출해 토큰을 낭비하지 않기 위함.
+    호출부(news_board/news_detail/news_scrape 미리보기)마다 완료 후 보고 싶은 화면이 달라
+    hidden 'next' 필드를 주면 그리로, 없으면 기존처럼 편집 화면으로 보낸다."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
+    next_url = request.POST.get('next')
+
+    def _go(fallback_view_name, **kwargs):
+        return redirect(next_url) if next_url else redirect(fallback_view_name, **kwargs)
 
     if not article.ai_generated:
         # KIS 종합 시황_공시 API로 들어온 기사는 원문 링크가 없어 original_content가 항상
@@ -310,7 +318,7 @@ def news_ai_summarize_view(request, pk):
             else:
                 reason = "이 기사는 원문 스크래핑에 실패해 AI가 요약할 원문이 없습니다."
             messages.error(request, f"{reason} 편집 화면에서 직접 요약을 작성한 뒤 저장해주세요.")
-            return redirect('news_edit', pk=article.pk)
+            return _go('news_edit', pk=article.pk)
 
         stats = ai_summarize_stats(request.user)
         if stats['remaining'] == 0:
@@ -320,7 +328,7 @@ def news_ai_summarize_view(request, pk):
                 f"{grade_name} 등급은 하루 {stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
                 "오늘 가능한 건수를 모두 사용했어요.",
             )
-            return redirect('news_board')
+            return _go('news_board')
 
         draft = article_ai.generate_draft(
             article.title,
@@ -333,7 +341,7 @@ def news_ai_summarize_view(request, pk):
             # news_board로 보내면 이 기사를 다시 찾아야 해서, 같은 편집 화면에 머물러 바로
             # 재시도(AI 요약 버튼 다시 클릭)할 수 있게 한다.
             messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
-            return redirect('news_edit', pk=article.pk)
+            return _go('news_edit', pk=article.pk)
 
         article.ai_summary = draft['ai_summary']
         article.ai_analysis = draft['ai_analysis']
@@ -350,7 +358,7 @@ def news_ai_summarize_view(request, pk):
         ])
         messages.success(request, "AI 요약이 완료됐습니다. 내용을 검토하고 필요하면 수정한 뒤 저장해주세요.")
 
-    return redirect('news_edit', pk=article.pk)
+    return _go('news_edit', pk=article.pk)
 
 
 @login_required

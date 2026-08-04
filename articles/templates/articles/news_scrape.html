@@ -86,7 +86,11 @@
             </div>
             <div class="d-flex justify-content-end gap-2">
                 <a href="#" id="previewDetailLink" class="btn btn-outline-secondary btn-sm">상세 보기</a>
-                <a href="#" id="previewEditLink" class="btn btn-outline-primary btn-sm">AI 요약하러가기</a>
+                <form method="post" id="previewAiSummarizeForm" class="d-none">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" id="previewAiSummarizeNext">
+                    <button type="submit" class="btn btn-primary btn-sm" id="previewAiSummarizeBtn">AI 요약</button>
+                </form>
             </div>
         </div>
     </div>
@@ -102,7 +106,8 @@
             const previewSummary = document.getElementById('previewSummary');
             const previewAnalysis = document.getElementById('previewAnalysis');
             const previewDetailLink = document.getElementById('previewDetailLink');
-            const previewEditLink = document.getElementById('previewEditLink');
+            const previewAiSummarizeForm = document.getElementById('previewAiSummarizeForm');
+            const previewAiSummarizeNext = document.getElementById('previewAiSummarizeNext');
             const previewUrlTemplate = '{% url "news_article_preview" pk=0 %}';
             const scrapedArticleId = '{{ scraped_article_id|default:"" }}';
 
@@ -116,7 +121,10 @@
                         previewSummary.textContent = data.ai_summary || '(AI 요약이 아직 없습니다)';
                         previewAnalysis.textContent = data.ai_analysis || '(AI 분석이 아직 없습니다)';
                         previewDetailLink.href = data.detail_url;
-                        previewEditLink.href = data.edit_url;
+                        // AI 요약이 끝나면 편집 화면이 아니라 바로 상세 화면으로 이동한다.
+                        previewAiSummarizeForm.action = data.ai_summarize_url;
+                        previewAiSummarizeNext.value = data.detail_url;
+                        previewAiSummarizeForm.classList.toggle('d-none', data.ai_generated);
                         previewBox.classList.remove('d-none');
                     })
                     .catch(function () {});
@@ -130,6 +138,12 @@
             form.addEventListener('submit', function () {
                 submitBtn.disabled = true;
                 submitBtn.textContent = '스크래핑 중...';
+            });
+
+            previewAiSummarizeForm.addEventListener('submit', function () {
+                const btn = document.getElementById('previewAiSummarizeBtn');
+                btn.textContent = '⏳ 요약 중... (최대 30초 소요)';
+                setTimeout(function () { btn.disabled = true; }, 0);
             });
         })();
     </script>
