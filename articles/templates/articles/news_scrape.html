@@ -32,9 +32,8 @@
         <div class="card card-custom bg-white p-4 mt-3">
             <h3 class="fw-bold mb-2">🔗 뉴스 수집</h3>
             <p class="text-muted small mb-4">
-                기사 원문 URL을 직접 입력하거나, 키워드로 검색해 등록된 언론사 기사 중에서 골라도 됩니다.
-                본문을 자동으로 스크래핑한 뒤 바로 편집 화면으로 이동합니다. AI 3줄 요약·투자 관점 분석·
-                블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
+                기사 원문 URL을 입력하면 본문을 자동으로 스크래핑해 아래에 보여줍니다. AI 3줄 요약·
+                투자 관점 분석·블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
             </p>
 
             <p class="mb-4">
@@ -52,37 +51,17 @@
             <form method="post" novalidate id="scrapeForm">
                 {% csrf_token %}
 
+                {% for field in form %}
                 <div class="mb-3">
-                    <label for="inputMode" class="form-label fw-semibold">등록 방법</label>
-                    <select id="inputMode" class="form-select" style="max-width: 220px;">
-                        <option value="url">URL 직접 입력</option>
-                        <option value="keyword">검색어로 찾기</option>
-                    </select>
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                    {% endif %}
                 </div>
+                {% endfor %}
 
-                <div id="urlModeBlock">
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div id="keywordModeBlock" class="d-none">
-                    <div class="mb-2">
-                        <label for="keywordInput" class="form-label fw-semibold">검색어</label>
-                        <input type="text" id="keywordInput" class="form-control" placeholder="예: 삼성전자, 금리 인하, 2차전지 ...">
-                        <div class="form-text">입력을 멈추면 자동으로 등록된 언론사 기사 중에서 찾아 보여줍니다.</div>
-                    </div>
-                    <div id="searchStatus" class="small text-muted mb-2"></div>
-                    <div id="searchResults" class="list-group mb-2" style="max-height: 360px; overflow-y: auto;"></div>
-                </div>
-
-                <div class="d-flex justify-content-end gap-2 mt-4" id="submitBtnBlock">
+                <div class="d-flex justify-content-end gap-2 mt-4">
                     <button type="submit" class="btn btn-primary" id="scrapeSubmitBtn" {% if scraping_stats.remaining == 0 %}disabled{% endif %}>
                         스크래핑
                     </button>
@@ -114,16 +93,8 @@
 
     <script>
         (function () {
-            const modeSelect = document.getElementById('inputMode');
-            const urlBlock = document.getElementById('urlModeBlock');
-            const keywordBlock = document.getElementById('keywordModeBlock');
-            const urlInput = document.getElementById('{{ form.url.id_for_label }}');
-            const keywordInput = document.getElementById('keywordInput');
-            const searchStatus = document.getElementById('searchStatus');
-            const resultsBox = document.getElementById('searchResults');
             const form = document.getElementById('scrapeForm');
             const submitBtn = document.getElementById('scrapeSubmitBtn');
-            const submitBtnBlock = document.getElementById('submitBtnBlock');
             const previewBox = document.getElementById('registeredPreview');
             const previewTitle = document.getElementById('previewTitle');
             const previewMeta = document.getElementById('previewMeta');
@@ -135,24 +106,7 @@
             const previewUrlTemplate = '{% url "news_article_preview" pk=0 %}';
             const scrapedArticleId = '{{ scraped_article_id|default:"" }}';
 
-            let debounceTimer = null;
-            let requestSeq = 0;
-
-            modeSelect.addEventListener('change', function () {
-                const isKeyword = modeSelect.value === 'keyword';
-                urlBlock.classList.toggle('d-none', isKeyword);
-                keywordBlock.classList.toggle('d-none', !isKeyword);
-                submitBtnBlock.classList.toggle('d-none', isKeyword);
-                if (isKeyword) {
-                    urlInput.value = '';
-                } else {
-                    resultsBox.innerHTML = '';
-                    searchStatus.textContent = '';
-                    previewBox.classList.add('d-none');
-                }
-            });
-
-            function showRegisteredPreview(articleId, scrollTo) {
+            function showRegisteredPreview(articleId) {
                 fetch(previewUrlTemplate.replace('0', articleId))
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
@@ -164,100 +118,16 @@
                         previewDetailLink.href = data.detail_url;
                         previewEditLink.href = data.edit_url;
                         previewBox.classList.remove('d-none');
-                        if (scrollTo !== false) {
-                            previewBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }
                     })
-                    .catch(function () {
-                        searchStatus.textContent = '기사 내용을 불러오지 못했습니다.';
-                    });
+                    .catch(function () {});
             }
 
             if (scrapedArticleId) {
-                showRegisteredPreview(scrapedArticleId, false);
+                showRegisteredPreview(scrapedArticleId);
             }
-
-            function submitScrapeFor(link) {
-                if (submitBtn.disabled) {
-                    searchStatus.textContent = '오늘 등록 가능한 건수를 모두 사용했습니다.';
-                    return;
-                }
-                urlInput.value = link;
-                form.requestSubmit(submitBtn);
-            }
-
-            function renderResults(results) {
-                resultsBox.innerHTML = '';
-                previewBox.classList.add('d-none');
-                if (!results.length) {
-                    searchStatus.textContent = '검색 결과가 없습니다.';
-                    return;
-                }
-                searchStatus.textContent = `${results.length}건 찾음`;
-                results.forEach(function (item) {
-                    const row = document.createElement('div');
-                    row.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
-
-                    const info = document.createElement('div');
-                    const titleClass = item.already_registered ? 'fw-semibold text-primary' : 'fw-semibold';
-                    info.innerHTML = `<div class="${titleClass}" style="cursor:pointer;">${item.title}</div>` +
-                        `<div class="small text-muted">${item.source}${item.pub_date ? ' · ' + item.pub_date : ''}` +
-                        (item.already_registered ? ' · <span class="text-warning">이미 등록됨</span>' : '') + `</div>`;
-                    // 이미 등록된 기사는 클릭 시 바로 프리뷰(AJAX), 아직 없는 기사는 클릭 시
-                    // '스크래핑' 버튼과 동일하게 스크래핑을 트리거해 결과를 아래에 보여준다.
-                    info.querySelector('div').addEventListener('click', function () {
-                        if (item.already_registered) {
-                            showRegisteredPreview(item.article_id);
-                        } else {
-                            submitScrapeFor(item.link);
-                        }
-                    });
-                    row.appendChild(info);
-
-                    const actionBtn = document.createElement('button');
-                    actionBtn.type = 'button';
-                    actionBtn.className = 'btn btn-sm btn-primary flex-shrink-0';
-                    actionBtn.textContent = '스크래핑';
-                    actionBtn.addEventListener('click', function () {
-                        submitScrapeFor(item.link);
-                    });
-                    row.appendChild(actionBtn);
-
-                    resultsBox.appendChild(row);
-                });
-            }
-
-            keywordInput.addEventListener('input', function () {
-                const q = keywordInput.value.trim();
-                clearTimeout(debounceTimer);
-                if (!q) {
-                    resultsBox.innerHTML = '';
-                    searchStatus.textContent = '';
-                    return;
-                }
-                searchStatus.textContent = '검색 중...';
-                debounceTimer = setTimeout(function () {
-                    const mySeq = ++requestSeq;
-                    fetch('{% url "news_search" %}?q=' + encodeURIComponent(q))
-                        .then(function (r) { return r.json(); })
-                        .then(function (data) {
-                            if (mySeq !== requestSeq) return; // 더 최근 검색이 이미 진행 중이면 이 결과는 버림
-                            renderResults(data.results || []);
-                        })
-                        .catch(function () {
-                            if (mySeq !== requestSeq) return;
-                            searchStatus.textContent = '검색 중 오류가 발생했습니다.';
-                        });
-                }, 500);
-            });
 
             // 스크래핑 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
-            form.addEventListener('submit', function (e) {
-                if (modeSelect.value === 'keyword' && !urlInput.value) {
-                    e.preventDefault();
-                    searchStatus.textContent = '검색 결과 목록에서 스크래핑 버튼을 눌러주세요.';
-                    return;
-                }
+            form.addEventListener('submit', function () {
                 submitBtn.disabled = true;
                 submitBtn.textContent = '스크래핑 중...';
             });

@@ -13,7 +13,7 @@ from ..forms import NewsArticleEditForm, NewsScrapeForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
 from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
-    fetch_article_metadata, scraping_stats, search_news_by_keyword,
+    fetch_article_metadata, scraping_stats,
 )
 
 
@@ -202,19 +202,10 @@ def news_detail_view(request, pk):
 
 
 @login_required
-def news_search_view(request):
-    """news_scrape_view의 '검색어로 찾기' 모드가 쓰는 AJAX 엔드포인트. 검색 결과는 등록된
-    언론사 RSS 안에서만 찾은 것이라 회원이 그 중 하나를 고르면, 실제 스크래핑은 기존 URL 등록
-    폼에 링크를 채워 넣어 news_scrape_view의 POST 플로우를 그대로 재사용한다."""
-    query = request.GET.get('q', '').strip()
-    results = search_news_by_keyword(query) if query else []
-    return JsonResponse({'results': results})
-
-
-@login_required
 def news_article_preview_view(request, pk):
-    """news_scrape_view의 '검색어로 찾기' 결과에서 '이미 등록됨'으로 표시된 기사를 클릭했을 때,
-    페이지 이동 없이 이미 저장된 내용을 화면 하단에 바로 보여주기 위한 AJAX 엔드포인트."""
+    """news_scrape_view가 스크래핑 성공(또는 이미 등록된 URL 재입력) 후 자기 자신으로
+    ?scraped=<pk> 리다이렉트했을 때, 페이지 이동 없이 그 기사 내용을 화면 하단에 바로
+    보여주기 위한 AJAX 엔드포인트."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
     return JsonResponse({
         'title': article.title,

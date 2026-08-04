@@ -12,7 +12,7 @@ from .admin_tools import (
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
-    news_edit_view, news_scrape_view, news_search_view, post_articles_view,
+    news_edit_view, news_scrape_view, post_articles_view,
 )
 from .stocks import stock_detail_view, stock_minute_chart_view, market_index_minute_chart_view
 from .chatbot import chatbot_ask_view
@@ -32,7 +32,7 @@ __all__ = [
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
-    'news_edit_view', 'news_scrape_view', 'news_search_view', 'post_articles_view', 'stock_detail_view', 'stock_minute_chart_view',
+    'news_edit_view', 'news_scrape_view', 'post_articles_view', 'stock_detail_view', 'stock_minute_chart_view',
     'market_index_minute_chart_view', 'chatbot_ask_view',
     'signup_view', 'login_view', 'logout_view', 'delete_account_view',
     'kakao_login_view', 'kakao_callback_view',
