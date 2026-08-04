@@ -2,8 +2,8 @@
 # import (...)`로 가져오던 이름들을 여기서 그대로 재수출해, urls.py는 손댈 필요가 없다.
 from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
-    privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view,
-    header_fragment_view, expert_consult_view, ticker_data_view, ticker_stocks_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
+    consult_request_view, header_fragment_view, expert_consult_view, ticker_data_view, ticker_stocks_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,

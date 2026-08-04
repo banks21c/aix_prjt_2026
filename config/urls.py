@@ -22,7 +22,7 @@ from django.urls import path
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view, header_fragment_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view, consult_request_view, header_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
@@ -61,6 +61,7 @@ urlpatterns = [
     path('admin-tools/consult-sheet/search/', financial_consult_sheet_search_view, name='financial_consult_sheet_search'),
     path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('terms/', terms_of_service_view, name='terms_of_service'),
+    path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
     path('experts/', expert_consult_view, name='expert_consult'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
     path('partials/header/', header_fragment_view, name='header_fragment'),

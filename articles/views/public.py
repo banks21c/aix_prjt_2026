@@ -74,6 +74,10 @@ def terms_of_service_view(request):
     return render(request, 'articles/terms_of_service.html', {'site_title': 'NextFinUp - 이용약관'})
 
 
+def email_collection_refusal_view(request):
+    return render(request, 'articles/email_collection_refusal.html', {'site_title': 'NextFinUp - 전자우편 무단수집거부'})
+
+
 def expert_consult_view(request):
     return render(request, 'articles/expert_consult.html', {'site_title': 'NextFinUp - 전문가 상담'})
 
