@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NextFinUp — 티커 화면 한바퀴 데모 (가독성 무시)</title>
+<style>
+    :root { --strip: 34px; --bg: #0a0e14; --panel: #10151d; --text: #e6e9ef; --dim: #7d8695; --green: #00e08f; --red: #ff4d67; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+    /* 가운데 콘텐츠는 그냥 이 데모가 뭔지 설명하는 용도 */
+    .stage {
+        position: fixed;
+        inset: var(--strip);
+        display: flex; align-items: center; justify-content: center; text-align: center;
+        padding: 40px;
+    }
+    .stage-inner { max-width: 560px; }
+    .stage h1 { font-size: 22px; margin: 0 0 12px; }
+    .stage p { color: var(--dim); font-size: 14px; line-height: 1.7; margin: 0; }
+    .stage code { background: var(--panel); padding: 2px 6px; border-radius: 4px; font-size: 12.5px; }
+
+    /* 네 변 띠 — 전부 position:fixed로 화면 가장자리에 붙임 */
+    .edge {
+        position: fixed;
+        background: var(--panel);
+        overflow: hidden;
+        white-space: nowrap;
+        z-index: 10;
+    }
+    .edge-track {
+        display: inline-flex;
+        gap: 40px;
+        font-size: 13px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        will-change: transform;
+    }
+    .edge-track .up { color: var(--green); }
+    .edge-track .down { color: var(--red); }
+
+    /* 위/아래: 가로로 흐름 */
+    .edge-top, .edge-bottom {
+        left: 0; right: 0; height: var(--strip);
+        display: flex; align-items: center;
+    }
+    .edge-top { top: 0; }
+    .edge-bottom { bottom: 0; }
+    .edge-top .edge-track { animation: flowX var(--lap-duration) linear infinite; animation-delay: calc(-1 * var(--lap-duration) * var(--top-offset)); }
+    .edge-bottom .edge-track { animation: flowXReverse var(--lap-duration) linear infinite; animation-delay: calc(-1 * var(--lap-duration) * var(--bottom-offset)); }
+
+    /* 좌/우: 90도 돌려서 세로로 흐름 */
+    .edge-right, .edge-left {
+        top: 0; bottom: 0; width: var(--strip);
+        display: flex; align-items: center;
+    }
+    .edge-right { right: 0; }
+    .edge-left { left: 0; }
+    .edge-right .edge-track, .edge-left .edge-track {
+        transform-origin: left top;
+    }
+    .edge-right .edge-track { animation: flowYRight var(--lap-duration) linear infinite; animation-delay: calc(-1 * var(--lap-duration) * var(--right-offset)); }
+    .edge-left .edge-track { animation: flowYLeft var(--lap-duration) linear infinite; animation-delay: calc(-1 * var(--lap-duration) * var(--left-offset)); }
+
+    /* 시계방향 한 바퀴: 위(왼→오) → 오른쪽(위→아래) → 아래(오→왼) → 왼쪽(아래→위) */
+    @keyframes flowX { from { transform: translateX(-100%); } to { transform: translateX(100vw); } }
+    @keyframes flowXReverse { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+    @keyframes flowYRight {
+        from { transform: rotate(90deg) translateX(-100%) translateY(calc(-1 * var(--strip))); }
+        to   { transform: rotate(90deg) translateX(100vh) translateY(calc(-1 * var(--strip))); }
+    }
+    @keyframes flowYLeft {
+        from { transform: rotate(-90deg) translateX(-100vh) translateY(0); }
+        to   { transform: rotate(-90deg) translateX(100%) translateY(0); }
+    }
+
+    .badge { position: fixed; top: calc(var(--strip) + 14px); left: 14px; background: var(--panel); border: 1px solid #1c2430; color: var(--dim); font-size: 11px; padding: 6px 10px; border-radius: 999px; z-index: 20; }
+</style>
+</head>
+<body>
+
+<div class="badge">데모 · 가독성 무시 · 시계방향 한바퀴</div>
+
+<div class="stage">
+    <div class="stage-inner">
+        <h1>🌀 화면 사방을 도는 티커 — 데모</h1>
+        <p>
+            위쪽 띠에서 시작해 오른쪽으로 흘러가다가, 오른쪽 변을 타고 아래로 내려가고,
+            아래쪽 띠를 지나 왼쪽으로 흘러간 다음, 왼쪽 변을 타고 다시 위로 올라옵니다.
+            네 조각을 <code>position: fixed</code>로 화면 가장자리에 붙이고,
+            각 조각의 시작 시점을 음수 <code>animation-delay</code>로 어긋나게 줘서
+            하나의 문자열이 한 바퀴 도는 것처럼 보이게 한 방식입니다.
+            실제로는 4개의 독립적인 스크롤 애니메이션이라 완벽히 이어붙진 않지만,
+            느낌은 충분히 확인할 수 있습니다. 창 크기를 바꾸면 타이밍이 안 맞을 수 있어요(데모용 고정값).
+        </p>
+    </div>
+</div>
+
+<div class="edge edge-top"><div class="edge-track" id="trackTop"></div></div>
+<div class="edge edge-right"><div class="edge-track" id="trackRight"></div></div>
+<div class="edge edge-bottom"><div class="edge-track" id="trackBottom"></div></div>
+<div class="edge edge-left"><div class="edge-track" id="trackLeft"></div></div>
+
+<script>
+    var ITEMS = [
+        { name: '코스피', price: '6,215.67', pct: -0.67 },
+        { name: '코스닥', price: '773.06', pct: 4.84 },
+        { name: '다우존스', price: '53,178.41', pct: 1.32 },
+        { name: '나스닥', price: '25,913.90', pct: 2.13 },
+        { name: 'S&P500', price: '7,600.50', pct: 1.48 },
+        { name: '홍콩H', price: '8,584.28', pct: -0.78 },
+        { name: '니케이225', price: '63,333.35', pct: -0.66 },
+        { name: '달러/엔', price: '156.55', pct: -0.55 },
+        { name: '미국 USD', price: '1,429.90', pct: 0.00 },
+        { name: 'CD(91일)', price: '2.93', pct: -0.68 }
+    ];
+
+    function renderItems() {
+        return ITEMS.map(function (it) {
+            var dir = it.pct > 0 ? 'up' : (it.pct < 0 ? 'down' : '');
+            var arrow = it.pct > 0 ? '▲' : (it.pct < 0 ? '▼' : '－');
+            return '<span><b>' + it.name + '</b> ' + it.price +
+                ' <span class="' + dir + '">' + arrow + ' ' + Math.abs(it.pct).toFixed(2) + '%</span></span>';
+        }).join('');
+    }
+
+    // 4방향 다 같은 내용을 두 번 반복(이음매 없는 순환용)해서 채운다.
+    var html = renderItems() + renderItems();
+    document.getElementById('trackTop').innerHTML = html;
+    document.getElementById('trackRight').innerHTML = html;
+    document.getElementById('trackBottom').innerHTML = html;
+    document.getElementById('trackLeft').innerHTML = html;
+
+    // 네 변의 실제 길이 비율로 한 바퀴(lap) 전체 시간과, 각 변이 그 안에서 시작해야 할
+    // 시점(0~1 비율)을 계산해 CSS 변수로 넘긴다 — 위→오른쪽→아래→왼쪽 순서로 이어지도록.
+    function layout() {
+        var w = window.innerWidth, h = window.innerHeight;
+        var perimeter = 2 * (w + h);
+        var pxPerSecond = 220; // 데모용 — 빠르게 돌아야 "한바퀴" 느낌이 잘 보임
+        var lap = Math.max(perimeter / pxPerSecond, 8);
+
+        var topLen = w, rightLen = h, bottomLen = w, leftLen = h;
+        var cumTop = 0;
+        var cumRight = topLen;
+        var cumBottom = topLen + rightLen;
+        var cumLeft = topLen + rightLen + bottomLen;
+
+        var root = document.documentElement.style;
+        root.setProperty('--lap-duration', lap + 's');
+        root.setProperty('--top-offset', (cumTop / perimeter).toFixed(4));
+        root.setProperty('--right-offset', (cumRight / perimeter).toFixed(4));
+        root.setProperty('--bottom-offset', (cumBottom / perimeter).toFixed(4));
+        root.setProperty('--left-offset', (cumLeft / perimeter).toFixed(4));
+    }
+
+    layout();
+    window.addEventListener('resize', layout);
+</script>
+
+</body>
+</html>
