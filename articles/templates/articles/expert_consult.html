@@ -150,8 +150,17 @@
         }
         /* 상단 sticky 네비게이션(약 64px)에 앵커 이동한 제목이 가려지지 않도록 여유를 둔다. */
         #consult { scroll-margin-top: 76px; }
-        .ec-form label { font-size: 13px; font-weight: 700; color: #343a40; margin-bottom: 6px; }
-        .ec-form .form-control, .ec-form .form-select { font-size: 14px; }
+        /* asset-management 정적 페이지들의 상담 CTA 배너와 같은 모양 — 폼은 /experts/apply/로
+           분리했고, 여기서는 그 페이지로 보내는 짧은 배너만 보여준다. */
+        .ec-section-label {
+            font-size: 15px; letter-spacing: .08em; text-transform: uppercase;
+            color: #868e96; font-weight: 600; margin: 0 0 16px;
+        }
+        .ec-consult-cta {
+            display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+        }
+        .ec-consult-cta h2 { margin: 0 0 6px; }
+        .ec-consult-cta p { margin: 0; font-size: 14px; color: #6c757d; max-width: 52ch; }
         /* Bootstrap 기본 파랑(#0d6efd/#0b5ed7/#0a58ca)은 위 히어로의 네이비와 겉돌아서,
            신청 버튼도 같은 네이비 계열로 덮어쓴다. */
         .btn-primary {
@@ -169,11 +178,6 @@
         .btn-primary:focus-visible {
             box-shadow: 0 0 0 0.25rem rgba(10, 38, 71, 0.35);
         }
-        /* 허니팟 — 사람에게는 보이지 않고 봇만 채우도록 화면 밖으로 밀어낸다.
-           display:none은 일부 봇이 건너뛰므로 쓰지 않는다. */
-        .ec-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-        .ec-alert { display: none; font-size: 14px; margin-bottom: 18px; }
-        .ec-privacy { font-size: 12px; color: #6c757d; margin: 14px 0 0; line-height: 1.7; }
         @media (max-width: 576px) {
             .ec-hero h1 { font-size: 25px; }
             .ec-hero-box { padding: 24px 22px 28px; }
@@ -315,120 +319,15 @@
         </ol>
     </div>
 
-    <div class="ec-card" id="consult">
-        <h2>상담 신청</h2>
-        <div class="alert alert-danger ec-alert" id="ecError" role="alert"></div>
-        <div class="alert alert-success ec-alert" id="ecSuccess" role="alert">
-            신청이 접수되었습니다. 남겨주신 연락처로 순차적으로 연락드리겠습니다.
+    <h2 class="ec-section-label">전문가 상담</h2>
+    <div class="ec-card ec-consult-cta" id="consult">
+        <div>
+            <h2>혼자 고민하지 마세요</h2>
+            <p>국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요.</p>
         </div>
-        <form class="ec-form" id="ecForm" novalidate>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="ecName" class="form-label">이름 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="ecName" required maxlength="50" placeholder="홍길동">
-                </div>
-                <div class="col-md-6">
-                    <label for="ecPhone" class="form-label">연락처 <span class="text-danger">*</span></label>
-                    <input type="tel" class="form-control" id="ecPhone" required maxlength="20" placeholder="010-1234-5678">
-                </div>
-                <div class="col-md-6">
-                    <label for="ecInterest" class="form-label">관심 분야</label>
-                    <select class="form-select" id="ecInterest">
-                        <option>국민연금</option>
-                        <option>연금저축</option>
-                        <option>IRP</option>
-                        <option>ISA</option>
-                        <option>보험</option>
-                        <option>채권</option>
-                        <option>부동산</option>
-                        <option>청년저축</option>
-                        <option>상속·증여</option>
-                        <option selected>전체 자산 진단</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="ecGoal" class="form-label">상담 목표</label>
-                    <input type="text" class="form-control" id="ecGoal" maxlength="200"
-                           placeholder="예: 세액공제 한도를 다 채우고 싶어요">
-                </div>
-                <div class="col-12">
-                    <label for="ecMessage" class="form-label">문의사항</label>
-                    <textarea class="form-control" id="ecMessage" rows="3"
-                              placeholder="궁금한 점을 자유롭게 남겨주세요."></textarea>
-                </div>
-                <div class="ec-honeypot" aria-hidden="true">
-                    <label for="ecWebsite">웹사이트</label>
-                    <input type="text" id="ecWebsite" tabindex="-1" autocomplete="off">
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg w-100 mt-4 fw-bold" id="ecSubmit">상담 신청하기</button>
-            <p class="ec-privacy">
-                남겨주신 정보는 상담 목적으로만 사용하며, 자세한 내용은
-                <a href="{% url 'privacy_policy' %}" target="_blank">개인정보처리방침</a>을 확인해주세요.
-            </p>
-        </form>
+        <a href="{% url 'expert_consult_apply' %}" class="btn btn-primary btn-lg fw-bold">💬 전문가 무료 상담 신청하기</a>
     </div>
 </div>
-
-<script>
-    // 상담 접수는 기존 /api/consult/ 엔드포인트가 검증·허니팟·관리자 메일 발송까지 전부
-    // 처리한다. 그 뷰는 정적 HTML 호출부를 위해 csrf_exempt이므로 토큰을 보내지 않는다.
-    document.getElementById('ecForm').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const errorBox = document.getElementById('ecError');
-        const successBox = document.getElementById('ecSuccess');
-        const submitBtn = document.getElementById('ecSubmit');
-        errorBox.style.display = 'none';
-        successBox.style.display = 'none';
-
-        const name = document.getElementById('ecName').value.trim();
-        const phone = document.getElementById('ecPhone').value.trim();
-        if (!name || !phone) {
-            errorBox.textContent = '이름과 연락처를 입력해주세요.';
-            errorBox.style.display = 'block';
-            return;
-        }
-
-        // 이중 제출 방지
-        submitBtn.disabled = true;
-        submitBtn.textContent = '접수 중...';
-
-        try {
-            const response = await fetch('/api/consult/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    product: 'ASSET',
-                    name: name,
-                    phone: phone,
-                    interest: document.getElementById('ecInterest').value,
-                    goal: document.getElementById('ecGoal').value.trim(),
-                    message: document.getElementById('ecMessage').value.trim(),
-                    website: document.getElementById('ecWebsite').value.trim(),
-                }),
-            });
-            const data = await response.json();
-
-            if (response.ok && data.ok) {
-                successBox.style.display = 'block';
-                this.reset();
-            } else {
-                errorBox.textContent = data.error === 'name_phone_required'
-                    ? '이름과 연락처를 입력해주세요.'
-                    : '접수에 실패했습니다. 잠시 후 다시 시도해주세요.';
-                errorBox.style.display = 'block';
-            }
-        } catch (err) {
-            // 네트워크 단절이나 JSON 파싱 실패
-            errorBox.textContent = '통신에 실패했습니다. 잠시 후 다시 시도해주세요.';
-            errorBox.style.display = 'block';
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '상담 신청하기';
-        }
-    });
-</script>
 
 {% include "articles/_footer.html" with footer_disclaimer="본 페이지를 통해 신청하신 상담은 담당 전문가가 남겨주신 연락처로 개별 연락드리는 방식으로 진행됩니다. 상담 내용은 참고용 정보이며, 최종 가입·투자 판단과 책임은 이용자 본인에게 있습니다." %}
 {% include "articles/_cookie_banner.html" %}
