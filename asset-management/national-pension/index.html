@@ -122,6 +122,9 @@
 
   /* ── 카드 그리드 ── */
   .grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  /* 제도 소개(가입 대상/보험료율/연금의 종류/물가에 연동) 4장만 2x2로 고정 배치.
+     다른 .grid(예: 2026 개정 카드들)는 auto-fit 그대로 둔다. */
+  #intro .grid{grid-template-columns:repeat(2,1fr)}
   .card{
     background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
     padding:26px;box-shadow:var(--shadow);
@@ -230,6 +233,7 @@
     .passbook-main{padding:28px 24px 24px}
     .passbook-cover{border-left:none;border-top:1px solid var(--border);flex-direction:row;padding:20px}
     .calc{grid-template-columns:1fr}
+    #intro .grid{grid-template-columns:1fr}
   }
 
   /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
