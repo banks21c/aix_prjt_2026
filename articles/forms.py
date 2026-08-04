@@ -164,7 +164,7 @@ class NewsWriteForm(forms.Form):
         max_length=255,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': '기사 제목을 입력하세요',
+            'placeholder': '제목을 입력하세요',
         }),
     )
     content = forms.CharField(
@@ -172,7 +172,7 @@ class NewsWriteForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 14,
-            'placeholder': '기사 본문을 붙여넣으세요',
+            'placeholder': '본문을 붙여넣으세요',
         }),
     )
 
