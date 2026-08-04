@@ -161,22 +161,18 @@
         }
         .ec-consult-cta h2 { margin: 0 0 6px; }
         .ec-consult-cta p { margin: 0; font-size: 14px; color: #6c757d; max-width: 52ch; }
-        /* Bootstrap 기본 파랑(#0d6efd/#0b5ed7/#0a58ca)은 위 히어로의 네이비와 겉돌아서,
-           신청 버튼도 같은 네이비 계열로 덮어쓴다. */
-        .btn-primary {
-            background: linear-gradient(135deg, #0a2647, #144272);
-            border-color: #0a2647;
+        /* asset-management 정적 페이지들의 .consult-cta-btn과 같은 크기로 맞춘다(버튼이
+           Bootstrap btn-lg라 그쪽보다 훨씬 커 보였다). 다만 이 카드는 배경이 흰색(.ec-card)이라
+           흰 배경/파란 글자였던 그쪽 배색을 그대로 쓰면 안 보이므로, 배경색은 이 페이지 고유의
+           네이비 그라데이션 + 흰 글자로 유지하고 크기(패딩·글자 크기·둥근 모서리)만 맞춘다. */
+        .ec-consult-cta-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            border: none; border-radius: 7px; font-weight: 700; font-size: 14px; cursor: pointer;
+            padding: 12px 22px; background: linear-gradient(135deg, #0a2647, #144272); color: #fff;
+            text-decoration: none; white-space: nowrap; transition: background .15s ease;
         }
-        .btn-primary:hover, .btn-primary:focus-visible {
+        .ec-consult-cta-btn:hover, .ec-consult-cta-btn:focus-visible {
             background: linear-gradient(135deg, #081d38, #0f3359);
-            border-color: #081d38;
-        }
-        .btn-primary:active {
-            background: linear-gradient(135deg, #06182c, #0c2a4a);
-            border-color: #06182c;
-        }
-        .btn-primary:focus-visible {
-            box-shadow: 0 0 0 0.25rem rgba(10, 38, 71, 0.35);
         }
         @media (max-width: 576px) {
             .ec-hero h1 { font-size: 25px; }
@@ -325,7 +321,7 @@
             <h2>혼자 고민하지 마세요</h2>
             <p>국민연금부터 부동산까지, 관심 있는 분야와 상황을 남겨주시면 전문가가 다음 스텝을 정리해서 연락드려요.</p>
         </div>
-        <a href="{% url 'expert_consult_apply' %}" class="btn btn-primary btn-lg fw-bold">💬 전문가 무료 상담 신청하기</a>
+        <a href="{% url 'expert_consult_apply' %}" class="ec-consult-cta-btn">💬 전문가 무료 상담 신청하기</a>
     </div>
 </div>
 
