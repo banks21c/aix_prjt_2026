@@ -265,8 +265,8 @@
         }
 
         /* 챗봇 위젯. 다른 어떤 레이어(헤더/쿠키 배너 등)보다도 항상 위에 뜨도록 z-index를
-           최대한 높게 잡는다 — 텍스트 말풍선 힌트 없이 동그란 버튼의 점 애니메이션만으로
-           시선을 끈다. */
+           최대한 높게 잡는다 — 원형 버튼 안에 글자 없는 말풍선 도형을 그리고, 그 안에서
+           점 3개가 메신저 '입력 중' 표시처럼 순서대로 펄스한다. */
         .chatbot-toggle {
             position: fixed;
             right: 24px;
@@ -277,7 +277,6 @@
             background: #0d47a1;
             color: #fff;
             border: none;
-            font-size: 24px;
             box-shadow: 0 6px 16px rgba(13,71,161,0.35);
             cursor: pointer;
             z-index: 2147483000;
@@ -286,14 +285,40 @@
             justify-content: center;
         }
         .chatbot-toggle:hover { background: #0b3c8a; }
-        .chatbot-toggle-dots {
-            display: inline-block;
-            min-width: 30px;
-            font-weight: 900;
-            font-size: 28px;
-            letter-spacing: 2px;
-            line-height: 1;
-            text-align: left;
+        .chatbot-bubble-icon {
+            position: relative;
+            width: 30px;
+            height: 20px;
+            background: #fff;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .chatbot-bubble-icon::after {
+            content: '';
+            position: absolute;
+            left: 9px;
+            bottom: -5px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #fff;
+        }
+        .chatbot-bubble-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #0d47a1;
+            animation: chatbotBubbleDot 1.2s infinite ease-in-out;
+        }
+        .chatbot-bubble-dot:nth-child(2) { animation-delay: 0.2s; }
+        .chatbot-bubble-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes chatbotBubbleDot {
+            0%, 60%, 100% { transform: scale(1); opacity: 0.45; }
+            30% { transform: scale(1.4); opacity: 1; }
         }
 
         .chatbot-panel {
@@ -554,7 +579,13 @@
 
     <!-- 주식/경제 챗봇 위젯 -->
     {% csrf_token %}
-    <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기"><span class="chatbot-toggle-dots" id="chatbotToggleDots">.</span></button>
+    <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기">
+        <span class="chatbot-bubble-icon">
+            <span class="chatbot-bubble-dot"></span>
+            <span class="chatbot-bubble-dot"></span>
+            <span class="chatbot-bubble-dot"></span>
+        </span>
+    </button>
     <div class="chatbot-panel" id="chatbotPanel">
         <div class="chatbot-header">
             <div>
@@ -590,15 +621,6 @@
                 if (panel.classList.contains('open')) input.focus();
             });
             closeBtn.addEventListener('click', () => panel.classList.remove('open'));
-
-            // 챗봇 아이콘에 '.' → '..' → '...' 점 애니메이션을 반복해 눈에 띄게 한다.
-            const toggleDots = document.getElementById('chatbotToggleDots');
-            const DOT_FRAMES = ['.', '..', '...'];
-            let dotFrame = 0;
-            setInterval(() => {
-                dotFrame = (dotFrame + 1) % DOT_FRAMES.length;
-                toggleDots.textContent = DOT_FRAMES[dotFrame];
-            }, 500);
 
             function appendMessage(text, role) {
                 const el = document.createElement('div');
