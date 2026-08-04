@@ -222,8 +222,22 @@
             };
         }
 
+        // 일봉 time은 서버가 'YYYY-MM-DD' 문자열로 내려주는데(articles/views/stocks.py), 이걸
+        // lightweight-charts에 BusinessDay 대용으로 그냥 넘기면 라이브러리가 포매터 콜백에
+        // 원본 문자열을 그대로 돌려주는 경우가 있어(버전/설정에 따라 다름) — {year,month,day}
+        // 객체라고 가정하고 .month를 바로 읽으면 문자열엔 그런 프로퍼티가 없어 "undefined월"로
+        // 표시된다. 숫자(분봉 타임스탬프)/문자열('YYYY-MM-DD')/객체 셋 다 안전하게 처리한다.
+        function timeParts(time) {
+            if (typeof time === 'number') return kstDateParts(time);
+            if (typeof time === 'string') {
+                const [y, m, d] = time.split('-').map(Number);
+                return { year: y, month: m, day: d };
+            }
+            return time; // 이미 {year, month, day} 형태
+        }
+
         function chartTickFormatter(time, tickMarkType) {
-            const p = typeof time === 'number' ? kstDateParts(time) : time;
+            const p = timeParts(time);
             if (tickMarkType === LightweightCharts.TickMarkType.Year) return `${p.year}`;
             if (tickMarkType === LightweightCharts.TickMarkType.Month) return `${p.month}월`;
             if (tickMarkType === LightweightCharts.TickMarkType.DayOfMonth) return `${pad2(p.month)}/${pad2(p.day)}`;
@@ -231,11 +245,11 @@
         }
 
         function chartCrosshairFormatter(time) {
+            const p = timeParts(time);
             if (typeof time === 'number') {
-                const p = kstDateParts(time);
                 return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hours)}:${pad2(p.minutes)}`;
             }
-            return `${time.year}-${pad2(time.month)}-${pad2(time.day)}`;
+            return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
         }
 
         function addOverlaySeries() {
