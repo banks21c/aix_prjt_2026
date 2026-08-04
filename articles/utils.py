@@ -67,20 +67,28 @@ def _find_mentioned_stocks(text, max_count=20):
 def build_mentioned_stocks_table(text):
     """AI 요약 시점에 원문에서 언급된 종목들의 시세를 표로 정리한 HTML을 만든다
     (종목명(코드)/현재가/전일대비/등락률/거래량/거래대금). 장 마감 시황처럼 여러 종목이 한
-    기사에 등장하는 경우를 위한 기능. is_major_index 종목은 collect_stock_realtime_price가
-    5분마다 채워둔 StockRealtimePrice 캐시를 그대로 쓰고, 캐시가 없는 종목(지수 편입 밖이라
-    실시간 캐시가 없는 종목)은 이 시점에 KIS에 직접 온디맨드로 조회한다 — get_stock_close_price가
-    정규장 중이면 실시간가를, 마감 후~다음 개장 전에는 시간외단일가가 아닌 정규장 종가를
-    돌려주도록 알아서 분기한다. 온디맨드 조회가 실패한 종목은 숫자를 지어내지 않기 위해
-    조용히 표에서 빠진다."""
-    from .kis_client import get_stock_close_price
+    기사에 등장하는 경우를 위한 기능. 정규장 중에는 is_major_index 종목에 한해
+    collect_stock_realtime_price가 5분마다 채워둔 StockRealtimePrice 캐시를 그대로 쓴다(빠름).
+    정규장이 끝난 뒤에는 이 캐시를 쓰지 않는다 — collect_stock_realtime_price는 정규장
+    마감(15:30 KST) 직전 마지막 5분 주기 스냅샷(예: 15:25 KST)에서 멈추기 때문에, 실제 15:30
+    종가보다 몇 분 이른 값이라 종목마다 마감 직전 변동폭만큼 오차가 생긴다(실측 사례: 같은
+    표 안에서 종목별로 캐시-실제 종가 차이가 제각각이라 "가격이 조금씩 안 맞는다"는 문의로
+    확인됨). 그래서 마감 후에는 전 종목을 KIS에 온디맨드로 다시 조회한다 —
+    get_stock_close_price가 정규장 중이면 실시간가를, 마감 후~다음 개장 전에는 시간외단일가가
+    아닌 정확한 정규장 종가를 돌려주도록 알아서 분기한다. 온디맨드 조회가 실패한 종목은 숫자를
+    지어내지 않기 위해 조용히 표에서 빠진다."""
+    from .kis_client import get_stock_close_price, is_regular_session_open
     from .models import StockRealtimePrice
 
     stocks = _find_mentioned_stocks(text)
     if not stocks:
         return ''
 
-    cached_prices = {p.stock_id: p for p in StockRealtimePrice.objects.filter(stock__in=stocks)}
+    # 정규장 중에만 캐시를 신뢰한다 — 마감 후에는 위 사유로 전부 온디맨드 재조회.
+    cached_prices = (
+        {p.stock_id: p for p in StockRealtimePrice.objects.filter(stock__in=stocks)}
+        if is_regular_session_open() else {}
+    )
     cell_base = "border:1px solid #e9ecef;padding:8px 10px;text-align:center"
     rows = []
     for stock in stocks:
