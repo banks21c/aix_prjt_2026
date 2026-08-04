@@ -1,5 +1,8 @@
-<!-- 사이트 공통 하단 푸터. _header.html과 마찬가지로 여러 템플릿이 include 태그로 가져다 쓴다. -->
-<footer>
+<!-- 사이트 공통 하단 푸터. _header.html과 마찬가지로 여러 템플릿이 include 태그로 가져다 쓴다.
+     _header.html처럼 필요한 CSS를 자체적으로 갖고 있어, 이 컴포넌트를 쓰는 페이지가 별도로
+     footer 스타일을 정의해두지 않아도(index.html이 원래 갖고 있던 걸 여기로 옮겼다) 항상
+     같은 모양으로 보인다. -->
+<footer class="app-footer">
     <div class="container">
         <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
         <p class="disclaimer">
@@ -19,3 +22,15 @@
         </p>
     </div>
 </footer>
+<style>
+    .app-footer {
+        background: #10131a;
+        color: #adb5bd;
+        padding: 32px 0;
+        font-size: 13px;
+        text-align: center;
+    }
+    .app-footer .container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+    .app-footer strong { color: #fff; }
+    .app-footer .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: #6c757d; }
+</style>
