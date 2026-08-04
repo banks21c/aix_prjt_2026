@@ -9,7 +9,7 @@
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@14.0.1/swiper-bundle.min.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -743,28 +743,23 @@
         })();
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@14.0.1/swiper-bundle.min.js"></script>
+    <!-- Init Swiper: swiperjs.com 공식 데모(280-autoplay, 200-infinite-loop)와 동일한 방식
+         (문자열 셀렉터, 스크립트를 </body> 바로 앞에 둬서 DOM이 이미 존재하는 상태에서 실행)으로
+         맞춰서 초기화한다. -->
     <script>
-        (function () {
-            function initHeroSwiper() {
-                const el = document.querySelector('.hero-swiper');
-                if (!el || typeof Swiper === 'undefined') return;
-                // loop:true(슬라이드 복제 방식)가 observer/update()와 맞물려 오히려 순환을
-                // 깨뜨리는 것으로 보여, 복제 없이 마지막 슬라이드 다음 처음으로 부드럽게
-                // 돌아가기만 하는 rewind로 교체했다 — 구조가 훨씬 단순해 신뢰도가 높다.
-                new Swiper(el, {
-                    rewind: true,
-                    autoplay: { delay: 6000, disableOnInteraction: false },
-                    pagination: { el: '.hero-swiper .swiper-pagination', clickable: true },
-                });
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initHeroSwiper);
-            } else {
-                initHeroSwiper();
-            }
-        })();
+        var heroSwiper = new Swiper('.hero-swiper', {
+            slidesPerView: 1,
+            rewind: true,
+            autoplay: {
+                delay: 6000,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: '.hero-swiper .swiper-pagination',
+                clickable: true,
+            },
+        });
     </script>
 
     <script>
