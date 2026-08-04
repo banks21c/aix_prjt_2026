@@ -77,6 +77,26 @@ class Menu(models.Model):
     def __str__(self):
         return f"[{self.get_menu_type_display()}] {self.name}"
 
+
+# ==========================================
+# 8-1. 헤더 하단 키워드 티커 (경제/AI/업무 키워드가 흘러가는 두 번째 티커, _header.html)
+# ==========================================
+class TickerKeyword(models.Model):
+    """_header.html의 주식 시세 티커 바로 아래에 흘러가는 키워드 티커 항목. ticker_data_view가
+    is_active=True인 것만 order순으로 내려주고, 프런트는 60초마다 다시 불러온다."""
+    keyword = models.CharField(max_length=50, verbose_name="키워드")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    is_active = models.BooleanField(default=True, verbose_name="사용 여부(숨김 처리)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = "키워드 티커 (TickerKeyword)"
+        verbose_name_plural = "키워드 티커 관리 (TickerKeyword)"
+
+    def __str__(self):
+        return self.keyword
+
     def get_url(self):
         if self.url_name:
             try:

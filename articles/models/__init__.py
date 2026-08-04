@@ -11,7 +11,9 @@ from .members import (
     ChatMessage, SocialAccount,
 )
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
-from .content import NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet
+from .content import (
+    NewsletterSubscriber, NewsletterIssue, Menu, TickerKeyword, ConsultRequest, FinancialConsultSheet,
+)
 
 __all__ = [
     'StockItem', 'KisAccessToken', 'RankedMover', 'StockRealtimePrice', 'MarketHoliday',
@@ -19,5 +21,6 @@ __all__ = [
     'UserSubscription', 'MemberGrade', 'UserPreference', 'BlogPostingAccount', 'LoginLog',
     'MenuAccessLog', 'ChatMessage', 'SocialAccount',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
-    'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest', 'FinancialConsultSheet',
+    'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'TickerKeyword', 'ConsultRequest',
+    'FinancialConsultSheet',
 ]

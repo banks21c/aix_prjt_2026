@@ -282,16 +282,7 @@
             .catch(function () { /* 다음 폴링에서 재시도 */ });
     }
 
-    // 경제/AI/업무 키워드 티커 — 지금은 사이트가 다루는 주제를 정적으로 큐레이션한 목록.
-    // 반응이 괜찮으면 NewsKeyword(관리자에서 늘려가는 감지 키워드) 등 실데이터로 바꿔도 된다.
-    var SITE_KEYWORDS = [
-        'AI', '인공지능', '머신러닝', '딥러닝', 'LightGBM', 'RandomForest', '앙상블모델',
-        '주가예측', '매매신호', '실시간시세', '등락률순위', '특징주브리핑', '기술적지표',
-        '코스피', '코스닥', '주식시장', '환율', '금리', '증권사리포트', '투자',
-        '자산관리', '재테크', '포트폴리오', '뉴스분석', '빅데이터', '자동화',
-        '챗봇', '블로그자동발행', '뉴스레터', '종목분석'
-    ];
-
+    // 경제/AI/업무 키워드 티커 — 관리자 > TickerKeyword 화면에서 추가/순서변경/숨김 처리한다.
     function renderKeywordsHtml(keywords) {
         return keywords.map(function (kw) {
             return '<span class="ticker-item"><span class="ticker-name">#' + escapeHtml(kw) + '</span></span>';
@@ -301,13 +292,21 @@
     function loadKeywordTicker() {
         var track = document.getElementById('keywordTickerTrack');
         if (!track) return;
-        var html = renderKeywordsHtml(SITE_KEYWORDS);
-        track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
-        fitAnimationSpeed(track);
+        fetch('/api/ticker/keywords/')
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                var keywords = data.keywords || [];
+                if (!keywords.length) return;
+                var html = renderKeywordsHtml(keywords);
+                track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
+                fitAnimationSpeed(track);
+            })
+            .catch(function () { /* 다음 폴링에서 재시도 */ });
     }
 
     loadTicker();
     setInterval(loadTicker, 60000);
     loadKeywordTicker();
+    setInterval(loadKeywordTicker, 60000);
 })();
 </script>

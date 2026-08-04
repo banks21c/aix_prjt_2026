@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from ..forms import NewsletterForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, MarketIndex, NewsletterSubscriber, RankedMover, StockItem,
-    StockPrediction,
+    StockPrediction, TickerKeyword,
 )
 from ..utils import get_client_ip
 
@@ -113,6 +113,16 @@ def ticker_data_view(request):
         })
 
     return JsonResponse({'items': items})
+
+
+def ticker_keywords_view(request):
+    """_header.html의 시세 티커 바로 아래, 경제/AI/업무 키워드가 흘러가는 두 번째 티커가 폴링하는
+    JSON API. TickerKeyword(관리자 화면에서 직접 추가/순서변경/숨김 처리) 중 is_active만 order순
+    으로 내려준다."""
+    keywords = list(
+        TickerKeyword.objects.filter(is_active=True).order_by('order', 'id').values_list('keyword', flat=True)
+    )
+    return JsonResponse({'keywords': keywords})
 
 
 @csrf_exempt
