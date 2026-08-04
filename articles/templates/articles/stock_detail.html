@@ -43,7 +43,8 @@
                 <div class="fs-3 fw-bold">
                     {{ realtime.close|floatformat:0|intcomma }}원
                     <span class="{% if realtime.change > 0 %}up-value{% elif realtime.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 15px;">
-                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_abs|floatformat:0|intcomma }} ({{ realtime.change_pct|floatformat:2 }}%)
+                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_abs|floatformat:0|intcomma }}
+                        ({% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_pct_abs|floatformat:2 }}%)
                     </span>
                 </div>
                 <div class="text-muted" style="font-size: 11px;">🟢 한국투자증권 · {{ realtime.updated_at|date:"H:i" }} 기준</div>

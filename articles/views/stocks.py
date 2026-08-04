@@ -107,6 +107,7 @@ def stock_detail_view(request, ticker):
             'change': realtime_cache.change,
             'change_abs': abs(realtime_cache.change),
             'change_pct': realtime_cache.change_pct,
+            'change_pct_abs': abs(realtime_cache.change_pct) if realtime_cache.change_pct is not None else None,
             'updated_at': realtime_cache.updated_at,
         }
     else:
@@ -124,6 +125,7 @@ def stock_detail_view(request, ticker):
                 'change': fetched['change'],
                 'change_abs': abs(fetched['change']),
                 'change_pct': fetched['change_pct'],
+                'change_pct_abs': abs(fetched['change_pct']),
                 'updated_at': timezone.now(),
             }
         except Exception:
