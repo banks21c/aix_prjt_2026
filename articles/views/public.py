@@ -237,6 +237,10 @@ def main_dashboard_view(request):
     top_gainers = list(RankedMover.objects.filter(rank_type='GAINER').order_by('rank'))
     top_losers = list(RankedMover.objects.filter(rank_type='LOSER').order_by('rank'))
     featured_stocks = top_gainers + top_losers
+    for mover in featured_stocks:
+        # change_amount는 이미 부호 포함(KIS prdy_vrss) — 화살표로 부호를 따로 표시하므로
+        # 템플릿에서 abs() 없이 바로 쓸 수 있게 여기서 절대값을 미리 계산해둔다.
+        mover.change_amount_abs = abs(mover.change_amount)
 
     latest_pred_date = StockPrediction.objects.aggregate(m=Max('date'))['m']
 
