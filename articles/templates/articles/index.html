@@ -742,14 +742,30 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
         (function () {
-            const el = document.querySelector('.hero-swiper');
-            if (!el || typeof Swiper === 'undefined') return;
-            new Swiper(el, {
-                loop: true,
-                autoHeight: true,
-                autoplay: { delay: 6000, pauseOnMouseEnter: true, disableOnInteraction: false },
-                pagination: { el: '.hero-swiper .swiper-pagination', clickable: true },
-            });
+            function initHeroSwiper() {
+                const el = document.querySelector('.hero-swiper');
+                if (!el || typeof Swiper === 'undefined') return;
+                const swiper = new Swiper(el, {
+                    loop: true,
+                    autoHeight: true,
+                    // 초기화 시점에 컨테이너 폭이 아직 확정되지 않았을 수 있어(웹폰트/레이아웃 반영 전),
+                    // observer로 크기 변화를 계속 감지해 자동으로 다시 계산하게 한다 — 이게 없으면
+                    // 슬라이드가 전부 같은 위치에 겹쳐 있어 넘어가도 안 바뀌는 것처럼 보일 수 있다.
+                    observer: true,
+                    observeParents: true,
+                    autoplay: { delay: 6000, disableOnInteraction: false },
+                    pagination: { el: '.hero-swiper .swiper-pagination', clickable: true },
+                });
+                // 폰트 로딩 등으로 실제 레이아웃이 한 번 더 바뀔 수 있는 시점에 강제로 치수를 재계산.
+                window.addEventListener('load', function () { swiper.update(); });
+                setTimeout(function () { swiper.update(); }, 500);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initHeroSwiper);
+            } else {
+                initHeroSwiper();
+            }
         })();
     </script>
 
