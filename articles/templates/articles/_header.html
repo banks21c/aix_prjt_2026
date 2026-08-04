@@ -35,12 +35,14 @@
         </div>
     </div>
 </nav>
+{% if is_index_page %}
 <div class="ticker-bar" id="indexTicker" aria-hidden="true">
     <div class="ticker-track" id="indexTickerTrack"></div>
 </div>
 <div class="ticker-bar ticker-bar-alt" id="stockTicker" aria-hidden="true">
     <div class="ticker-track" id="stockTickerTrack"></div>
 </div>
+{% endif %}
 <style>
     .app-navbar {
         background: #fff;
