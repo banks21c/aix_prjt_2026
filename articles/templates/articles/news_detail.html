@@ -98,7 +98,7 @@
                             {% elif posting_stats.remaining == 0 %}
                             <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
                             {% else %}
-                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">이 기사 포스팅</button>
+                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">기사 포스팅</button>
                             {% endif %}
                         {% endif %}
                     </div>
