@@ -1,0 +1,19 @@
+<!-- 사이트 공통 하단 푸터. _header.html과 마찬가지로 여러 템플릿이 include 태그로 가져다 쓴다. -->
+<footer>
+    <div class="container">
+        <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
+        <p class="disclaimer">
+            본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
+            자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
+            최종 투자 판단과 책임은 이용자 본인에게 있습니다.
+        </p>
+        <p style="margin-top: 14px;">
+            <a href="{% url 'privacy_policy' %}" style="color:#adb5bd;">개인정보처리방침</a>
+            <span style="color:#495057;"> · </span>
+            <a href="{% url 'terms_of_service' %}" style="color:#adb5bd;">이용약관</a>
+        </p>
+        <p style="margin-top: 14px; color:#6c757d; font-size: 13px;">
+            &copy; {% now "Y" %} NextFinUp. All rights reserved.
+        </p>
+    </div>
+</footer>
