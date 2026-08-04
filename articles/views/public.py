@@ -120,9 +120,13 @@ def ticker_data_view(request):
 
 def ticker_stocks_view(request):
     """_header.html의 두 번째(개별 종목) 티커가 폴링하는 JSON API. 등락률 상위 5/하위 5
-    (RankedMover, 5분 주기 collect_fluctuation_ranking)를 내려준다."""
+    (RankedMover, 5분 주기 collect_fluctuation_ranking)를 내려준다. ticker(종목코드)는 클릭 시
+    뜨는 레이어 팝업의 "종목 상세보기" 링크(stock_detail_view)에 쓰인다."""
     items = [
-        {'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct}
+        {
+            'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct,
+            'ticker': mover.ticker,
+        }
         for mover in RankedMover.objects.order_by('rank_type', 'rank')
     ]
     return JsonResponse({'items': items})

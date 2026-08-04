@@ -42,6 +42,13 @@
 <div class="ticker-bar ticker-bar-alt" id="stockTicker" aria-hidden="true">
     <div class="ticker-track" id="stockTickerTrack"></div>
 </div>
+<div class="ticker-popup" id="tickerPopup" role="dialog" aria-hidden="true">
+    <button type="button" class="ticker-popup-close" id="tickerPopupClose" aria-label="닫기">&times;</button>
+    <div class="ticker-popup-name" id="tickerPopupName"></div>
+    <div class="ticker-popup-row"><span>현재가</span><strong id="tickerPopupPrice"></strong></div>
+    <div class="ticker-popup-row"><span>등락률</span><strong id="tickerPopupChange"></strong></div>
+    <a href="#" class="ticker-popup-link" id="tickerPopupLink">종목 상세보기 →</a>
+</div>
 {% endif %}
 <style>
     .app-navbar {
@@ -100,6 +107,55 @@
     .ticker-item .ticker-change.up { color: #ff5252; }
     .ticker-item .ticker-change.down { color: #4fa8ff; }
     .ticker-item .ticker-change.zero { color: #9aa5b1; }
+    /* 개별 종목 티커(ticker-bar-alt)만 클릭 가능 — data-ticker가 있는 항목에만 커서/hover 표시 */
+    .ticker-bar-alt .ticker-item[data-ticker] { cursor: pointer; }
+    .ticker-bar-alt .ticker-item[data-ticker]:hover { background: rgba(255, 255, 255, 0.08); }
+
+    /* 종목 클릭 시 뜨는 레이어 팝업 */
+    .ticker-popup {
+        display: none;
+        position: fixed;
+        z-index: 1030;
+        background: #fff;
+        color: #212529;
+        border-radius: 10px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+        padding: 14px 16px;
+        min-width: 200px;
+    }
+    .ticker-popup.open { display: block; }
+    .ticker-popup-close {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        line-height: 1;
+        color: #adb5bd;
+        cursor: pointer;
+        padding: 4px;
+    }
+    .ticker-popup-close:hover { color: #495057; }
+    .ticker-popup-name { font-weight: 800; font-size: 14px; margin: 0 20px 8px 0; }
+    .ticker-popup-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        font-size: 13px;
+        color: #6c757d;
+        padding: 3px 0;
+    }
+    .ticker-popup-row strong { color: #212529; font-variant-numeric: tabular-nums; }
+    .ticker-popup-link {
+        display: block;
+        margin-top: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #0d47a1;
+        text-decoration: none;
+    }
+    .ticker-popup-link:hover { text-decoration: underline; }
     .app-navbar .container {
         max-width: 1140px;
         margin: 0 auto;
@@ -262,7 +318,15 @@
             var arrow = dir === 'up' ? '▲' : (dir === 'down' ? '▼' : '－');
             var priceStr = Number(it.price).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
             var pctStr = Math.abs(pct).toFixed(2);
-            return '<span class="ticker-item">' +
+            // data-* 속성에 원본 값을 실어두면, 클릭 시 다시 API를 안 불러도 팝업에 바로 쓸 수 있다.
+            // data-ticker는 개별 종목(RankedMover)에만 있고 지수/환율/금리 항목엔 없다 — CSS의
+            // .ticker-item[data-ticker] 커서 표시와 클릭 핸들러가 이 값의 유무로 클릭 가능 여부를 가른다.
+            var tickerAttr = it.ticker ? ' data-ticker="' + escapeHtml(it.ticker) + '"' : '';
+            return '<span class="ticker-item"' + tickerAttr +
+                ' data-name="' + escapeHtml(it.name) + '"' +
+                ' data-price="' + priceStr + '"' +
+                ' data-change="' + arrow + ' ' + pctStr + '%"' +
+                ' data-dir="' + dir + '">' +
                 '<span class="ticker-name">' + escapeHtml(it.name) + '</span>' +
                 '<span class="ticker-price">' + priceStr + '</span>' +
                 '<span class="ticker-change ' + dir + '">' + arrow + ' ' + pctStr + '%</span>' +
@@ -316,5 +380,61 @@
     setInterval(loadIndexTicker, 60000);
     loadStockTicker();
     setInterval(loadStockTicker, 60000);
+
+    // 종목 티커 클릭 → 레이어 팝업으로 현재가/등락률을 살짝 보여줌. 트랙 내용은 60초마다
+    // 통째로 다시 그려지므로, 항목이 아니라 안 바뀌는 바깥 컨테이너(#stockTicker)에
+    // 이벤트를 위임해서 매번 리스너를 다시 붙일 필요가 없게 한다.
+    var stockTickerEl = document.getElementById('stockTicker');
+    var popup = document.getElementById('tickerPopup');
+    if (stockTickerEl && popup) {
+        var popupName = document.getElementById('tickerPopupName');
+        var popupPrice = document.getElementById('tickerPopupPrice');
+        var popupChange = document.getElementById('tickerPopupChange');
+        var popupLink = document.getElementById('tickerPopupLink');
+        var popupClose = document.getElementById('tickerPopupClose');
+
+        function closePopup() {
+            popup.classList.remove('open');
+            popup.setAttribute('aria-hidden', 'true');
+        }
+
+        function openPopupFor(itemEl) {
+            var ticker = itemEl.getAttribute('data-ticker');
+            if (!ticker) return; // 지수/환율/금리 항목은 클릭 대상 아님
+
+            popupName.textContent = itemEl.getAttribute('data-name');
+            popupPrice.textContent = itemEl.getAttribute('data-price') + '원';
+            var change = itemEl.getAttribute('data-change');
+            var dir = itemEl.getAttribute('data-dir');
+            popupChange.textContent = change;
+            popupChange.className = dir; // up/down/zero 색상 재사용
+            popupLink.href = '/stocks/' + encodeURIComponent(ticker) + '/';
+
+            // 클릭한 항목 바로 아래에 뜨도록 위치 계산(화면 밖으로 안 나가게 좌우 보정).
+            var rect = itemEl.getBoundingClientRect();
+            popup.classList.add('open'); // 너비 계산을 위해 먼저 보여준 뒤 위치 보정
+            var popupWidth = popup.offsetWidth;
+            var left = Math.min(Math.max(rect.left, 8), window.innerWidth - popupWidth - 8);
+            popup.style.top = (rect.bottom + 8) + 'px';
+            popup.style.left = left + 'px';
+            popup.setAttribute('aria-hidden', 'false');
+        }
+
+        stockTickerEl.addEventListener('click', function (e) {
+            var itemEl = e.target.closest('.ticker-item');
+            if (!itemEl) return;
+            openPopupFor(itemEl);
+        });
+
+        popupClose.addEventListener('click', closePopup);
+        document.addEventListener('click', function (e) {
+            if (popup.classList.contains('open') && !popup.contains(e.target) && !e.target.closest('.ticker-item')) {
+                closePopup();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closePopup();
+        });
+    }
 })();
 </script>
