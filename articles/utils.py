@@ -101,9 +101,12 @@ def build_mentioned_stocks_table(text):
         color = '#e53935' if change > 0 else '#1e88e5' if change < 0 else '#495057'
         move_style = f'{cell_base};color:{color}'
         trading_value = close_price * volume
+        naver_url = f"https://finance.naver.com/item/main.naver?code={stock.ticker}"
         rows.append(
             '<tr>'
-            f'<td style="{cell_base}">{stock.name}({stock.ticker})</td>'
+            f'<td style="{cell_base}">'
+            f'<a href="{naver_url}" target="_blank" rel="noopener noreferrer" style="color:inherit">{stock.name}({stock.ticker})</a>'
+            '</td>'
             f'<td style="{cell_base}">{format_won(close_price)}</td>'
             f'<td style="{move_style}">{format_signed_won(change)}</td>'
             f'<td style="{move_style}">{format_signed_pct(change_pct)}</td>'
