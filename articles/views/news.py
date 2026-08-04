@@ -180,6 +180,7 @@ def news_detail_view(request, pk):
 
     user_blog_accounts = []
     is_posted = False
+    has_any_posted = False
     posting_stats = None
     summarize_stats = None
     if request.user.is_authenticated:
@@ -192,16 +193,46 @@ def news_detail_view(request, pk):
             # publish_article이 이미 발행된 계정×기사 조합은 알아서 건너뛰므로 안전하다.
             posted_count = PostedArticle.objects.filter(blog_account__in=user_blog_accounts, article=article).count()
             is_posted = posted_count == len(user_blog_accounts)
+            has_any_posted = posted_count > 0
 
     context = {
         'site_title': f'NextFinUp - {article.title}',
         'article': article,
         'user_blog_accounts': user_blog_accounts,
         'is_posted': is_posted,
+        'has_any_posted': has_any_posted,
         'posting_stats': posting_stats,
         'summarize_stats': summarize_stats,
     }
     return render(request, 'articles/news_detail.html', context)
+
+
+@login_required
+@require_POST
+def republish_article_view(request, pk):
+    """기사 내용/발행 템플릿 로직을 고친 뒤, 이미 발행된 계정에 새 글을 또 만들지 않고 원래
+    글을 최신 내용으로 덮어쓴다(blog_posting.republish_article). 아직 발행 안 된 계정을 체크해도
+    republish_article이 알아서 최초 발행으로 처리한다. 재발행은 새 콘텐츠를 만드는 게 아니라
+    기존 콘텐츠를 고치는 작업이라 posting_stats(하루 발행 한도)를 소모하지 않는다."""
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+    account_ids = request.POST.getlist('account_ids')
+    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_connected()]
+
+    if not accounts:
+        messages.warning(request, "재발행할 계정을 하나 이상 선택해주세요.")
+    else:
+        success_count = 0
+        for account in accounts:
+            ok, result = blog_posting.republish_article(account, article)
+            if ok:
+                success_count += 1
+            else:
+                messages.error(request, f"{account.get_platform_display()} 재발행 실패: {result}")
+        if success_count:
+            messages.success(request, f"{success_count}개 계정에 재발행했습니다.")
+
+    next_url = request.POST.get('next')
+    return redirect(next_url) if next_url else redirect('news_detail', pk=article.pk)
 
 
 @login_required

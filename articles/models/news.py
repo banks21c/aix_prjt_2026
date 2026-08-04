@@ -158,7 +158,12 @@ class PostedArticle(models.Model):
     # 한글 제목이 슬러그로 퍼센트 인코딩되면 기본 URLField max_length(200)를 쉽게 넘겨서
     # (워드프레스/블로거/티스토리 공통) 저장이 실패했었다 — 여유 있게 늘려둔다.
     external_url = models.URLField(max_length=500, blank=True, verbose_name="발행된 글 주소")
+    # 워드프레스 post ID / 블로거 post ID. 재발행(republish_article)이 새 글을 또 만드는 대신
+    # 이 ID로 기존 글을 업데이트하는 데 쓴다. 이 필드가 생기기 전 발행분은 빈 값이라, 그런 경우
+    # 재발행은 (기존 글을 못 찾으니) 블로그에서 직접 수정하라고 안내한다.
+    external_post_id = models.CharField(max_length=100, blank=True, verbose_name="발행된 글 ID(플랫폼 내부)")
     posted_at = models.DateTimeField(auto_now_add=True, verbose_name="발행 일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="최근 재발행 일시")
 
     class Meta:
         unique_together = ('blog_account', 'article')

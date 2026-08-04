@@ -91,7 +91,10 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                    <div class="ms-auto">
+                    <div class="ms-auto d-flex gap-2">
+                        {% if has_any_posted %}
+                        <button type="submit" formaction="{% url 'republish_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 재발행 중..." title="체크한 계정에 이미 올라간 글을 최신 내용으로 덮어씁니다">🔄 재발행</button>
+                        {% endif %}
                         {% if article.ai_generated %}
                             {% if is_posted %}
                             <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>

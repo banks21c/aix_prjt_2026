@@ -28,7 +28,7 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, republish_article_view, stock_detail_view, stock_minute_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -79,6 +79,7 @@ urlpatterns = [
     path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX
     path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
     path('news/<int:pk>/ai-summarize/', news_ai_summarize_view, name='news_ai_summarize'),  # ◀ 포스팅 직전 개별 기사 AI 요약 트리거
+    path('news/<int:pk>/republish/', republish_article_view, name='republish_article'),  # ◀ 이미 발행된 계정에 최신 내용으로 재발행(같은 글 업데이트)
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
 

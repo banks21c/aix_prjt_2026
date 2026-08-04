@@ -299,7 +299,8 @@ def build_post_content(article):
 
 
 def publish_to_wordpress(account, blog_title, content):
-    """반환: (성공 여부, 발행된 글 URL, 실패 사유)"""
+    """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 글 ID는 나중에 republish_article이
+    같은 글을 업데이트(새 글 생성이 아니라)하는 데 쓴다."""
     try:
         res = requests.post(
             f"{account.site_url}/wp-json/wp/v2/posts",
@@ -308,9 +309,28 @@ def publish_to_wordpress(account, blog_title, content):
             timeout=15,
         )
     except Exception as e:
-        return False, '', f"네트워크 연동 실패: {e}"
+        return False, '', '', f"네트워크 연동 실패: {e}"
 
     if res.status_code == 201:
+        body = res.json()
+        return True, body.get('link', ''), str(body.get('id', '')), None
+    return False, '', '', f"워드프레스 API 응답 에러 ({res.status_code}): {res.text[:300]}"
+
+
+def update_to_wordpress(account, post_id, blog_title, content):
+    """반환: (성공 여부, 발행된 글 URL, 실패 사유). 워드프레스 REST API는 기존 글 엔드포인트에
+    POST하면 update로 처리된다(PUT 대신 POST여도 동작 — 워드프레스 REST API 관례)."""
+    try:
+        res = requests.post(
+            f"{account.site_url}/wp-json/wp/v2/posts/{post_id}",
+            auth=(account.account_id, account.credential),
+            json={"title": blog_title, "content": content, "status": WP_POST_STATUS},
+            timeout=15,
+        )
+    except Exception as e:
+        return False, '', f"네트워크 연동 실패: {e}"
+
+    if res.status_code == 200:
         return True, res.json().get('link', ''), None
     return False, '', f"워드프레스 API 응답 에러 ({res.status_code}): {res.text[:300]}"
 
@@ -331,10 +351,11 @@ def _get_blogger_access_token(account):
 
 
 def publish_to_blogger(account, blog_title, content):
-    """반환: (성공 여부, 발행된 글 URL, 실패 사유)"""
+    """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 글 ID는 나중에 republish_article이
+    같은 글을 업데이트(새 글 생성이 아니라)하는 데 쓴다."""
     access_token, error = _get_blogger_access_token(account)
     if not access_token:
-        return False, '', f"블로거 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 블로거를 다시 연결해야 할 수 있습니다)"
+        return False, '', '', f"블로거 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 블로거를 다시 연결해야 할 수 있습니다)"
 
     try:
         res = requests.post(
@@ -346,9 +367,31 @@ def publish_to_blogger(account, blog_title, content):
         )
         body = res.json()
     except Exception as e:
-        return False, '', f"네트워크 연동 실패: {e}"
+        return False, '', '', f"네트워크 연동 실패: {e}"
 
     if res.status_code in (200, 201):
+        return True, body.get('url', ''), str(body.get('id', '')), None
+    return False, '', '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
+
+
+def update_to_blogger(account, post_id, blog_title, content):
+    """반환: (성공 여부, 발행된 글 URL, 실패 사유). Blogger API v3 게시물 수정은 PUT."""
+    access_token, error = _get_blogger_access_token(account)
+    if not access_token:
+        return False, '', f"블로거 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 블로거를 다시 연결해야 할 수 있습니다)"
+
+    try:
+        res = requests.put(
+            f"https://www.googleapis.com/blogger/v3/blogs/{account.account_id}/posts/{post_id}",
+            headers={'Authorization': f'Bearer {access_token}'},
+            json={"title": blog_title, "content": content},
+            timeout=15,
+        )
+        body = res.json()
+    except Exception as e:
+        return False, '', f"네트워크 연동 실패: {e}"
+
+    if res.status_code == 200:
         return True, body.get('url', ''), None
     return False, '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
@@ -356,6 +399,11 @@ def publish_to_blogger(account, blog_title, content):
 PUBLISHERS = {
     'WORDPRESS': lambda account, title, content, subject_label: publish_to_wordpress(account, title, content),
     'BLOGGER': lambda account, title, content, subject_label: publish_to_blogger(account, title, content),
+}
+
+UPDATERS = {
+    'WORDPRESS': update_to_wordpress,
+    'BLOGGER': update_to_blogger,
 }
 
 
@@ -370,9 +418,35 @@ def publish_article(account, article):
         return False, "지원하지 않는 플랫폼입니다."
 
     blog_title, content, subject_label = build_post_content(article)
-    ok, url, error = publisher(account, blog_title, content, subject_label)
+    ok, url, post_id, error = publisher(account, blog_title, content, subject_label)
     if not ok:
         return False, error or "발행에 실패했습니다."
 
-    PostedArticle.objects.create(blog_account=account, article=article, external_url=url)
+    PostedArticle.objects.create(blog_account=account, article=article, external_url=url, external_post_id=post_id or '')
+    return True, url
+
+
+def republish_article(account, article):
+    """기사를 수정한 뒤(예: 제목/본문 템플릿 로직을 고친 뒤) 이미 발행된 계정에 새 글을 또
+    만들지 않고, 원래 발행했던 그 글을 최신 내용으로 덮어쓴다. 이 계정에 발행된 적이 없으면
+    (재발행이 아니라 최초 발행이므로) publish_article로 그대로 넘긴다.
+    반환: (성공 여부, 발행된 글 URL 또는 실패 사유 메시지)"""
+    posted = PostedArticle.objects.filter(blog_account=account, article=article).first()
+    if not posted:
+        return publish_article(account, article)
+
+    if not posted.external_post_id:
+        return False, "이 글은 발행 ID가 기록되기 전에 발행돼 재발행할 수 없습니다. 블로그에서 직접 수정해주세요."
+
+    updater = UPDATERS.get(account.platform)
+    if updater is None:
+        return False, "지원하지 않는 플랫폼입니다."
+
+    blog_title, content, subject_label = build_post_content(article)
+    ok, url, error = updater(account, posted.external_post_id, blog_title, content)
+    if not ok:
+        return False, error or "재발행에 실패했습니다."
+
+    posted.external_url = url or posted.external_url
+    posted.save(update_fields=['external_url', 'updated_at'])
     return True, url
