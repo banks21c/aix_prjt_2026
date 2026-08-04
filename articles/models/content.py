@@ -77,6 +77,15 @@ class Menu(models.Model):
     def __str__(self):
         return f"[{self.get_menu_type_display()}] {self.name}"
 
+    def get_url(self):
+        if self.url_name:
+            try:
+                from django.urls import reverse
+                return reverse(self.url_name)
+            except Exception:
+                return '#'
+        return self.external_url or '#'
+
 
 # ==========================================
 # 8-1. 헤더 하단 키워드 티커 (경제/AI/업무 키워드가 흘러가는 두 번째 티커, _header.html)
@@ -96,15 +105,6 @@ class TickerKeyword(models.Model):
 
     def __str__(self):
         return self.keyword
-
-    def get_url(self):
-        if self.url_name:
-            try:
-                from django.urls import reverse
-                return reverse(self.url_name)
-            except Exception:
-                return '#'
-        return self.external_url or '#'
 
 
 # ==========================================
