@@ -236,6 +236,44 @@ def republish_article_view(request, pk):
 
 
 @login_required
+@require_POST
+def repost_article_view(request, pk):
+    """이미 발행된 기사를 '포스팅'(publish_article)과 완전히 동일한 방식으로 다시 새 글로
+    발행한다 — republish_article_view와 달리 기존 글을 덮어쓰지 않고 별개의 새 글을 만든다
+    (blog_posting.publish_article_force). 새 콘텐츠 발행이라 일반 포스팅과 동일하게
+    posting_stats(daily_post_limit)를 소모한다."""
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+    account_ids = request.POST.getlist('account_ids')
+    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_connected()]
+
+    if not accounts:
+        messages.warning(request, "다시 포스팅할 계정을 하나 이상 선택해주세요.")
+    else:
+        stats = blog_posting.posting_stats(request.user)
+        if stats['remaining'] is not None and stats['remaining'] < len(accounts):
+            grade_name = stats['grade'].name if stats['grade'] else '일반'
+            daily_limit = stats['grade'].daily_post_limit if stats['grade'] else 0
+            messages.error(
+                request,
+                f"{grade_name} 등급은 하루 {daily_limit}건까지만 포스팅할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요 — 계정을 더 적게 선택하거나 내일 다시 시도해주세요.",
+            )
+        else:
+            success_count = 0
+            for account in accounts:
+                ok, result = blog_posting.publish_article_force(account, article)
+                if ok:
+                    success_count += 1
+                else:
+                    messages.error(request, f"{account.get_platform_display()} 다시 포스팅 실패: {result}")
+            if success_count:
+                messages.success(request, f"{success_count}개 계정에 새 글로 다시 포스팅했습니다.")
+
+    next_url = request.POST.get('next')
+    return redirect(next_url) if next_url else redirect('news_detail', pk=article.pk)
+
+
+@login_required
 def news_article_preview_view(request, pk):
     """news_scrape_view가 스크래핑 성공(또는 이미 등록된 URL 재입력) 후 자기 자신으로
     ?scraped=<pk> 리다이렉트했을 때, 페이지 이동 없이 그 기사 내용을 화면 하단에 바로

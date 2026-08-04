@@ -407,22 +407,49 @@ UPDATERS = {
 }
 
 
+def _do_publish(account, article):
+    """실제 플랫폼 발행 API 호출 한 번. publish_article/publish_article_force가 공유하는
+    핵심 로직만 떼어낸 것 — '이미 발행됐는지' 가드는 호출부에서 각자 다르게 처리한다.
+    반환: (성공 여부, 글 URL, 글 ID, 실패 사유)"""
+    publisher = PUBLISHERS.get(account.platform)
+    if publisher is None:
+        return False, '', '', "지원하지 않는 플랫폼입니다."
+
+    blog_title, content, subject_label = build_post_content(article)
+    return publisher(account, blog_title, content, subject_label)
+
+
 def publish_article(account, article):
     """기사 1건을 계정의 플랫폼에 맞춰 실제로 발행하고, 성공 시 PostedArticle을 기록한다.
+    이미 이 계정×기사 조합으로 발행된 적 있으면 건너뛴다(중복 발행 방지) — 다시 새 글로
+    발행하고 싶으면 publish_article_force를 쓴다.
     반환: (성공 여부, 발행된 글 URL 또는 실패 사유 메시지)"""
     if PostedArticle.objects.filter(blog_account=account, article=article).exists():
         return False, "이미 이 계정에 발행된 기사입니다."
 
-    publisher = PUBLISHERS.get(account.platform)
-    if publisher is None:
-        return False, "지원하지 않는 플랫폼입니다."
-
-    blog_title, content, subject_label = build_post_content(article)
-    ok, url, post_id, error = publisher(account, blog_title, content, subject_label)
+    ok, url, post_id, error = _do_publish(account, article)
     if not ok:
         return False, error or "발행에 실패했습니다."
 
     PostedArticle.objects.create(blog_account=account, article=article, external_url=url, external_post_id=post_id or '')
+    return True, url
+
+
+def publish_article_force(account, article):
+    """이미 이 계정에 발행된 기사여도 '이미 발행됨' 가드 없이 새 글로 다시 발행한다 — 실제
+    발행 로직은 publish_article과 완전히 동일하다(포스팅 기능 그대로). 블로그에는 예전 글과
+    별개로 새 글이 하나 더 생기고(예전 글은 그대로 남는다), PostedArticle은 계정×기사 조합당
+    한 행만 추적 가능해서(unique_together) 이 최신 글을 가리키도록 갱신한다 — 예전 글 자체는
+    이후 이 레코드로는 더 이상 추적되지 않지만 블로그에서 삭제되진 않는다.
+    반환: (성공 여부, 발행된 글 URL 또는 실패 사유 메시지)"""
+    ok, url, post_id, error = _do_publish(account, article)
+    if not ok:
+        return False, error or "발행에 실패했습니다."
+
+    PostedArticle.objects.update_or_create(
+        blog_account=account, article=article,
+        defaults={'external_url': url, 'external_post_id': post_id or ''},
+    )
     return True, url
 
 
