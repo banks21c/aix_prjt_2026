@@ -162,8 +162,9 @@ MARKET_ISCD_MAP = {
 
 def get_investor_trend(market_type):
     """시장별 투자자매매동향(시세) API로 코스피/코스닥 시장 전체의 외국인/개인/기관계
-    순매수 수량을 조회합니다. 종목이 특정되지 않는 카드(특징주 브리핑 등)의 시장 요약용.
-    금액(거래대금) 필드는 단위 표기가 명확하지 않아, 오해의 소지가 없는 수량(주)만 사용합니다."""
+    순매수 수량 + 순매수 금액(억원)을 조회합니다. 종목이 특정되지 않는 카드(특징주 브리핑,
+    헤더 지수 티커 팝업 등)의 시장 요약용. 금액 필드(*_ntby_tr_pbmn)는 백만원 단위로 확인됨
+    (실측: 원시값 818662 → 실제 8,186.62억원 → 100으로 나누면 억원)."""
     token = get_access_token()
     url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-time-by-market"
     headers = {
@@ -193,6 +194,9 @@ def get_investor_trend(market_type):
         'foreign_net_qty': int(output.get('frgn_ntby_qty') or 0),
         'institution_net_qty': int(output.get('orgn_ntby_qty') or 0),
         'retail_net_qty': int(output.get('prsn_ntby_qty') or 0),
+        'foreign_net_amount': int(output.get('frgn_ntby_tr_pbmn') or 0) / 100,
+        'institution_net_amount': int(output.get('orgn_ntby_tr_pbmn') or 0) / 100,
+        'retail_net_amount': int(output.get('prsn_ntby_tr_pbmn') or 0) / 100,
     }
 
 

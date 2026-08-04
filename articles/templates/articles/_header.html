@@ -50,6 +50,13 @@
     <div class="ticker-popup-row"><span>등락률</span><strong id="tickerPopupChange"></strong></div>
     <a href="#" class="ticker-popup-link" id="tickerPopupLink">종목 상세보기 →</a>
 </div>
+<div class="ticker-popup" id="indexFlowPopup" role="dialog" aria-hidden="true">
+    <button type="button" class="ticker-popup-close" id="indexFlowPopupClose" aria-label="닫기">&times;</button>
+    <div class="ticker-popup-name" id="indexFlowPopupName"></div>
+    <div class="ticker-popup-row"><span>개인</span><strong id="indexFlowPopupRetail"></strong></div>
+    <div class="ticker-popup-row"><span>외국인</span><strong id="indexFlowPopupForeign"></strong></div>
+    <div class="ticker-popup-row"><span>기관</span><strong id="indexFlowPopupInstitution"></strong></div>
+</div>
 {% endif %}
 <style>
     .app-navbar {
@@ -108,9 +115,12 @@
     .ticker-item .ticker-change.up { color: #ff5252; }
     .ticker-item .ticker-change.down { color: #4fa8ff; }
     .ticker-item .ticker-change.zero { color: #9aa5b1; }
-    /* 개별 종목 티커(ticker-bar-alt)만 클릭 가능 — data-ticker가 있는 항목에만 커서/hover 표시 */
+    /* 개별 종목 티커(ticker-bar-alt)는 data-ticker가 있는 항목만, 지수 티커는 코스피/코스닥처럼
+       data-flows(수급 주체별 순매수)가 있는 항목만 클릭 가능 — 해외지수/환율/금리는 클릭 대상 아님 */
     .ticker-bar-alt .ticker-item[data-ticker] { cursor: pointer; }
     .ticker-bar-alt .ticker-item[data-ticker]:hover { background: rgba(255, 255, 255, 0.08); }
+    #indexTicker .ticker-item[data-flows] { cursor: pointer; }
+    #indexTicker .ticker-item[data-flows]:hover { background: rgba(255, 255, 255, 0.08); }
 
     /* 종목 클릭 시 뜨는 레이어 팝업 */
     .ticker-popup {
@@ -333,7 +343,16 @@
                 var amountStr = Math.abs(it.change_amount).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
                 amountAttr = ' data-amount="' + amountSign + amountStr + '원"';
             }
-            return '<span class="ticker-item"' + tickerAttr + amountAttr +
+            // flows(개인/외국인/기관 순매수 금액, 억원)는 코스피/코스닥(ticker_data_view)에만 있다.
+            var flowsAttr = '';
+            if (it.flows) {
+                flowsAttr =
+                    ' data-flows="1"' +
+                    ' data-retail="' + it.flows.retail + '"' +
+                    ' data-foreign="' + it.flows.foreign + '"' +
+                    ' data-institution="' + it.flows.institution + '"';
+            }
+            return '<span class="ticker-item"' + tickerAttr + amountAttr + flowsAttr +
                 ' data-name="' + escapeHtml(it.name) + '"' +
                 ' data-price="' + priceStr + '"' +
                 ' data-change="' + arrow + ' ' + pctStr + '%"' +
@@ -447,6 +466,76 @@
         });
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closePopup();
+        });
+    }
+
+    // 지수 티커 클릭 → 코스피/코스닥(data-flows 있는 항목)만 개인/외국인/기관 순매수 금액
+    // 레이어 팝업으로 보여줌. 해외지수/환율/금리는 data-flows가 없어 클릭 대상에서 자동 제외.
+    var indexTickerEl = document.getElementById('indexTicker');
+    var flowPopup = document.getElementById('indexFlowPopup');
+    if (indexTickerEl && flowPopup) {
+        var flowPopupName = document.getElementById('indexFlowPopupName');
+        var flowPopupRetail = document.getElementById('indexFlowPopupRetail');
+        var flowPopupForeign = document.getElementById('indexFlowPopupForeign');
+        var flowPopupInstitution = document.getElementById('indexFlowPopupInstitution');
+        var flowPopupClose = document.getElementById('indexFlowPopupClose');
+
+        function closeFlowPopup() {
+            flowPopup.classList.remove('open');
+            flowPopup.setAttribute('aria-hidden', 'true');
+        }
+
+        function formatFlowAmount(value) {
+            var num = Number(value) || 0;
+            var sign = num > 0 ? '+' : (num < 0 ? '-' : '');
+            return sign + Math.abs(num).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억';
+        }
+
+        function flowDir(value) {
+            var num = Number(value) || 0;
+            return num > 0 ? 'up' : (num < 0 ? 'down' : 'zero');
+        }
+
+        function openFlowPopupFor(itemEl) {
+            if (!itemEl.hasAttribute('data-flows')) return; // 해외지수/환율/금리는 클릭 대상 아님
+
+            flowPopupName.textContent = itemEl.getAttribute('data-name');
+
+            var retail = itemEl.getAttribute('data-retail');
+            flowPopupRetail.textContent = formatFlowAmount(retail);
+            flowPopupRetail.className = flowDir(retail);
+
+            var foreign = itemEl.getAttribute('data-foreign');
+            flowPopupForeign.textContent = formatFlowAmount(foreign);
+            flowPopupForeign.className = flowDir(foreign);
+
+            var institution = itemEl.getAttribute('data-institution');
+            flowPopupInstitution.textContent = formatFlowAmount(institution);
+            flowPopupInstitution.className = flowDir(institution);
+
+            var rect = itemEl.getBoundingClientRect();
+            flowPopup.classList.add('open');
+            var popupWidth = flowPopup.offsetWidth;
+            var left = Math.min(Math.max(rect.left, 8), window.innerWidth - popupWidth - 8);
+            flowPopup.style.top = (rect.bottom + 8) + 'px';
+            flowPopup.style.left = left + 'px';
+            flowPopup.setAttribute('aria-hidden', 'false');
+        }
+
+        indexTickerEl.addEventListener('click', function (e) {
+            var itemEl = e.target.closest('.ticker-item');
+            if (!itemEl) return;
+            openFlowPopupFor(itemEl);
+        });
+
+        flowPopupClose.addEventListener('click', closeFlowPopup);
+        document.addEventListener('click', function (e) {
+            if (flowPopup.classList.contains('open') && !flowPopup.contains(e.target) && !e.target.closest('.ticker-item')) {
+                closeFlowPopup();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeFlowPopup();
         });
     }
 })();

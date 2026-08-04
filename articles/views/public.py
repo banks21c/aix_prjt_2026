@@ -96,17 +96,26 @@ def header_fragment_view(request):
 def ticker_data_view(request):
     """_header.html의 첫 번째(시세) 티커가 폴링하는 JSON API. 국내지수(MarketIndex) +
     해외지수/국제 시장 환율/금리(GlobalMarketQuote, 5분 주기 collect_global_market_data)를
-    내려준다. 유가/금시세/원자재는 KIS API에 데이터 자체가 없어 제외했다."""
+    내려준다. 유가/금시세/원자재는 KIS API에 데이터 자체가 없어 제외했다.
+    코스피/코스닥 항목에는 flows(개인/외국인/기관 순매수 금액, 억원)를 함께 실어, 헤더의
+    지수 클릭 팝업이 그 지수만의 수급 주체별 순매수를 바로 보여줄 수 있게 한다."""
     items = []
 
     for market_type, label in (('KOSPI', '코스피'), ('KOSDAQ', '코스닥')):
         idx = MarketIndex.objects.filter(market_type=market_type).order_by('-date').first()
         if idx:
-            items.append({
+            item = {
                 'name': label,
                 'price': float(idx.close_price),
                 'change_pct': idx.change_pct if idx.change_pct is not None else 0.0,
-            })
+            }
+            if idx.retail_net_amount is not None:
+                item['flows'] = {
+                    'retail': float(idx.retail_net_amount),
+                    'foreign': float(idx.foreign_net_amount) if idx.foreign_net_amount is not None else 0.0,
+                    'institution': float(idx.institution_net_amount) if idx.institution_net_amount is not None else 0.0,
+                }
+            items.append(item)
 
     for quote in GlobalMarketQuote.objects.order_by('category', 'order'):
         items.append({

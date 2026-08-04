@@ -195,6 +195,11 @@ class MarketIndex(models.Model):
     foreign_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="외국인 순매수 수량")
     institution_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="기관계 순매수 수량")
     retail_net_qty = models.BigIntegerField(null=True, blank=True, verbose_name="개인 순매수 수량")
+    # KIS 투자자매매동향 API의 *_ntby_tr_pbmn 필드는 백만원 단위라, 100으로 나누면 억원 단위가
+    # 된다(실측 검증: 원시값 818662 → 818,662,000,000원 → 8,186.62억원, 화면 표기 "8,186억"과 일치).
+    foreign_net_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="외국인 순매수 금액(억원)")
+    institution_net_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="기관계 순매수 금액(억원)")
+    retail_net_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="개인 순매수 금액(억원)")
 
     class Meta:
         unique_together = ('market_type', 'date')

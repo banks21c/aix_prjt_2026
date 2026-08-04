@@ -89,6 +89,9 @@ class Command(BaseCommand):
                 foreign_net_qty=trend['foreign_net_qty'],
                 institution_net_qty=trend['institution_net_qty'],
                 retail_net_qty=trend['retail_net_qty'],
+                foreign_net_amount=round(trend['foreign_net_amount'], 2),
+                institution_net_amount=round(trend['institution_net_amount'], 2),
+                retail_net_amount=round(trend['retail_net_amount'], 2),
             )
         except Exception as e:
             self.stdout.write(self.style.WARNING(f"    ↳ {market_type} 투자자매매동향 조회 실패: {e}"))
