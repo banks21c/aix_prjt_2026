@@ -8,6 +8,14 @@ from articles.fields import EncryptedCharField
 # 4. 유저 구독 정보 테이블 (월 1만원 비즈니스 모델용)
 # ==========================================
 class UserSubscription(models.Model):
+    # 프리미엄이 실제로 푸는 하루 한도. AI 요약(3줄요약+투자분석+블로그본문, gpt-4o-mini)과
+    # AI 콘텐츠 발행(daily_post_limit)을 같은 숫자로 맞춘 이유는, AI 요약을 10건만 만들 수 있는데
+    # 발행이 그보다 넉넉하거나 무제한이면 발행 한도 자체가 의미가 없어지기 때문 — 두 단계를
+    # 같은 상한으로 짝지어야 "프리미엄 = 하루 10건 AI 콘텐츠"라는 약속이 실제로 지켜진다.
+    # (직접 작성해 AI 없이 바로 발행하는 것은 이 한도와 무관 — posting_stats가 별도로 무제한 처리)
+    PREMIUM_DAILY_AI_SUMMARIZE_LIMIT = 10
+    PREMIUM_DAILY_POST_LIMIT = 10
+
     # 장고 내장 기본 유저 모델과 1:1 매칭
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="subscription")
 
@@ -23,6 +31,54 @@ class UserSubscription(models.Model):
     def __str__(self):
         status = "유료회원" if self.is_active_premium else "일반회원"
         return f"{self.user.username} ({status})"
+
+
+# ==========================================
+# 4-1. 구독 신청 접수 (PG 연동 전까지는 신청만 쌓이고, 관리자가 검토 후 승인 액션으로
+#      위 UserSubscription.is_active_premium을 켜준다)
+# ==========================================
+class SubscriptionOrder(models.Model):
+    REFERRAL_SOURCE_CHOICES = [
+        ('SEARCH', '포털 검색'),
+        ('SNS', 'SNS'),
+        ('FRIEND', '지인 추천'),
+        ('NEWSLETTER', 'NextFinUp 뉴스레터'),
+        ('OTHER', '기타'),
+    ]
+    MOTIVATION_CHOICES = [
+        ('INFO', '투자·재테크 정보 습득'),
+        ('EXPERT', '전문가 상담 연계'),
+        ('CONTENT', '프리미엄 콘텐츠 이용'),
+        ('OTHER', '기타'),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('KAKAOPAY', '카카오페이'),
+        ('NAVERPAY', '네이버페이'),
+        ('CARD', '신용카드'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDING', '검토 대기'),
+        ('APPROVED', '승인 완료'),
+        ('REJECTED', '반려'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subscription_orders")
+    name = models.CharField(max_length=50, verbose_name="구독자명")
+    phone = models.CharField(max_length=20, verbose_name="휴대전화번호")
+    referral_source = models.CharField(max_length=20, choices=REFERRAL_SOURCE_CHOICES, blank=True, verbose_name="가입 경로")
+    motivation = models.CharField(max_length=20, choices=MOTIVATION_CHOICES, blank=True, verbose_name="구독 동기")
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, verbose_name="결제 수단")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING', verbose_name="처리 상태")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="신청 일시")
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="처리 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "구독 신청 (SubscriptionOrder)"
+        verbose_name_plural = "구독 신청 관리 (SubscriptionOrder)"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_payment_method_display()} ({self.get_status_display()})"
 
 
 # ==========================================

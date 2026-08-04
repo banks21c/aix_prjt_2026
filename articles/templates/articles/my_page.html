@@ -51,6 +51,7 @@
                 <span class="badge bg-warning text-dark ms-1">프리미엄 회원</span>
                 {% else %}
                 <span class="badge bg-secondary ms-1">일반회원</span>
+                <a href="{% url 'subscribe' %}" class="btn btn-sm btn-outline-primary ms-2">구독하기</a>
                 {% endif %}
             </p>
         </div>

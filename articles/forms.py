@@ -5,7 +5,10 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
-from .models import UserPreference, BlogPostingAccount, NewsKeyword, NewsletterSubscriber, AnalyzedArticle
+from .models import (
+    UserPreference, BlogPostingAccount, NewsKeyword, NewsletterSubscriber, AnalyzedArticle,
+    SubscriptionOrder,
+)
 
 # 하이픈 유무 모두 허용하는 국내 전화번호 형식 (휴대폰 010~019, 서울 02, 그 외 지역 0XX 유선)
 PHONE_NUMBER_RE = re.compile(r'^0\d{1,2}-?\d{3,4}-?\d{4}$')
@@ -146,6 +149,34 @@ class BlogAccountForm(forms.ModelForm):
 
 class NewsletterForm(forms.Form):
     email = forms.EmailField(label="이메일")
+
+
+class SubscriptionOrderForm(forms.ModelForm):
+    referral_source = forms.ChoiceField(
+        choices=[('', '가입 경로를 선택해주세요')] + SubscriptionOrder.REFERRAL_SOURCE_CHOICES,
+        label="가입 경로",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    motivation = forms.ChoiceField(
+        choices=[('', '구독 동기를 선택해주세요')] + SubscriptionOrder.MOTIVATION_CHOICES,
+        label="구독 동기",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    class Meta:
+        model = SubscriptionOrder
+        fields = ['name', 'phone', 'referral_source', 'motivation', 'payment_method']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '구독자명을 입력하세요.'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "'-' 없이 번호만 입력해주세요."}),
+            'payment_method': forms.RadioSelect,
+        }
+
+    def clean_phone(self):
+        phone = self.cleaned_data.get('phone', '').strip()
+        if phone and not PHONE_NUMBER_RE.match(phone):
+            raise forms.ValidationError("올바른 전화번호 형식이 아닙니다. 예: 010-1234-5678")
+        return phone
 
 
 class NewsScrapeForm(forms.Form):

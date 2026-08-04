@@ -5,6 +5,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from .models import (
     StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
@@ -12,7 +13,7 @@ from .models import (
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
-    ExchangeRateSnapshot,
+    ExchangeRateSnapshot, SubscriptionOrder,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -395,6 +396,38 @@ class ConsultRequestAdmin(admin.ModelAdmin):
         })
         url = f"{reverse('financial_consult_sheet')}?{params}"
         return format_html('<a href="{}" target="_blank">{}</a>', url, obj.name)
+
+
+# 12-1. 구독 신청 (/subscribe/apply/) — PG 연동 전까지는 여기서 승인 액션으로 프리미엄을 켜준다.
+@admin.register(SubscriptionOrder)
+class SubscriptionOrderAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'name', 'phone', 'payment_method', 'status', 'reviewed_at')
+    list_filter = ('status', 'payment_method', 'referral_source', 'motivation')
+    search_fields = ('name', 'phone', 'user__username', 'user__email')
+    readonly_fields = ('user', 'name', 'phone', 'referral_source', 'motivation', 'payment_method', 'created_at')
+    ordering = ('-created_at',)
+    actions = ['approve_orders', 'reject_orders']
+
+    @admin.action(description="선택한 신청을 승인하고 프리미엄 구독을 활성화")
+    def approve_orders(self, request, queryset):
+        approved = 0
+        for order in queryset.filter(status='PENDING'):
+            subscription, _ = UserSubscription.objects.get_or_create(user=order.user)
+            now = timezone.now()
+            subscription.is_active_premium = True
+            subscription.subscribed_at = subscription.subscribed_at or now
+            subscription.expired_at = now + timezone.timedelta(days=30)
+            subscription.save(update_fields=['is_active_premium', 'subscribed_at', 'expired_at'])
+            order.status = 'APPROVED'
+            order.reviewed_at = now
+            order.save(update_fields=['status', 'reviewed_at'])
+            approved += 1
+        self.message_user(request, f"{approved}건을 승인하고 프리미엄을 활성화했습니다.")
+
+    @admin.action(description="선택한 신청을 반려")
+    def reject_orders(self, request, queryset):
+        rejected = queryset.filter(status='PENDING').update(status='REJECTED', reviewed_at=timezone.now())
+        self.message_user(request, f"{rejected}건을 반려했습니다.")
 
 
 # 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)

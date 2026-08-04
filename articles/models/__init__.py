@@ -7,8 +7,8 @@ from .market import (
     StockDailyPrice, StockPrediction, GlobalMarketQuote, ExchangeRateSnapshot,
 )
 from .members import (
-    UserSubscription, MemberGrade, UserPreference, BlogPostingAccount, LoginLog, MenuAccessLog,
-    ChatMessage, SocialAccount,
+    UserSubscription, SubscriptionOrder, MemberGrade, UserPreference, BlogPostingAccount, LoginLog,
+    MenuAccessLog, ChatMessage, SocialAccount,
 )
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import (
@@ -18,8 +18,8 @@ from .content import (
 __all__ = [
     'StockItem', 'KisAccessToken', 'RankedMover', 'StockRealtimePrice', 'MarketHoliday',
     'MarketIndex', 'StockDailyPrice', 'StockPrediction', 'GlobalMarketQuote', 'ExchangeRateSnapshot',
-    'UserSubscription', 'MemberGrade', 'UserPreference', 'BlogPostingAccount', 'LoginLog',
-    'MenuAccessLog', 'ChatMessage', 'SocialAccount',
+    'UserSubscription', 'SubscriptionOrder', 'MemberGrade', 'UserPreference', 'BlogPostingAccount',
+    'LoginLog', 'MenuAccessLog', 'ChatMessage', 'SocialAccount',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
     'FinancialConsultSheet',

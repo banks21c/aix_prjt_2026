@@ -4,6 +4,7 @@ from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
     consult_request_view, header_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
+    subscribe_view, subscribe_apply_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
@@ -29,7 +30,8 @@ __all__ = [
     'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
     'newsletter_unsubscribe_view', 'cron_status_view', 'privacy_policy_view',
     'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
-    'header_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
+    'header_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
+    'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',

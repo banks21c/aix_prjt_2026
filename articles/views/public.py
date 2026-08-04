@@ -3,6 +3,7 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.mail import send_mail
 from django.db.models import Count, Max
@@ -12,10 +13,10 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from ..forms import NewsletterForm
+from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
-    StockItem, StockPrediction,
+    StockItem, StockPrediction, SubscriptionOrder, UserSubscription,
 )
 from ..utils import get_client_ip
 
@@ -87,6 +88,73 @@ def expert_consult_apply_view(request):
     바로 신청서로 진입하고 싶은 링크(광고, 배너 등)를 위한 것 — 제출 로직은 동일한
     /api/consult/(consult_request_view)를 그대로 쓴다."""
     return render(request, 'articles/expert_consult_apply.html', {'site_title': 'NextFinUp - 상담 신청'})
+
+
+def subscribe_view(request):
+    """구독 소개/가격 페이지. 로그인 여부·구독 상태에 따라 버튼이 로그인/신청/이미 구독중으로 갈린다.
+    아직 PG(결제대행사) 연동 전이라 실제 결제는 받지 않고, 신청 접수 → 관리자 승인 방식으로 운영한다
+    (SubscriptionOrder/subscribe_apply_view 참고)."""
+    subscription = None
+    pending_order = None
+    if request.user.is_authenticated:
+        subscription = getattr(request.user, 'subscription', None)
+        pending_order = SubscriptionOrder.objects.filter(user=request.user, status='PENDING').first()
+
+    return render(request, 'articles/subscribe.html', {
+        'site_title': 'NextFinUp - 구독',
+        'subscription': subscription,
+        'pending_order': pending_order,
+    })
+
+
+@login_required
+def subscribe_apply_view(request):
+    subscription, _ = UserSubscription.objects.get_or_create(user=request.user)
+    if subscription.is_active_premium:
+        messages.info(request, "이미 프리미엄 구독 중입니다.")
+        return redirect('subscribe')
+
+    pending_order = SubscriptionOrder.objects.filter(user=request.user, status='PENDING').first()
+    if pending_order:
+        messages.info(request, "이미 신청이 접수되어 검토 중입니다. 확인 후 프리미엄이 활성화됩니다.")
+        return redirect('subscribe')
+
+    if request.method == 'POST':
+        form = SubscriptionOrderForm(request.POST)
+        if form.is_valid():
+            order = form.save(commit=False)
+            order.user = request.user
+            order.save()
+
+            try:
+                send_mail(
+                    subject=f"[NextFinUp] 구독 신청 - {order.name}",
+                    message=(
+                        f"아이디: {request.user.username}\n"
+                        f"이메일: {request.user.email or '-'}\n"
+                        f"구독자명: {order.name}\n"
+                        f"휴대전화번호: {order.phone}\n"
+                        f"가입 경로: {order.get_referral_source_display()}\n"
+                        f"구독 동기: {order.get_motivation_display()}\n"
+                        f"결제 수단: {order.get_payment_method_display()}\n"
+                        f"신청 일시: {order.created_at:%Y-%m-%d %H:%M}\n"
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[settings.EMAIL_HOST_USER],
+                    fail_silently=True,
+                )
+            except Exception:
+                logger.exception("구독 신청 알림 메일 발송 실패 (신청 자체는 저장됨, order id=%s)", order.id)
+
+            messages.success(request, "구독 신청이 접수되었습니다. 담당자 확인 후 프리미엄이 활성화됩니다.")
+            return redirect('subscribe')
+    else:
+        form = SubscriptionOrderForm(initial={'name': request.user.first_name})
+
+    return render(request, 'articles/subscribe_apply.html', {
+        'site_title': 'NextFinUp - 구독 신청',
+        'form': form,
+    })
 
 
 def insurance_compare_view(request):

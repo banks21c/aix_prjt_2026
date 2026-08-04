@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
 from ..email_utils import TOKEN_VALID_HOURS, send_verification_email
@@ -22,6 +22,23 @@ from ..utils import get_client_ip
 
 def _create_subscription_if_missing(user):
     UserSubscription.objects.get_or_create(user=user)
+
+
+def _stash_next(request):
+    """?next=(GET) 또는 next(POST)에 담긴 복귀 경로를 세션에 저장해둔다.
+
+    가입 인증은 이메일 링크를 거쳐 완료되므로 로그인/회원가입 폼 hidden 필드로는 값을
+    들고 갈 수 없다 — 세션에 넣어두면 signup → 이메일 인증(verify_email_view)까지
+    이어지는 동안에도 살아남아, 인증 완료 시 원래 있던 페이지(예: 구독 신청)로 돌려보낼 수 있다.
+    """
+    next_url = request.GET.get('next') or request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        request.session['post_login_next'] = next_url
+
+
+def _pop_next_redirect(request, default='landing_page'):
+    next_url = request.session.pop('post_login_next', None)
+    return redirect(next_url) if next_url else redirect(default)
 
 
 def _log_login(request, user, method):
@@ -65,6 +82,7 @@ def signup_view(request):
     if request.user.is_authenticated:
         return redirect('landing_page')
 
+    _stash_next(request)
     form = SignUpForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         # 이메일 인증 전까지는 로그인할 수 없도록 비활성 상태로 생성 (인증 완료 시 verify_email_view에서 활성화)
@@ -89,11 +107,12 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('landing_page')
 
+    _stash_next(request)
     form = LoginForm(request, data=request.POST or None)
     if request.method == 'POST' and form.is_valid():
         login(request, form.get_user())
         _log_login(request, form.get_user(), 'GENERAL')
-        return redirect('landing_page')
+        return _pop_next_redirect(request)
 
     return render(request, 'articles/login.html', {'form': form, 'site_title': 'NextFinUp - 로그인'})
 
@@ -156,7 +175,7 @@ def verify_email_view(request, uidb64, token):
         login(request, user)
         _log_login(request, user, 'SIGNUP')
         messages.success(request, "이메일 인증이 완료되어 회원가입이 완료되었습니다! 환영합니다.")
-        return redirect('landing_page')
+        return _pop_next_redirect(request)
 
     messages.success(request, "이메일 인증이 완료되었습니다!")
     return redirect('my_page' if request.user.is_authenticated else 'login')
