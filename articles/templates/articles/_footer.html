@@ -1,14 +1,18 @@
 <!-- 사이트 공통 하단 푸터. _header.html과 마찬가지로 여러 템플릿이 include 태그로 가져다 쓴다.
      _header.html처럼 필요한 CSS를 자체적으로 갖고 있어, 이 컴포넌트를 쓰는 페이지가 별도로
      footer 스타일을 정의해두지 않아도(index.html이 원래 갖고 있던 걸 여기로 옮겼다) 항상
-     같은 모양으로 보인다. -->
+     같은 모양으로 보인다. 기본 disclaimer 문구는 AI 주가예측 서비스 기준이라, 그 문구가 안 맞는
+     페이지(예: expert_consult.html의 전문가 상담 신청 페이지)는 include 태그에 with 절로
+     footer_disclaimer 변수를 넘겨서 문구를 덮어쓸 수 있다. -->
 <footer class="app-footer">
     <div class="container">
         <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
         <p class="disclaimer">
+            {% if footer_disclaimer %}{{ footer_disclaimer }}{% else %}
             본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
             자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
             최종 투자 판단과 책임은 이용자 본인에게 있습니다.
+            {% endif %}
         </p>
         <p style="margin-top: 14px;">
             <a href="{% url 'privacy_policy' %}" style="color:#fff;">개인정보처리방침</a>
