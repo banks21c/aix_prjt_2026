@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -9,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .. import article_ai, blog_posting, thumbnail
-from ..forms import NewsArticleEditForm, NewsScrapeForm
+from ..forms import NewsArticleEditForm, NewsScrapeForm, NewsWriteForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
 from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
@@ -344,6 +346,59 @@ def news_scrape_view(request):
         'scraped_article_id': scraped_article_id,
     }
     return render(request, 'articles/news_scrape.html', context)
+
+
+@login_required
+def news_write_view(request):
+    """스크래핑할 URL이 없는(원문 링크가 없는 사내 기고문 등) 기사를 회원이 제목+본문을 직접
+    입력해 등록하는 화면. news_scrape_view와 달리 원문을 그대로 보여줄 필요가 없고(본인이 직접
+    쓴 내용이라 검토가 이미 끝난 상태) AI 요약도 즉시 함께 생성해 바로 상세 화면(news_detail)으로
+    넘긴다. 스크래핑이 아니라 AI 호출이 핵심 비용이라 daily_scrape_limit가 아니라
+    ai_summarize_stats(daily_ai_summarize_limit)로 한도를 건다."""
+    form = NewsWriteForm(request.POST or None)
+    stats = ai_summarize_stats(request.user)
+
+    if request.method == 'POST' and form.is_valid():
+        if stats['remaining'] == 0:
+            grade_name = stats['grade'].name if stats['grade'] else '일반'
+            messages.error(
+                request,
+                f"{grade_name} 등급은 하루 {stats['grade'].daily_ai_summarize_limit}건까지만 AI 요약을 사용할 수 있습니다. "
+                "오늘 가능한 건수를 모두 사용했어요.",
+            )
+        else:
+            title = form.cleaned_data['title']
+            content = form.cleaned_data['content']
+
+            draft = article_ai.generate_draft(title, content, restricted=False)
+            if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
+                messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
+            else:
+                article = AnalyzedArticle.objects.create(
+                    title=title,
+                    original_url=f"internal://manual-entry/{uuid.uuid4()}",
+                    source_media='회원 직접 작성',
+                    source_type=AnalyzedArticle.SOURCE_MANUAL,
+                    original_content=content,
+                    ai_summary=draft['ai_summary'],
+                    ai_analysis=draft['ai_analysis'],
+                    blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
+                    thumbnail=thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
+                    applied_template='T1',
+                    scraped_by=request.user,
+                    ai_generated=True,
+                    ai_summarized_by=request.user,
+                    ai_summarized_at=timezone.now(),
+                )
+                messages.success(request, "AI 요약이 완료됐습니다.")
+                return redirect('news_detail', pk=article.pk)
+
+    context = {
+        'site_title': 'NextFinUp - 직접 작성하기',
+        'form': form,
+        'summarize_stats': stats,
+    }
+    return render(request, 'articles/news_write.html', context)
 
 
 @login_required

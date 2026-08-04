@@ -158,6 +158,25 @@ class NewsScrapeForm(forms.Form):
     )
 
 
+class NewsWriteForm(forms.Form):
+    title = forms.CharField(
+        label="제목",
+        max_length=255,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '기사 제목을 입력하세요',
+        }),
+    )
+    content = forms.CharField(
+        label="내용",
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 14,
+            'placeholder': '기사 본문을 붙여넣으세요',
+        }),
+    )
+
+
 class NewsArticleEditForm(forms.ModelForm):
     def __init__(self, *args, is_staff=False, **kwargs):
         super().__init__(*args, **kwargs)

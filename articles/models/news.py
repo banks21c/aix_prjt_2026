@@ -82,10 +82,12 @@ class AnalyzedArticle(models.Model):
     SOURCE_RSS = 'RSS'
     SOURCE_KIS = 'KIS'
     SOURCE_AI_BRIEFING = 'AI_BRIEFING'
+    SOURCE_MANUAL = 'MANUAL'
     SOURCE_CHOICES = [
-        (SOURCE_RSS, 'RSS 수집 / 회원 직접 등록 (원문 링크 있음)'),
+        (SOURCE_RSS, 'RSS 수집 / 회원 URL 등록 (원문 링크 있음)'),
         (SOURCE_KIS, 'KIS 종합 시황_공시 (원문 링크 없음)'),
         (SOURCE_AI_BRIEFING, 'AI 특징주 통합 브리핑'),
+        (SOURCE_MANUAL, '회원 직접 작성 (원문 링크 없음)'),
     ]
     source_type = models.CharField(
         max_length=20, choices=SOURCE_CHOICES, default=SOURCE_RSS, verbose_name="수집 소스",
