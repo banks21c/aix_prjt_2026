@@ -165,6 +165,40 @@ def stock_minute_chart_view(request, ticker):
     return JsonResponse({'ohlc': ohlc})
 
 
+def stock_period_chart_view(request, ticker, period):
+    """종목 상세 페이지의 '주봉'/'월봉' 토글이 눌렸을 때만 호출되는 온디맨드 API.
+    일봉 차트(최근 180거래일)와 달리, collect_stock_data가 쌓아둔 최대 10년치 일봉
+    전체를 pandas로 리샘플링해 장기 추세를 보여준다."""
+    if period not in ('weekly', 'monthly'):
+        return JsonResponse({'error': '잘못된 기간 구분입니다.'}, status=400)
+    stock = get_object_or_404(StockItem, ticker=ticker)
+
+    rows = list(
+        StockDailyPrice.objects.filter(stock=stock).order_by('date')
+        .values('date', 'open_price', 'high_price', 'low_price', 'close_price')
+    )
+    if not rows:
+        return JsonResponse({'ohlc': []})
+
+    df = pd.DataFrame(rows)
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.set_index('date')
+    rule = 'W-FRI' if period == 'weekly' else 'ME'
+    agg = df.resample(rule).agg({
+        'open_price': 'first', 'high_price': 'max', 'low_price': 'min', 'close_price': 'last',
+    }).dropna(subset=['open_price'])
+
+    ohlc = [
+        {
+            'time': idx.strftime('%Y-%m-%d'),
+            'open': float(row.open_price), 'high': float(row.high_price),
+            'low': float(row.low_price), 'close': float(row.close_price),
+        }
+        for idx, row in agg.iterrows()
+    ]
+    return JsonResponse({'ohlc': ohlc})
+
+
 def market_index_minute_chart_view(request, market_type):
     """대시보드 코스피/코스닥 차트의 '1일' 버튼이 눌렸을 때만 호출되는 온디맨드 당일 지수 API.
     (개별 종목 분봉과 달리 봉별 시가/고가/저가가 없어 시각별 지수값 하나만 내려오므로 라인차트용 데이터로 반환)"""

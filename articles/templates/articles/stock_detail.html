@@ -71,6 +71,8 @@
                     {% endif %}
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-primary" id="btnDaily" onclick="showDailyChart()">일봉</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnWeekly" onclick="showPeriodChart('weekly')">주봉</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnMonthly" onclick="showPeriodChart('monthly')">월봉</button>
                         <button type="button" class="btn btn-outline-primary" id="btnMinute" onclick="showMinuteChart()">당일 분봉</button>
                     </div>
                 </div>
@@ -190,6 +192,8 @@
     {{ indicators|json_script:"indicator-data" }}
     <script>
         const MINUTE_CHART_URL = "{% url 'stock_minute_chart' stock.ticker %}";
+        const WEEKLY_CHART_URL = "{% url 'stock_period_chart' stock.ticker 'weekly' %}";
+        const MONTHLY_CHART_URL = "{% url 'stock_period_chart' stock.ticker 'monthly' %}";
         const dailyOhlc = (() => {
             const el = document.getElementById('stock-ohlc');
             return el ? JSON.parse(el.textContent) : [];
@@ -203,6 +207,7 @@
         let chart = null;
         let series = null;
         let minuteCache = null;
+        const periodCache = { weekly: null, monthly: null };
         let overlaySeries = null;  // { ma5, ma20, ma60, bbUpper, bbLower }
         let overlayVisible = true;
 
@@ -301,9 +306,10 @@
             window.addEventListener('resize', () => chart.applyOptions({ width: el.clientWidth }));
         }
 
-        function setActiveButton(dailyActive) {
-            document.getElementById('btnDaily').className = 'btn ' + (dailyActive ? 'btn-primary' : 'btn-outline-primary');
-            document.getElementById('btnMinute').className = 'btn ' + (dailyActive ? 'btn-outline-primary' : 'btn-primary');
+        function setActiveButton(activeId) {
+            ['btnDaily', 'btnWeekly', 'btnMonthly', 'btnMinute'].forEach(id => {
+                document.getElementById(id).className = 'btn ' + (id === activeId ? 'btn-primary' : 'btn-outline-primary');
+            });
         }
 
         function showDailyChart() {
@@ -315,14 +321,52 @@
             series.setData(dailyOhlc);
             setOverlayVisible(overlayVisible);
             chart.timeScale().fitContent();
-            setActiveButton(true);
+            setActiveButton('btnDaily');
+        }
+
+        function showPeriodChart(period) {
+            ensureChart();
+            if (!series) return;
+            const label = period === 'weekly' ? '주봉' : '월봉';
+            document.getElementById('chartTitle').textContent = `📈 ${label} 차트`;
+            setActiveButton(period === 'weekly' ? 'btnWeekly' : 'btnMonthly');
+            chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
+            // 주봉/월봉은 10년치 일봉을 서버에서 리샘플링한 값이라, 표시 주기가 다른
+            // 일봉용 이동평균/볼린저밴드를 그대로 겹치면 어긋나 보이므로 숨긴다
+            setOverlayVisible(false);
+
+            const errorEl = document.getElementById('minuteChartError');
+            errorEl.style.display = 'none';
+
+            if (periodCache[period]) {
+                series.setData(periodCache[period]);
+                chart.timeScale().fitContent();
+                return;
+            }
+
+            fetch(period === 'weekly' ? WEEKLY_CHART_URL : MONTHLY_CHART_URL)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error || !data.ohlc || !data.ohlc.length) {
+                        errorEl.textContent = data.error || `${label} 데이터가 없습니다.`;
+                        errorEl.style.display = 'block';
+                        return;
+                    }
+                    periodCache[period] = data.ohlc;
+                    series.setData(periodCache[period]);
+                    chart.timeScale().fitContent();
+                })
+                .catch(() => {
+                    errorEl.textContent = `${label} 데이터를 불러오는 중 오류가 발생했습니다.`;
+                    errorEl.style.display = 'block';
+                });
         }
 
         function showMinuteChart() {
             ensureChart();
             if (!series) return;
             document.getElementById('chartTitle').textContent = '⏱️ 당일 분봉 (1분)';
-            setActiveButton(false);
+            setActiveButton('btnMinute');
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
             // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });

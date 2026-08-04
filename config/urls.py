@@ -28,7 +28,7 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view,
     market_index_minute_chart_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -83,6 +83,7 @@ urlpatterns = [
     path('news/<int:pk>/repost/', repost_article_view, name='repost_article'),  # ◀ 이미 발행된 계정에도 새 글로 다시 포스팅(포스팅 기능 그대로, 중복 발행 가드만 없음)
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
+    path('stocks/<str:ticker>/period-chart/<str:period>/', stock_period_chart_view, name='stock_period_chart'),  # ◀ 주봉/월봉 온디맨드 API
 
     path('api/chatbot/', chatbot_ask_view, name='chatbot_ask'),  # ◀ 주식/경제 챗봇 위젯 API
 
