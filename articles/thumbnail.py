@@ -387,23 +387,27 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
         # 종목명 아래 구분선
         draw.line([(margin, 130), (CANVAS_SIZE[0] - margin, 130)], fill="#2a3b5c", width=2)
 
-        # 기사 제목 (최대 3줄, 넘치면 말줄임) — 종목명을 따라 30px 아래로 내린다.
+        # 기사 제목 (최대 2줄, 넘치면 말줄임) — 종목명을 따라 30px 아래로 내린 데다 아래
+        # 그리드/요약 패널까지 50px 위로 끌어올려서, 3줄까지 쓰면 패널과 겹친다.
         title_font = _font(FONT_REGULAR, 42)
         max_text_width = CANVAS_SIZE[0] - margin * 2
-        lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=3)
+        lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=2)
         y = 165
         for line in lines:
             draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
             y += 58
 
         # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로.
+        # 제목과 그리드 사이 위쪽 여백이 아래쪽 여백보다 훨씬 넓어 보여, 박스 전체를 50px
+        # 위로 끌어올린다(높이는 그대로 유지 — 아래쪽 경계도 같이 50px 위로).
         # AI 예상종가가 있으면 그리드가 3행이 되므로 아래쪽으로 더 늘려 잡는다(행당 5px씩
         # 여유를 더 줘 라벨/값 텍스트가 구분선에 겹치지 않게 함).
-        grid_bottom = 585 if market_data and market_data.get('pred_next_close') is not None else 510
+        grid_top = 295
+        grid_bottom = 535 if market_data and market_data.get('pred_next_close') is not None else 460
         if market_data:
-            _draw_market_grid(draw, margin, 345, CANVAS_SIZE[0] - margin, grid_bottom, market_data)
+            _draw_market_grid(draw, margin, grid_top, CANVAS_SIZE[0] - margin, grid_bottom, market_data)
         elif summary_lines:
-            _draw_summary_panel(draw, margin, 345, CANVAS_SIZE[0] - margin, 480, summary_lines)
+            _draw_summary_panel(draw, margin, grid_top, CANVAS_SIZE[0] - margin, 430, summary_lines)
 
     from io import BytesIO
     buf = BytesIO()
