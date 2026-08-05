@@ -41,14 +41,18 @@
             </div>
         </div>
 
-        <!-- 1행: 코스피/코스닥 지수 차트 -->
+        <!-- 1행: 코스피/코스닥 지수 차트(탭) + 종목 검색 -->
         <div class="row row-cols-1 row-cols-md-2 g-4 mb-2">
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="fw-bold m-0">코스피 (KOSPI)</h5>
+                    <div class="btn-group btn-group-sm mb-3" role="group">
+                        <button type="button" class="btn btn-primary index-tab-btn" data-pane="kospi">코스피 (KOSPI)</button>
+                        <button type="button" class="btn btn-outline-primary index-tab-btn" data-pane="kosdaq">코스닥 (KOSDAQ)</button>
+                    </div>
+
+                    <div class="index-tab-pane" data-pane="kospi">
                         {% if kospi_index.latest %}
-                            <div class="text-end">
+                            <div class="text-end mb-2">
                                 <div class="fs-4 fw-bold">{{ kospi_index.latest.close_price|floatformat:2 }}</div>
                                 {% if kospi_index.latest.change is not None %}
                                     <div class="{% if kospi_index.latest.change > 0 %}up-value{% elif kospi_index.latest.change < 0 %}down-value{% else %}flat-value{% endif %}">
@@ -59,26 +63,22 @@
                                 {% endif %}
                             </div>
                         {% endif %}
+                        {% if kospi_ohlc %}
+                            <div class="btn-group btn-group-sm mb-2" role="group">
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1d">1일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3m">3개월</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1y">1년</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3y">3년</button>
+                            </div>
+                            <div class="chart-wrap" id="kospiChart"></div>
+                        {% else %}
+                            <p class="text-muted small mb-0">아직 수집된 지수 데이터가 없습니다. <code>collect_market_index</code> 명령을 실행하세요.</p>
+                        {% endif %}
                     </div>
-                    {% if kospi_ohlc %}
-                        <div class="btn-group btn-group-sm mb-2" role="group">
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1d">1일</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3m">3개월</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1y">1년</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3y">3년</button>
-                        </div>
-                        <div class="chart-wrap" id="kospiChart"></div>
-                    {% else %}
-                        <p class="text-muted small mb-0">아직 수집된 지수 데이터가 없습니다. <code>collect_market_index</code> 명령을 실행하세요.</p>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col">
-                <div class="card card-custom bg-white p-4 h-100">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="fw-bold m-0">코스닥 (KOSDAQ)</h5>
+
+                    <div class="index-tab-pane d-none" data-pane="kosdaq">
                         {% if kosdaq_index.latest %}
-                            <div class="text-end">
+                            <div class="text-end mb-2">
                                 <div class="fs-4 fw-bold">{{ kosdaq_index.latest.close_price|floatformat:2 }}</div>
                                 {% if kosdaq_index.latest.change is not None %}
                                     <div class="{% if kosdaq_index.latest.change > 0 %}up-value{% elif kosdaq_index.latest.change < 0 %}down-value{% else %}flat-value{% endif %}">
@@ -89,18 +89,36 @@
                                 {% endif %}
                             </div>
                         {% endif %}
+                        {% if kosdaq_ohlc %}
+                            <div class="btn-group btn-group-sm mb-2" role="group">
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1d">1일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3m">3개월</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1y">1년</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3y">3년</button>
+                            </div>
+                            <div class="chart-wrap" id="kosdaqChart"></div>
+                        {% else %}
+                            <p class="text-muted small mb-0">아직 수집된 지수 데이터가 없습니다. <code>collect_market_index</code> 명령을 실행하세요.</p>
+                        {% endif %}
                     </div>
-                    {% if kosdaq_ohlc %}
-                        <div class="btn-group btn-group-sm mb-2" role="group">
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1d">1일</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3m">3개월</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1y">1년</button>
-                            <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3y">3년</button>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <form id="stockSearchForm" class="d-flex gap-2 mb-3" autocomplete="off">
+                        <input type="text" id="stockSearchInput" class="form-control form-control-sm"
+                               placeholder="종목명 또는 종목코드 (예: 삼성전자, 005930)">
+                        <button type="submit" class="btn btn-sm btn-primary flex-shrink-0">검색</button>
+                    </form>
+                    <div id="stockQuoteError" class="text-danger small mb-2" style="display:none;"></div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold m-0" id="stockQuoteName">-</h5>
+                        <div class="text-end">
+                            <div class="fs-4 fw-bold" id="stockQuotePrice">-</div>
+                            <div id="stockQuoteChange"></div>
                         </div>
-                        <div class="chart-wrap" id="kosdaqChart"></div>
-                    {% else %}
-                        <p class="text-muted small mb-0">아직 수집된 지수 데이터가 없습니다. <code>collect_market_index</code> 명령을 실행하세요.</p>
-                    {% endif %}
+                    </div>
+                    <div class="chart-wrap" id="stockQuoteChart"></div>
                 </div>
             </div>
         </div>
@@ -284,6 +302,29 @@
 
         const kospiChartCtrl = createIndexChartController('kospiChart', readJson('kospi-ohlc'), "{% url 'market_index_minute_chart' 'KOSPI' %}");
         const kosdaqChartCtrl = createIndexChartController('kosdaqChart', readJson('kosdaq-ohlc'), "{% url 'market_index_minute_chart' 'KOSDAQ' %}");
+        const indexCtrls = { kospi: kospiChartCtrl, kosdaq: kosdaqChartCtrl };
+        // 코스닥 탭은 처음엔 숨겨져 있어(d-none) clientWidth=0 상태로 차트를 만들면 깨지므로,
+        // 실제로 탭을 처음 열 때만 그 안의 차트를 초기화한다(지연 로딩).
+        const indexPaneLoaded = { kospi: false, kosdaq: false };
+
+        function activateIndexPane(pane) {
+            document.querySelectorAll('.index-tab-btn').forEach(btn => {
+                const active = btn.dataset.pane === pane;
+                btn.classList.toggle('btn-primary', active);
+                btn.classList.toggle('btn-outline-primary', !active);
+            });
+            document.querySelectorAll('.index-tab-pane').forEach(el => {
+                el.classList.toggle('d-none', el.dataset.pane !== pane);
+            });
+            if (!indexPaneLoaded[pane]) {
+                indexPaneLoaded[pane] = true;
+                if (indexCtrls[pane].hasDaily) indexCtrls[pane].showMinute();
+            }
+        }
+
+        document.querySelectorAll('.index-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => activateIndexPane(btn.dataset.pane));
+        });
 
         document.querySelectorAll('.period-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -296,8 +337,73 @@
             });
         });
 
-        if (kospiChartCtrl.hasDaily) kospiChartCtrl.showMinute();
-        if (kosdaqChartCtrl.hasDaily) kosdaqChartCtrl.showMinute();
+        activateIndexPane('kospi');
+
+        // 🔍 종목 검색 위젯: 기본값 삼성전자, 검색창에 종목명/코드 입력 후 검색하면 그 종목으로 교체.
+        let stockQuoteChart = null;
+        let stockQuoteSeries = null;
+
+        function ensureStockQuoteChart() {
+            if (stockQuoteChart) return;
+            const el = document.getElementById('stockQuoteChart');
+            if (!el) return;
+            stockQuoteChart = LightweightCharts.createChart(el, {
+                width: el.clientWidth,
+                height: el.clientHeight,
+                layout: { textColor: '#495057', background: { type: 'solid', color: 'transparent' } },
+                grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+                timeScale: { borderColor: '#e0e0e0' },
+                rightPriceScale: { borderColor: '#e0e0e0' },
+            });
+            stockQuoteSeries = stockQuoteChart.addCandlestickSeries({
+                upColor: '#c62828', downColor: '#1565c0',
+                borderUpColor: '#c62828', borderDownColor: '#1565c0',
+                wickUpColor: '#c62828', wickDownColor: '#1565c0',
+            });
+            window.addEventListener('resize', () => stockQuoteChart.applyOptions({ width: el.clientWidth }));
+        }
+
+        function loadStockQuote(q) {
+            const errEl = document.getElementById('stockQuoteError');
+            errEl.style.display = 'none';
+            fetch("{% url 'stock_quote' %}?q=" + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.ok) {
+                        errEl.textContent = data.error || '조회에 실패했습니다.';
+                        errEl.style.display = 'block';
+                        return;
+                    }
+                    document.getElementById('stockQuoteName').textContent = data.name + '(' + data.ticker + ')';
+                    document.getElementById('stockQuotePrice').textContent =
+                        Number(data.price).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+                    const changeEl = document.getElementById('stockQuoteChange');
+                    if (data.change !== null && data.change_pct !== null) {
+                        const dir = data.change > 0 ? 'up-value' : (data.change < 0 ? 'down-value' : 'flat-value');
+                        const arrow = data.change > 0 ? '▲' : (data.change < 0 ? '▼' : '-');
+                        changeEl.className = dir;
+                        changeEl.textContent = arrow + ' ' + Math.abs(data.change).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) +
+                            ' (' + arrow + ' ' + Math.abs(data.change_pct).toFixed(2) + '%)';
+                    } else {
+                        changeEl.textContent = '';
+                    }
+                    ensureStockQuoteChart();
+                    stockQuoteSeries.setData(data.ohlc);
+                    stockQuoteChart.timeScale().fitContent();
+                })
+                .catch(() => {
+                    errEl.textContent = '조회 중 오류가 발생했습니다.';
+                    errEl.style.display = 'block';
+                });
+        }
+
+        document.getElementById('stockSearchForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const q = document.getElementById('stockSearchInput').value.trim();
+            if (q) loadStockQuote(q);
+        });
+
+        loadStockQuote('005930');  // 기본값: 삼성전자
 
         const moverLabels = readJson('mover-labels');
         const moverValues = readJson('mover-values');

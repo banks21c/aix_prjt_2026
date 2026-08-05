@@ -15,18 +15,13 @@ logger = logging.getLogger(__name__)
 KST = dt_timezone(timedelta(hours=9))
 
 
-def stock_detail_view(request, ticker):
-    stock = get_object_or_404(StockItem, ticker=ticker)
-
+def _get_stock_quote(stock, days=180):
+    """종목의 최근 일봉(OHLC) + 실시간(현재가/등락) 정보를 계산한다. stock_detail_view와
+    대시보드 종목 검색 위젯(stock_quote_view)이 이 로직을 공유한다 — 코스피200/코스닥150
+    밖 종목의 온디맨드 조회, "오늘" 캔들 보정 등 까다로운 예외처리를 두 곳에서 따로
+    구현하면 어긋나기 쉬워서 한 곳으로 모았다."""
     prices = StockDailyPrice.objects.filter(stock=stock).order_by('-date')
-    latest_price = prices.first()
-    latest_pred = StockPrediction.objects.filter(stock=stock).order_by('-date').first()
-    if latest_pred and latest_pred.up_probability is not None:
-        # up_probability는 0.0~1.0 소수로 저장되므로, 화면 표시용(퍼센트)은 여기서 미리 계산해둔다
-        # (blog_posting.py/chatbot_client.py도 같은 관례로 ×100해서 보여준다).
-        latest_pred.up_probability_pct = round(latest_pred.up_probability * 100, 1)
-
-    history = list(prices[:180])  # 최근 180거래일 정도만 차트에 표시
+    history = list(prices[:days])
     history.reverse()
     ohlc = [
         {
@@ -39,46 +34,12 @@ def stock_detail_view(request, ticker):
         for p in history
     ]
 
-    # 기술적 지표(이동평균/RSI/MACD/볼린저밴드/거래량비율 등)는 거래량이 있는 자체 수집 데이터
-    # (history)가 있을 때만 계산한다. KIS 온디맨드 조회는 거래량을 안 줘서 계산할 수 없다.
-    indicators = None
-    latest_indicators = None
-    if history:
-        ind_df = compute_display_indicators(pd.DataFrame({
-            'date': [p.date for p in history],
-            'close': [float(p.close_price) for p in history],
-            'volume': [p.volume for p in history],
-        }))
-
-        def _series(col):
-            return [
-                {'time': row.date.strftime('%Y-%m-%d'), 'value': round(float(getattr(row, col)), 4)}
-                for row in ind_df.itertuples()
-                if pd.notna(getattr(row, col))
-            ]
-
-        indicators = {col: _series(col) for col in (
-            'ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower',
-            'rsi_14', 'macd', 'macd_signal', 'macd_hist', 'volume_ratio_20',
-        )}
-
-        last = ind_df.iloc[-1]
-        latest_indicators = {
-            col: (None if pd.isna(last[col]) else round(float(last[col]), 4))
-            for col in ('ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower', 'rsi_14',
-                        'macd_hist', 'volume_ratio_20')
-        }
-        # 전일 대비 수익률/20일 변동성은 소수 비율(0.0274=2.74%)이라, 앱 전반의 관례(퍼센트 값 저장)에
-        # 맞춰 100을 곱해 퍼센트 단위로 저장한다.
-        for col in ('ret_1d', 'vol_20'):
-            latest_indicators[col] = None if pd.isna(last[col]) else round(float(last[col]) * 100, 2)
-
     # 코스피200/코스닥150 밖이라 collect_stock_data로 10년치를 수집해두지 않은 종목은,
     # KIS 기간별시세 API로 최근 일봉만 온디맨드로 가져와서 보여준다.
     if not ohlc:
         try:
             end_date = date.today()
-            start_date = end_date - timedelta(days=180)
+            start_date = end_date - timedelta(days=days)
             kis_rows = kis_client.get_stock_daily_price(
                 stock.ticker, start_date.strftime('%Y%m%d'), end_date.strftime('%Y%m%d')
             )
@@ -91,8 +52,6 @@ def stock_detail_view(request, ticker):
             ]
         except Exception:
             logger.exception("KIS 종목 일봉 조회 실패: %s", stock.ticker)
-
-    news = AnalyzedArticle.objects.filter(stock=stock).select_related('matched_keyword').order_by('-scraped_at')[:10]
 
     # KIS를 매 요청마다 직접 호출하지 않고, collect_stock_realtime_price 명령이 주기적으로
     # 갱신해둔 캐시(StockRealtimePrice)만 읽는다.
@@ -134,9 +93,8 @@ def stock_detail_view(request, ticker):
     # collect_stock_data(--all)는 KST 02:00(장 시작 전)에 한 번만 돌아 그 시점까지의 완결된
     # 거래일만 StockDailyPrice에 쌓는다 — 그래서 정규장 진행 중이거나 마감했지만 아직 다음날
     # 02:00이 안 지난 "오늘" 거래일은 일봉 차트에 없고, 차트 마지막 캔들이 하루 전 종가에
-    # 멈춰 있는 것처럼 보인다(실측 사례: 어제 종가 64,800원이 표시되는데 실시간가는 이미
-    # 53,600원으로 크게 움직인 상태). realtime(캐시 또는 온디맨드)이 있으면 그 값으로 "오늘"
-    # 캔들을 즉석에서 만들어 붙여, 차트 마지막 점이 항상 최신 가격을 반영하게 한다.
+    # 멈춰 있는 것처럼 보인다. realtime(캐시 또는 온디맨드)이 있으면 그 값으로 "오늘" 캔들을
+    # 즉석에서 만들어 붙여, 차트 마지막 점이 항상 최신 가격을 반영하게 한다.
     today_kst = datetime.now(KST).date()
     if realtime and (not ohlc or ohlc[-1]['time'] != today_kst.strftime('%Y-%m-%d')):
         ohlc.append({
@@ -146,6 +104,90 @@ def stock_detail_view(request, ticker):
             'low': float(realtime['low']),
             'close': float(realtime['close']),
         })
+
+    return ohlc, realtime
+
+
+def stock_quote_view(request):
+    """대시보드 '🔍 종목 검색' 위젯이 호출하는 온디맨드 API. 종목코드 정확히 일치 → 종목명
+    완전 일치 → 종목명 부분 일치 순으로 찾는다(예: "삼성전자", "005930", "삼성" 모두 허용)."""
+    q = (request.GET.get('q') or '').strip()
+    if not q:
+        return JsonResponse({'ok': False, 'error': '검색어를 입력하세요.'})
+
+    stock = (
+        StockItem.objects.filter(ticker=q, is_active=True).first()
+        or StockItem.objects.filter(name=q, is_active=True).first()
+        or StockItem.objects.filter(name__icontains=q, is_active=True).order_by('name').first()
+    )
+    if not stock:
+        return JsonResponse({'ok': False, 'error': f'"{q}"에 해당하는 종목을 찾을 수 없습니다.'})
+
+    ohlc, realtime = _get_stock_quote(stock)
+    if not ohlc:
+        return JsonResponse({'ok': False, 'error': f'{stock.name}의 시세 데이터를 불러오지 못했습니다.'})
+
+    return JsonResponse({
+        'ok': True,
+        'ticker': stock.ticker,
+        'name': stock.name,
+        'price': float(realtime['close']) if realtime else ohlc[-1]['close'],
+        'change': float(realtime['change']) if realtime else None,
+        'change_pct': realtime['change_pct'] if realtime else None,
+        'ohlc': ohlc,
+    })
+
+
+def stock_detail_view(request, ticker):
+    stock = get_object_or_404(StockItem, ticker=ticker)
+
+    prices = StockDailyPrice.objects.filter(stock=stock).order_by('-date')
+    latest_price = prices.first()
+    latest_pred = StockPrediction.objects.filter(stock=stock).order_by('-date').first()
+    if latest_pred and latest_pred.up_probability is not None:
+        # up_probability는 0.0~1.0 소수로 저장되므로, 화면 표시용(퍼센트)은 여기서 미리 계산해둔다
+        # (blog_posting.py/chatbot_client.py도 같은 관례로 ×100해서 보여준다).
+        latest_pred.up_probability_pct = round(latest_pred.up_probability * 100, 1)
+
+    ohlc, realtime = _get_stock_quote(stock)
+    history = list(prices[:180])  # 최근 180거래일 정도만 차트에 표시(지표 계산용)
+    history.reverse()
+
+    # 기술적 지표(이동평균/RSI/MACD/볼린저밴드/거래량비율 등)는 거래량이 있는 자체 수집 데이터
+    # (history)가 있을 때만 계산한다. KIS 온디맨드 조회는 거래량을 안 줘서 계산할 수 없다.
+    indicators = None
+    latest_indicators = None
+    if history:
+        ind_df = compute_display_indicators(pd.DataFrame({
+            'date': [p.date for p in history],
+            'close': [float(p.close_price) for p in history],
+            'volume': [p.volume for p in history],
+        }))
+
+        def _series(col):
+            return [
+                {'time': row.date.strftime('%Y-%m-%d'), 'value': round(float(getattr(row, col)), 4)}
+                for row in ind_df.itertuples()
+                if pd.notna(getattr(row, col))
+            ]
+
+        indicators = {col: _series(col) for col in (
+            'ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower',
+            'rsi_14', 'macd', 'macd_signal', 'macd_hist', 'volume_ratio_20',
+        )}
+
+        last = ind_df.iloc[-1]
+        latest_indicators = {
+            col: (None if pd.isna(last[col]) else round(float(last[col]), 4))
+            for col in ('ma5', 'ma20', 'ma60', 'bb_upper', 'bb_lower', 'rsi_14',
+                        'macd_hist', 'volume_ratio_20')
+        }
+        # 전일 대비 수익률/20일 변동성은 소수 비율(0.0274=2.74%)이라, 앱 전반의 관례(퍼센트 값 저장)에
+        # 맞춰 100을 곱해 퍼센트 단위로 저장한다.
+        for col in ('ret_1d', 'vol_20'):
+            latest_indicators[col] = None if pd.isna(last[col]) else round(float(last[col]) * 100, 2)
+
+    news = AnalyzedArticle.objects.filter(stock=stock).select_related('matched_keyword').order_by('-scraped_at')[:10]
 
     context = {
         'site_title': f'NextFinUp - {stock.name}',

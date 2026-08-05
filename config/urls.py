@@ -32,7 +32,7 @@ from articles.views import (
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view,
-    market_index_minute_chart_view,
+    market_index_minute_chart_view, stock_quote_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
     kakao_login_view, kakao_callback_view,
@@ -76,6 +76,7 @@ urlpatterns = [
     path('api/consult/', consult_request_view, name='consult_request'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
+    path('api/stock-quote/', stock_quote_view, name='stock_quote'),  # ◀ 대시보드 종목 검색 위젯이 호출하는 온디맨드 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
     path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑
     path('post/write/', news_write_view, name='news_write'),  # ◀ 원문 링크 없이 제목+본문 직접 입력 → AI 요약
