@@ -216,14 +216,14 @@
         <div class="row row-cols-1 row-cols-md-2 g-4 mt-1">
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <h5 class="section-title">🟢 매수 신호 종목</h5>
+                    <h5 class="section-title">🟢 매수 신호 종목 <small class="text-muted fw-normal" style="font-size: 11px;">(상승확률·검증정확도는 어제 기준)</small></h5>
                     {% if buy_signals %}
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0">
                                 <thead>
                                     <tr class="text-muted" style="font-size: 12px;">
                                         <th>종목</th>
-                                        <th class="text-end">현재가(기준가)</th>
+                                        <th class="text-end">현재가</th>
                                         <th class="text-end">전일대비</th>
                                         <th class="text-end">등락률</th>
                                         <th class="text-end">상승확률</th>
@@ -238,7 +238,10 @@
                                                     {{ p.stock.name }}({{ p.stock.ticker }})
                                                 </a>
                                             </td>
-                                            <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end">
+                                                {% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}
+                                                {% if p.price_label %}<div class="text-muted" style="font-size: 10px;">{{ p.price_label }}</div>{% endif %}
+                                            </td>
                                             <td class="text-end {% if p.change > 0 %}up-value{% elif p.change < 0 %}down-value{% else %}flat-value{% endif %}">
                                                 {% if p.change is not None %}{% if p.change > 0 %}▲{% elif p.change < 0 %}▼{% else %}-{% endif %}{{ p.change_abs|floatformat:0|intcomma }}{% else %}-{% endif %}
                                             </td>
@@ -259,14 +262,14 @@
             </div>
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <h5 class="section-title">🔵 매도 신호 종목</h5>
+                    <h5 class="section-title">🔵 매도 신호 종목 <small class="text-muted fw-normal" style="font-size: 11px;">(하락확률·검증정확도는 어제 기준)</small></h5>
                     {% if sell_signals %}
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0">
                                 <thead>
                                     <tr class="text-muted" style="font-size: 12px;">
                                         <th>종목</th>
-                                        <th class="text-end">현재가(기준가)</th>
+                                        <th class="text-end">현재가</th>
                                         <th class="text-end">전일대비</th>
                                         <th class="text-end">등락률</th>
                                         <th class="text-end">하락확률</th>
@@ -281,7 +284,10 @@
                                                     {{ p.stock.name }}({{ p.stock.ticker }})
                                                 </a>
                                             </td>
-                                            <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end">
+                                                {% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}
+                                                {% if p.price_label %}<div class="text-muted" style="font-size: 10px;">{{ p.price_label }}</div>{% endif %}
+                                            </td>
                                             <td class="text-end {% if p.change > 0 %}up-value{% elif p.change < 0 %}down-value{% else %}flat-value{% endif %}">
                                                 {% if p.change is not None %}{% if p.change > 0 %}▲{% elif p.change < 0 %}▼{% else %}-{% endif %}{{ p.change_abs|floatformat:0|intcomma }}{% else %}-{% endif %}
                                             </td>
