@@ -1,3 +1,26 @@
+def round_to_krx_tick(price):
+    """KRX(코스피/코스닥) 실제 호가단위로 스냅한다. 가격대별 최소 호가 간격이 달라서
+    (예: 5만원대는 100원 단위, 20만원대는 500원 단위, 50만원 이상은 1000원 단위로만 실제
+    체결 가능) run_stock_prediction의 회귀 모델이 뱉는 연속값(예: 42903.28원)을 그대로
+    쓰면 실제로는 존재할 수 없는 가격이 예측가로 나온다 — 실측 신고로 확인됨."""
+    price = float(price)
+    if price < 2000:
+        tick = 1
+    elif price < 5000:
+        tick = 5
+    elif price < 20000:
+        tick = 10
+    elif price < 50000:
+        tick = 50
+    elif price < 200000:
+        tick = 100
+    elif price < 500000:
+        tick = 500
+    else:
+        tick = 1000
+    return round(price / tick) * tick
+
+
 def format_won(amount):
     return f"{amount:,.0f}원"
 

@@ -7,6 +7,7 @@ from sklearn.metrics import mean_absolute_error
 
 from articles.models import StockItem, StockPrediction
 from articles.ml.features import FEATURE_COLUMNS, get_eligible_stock_ids, build_feature_dataframe_for_stock
+from articles.utils import round_to_krx_tick
 
 # 최근 이 거래일 구간은 학습에서 제외하고 검증(홀드아웃)용으로만 사용합니다.
 HOLDOUT_DAYS = 40
@@ -166,7 +167,7 @@ class Command(BaseCommand):
                     stock_id=int(latest_row['stock_id'].iloc[0]),
                     date=latest_row['date'].iloc[0],
                     defaults={
-                        'pred_next_close': round(pred_close, 2),
+                        'pred_next_close': round_to_krx_tick(pred_close),
                         'pred_5day_return': round(pred_ret5 * 100, 2),
                         'up_probability': round(float(prob_up), 4),
                         'down_probability': round(float(prob_down), 4),
