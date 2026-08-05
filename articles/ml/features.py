@@ -18,6 +18,13 @@ FEATURE_COLUMNS = [
     'bb_pct',
 ]
 
+# StockInvestorFlow(종목별 투자자매매동향, collect_investor_flow) 기반 수급 피처. FEATURE_COLUMNS와
+# 별도 목록으로 두는 이유는 run_stock_prediction이 "기본 피처만" 모델과 "기본+수급" 모델을 같은
+# 종목·같은 날짜에 나란히 학습해 StockPrediction의 *_flow 필드로 비교할 수 있게 하기 위함이다
+# (수급 데이터가 1년치뿐이라 전체 히스토리 대비 최근 구간에서만 계산 가능 — add_investor_flow_features
+# 참고).
+FLOW_FEATURE_COLUMNS = ['foreign_net_ratio', 'institution_net_ratio', 'pension_net_ratio']
+
 MIN_HISTORY_DAYS = 60  # 60거래일(ma60 등 계산에 필요한 최소 길이) 미만 종목은 제외
 
 
@@ -153,6 +160,36 @@ def build_feature_dataframe_for_stock(stock_id: int) -> pd.DataFrame:
     raw['volume'] = raw['volume'].astype(float)
 
     return add_features_for_one_stock(raw)
+
+
+def add_investor_flow_features(df: pd.DataFrame, stock_id: int) -> pd.DataFrame:
+    """build_feature_dataframe_for_stock()이 만든 df(date/volume 컬럼 포함)에 StockInvestorFlow
+    기반 수급 비율 피처(FLOW_FEATURE_COLUMNS)를 좌측 조인으로 덧붙인다. 순매수 수량을 그날
+    거래량으로 나눠 종목 규모와 무관하게 비교 가능한 비율로 만든다(원본 수량은 시가총액이 크게
+    다른 종목끼리 그대로 비교할 수 없다). StockInvestorFlow는 최근 1년치만 있어 그 이전 날짜는
+    NaN이 된다 — 정상이며, 호출부(run_stock_prediction)가 이 컬럼이 채워진 행만 골라 별도로
+    학습한다."""
+    from articles.models import StockInvestorFlow
+
+    df = df.copy()
+    flow_qs = StockInvestorFlow.objects.filter(stock_id=stock_id).values(
+        'date', 'foreign_net_qty', 'institution_net_qty', 'pension_net_qty',
+    )
+    flow_df = pd.DataFrame.from_records(flow_qs)
+    if flow_df.empty:
+        for col in FLOW_FEATURE_COLUMNS:
+            df[col] = np.nan
+        return df
+
+    df['date'] = pd.to_datetime(df['date'])
+    flow_df['date'] = pd.to_datetime(flow_df['date'])
+    merged = df.merge(flow_df, on='date', how='left')
+
+    safe_volume = merged['volume'].replace(0, np.nan)
+    merged['foreign_net_ratio'] = merged['foreign_net_qty'] / safe_volume
+    merged['institution_net_ratio'] = merged['institution_net_qty'] / safe_volume
+    merged['pension_net_ratio'] = merged['pension_net_qty'] / safe_volume
+    return merged.drop(columns=['foreign_net_qty', 'institution_net_qty', 'pension_net_qty'])
 
 
 def compute_display_indicators(df: pd.DataFrame) -> pd.DataFrame:

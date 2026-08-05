@@ -303,6 +303,21 @@ class StockPrediction(models.Model):
         ('HOLD', '관망'),
     ]
     trading_signal = models.CharField(max_length=5, choices=SIGNAL_CHOICES, default='HOLD', verbose_name="매매 신호")
+    # 홀드아웃 검증 정확도(방향성). run_stock_prediction 로그에만 있던 값을 필드로도 남겨,
+    # 아래 *_flow 필드와 나중에 집계 비교(어느 쪽이 실제로 더 나았는지)할 수 있게 한다.
+    holdout_accuracy = models.FloatField(null=True, blank=True, verbose_name="검증 정확도(기본 피처)")
+
+    # 위 5개 필드(pred_next_close~holdout_accuracy)는 기존 피처(가격/기술지표)만으로 학습한
+    # 기본 모델 결과다. 아래는 여기에 종목별 수급 피처(StockInvestorFlow 기반 외국인/기관/기금
+    # 순매수 비율)를 추가로 넣어 학습한 "수급 반영" 모델 결과 — 같은 행에 나란히 저장해 사용자가
+    # 요청한 대로 "피처 추가 전/후"를 필드 단위로 바로 비교할 수 있게 한다. 수급 데이터가
+    # 1년치뿐이라 학습 표본이 부족한 종목은 널로 남는다.
+    pred_next_close_flow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="AI 내일 예상종가(수급 반영)")
+    pred_5day_return_flow = models.FloatField(null=True, blank=True, verbose_name="AI 향후 5일 예상수익률(수급 반영)")
+    up_probability_flow = models.FloatField(null=True, blank=True, verbose_name="상승 확률(수급 반영)")
+    down_probability_flow = models.FloatField(null=True, blank=True, verbose_name="하락 확률(수급 반영)")
+    trading_signal_flow = models.CharField(max_length=5, choices=SIGNAL_CHOICES, null=True, blank=True, verbose_name="매매 신호(수급 반영)")
+    holdout_accuracy_flow = models.FloatField(null=True, blank=True, verbose_name="검증 정확도(수급 반영)")
 
     class Meta:
         # 한 종목에 대해 하루에 하나의 예측만 쌓이도록 고유값 설정
