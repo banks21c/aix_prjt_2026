@@ -54,7 +54,7 @@
                                     <div class="{% if kospi_index.latest.change > 0 %}up-value{% elif kospi_index.latest.change < 0 %}down-value{% else %}flat-value{% endif %}">
                                         {% if kospi_index.latest.change > 0 %}▲{% elif kospi_index.latest.change < 0 %}▼{% else %}-{% endif %}
                                         {{ kospi_index.latest.change|floatformat:2 }}
-                                        ({{ kospi_index.latest.change_pct|floatformat:2 }}%)
+                                        ({% if kospi_index.latest.change > 0 %}▲{% elif kospi_index.latest.change < 0 %}▼{% else %}-{% endif %}{{ kospi_index.latest.change_pct_abs|floatformat:2 }}%)
                                     </div>
                                 {% endif %}
                             </div>
@@ -84,7 +84,7 @@
                                     <div class="{% if kosdaq_index.latest.change > 0 %}up-value{% elif kosdaq_index.latest.change < 0 %}down-value{% else %}flat-value{% endif %}">
                                         {% if kosdaq_index.latest.change > 0 %}▲{% elif kosdaq_index.latest.change < 0 %}▼{% else %}-{% endif %}
                                         {{ kosdaq_index.latest.change|floatformat:2 }}
-                                        ({{ kosdaq_index.latest.change_pct|floatformat:2 }}%)
+                                        ({% if kosdaq_index.latest.change > 0 %}▲{% elif kosdaq_index.latest.change < 0 %}▼{% else %}-{% endif %}{{ kosdaq_index.latest.change_pct_abs|floatformat:2 }}%)
                                     </div>
                                 {% endif %}
                             </div>
@@ -139,7 +139,7 @@
                                 <div class="{% if mover.change_pct > 0 %}up-value{% elif mover.change_pct < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
                                     {{ mover.price|floatformat:0|intcomma }}
                                     {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_amount_abs|floatformat:0|intcomma }}
-                                    {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_pct }}%
+                                    {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_pct_abs }}%
                                 </div>
                             </div>
                         {% endfor %}
@@ -155,7 +155,7 @@
                                 <div class="{% if mover.change_pct > 0 %}up-value{% elif mover.change_pct < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
                                     {{ mover.price|floatformat:0|intcomma }}
                                     {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_amount_abs|floatformat:0|intcomma }}
-                                    {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_pct }}%
+                                    {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_pct_abs }}%
                                 </div>
                             </div>
                         {% endfor %}

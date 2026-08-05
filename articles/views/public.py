@@ -292,6 +292,10 @@ def _build_index_chart(market_type, days=90):
     rows = list(MarketIndex.objects.filter(market_type=market_type).order_by('-date')[:days])
     rows.reverse()  # 차트는 과거 -> 현재 순으로 그려야 하므로 날짜 오름차순으로 뒤집음
     latest = rows[-1] if rows else None
+    if latest and latest.change_pct is not None:
+        # change_pct는 KIS 원본이 이미 부호 포함 — 대시보드가 화살표(▲/▼)로 부호를 따로
+        # 표시하므로, 절대값을 미리 계산해 템플릿에서 이중 부호(▼-0.44%) 없이 쓸 수 있게 한다.
+        latest.change_pct_abs = abs(latest.change_pct)
     ohlc = [
         {
             'time': r.date.strftime('%Y-%m-%d'),
@@ -330,9 +334,11 @@ def main_dashboard_view(request):
         StockItem.objects.filter(ticker__in=[m.ticker for m in featured_stocks]).values_list('ticker', flat=True)
     )
     for mover in featured_stocks:
-        # change_amount는 이미 부호 포함(KIS prdy_vrss) — 화살표로 부호를 따로 표시하므로
-        # 템플릿에서 abs() 없이 바로 쓸 수 있게 여기서 절대값을 미리 계산해둔다.
+        # change_amount/change_pct는 이미 부호 포함(KIS prdy_vrss/prdy_ctrt) — 화살표로 부호를
+        # 따로 표시하므로 템플릿에서 abs() 없이 바로 쓸 수 있게 여기서 절대값을 미리 계산해둔다
+        # (그대로 쓰면 하락 종목에서 "▼-21.91%" 처럼 이중 부호가 남).
         mover.change_amount_abs = abs(mover.change_amount)
+        mover.change_pct_abs = abs(mover.change_pct)
         if mover.ticker in existing_tickers:
             mover.detail_url = reverse('stock_detail', args=[mover.ticker])
             mover.detail_external = False
