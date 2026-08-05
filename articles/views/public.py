@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.conf import settings
 from django.contrib import messages
@@ -22,6 +22,10 @@ from ..models import (
 from ..utils import get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# 대시보드 매수/매도 신호 표의 "실시간 여부" 판단용(서버 TIME_ZONE은 UTC라 articles/views/stocks.py와
+# 같은 방식으로 KST를 직접 계산한다).
+KST = dt_timezone(timedelta(hours=9))
 
 
 def landing_page_view(request):
@@ -382,6 +386,17 @@ def main_dashboard_view(request):
             .select_related('stock').order_by('-down_probability')
         )
         signal_stock_ids = [p.stock_id for p in buy_signals + sell_signals]
+
+        # collect_stock_data(--all)는 KST 02:00(장 시작 전) 한 번만 돌아서, StockDailyPrice의
+        # "최신 종가"는 사실 어제 종가다(오늘 장 마감분은 내일 02:00에야 들어옴) — 그걸 그대로
+        # "현재가"라고 보여준 게 신고 사유("오늘 주가가 아님"). 5분마다 갱신되는
+        # StockRealtimePrice(코스피200/코스닥150 대상)가 있는 종목은 그걸 우선 쓰고, 없는
+        # 종목만 최신 종가로 대체하되 그게 며칠자 종가인지 라벨을 붙여 날짜를 명확히 한다.
+        realtime_map = {
+            r.stock_id: r
+            for r in StockRealtimePrice.objects.filter(stock_id__in=signal_stock_ids)
+        }
+
         # 종목마다 최신 2거래일치 종가(현재가/전일종가)만 필요한데 stock_id별 최신 N건을
         # MySQL에서 한 번에 뽑을 방법이 마땅치 않아(DISTINCT ON은 PostgreSQL 전용), 최근
         # 10일치만 좁혀 가져온 뒤 종목별로 날짜 내림차순 앞의 2개만 취한다 — 대상 종목 수
@@ -393,25 +408,36 @@ def main_dashboard_view(request):
             .order_by('stock_id', '-date')
         )
         for row in recent_prices:
-            closes = price_history.setdefault(row.stock_id, [])
-            if len(closes) < 2:
-                closes.append(row.close_price)
+            dates = price_history.setdefault(row.stock_id, [])
+            if len(dates) < 2:
+                dates.append((row.date, row.close_price))
 
+        today_kst = datetime.now(KST).date()
         for p in buy_signals + sell_signals:
-            closes = price_history.get(p.stock_id, [])
-            p.price = closes[0] if closes else None
-            if len(closes) >= 2 and closes[1]:
-                p.change = closes[0] - closes[1]
-                p.change_pct = round(float(p.change) / float(closes[1]) * 100, 2)
-                # 화살표(▲/▼)로 부호를 따로 표시하므로, 절대값을 미리 계산해 템플릿에서
-                # 이중 부호(▼-500) 없이 쓸 수 있게 한다 — 대시보드 다른 표들과 같은 관례.
-                p.change_abs = abs(p.change)
-                p.change_pct_abs = abs(p.change_pct)
+            realtime = realtime_map.get(p.stock_id)
+            if realtime:
+                p.price = realtime.close_price
+                p.change = realtime.change
+                p.change_pct = realtime.change_pct
+                # 5분 주기 캐시가 오늘 갱신됐으면 "실시간", 그렇지 않으면(장 마감 후 정지 등)
+                # 마지막 갱신 날짜를 그대로 보여준다.
+                updated_at_kst = realtime.updated_at.astimezone(KST)
+                p.price_label = '실시간' if updated_at_kst.date() == today_kst else updated_at_kst.strftime('%m/%d')
             else:
-                p.change = None
-                p.change_pct = None
-                p.change_abs = None
-                p.change_pct_abs = None
+                dates = price_history.get(p.stock_id, [])
+                p.price = dates[0][1] if dates else None
+                p.price_label = dates[0][0].strftime('%m/%d 종가') if dates else None
+                if len(dates) >= 2 and dates[1][1]:
+                    p.change = dates[0][1] - dates[1][1]
+                    p.change_pct = round(float(p.change) / float(dates[1][1]) * 100, 2)
+                else:
+                    p.change = None
+                    p.change_pct = None
+
+            # 화살표(▲/▼)로 부호를 따로 표시하므로, 절대값을 미리 계산해 템플릿에서 이중
+            # 부호(▼-500) 없이 쓸 수 있게 한다 — 대시보드 다른 표들과 같은 관례.
+            p.change_abs = abs(p.change) if p.change is not None else None
+            p.change_pct_abs = abs(p.change_pct) if p.change_pct is not None else None
             p.up_probability_pct = round(p.up_probability * 100, 1) if p.up_probability is not None else None
             p.down_probability_pct = round(p.down_probability * 100, 1) if p.down_probability is not None else None
             p.holdout_accuracy_pct = round(p.holdout_accuracy * 100, 1) if p.holdout_accuracy is not None else None
