@@ -200,6 +200,68 @@ def get_investor_trend(market_type):
     }
 
 
+INVESTOR_TRADE_BY_STOCK_TR_ID = "FHPTJ04160001"
+
+
+def get_investor_trade_by_stock(ticker, end_date):
+    """종목별 투자자매매동향(일별) API로 개별 종목의 투자자 주체별(외국인/개인/기관계 +
+    증권/투자신탁/사모펀드/은행/보험/종금/기금/기타) 순매수 수량·금액을 조회합니다.
+    end_date('YYYYMMDD') 기준으로 최근 30영업일치가 한 번에 내려옵니다(과거로 더 가려면
+    end_date를 그만큼 앞선 거래일로 바꿔 다시 호출 — collect_investor_flow의 백필 로직 참고).
+    금액 필드(*_ntby_tr_pbmn)는 백만원 단위(KIS 문서 명시)로 그대로 반환합니다.
+    "기금(fund)"이 국민연금 등 연기금류가 잡히는 가장 가까운 분류입니다(KIS가 국민연금을
+    별도 항목으로 분리해 주지 않음). 장마감(15:40 KST) 이후에만 당일 데이터가 조회됩니다."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INVESTOR_TRADE_BY_STOCK_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": ticker,
+        "FID_INPUT_DATE_1": end_date,
+        "FID_ORG_ADJ_PRC": "",
+        "FID_ETC_CLS_CODE": "1",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 종목별 투자자매매동향 조회 실패: {data.get('msg1')}")
+
+    rows = []
+    for row in data.get('output2', []):
+        bsop_date = row.get('stck_bsop_date')
+        if not bsop_date:
+            continue
+        rows.append({
+            'date': bsop_date,  # 'YYYYMMDD'
+            'foreign_net_qty': int(row.get('frgn_ntby_qty') or 0),
+            'foreign_net_amount': int(row.get('frgn_ntby_tr_pbmn') or 0),
+            'retail_net_qty': int(row.get('prsn_ntby_qty') or 0),
+            'retail_net_amount': int(row.get('prsn_ntby_tr_pbmn') or 0),
+            'institution_net_qty': int(row.get('orgn_ntby_qty') or 0),
+            'institution_net_amount': int(row.get('orgn_ntby_tr_pbmn') or 0),
+            'pension_net_qty': int(row.get('fund_ntby_qty') or 0),
+            'pension_net_amount': int(row.get('fund_ntby_tr_pbmn') or 0),
+            'trust_net_qty': int(row.get('ivtr_ntby_qty') or 0),
+            'trust_net_amount': int(row.get('ivtr_ntby_tr_pbmn') or 0),
+            'pe_fund_net_qty': int(row.get('pe_fund_ntby_vol') or 0),
+            'pe_fund_net_amount': int(row.get('pe_fund_ntby_tr_pbmn') or 0),
+            'securities_net_qty': int(row.get('scrt_ntby_qty') or 0),
+            'securities_net_amount': int(row.get('scrt_ntby_tr_pbmn') or 0),
+        })
+
+    rows.sort(key=lambda r: r['date'])
+    return rows
+
+
 # 금리 종합(국내채권/금리) TR_ID (국내주식-155) - 저장소에 있는 KIS API 문서 엑셀
 # ("kis_api/금리 종합(국내채권_금리) [국내주식-155].xlsx")로 확인한 값. output1은 해외금리지표
 # (미국 국채 등), output2는 국내채권/금리(국고채/회사채/CD/콜 등) — 헤더 티커는 output2만 쓴다.

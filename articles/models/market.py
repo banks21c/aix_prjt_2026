@@ -245,6 +245,43 @@ class StockDailyPrice(models.Model):
         return f"{self.stock.name} {self.date} 종가 {self.close_price}"
 
 
+class StockInvestorFlow(models.Model):
+    """collect_investor_flow가 KIS 종목별 투자자매매동향(일별) API로 채우는, 종목×날짜별
+    투자자 주체별 순매수 수량/금액. run_stock_prediction의 피처로 쓰기 위한 수급 데이터다
+    (사용자 요청: 국민연금/기관/외국인이 얼마나 사고파는지도 예측에 반영). 금액은 KIS 원본
+    단위인 백만원 그대로 저장한다(변환 없음). "기금(pension)"이 국민연금 등 연기금류가
+    잡히는 가장 가까운 KIS 분류다 — KIS가 국민연금만 따로 떼어 주지 않는다."""
+    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="investor_flows", verbose_name="종목")
+    date = models.DateField(verbose_name="날짜")
+
+    foreign_net_qty = models.BigIntegerField(verbose_name="외국인 순매수 수량")
+    foreign_net_amount = models.BigIntegerField(verbose_name="외국인 순매수 금액(백만원)")
+    retail_net_qty = models.BigIntegerField(verbose_name="개인 순매수 수량")
+    retail_net_amount = models.BigIntegerField(verbose_name="개인 순매수 금액(백만원)")
+    institution_net_qty = models.BigIntegerField(verbose_name="기관계 순매수 수량")
+    institution_net_amount = models.BigIntegerField(verbose_name="기관계 순매수 금액(백만원)")
+    pension_net_qty = models.BigIntegerField(verbose_name="기금(연기금류) 순매수 수량")
+    pension_net_amount = models.BigIntegerField(verbose_name="기금(연기금류) 순매수 금액(백만원)")
+    trust_net_qty = models.BigIntegerField(verbose_name="투자신탁 순매수 수량")
+    trust_net_amount = models.BigIntegerField(verbose_name="투자신탁 순매수 금액(백만원)")
+    pe_fund_net_qty = models.BigIntegerField(verbose_name="사모펀드 순매수 수량")
+    pe_fund_net_amount = models.BigIntegerField(verbose_name="사모펀드 순매수 금액(백만원)")
+    securities_net_qty = models.BigIntegerField(verbose_name="증권 순매수 수량")
+    securities_net_amount = models.BigIntegerField(verbose_name="증권 순매수 금액(백만원)")
+
+    class Meta:
+        unique_together = ('stock', 'date')
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['-date', 'stock', '-id'], name='investorflow_date_stock_idx'),
+        ]
+        verbose_name = "종목별 투자자 수급 (StockInvestorFlow)"
+        verbose_name_plural = "종목별 투자자 수급 (StockInvestorFlow)"
+
+    def __str__(self):
+        return f"{self.stock.name} {self.date} 외국인 {self.foreign_net_qty:+,}주"
+
+
 # ==========================================
 # 2-2. AI 주가 예측 결과 테이블
 # ==========================================
