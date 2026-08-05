@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
-    StockItem, StockPrediction, SubscriptionOrder, UserSubscription,
+    StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
 )
 from ..utils import get_client_ip
 
@@ -204,25 +204,23 @@ def ticker_data_view(request):
 
 
 def ticker_stocks_view(request):
-    """_header.html의 두 번째(개별 종목) 티커가 폴링하는 JSON API. 등락률 상위 5/하위 5
-    (RankedMover, 5분 주기 collect_fluctuation_ranking)를 내려준다. ticker(종목코드)는 클릭 시
-    뜨는 레이어 팝업의 "종목 상세보기" 링크(stock_detail_view)에 쓰인다.
-    KIS 등락률 순위에는 ETN(레버리지/인버스 원자재 등, "Q"로 시작하는 코드) 등 StockItem
-    마스터에 없는 상품도 섞여 나온다 — insert_stock_master가 일반 상장 종목만 채워서다.
-    그런 티커는 stock_detail_view가 get_object_or_404로 404를 내므로, has_detail로 구분해
-    헤더 팝업이 "종목 상세보기" 대신 네이버 증권으로 보내도록 한다(신고: 클릭 시 404,
-    "치명적인 에러"로 인지됨 — 존재하지 않는 종목 상세 링크가 걸려 있었던 게 원인)."""
-    movers = list(RankedMover.objects.order_by('rank_type', 'rank'))
-    existing_tickers = set(
-        StockItem.objects.filter(ticker__in=[m.ticker for m in movers]).values_list('ticker', flat=True)
+    """_header.html의 두 번째(개별 종목) 티커가 폴링하는 JSON API. 등락률 상위/하위 10개만
+    보여주던 이전 버전(RankedMover 기반)은 "특징주만 나오고 전체 종목이 안 나온다"는 신고로,
+    실시간 시세를 수집하는 전체 범위(StockRealtimePrice, 코스피200/코스닥150 350종목,
+    collect_stock_realtime_price 5분 주기)로 교체했다. StockRealtimePrice.stock은 StockItem에
+    대한 실제 FK라 RankedMover와 달리 ETN 등 마스터에 없는 상품이 섞일 수 없으므로
+    has_detail은 항상 True.
+    ticker(종목코드)는 클릭 시 뜨는 레이어 팝업의 "종목 상세보기" 링크(stock_detail_view)에 쓰인다."""
+    prices = list(
+        StockRealtimePrice.objects.select_related('stock').order_by('stock__ticker')
     )
     items = [
         {
-            'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct,
-            'ticker': mover.ticker, 'change_amount': float(mover.change_amount),
-            'has_detail': mover.ticker in existing_tickers,
+            'name': p.stock.name, 'price': float(p.close_price), 'change_pct': p.change_pct,
+            'ticker': p.stock.ticker, 'change_amount': float(p.change),
+            'has_detail': True,
         }
-        for mover in movers
+        for p in prices
     ]
     return JsonResponse({'items': items})
 
