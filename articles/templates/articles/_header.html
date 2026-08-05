@@ -455,7 +455,10 @@
             popupChange.className = dir;
             if (itemEl.hasAttribute('data-no-detail')) {
                 // StockItem 마스터에 없는 티커(ETN 등) — 내부 상세 페이지가 404라 네이버 증권으로 대신 보낸다.
-                popupLink.href = 'https://finance.naver.com/item/main.naver?code=' + encodeURIComponent(ticker);
+                // ETN 코드는 KIS에서 "Q" 접두사가 붙어 오지만(예: Q760027), 네이버 증권은 접두사
+                // 없는 코드(760027)라야 종목 상세로 가고 붙이면 증권 메인으로 튕긴다 — 실측 확인.
+                var naverCode = ticker.charAt(0) === 'Q' ? ticker.slice(1) : ticker;
+                popupLink.href = 'https://finance.naver.com/item/main.naver?code=' + encodeURIComponent(naverCode);
                 popupLink.target = '_blank';
                 popupLink.rel = 'noopener noreferrer';
                 popupLink.textContent = '네이버 증권에서 보기 →';

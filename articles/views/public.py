@@ -337,7 +337,10 @@ def main_dashboard_view(request):
             mover.detail_url = reverse('stock_detail', args=[mover.ticker])
             mover.detail_external = False
         else:
-            mover.detail_url = f"https://finance.naver.com/item/main.naver?code={mover.ticker}"
+            # ETN 코드는 KIS에서 "Q" 접두사가 붙어 오지만(예: Q760027), 네이버 증권은 접두사 없는
+            # 코드(760027)라야 종목 상세로 가고 붙이면 증권 메인으로 튕긴다 — 실측 확인.
+            naver_code = mover.ticker[1:] if mover.ticker.startswith('Q') else mover.ticker
+            mover.detail_url = f"https://finance.naver.com/item/main.naver?code={naver_code}"
             mover.detail_external = True
 
     latest_pred_date = StockPrediction.objects.aggregate(m=Max('date'))['m']
