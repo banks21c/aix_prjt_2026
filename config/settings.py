@@ -225,6 +225,9 @@ KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"  # 실전투자 서버
 # https://www.koreaexim.go.kr/ir/HPHKIR019M01
 EXIM_AUTH_KEY = os.environ.get('EXIM_AUTH_KEY')
 
+# DART(전자공시시스템) Open API - 상장기업 공시 데이터. https://opendart.fss.or.kr
+DART_API_KEY = os.environ.get('DART_API_KEY')
+
 # Gmail SMTP (회원가입/마이페이지 이메일 인증 메일 발송용, articles/email_utils.py 참고)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
