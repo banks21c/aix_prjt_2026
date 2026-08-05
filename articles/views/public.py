@@ -409,7 +409,9 @@ def main_dashboard_view(request):
             return pred.stock_id, None
 
         if signal_predictions:
-            price_label = '실시간' if kis_client.is_regular_session_open() else '오늘 종가'
+            # 장중이든 마감 후든 "그 시점의 실시간 가격"이라는 의미로 항상 같은 라벨을 쓴다
+            # ("오늘 종가"라는 표현은 낮에 조회해도 마치 장마감가처럼 보여 혼동을 줌).
+            price_label = '실시간'
             with ThreadPoolExecutor(max_workers=4) as executor:
                 for stock_id, fetched in executor.map(_fetch_today_price, signal_predictions):
                     if fetched:
