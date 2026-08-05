@@ -90,7 +90,8 @@ def _draw_signal_badge(draw, x, y, signal_key, accent):
 
 
 def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
-    """현재가/전일대비/등락률/전일가/거래량/거래대금을 3열×2행 그리드 패널로 그린다."""
+    """현재가/전일대비/등락률/전일가/거래량/거래대금(+ AI 예상종가가 있으면 3행째)을
+    3열 그리드 패널로 그린다."""
     change = market_data['change']
     change_pct = market_data['change_pct']
     move_color = SIGNAL_COLORS['BUY'] if change > 0 else SIGNAL_COLORS['SELL'] if change < 0 else NEUTRAL_COLOR
@@ -103,18 +104,26 @@ def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
         ("거래량", format_volume(market_data['volume']), SUBTITLE_COLOR),
         ("거래대금", format_trading_value(market_data['trading_value']), SUBTITLE_COLOR),
     ]
+    pred_next_close = market_data.get('pred_next_close')
+    if pred_next_close is not None:
+        # 다른 종목 기사와 섞였을 때 예측값 하나만 있는 줄이 휑해 보이지 않도록 나머지
+        # 두 칸은 비워둔다(값이 없을 때만 대신 채울 게 마땅치 않아서 — 억지로 채우지 않음).
+        cells.append(("AI 예상종가", format_won(pred_next_close), SIGNAL_COLORS['HOLD']))
 
     draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=PANEL_BG, outline=PANEL_BORDER, width=2)
 
+    rows = 3 if pred_next_close is not None else 2
     col_w = (x1 - x0) / 3
-    row_h = (y1 - y0) / 2
+    row_h = (y1 - y0) / rows
     label_font = _font(FONT_REGULAR, 22)
     value_font = _font(FONT_BOLD, 30)
 
     for col in (1, 2):
         lx = x0 + col_w * col
         draw.line([(lx, y0 + 12), (lx, y1 - 12)], fill=GRID_LINE, width=1)
-    draw.line([(x0 + 12, y0 + row_h), (x1 - 12, y0 + row_h)], fill=GRID_LINE, width=1)
+    for row in range(1, rows):
+        ly = y0 + row_h * row
+        draw.line([(x0 + 12, ly), (x1 - 12, ly)], fill=GRID_LINE, width=1)
 
     for i, (label, value, color) in enumerate(cells):
         row, col = divmod(i, 3)
@@ -365,35 +374,35 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
 
         _draw_index_summary_boxes(draw, margin, divider_y + 30, CANVAS_SIZE[0] - margin, 612, index_summary)
     else:
-        # 종목명(+티커) — 날짜와 같은 줄 높이로 끌어올려, 위쪽 여백을 줄이고 시세 그리드가
-        # 이미지 중간까지 올라올 공간을 확보한다.
+        # 종목명(+티커) — 날짜 줄에서 30px 아래로 내려 배치.
         subject_font = _font(FONT_BOLD, 44)
         subject_text = f"{subject_label} ({ticker})" if ticker else subject_label
-        draw.text((margin, 46), subject_text, font=subject_font, fill=accent, anchor="lm")
+        draw.text((margin, 76), subject_text, font=subject_font, fill=accent, anchor="lm")
         subject_w = draw.textlength(subject_text, font=subject_font)
 
         # 매수/매도/관망 시그널 뱃지 (종목 기사에만 존재)
         if signal_color_key in SIGNAL_LABELS:
-            _draw_signal_badge(draw, margin + subject_w + 24, 25, signal_color_key, accent)
+            _draw_signal_badge(draw, margin + subject_w + 24, 55, signal_color_key, accent)
 
         # 종목명 아래 구분선
-        draw.line([(margin, 100), (CANVAS_SIZE[0] - margin, 100)], fill="#2a3b5c", width=2)
+        draw.line([(margin, 130), (CANVAS_SIZE[0] - margin, 130)], fill="#2a3b5c", width=2)
 
-        # 기사 제목 (최대 3줄, 넘치면 말줄임) — 종목명을 따라 위로 올린 만큼 같이 올린다.
+        # 기사 제목 (최대 3줄, 넘치면 말줄임) — 종목명을 따라 30px 아래로 내린다.
         title_font = _font(FONT_REGULAR, 42)
         max_text_width = CANVAS_SIZE[0] - margin * 2
         lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=3)
-        y = 135
+        y = 165
         for line in lines:
             draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
             y += 58
 
-        # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로,
-        # 이미지 절반(315px) 위치에서 시작하도록 끌어올려 그린다.
+        # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로.
+        # AI 예상종가가 있으면 그리드가 3행이 되므로 아래쪽으로 더 늘려 잡는다.
+        grid_bottom = 570 if market_data and market_data.get('pred_next_close') is not None else 480
         if market_data:
-            _draw_market_grid(draw, margin, 315, CANVAS_SIZE[0] - margin, 480, market_data)
+            _draw_market_grid(draw, margin, 345, CANVAS_SIZE[0] - margin, grid_bottom, market_data)
         elif summary_lines:
-            _draw_summary_panel(draw, margin, 315, CANVAS_SIZE[0] - margin, 480, summary_lines)
+            _draw_summary_panel(draw, margin, 345, CANVAS_SIZE[0] - margin, 480, summary_lines)
 
     from io import BytesIO
     buf = BytesIO()
@@ -440,6 +449,7 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
                 'change_pct': realtime.change_pct,
                 'volume': realtime.volume,
                 'trading_value': realtime.close_price * realtime.volume,
+                'pred_next_close': latest_pred.pred_next_close if latest_pred else None,
             }
     else:
         subject_label = matched_keyword.keyword if matched_keyword else "AI 요약"
