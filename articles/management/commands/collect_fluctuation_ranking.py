@@ -56,7 +56,11 @@ class Command(BaseCommand):
         for row in rows:
             ticker = row['stck_shrn_iscd']
             name = row['hts_kor_isnm']
-            if ticker in etf_tickers or 'ETN' in name:
+            # ETN은 KIS가 종목코드 자체에 "Q" 접두사를 붙여서 준다(실측: 이 세션에서 걸린
+            # ETN 전부 Q로 시작 — 예: Q530133 삼성 블룸버그 레버리지 WTI원유선물 ETN B).
+            # 이름의 "ETN" 문자열 체크와 겹치지만, 이름 표기가 KRX 관례일 뿐 보장된 필드는
+            # 아니라서 좀 더 구조적인 신호인 코드 접두사도 같이 본다.
+            if ticker in etf_tickers or ticker.startswith('Q') or 'ETN' in name:
                 excluded += 1
                 continue
             kept.append(row)
