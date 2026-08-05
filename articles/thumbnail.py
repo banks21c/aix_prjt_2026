@@ -397,8 +397,9 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
             y += 58
 
         # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로.
-        # AI 예상종가가 있으면 그리드가 3행이 되므로 아래쪽으로 더 늘려 잡는다.
-        grid_bottom = 570 if market_data and market_data.get('pred_next_close') is not None else 480
+        # AI 예상종가가 있으면 그리드가 3행이 되므로 아래쪽으로 더 늘려 잡는다(행당 5px씩
+        # 여유를 더 줘 라벨/값 텍스트가 구분선에 겹치지 않게 함).
+        grid_bottom = 585 if market_data and market_data.get('pred_next_close') is not None else 510
         if market_data:
             _draw_market_grid(draw, margin, 345, CANVAS_SIZE[0] - margin, grid_bottom, market_data)
         elif summary_lines:
