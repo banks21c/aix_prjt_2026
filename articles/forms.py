@@ -162,6 +162,15 @@ class SubscriptionOrderForm(forms.ModelForm):
         label="구독 동기",
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
+    # ModelForm이 CharField(choices=...)를 라디오로 만들 때, blank=False라도 기본값이 없으면
+    # 자동으로 빈 선택지("---------")를 앞에 끼워 넣는다 — 라디오 버튼 목록에 아무 의미 없는
+    # "---------" 항목이 하나 섞여 나오는 원인이었다. 여기서 직접 필드를 선언해(빈 접두 없이)
+    # 그 자동 삽입을 피한다.
+    payment_method = forms.ChoiceField(
+        choices=SubscriptionOrder.PAYMENT_METHOD_CHOICES,
+        label="결제 수단",
+        widget=forms.RadioSelect,
+    )
 
     class Meta:
         model = SubscriptionOrder
@@ -169,7 +178,6 @@ class SubscriptionOrderForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '구독자명을 입력하세요.'}),
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "'-' 없이 번호만 입력해주세요."}),
-            'payment_method': forms.RadioSelect,
         }
 
     def clean_phone(self):

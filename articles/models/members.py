@@ -55,6 +55,7 @@ class SubscriptionOrder(models.Model):
         ('KAKAOPAY', '카카오페이'),
         ('NAVERPAY', '네이버페이'),
         ('CARD', '신용카드'),
+        ('TRANSFER', '계좌이체'),
     ]
     STATUS_CHOICES = [
         ('PENDING', '검토 대기'),
