@@ -442,10 +442,16 @@ def get_index_daily_price(market_type, base_date):
 INDEX_MINUTE_PRICE_TR_ID = "FHPUP02110200"
 
 
-def get_today_index_minute_prices(market_type, interval_seconds=60):
+def get_today_index_minute_prices(market_type, interval_seconds=300):
     """
     국내업종 시간별지수(분) API로 당일 09:00부터 현재까지의 지수 값을 interval_seconds
     간격으로 한 번에 조회합니다. (오래된 시각 순으로 정렬해서 반환)
+
+    interval_seconds 기본값을 300(5분)으로 둔 이유: 이 API는 페이지네이션 없이 응답을
+    최근 ~100건으로만 잘라서 준다(실측 확인, 문서에도 페이지네이션 파라미터가 없음). 60초
+    (1분) 간격이면 100건이 겨우 100분(1.6시간)치라 장 마감 무렵엔 13:5x~15:30처럼 당일의
+    극히 일부만 표시되는 버그가 있었다. 300초 간격이면 100건이 500분(8.3시간)치라 정규장
+    전체(09:00~15:30, 390분)를 한 번의 호출로 다 담을 수 있다.
     """
     index_code = INDEX_CODE_MAP[market_type]
     token = get_access_token()
