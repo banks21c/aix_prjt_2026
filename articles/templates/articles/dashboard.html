@@ -135,7 +135,7 @@
                     {% if top_gainers %}
                         {% for mover in top_gainers %}
                             <div class="mover-item d-flex justify-content-between align-items-center">
-                                <a href="{% url 'stock_detail' mover.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ mover.name }}({{ mover.ticker }})</a>
+                                <a href="{{ mover.detail_url }}" {% if mover.detail_external %}target="_blank" rel="noopener noreferrer"{% endif %} class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ mover.name }}({{ mover.ticker }})</a>
                                 <div class="{% if mover.change_pct > 0 %}up-value{% elif mover.change_pct < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
                                     {{ mover.price|floatformat:0|intcomma }}
                                     {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_amount_abs|floatformat:0|intcomma }}
@@ -151,7 +151,7 @@
                     {% if top_losers %}
                         {% for mover in top_losers %}
                             <div class="mover-item d-flex justify-content-between align-items-center">
-                                <a href="{% url 'stock_detail' mover.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ mover.name }}({{ mover.ticker }})</a>
+                                <a href="{{ mover.detail_url }}" {% if mover.detail_external %}target="_blank" rel="noopener noreferrer"{% endif %} class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ mover.name }}({{ mover.ticker }})</a>
                                 <div class="{% if mover.change_pct > 0 %}up-value{% elif mover.change_pct < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
                                     {{ mover.price|floatformat:0|intcomma }}
                                     {% if mover.change_pct > 0 %}▲{% elif mover.change_pct < 0 %}▼{% else %}-{% endif %}{{ mover.change_amount_abs|floatformat:0|intcomma }}

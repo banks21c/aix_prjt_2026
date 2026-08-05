@@ -340,6 +340,10 @@
             // data-ticker는 개별 종목(RankedMover)에만 있고 지수/환율/금리 항목엔 없다 — CSS의
             // .ticker-item[data-ticker] 커서 표시와 클릭 핸들러가 이 값의 유무로 클릭 가능 여부를 가른다.
             var tickerAttr = it.ticker ? ' data-ticker="' + escapeHtml(it.ticker) + '"' : '';
+            // has_detail=false면 이 티커가 StockItem 마스터에 없는 상품(ETN 등)이라
+            // /stocks/<ticker>/가 404를 낸다 — 팝업의 "종목 상세보기" 링크를 네이버 증권으로
+            // 대신 보내야 하므로 표시해둔다.
+            var hasDetailAttr = (it.ticker && it.has_detail === false) ? ' data-no-detail="1"' : '';
             // change_amount(전일대비 금액, 부호 포함)는 개별 종목(ticker_stocks_view)에만 있다.
             var amountAttr = '';
             if (typeof it.change_amount === 'number') {
@@ -361,7 +365,7 @@
                     ' data-institution="' + it.flows.institution + '"' +
                     ' data-index-change="' + idxChangeSign + idxChangeStr + '"';
             }
-            return '<span class="ticker-item"' + tickerAttr + amountAttr + flowsAttr +
+            return '<span class="ticker-item"' + tickerAttr + hasDetailAttr + amountAttr + flowsAttr +
                 ' data-name="' + escapeHtml(it.name) + '"' +
                 ' data-price="' + priceStr + '"' +
                 ' data-change="' + arrow + ' ' + pctStr + '%"' +
@@ -449,7 +453,18 @@
             popupAmount.className = dir; // 등(상승)=빨간색, 락(하락)=파란색 — 등락률과 동일한 색 규칙
             popupChange.textContent = itemEl.getAttribute('data-change');
             popupChange.className = dir;
-            popupLink.href = '/stocks/' + encodeURIComponent(ticker) + '/';
+            if (itemEl.hasAttribute('data-no-detail')) {
+                // StockItem 마스터에 없는 티커(ETN 등) — 내부 상세 페이지가 404라 네이버 증권으로 대신 보낸다.
+                popupLink.href = 'https://finance.naver.com/item/main.naver?code=' + encodeURIComponent(ticker);
+                popupLink.target = '_blank';
+                popupLink.rel = 'noopener noreferrer';
+                popupLink.textContent = '네이버 증권에서 보기 →';
+            } else {
+                popupLink.href = '/stocks/' + encodeURIComponent(ticker) + '/';
+                popupLink.removeAttribute('target');
+                popupLink.removeAttribute('rel');
+                popupLink.textContent = '종목 상세보기 →';
+            }
 
             // 클릭한 항목 바로 아래에 뜨도록 위치 계산(화면 밖으로 안 나가게 좌우 보정).
             var rect = itemEl.getBoundingClientRect();

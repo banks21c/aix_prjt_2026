@@ -206,13 +206,23 @@ def ticker_data_view(request):
 def ticker_stocks_view(request):
     """_header.html의 두 번째(개별 종목) 티커가 폴링하는 JSON API. 등락률 상위 5/하위 5
     (RankedMover, 5분 주기 collect_fluctuation_ranking)를 내려준다. ticker(종목코드)는 클릭 시
-    뜨는 레이어 팝업의 "종목 상세보기" 링크(stock_detail_view)에 쓰인다."""
+    뜨는 레이어 팝업의 "종목 상세보기" 링크(stock_detail_view)에 쓰인다.
+    KIS 등락률 순위에는 ETN(레버리지/인버스 원자재 등, "Q"로 시작하는 코드) 등 StockItem
+    마스터에 없는 상품도 섞여 나온다 — insert_stock_master가 일반 상장 종목만 채워서다.
+    그런 티커는 stock_detail_view가 get_object_or_404로 404를 내므로, has_detail로 구분해
+    헤더 팝업이 "종목 상세보기" 대신 네이버 증권으로 보내도록 한다(신고: 클릭 시 404,
+    "치명적인 에러"로 인지됨 — 존재하지 않는 종목 상세 링크가 걸려 있었던 게 원인)."""
+    movers = list(RankedMover.objects.order_by('rank_type', 'rank'))
+    existing_tickers = set(
+        StockItem.objects.filter(ticker__in=[m.ticker for m in movers]).values_list('ticker', flat=True)
+    )
     items = [
         {
             'name': mover.name, 'price': float(mover.price), 'change_pct': mover.change_pct,
             'ticker': mover.ticker, 'change_amount': float(mover.change_amount),
+            'has_detail': mover.ticker in existing_tickers,
         }
-        for mover in RankedMover.objects.order_by('rank_type', 'rank')
+        for mover in movers
     ]
     return JsonResponse({'items': items})
 
@@ -312,10 +322,23 @@ def main_dashboard_view(request):
     top_gainers = list(RankedMover.objects.filter(rank_type='GAINER').order_by('rank'))
     top_losers = list(RankedMover.objects.filter(rank_type='LOSER').order_by('rank'))
     featured_stocks = top_gainers + top_losers
+    # KIS 등락률 순위에는 ETN(레버리지/인버스 원자재 등, "Q" 코드) 등 StockItem 마스터에 없는
+    # 상품도 섞여 나온다 — insert_stock_master가 일반 상장 종목만 채워서다. 그런 티커로
+    # {% url 'stock_detail' %}를 걸면 404가 나므로(신고: "치명적인 에러"), 마스터에 없으면
+    # 우리 상세 페이지 대신 네이버 증권으로 보낸다.
+    existing_tickers = set(
+        StockItem.objects.filter(ticker__in=[m.ticker for m in featured_stocks]).values_list('ticker', flat=True)
+    )
     for mover in featured_stocks:
         # change_amount는 이미 부호 포함(KIS prdy_vrss) — 화살표로 부호를 따로 표시하므로
         # 템플릿에서 abs() 없이 바로 쓸 수 있게 여기서 절대값을 미리 계산해둔다.
         mover.change_amount_abs = abs(mover.change_amount)
+        if mover.ticker in existing_tickers:
+            mover.detail_url = reverse('stock_detail', args=[mover.ticker])
+            mover.detail_external = False
+        else:
+            mover.detail_url = f"https://finance.naver.com/item/main.naver?code={mover.ticker}"
+            mover.detail_external = True
 
     latest_pred_date = StockPrediction.objects.aggregate(m=Max('date'))['m']
 
