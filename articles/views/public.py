@@ -382,20 +382,36 @@ def main_dashboard_view(request):
             .select_related('stock').order_by('-down_probability')
         )
         signal_stock_ids = [p.stock_id for p in buy_signals + sell_signals]
-        # 종목마다 최신 종가만 필요한데 stock_id별 최신 1건을 MySQL에서 한 번에 뽑을 방법이
-        # 마땅치 않아(DISTINCT ON은 PostgreSQL 전용), 최근 10일치만 좁혀 가져온 뒤 종목별로
-        # 맨 앞(날짜 내림차순 첫 값)만 취한다 — 대상 종목 수(BUY+SELL)가 적어 충분히 가볍다.
-        latest_price_map = {}
+        # 종목마다 최신 2거래일치 종가(현재가/전일종가)만 필요한데 stock_id별 최신 N건을
+        # MySQL에서 한 번에 뽑을 방법이 마땅치 않아(DISTINCT ON은 PostgreSQL 전용), 최근
+        # 10일치만 좁혀 가져온 뒤 종목별로 날짜 내림차순 앞의 2개만 취한다 — 대상 종목 수
+        # (BUY+SELL)가 적어 충분히 가볍다.
+        price_history = {}
         recent_prices = (
             StockDailyPrice.objects
             .filter(stock_id__in=signal_stock_ids, date__gte=latest_pred_date - timedelta(days=10))
             .order_by('stock_id', '-date')
         )
         for row in recent_prices:
-            latest_price_map.setdefault(row.stock_id, row.close_price)
+            closes = price_history.setdefault(row.stock_id, [])
+            if len(closes) < 2:
+                closes.append(row.close_price)
 
         for p in buy_signals + sell_signals:
-            p.price = latest_price_map.get(p.stock_id)
+            closes = price_history.get(p.stock_id, [])
+            p.price = closes[0] if closes else None
+            if len(closes) >= 2 and closes[1]:
+                p.change = closes[0] - closes[1]
+                p.change_pct = round(float(p.change) / float(closes[1]) * 100, 2)
+                # 화살표(▲/▼)로 부호를 따로 표시하므로, 절대값을 미리 계산해 템플릿에서
+                # 이중 부호(▼-500) 없이 쓸 수 있게 한다 — 대시보드 다른 표들과 같은 관례.
+                p.change_abs = abs(p.change)
+                p.change_pct_abs = abs(p.change_pct)
+            else:
+                p.change = None
+                p.change_pct = None
+                p.change_abs = None
+                p.change_pct_abs = None
             p.up_probability_pct = round(p.up_probability * 100, 1) if p.up_probability is not None else None
             p.down_probability_pct = round(p.down_probability * 100, 1) if p.down_probability is not None else None
             p.holdout_accuracy_pct = round(p.holdout_accuracy * 100, 1) if p.holdout_accuracy is not None else None

@@ -217,7 +217,9 @@
                                 <thead>
                                     <tr class="text-muted" style="font-size: 12px;">
                                         <th>종목</th>
-                                        <th class="text-end">기준가</th>
+                                        <th class="text-end">현재가(기준가)</th>
+                                        <th class="text-end">전일대비</th>
+                                        <th class="text-end">등락률</th>
                                         <th class="text-end">상승확률</th>
                                         <th class="text-end">검증정확도</th>
                                     </tr>
@@ -231,6 +233,12 @@
                                                 </a>
                                             </td>
                                             <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end {% if p.change > 0 %}up-value{% elif p.change < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if p.change is not None %}{% if p.change > 0 %}▲{% elif p.change < 0 %}▼{% else %}-{% endif %}{{ p.change_abs|floatformat:0|intcomma }}{% else %}-{% endif %}
+                                            </td>
+                                            <td class="text-end {% if p.change_pct > 0 %}up-value{% elif p.change_pct < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if p.change_pct is not None %}{% if p.change_pct > 0 %}▲{% elif p.change_pct < 0 %}▼{% else %}-{% endif %}{{ p.change_pct_abs|floatformat:2 }}%{% else %}-{% endif %}
+                                            </td>
                                             <td class="text-end up-value">{{ p.up_probability_pct }}%</td>
                                             <td class="text-end">{{ p.holdout_accuracy_pct }}%</td>
                                         </tr>
@@ -252,7 +260,9 @@
                                 <thead>
                                     <tr class="text-muted" style="font-size: 12px;">
                                         <th>종목</th>
-                                        <th class="text-end">기준가</th>
+                                        <th class="text-end">현재가(기준가)</th>
+                                        <th class="text-end">전일대비</th>
+                                        <th class="text-end">등락률</th>
                                         <th class="text-end">하락확률</th>
                                         <th class="text-end">검증정확도</th>
                                     </tr>
@@ -266,6 +276,12 @@
                                                 </a>
                                             </td>
                                             <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end {% if p.change > 0 %}up-value{% elif p.change < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if p.change is not None %}{% if p.change > 0 %}▲{% elif p.change < 0 %}▼{% else %}-{% endif %}{{ p.change_abs|floatformat:0|intcomma }}{% else %}-{% endif %}
+                                            </td>
+                                            <td class="text-end {% if p.change_pct > 0 %}up-value{% elif p.change_pct < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if p.change_pct is not None %}{% if p.change_pct > 0 %}▲{% elif p.change_pct < 0 %}▼{% else %}-{% endif %}{{ p.change_pct_abs|floatformat:2 }}%{% else %}-{% endif %}
+                                            </td>
                                             <td class="text-end down-value">{{ p.down_probability_pct }}%</td>
                                             <td class="text-end">{{ p.holdout_accuracy_pct }}%</td>
                                         </tr>
