@@ -105,10 +105,12 @@
             </div>
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <form id="stockSearchForm" class="d-flex gap-2 mb-3" autocomplete="off">
+                    <form id="stockSearchForm" class="d-flex gap-2 mb-3 position-relative" autocomplete="off">
                         <input type="text" id="stockSearchInput" class="form-control form-control-sm"
                                placeholder="종목명 또는 종목코드 (예: 삼성전자, 005930)">
                         <button type="submit" class="btn btn-sm btn-primary flex-shrink-0">검색</button>
+                        <div id="stockSearchSuggest" class="list-group position-absolute top-100 start-0 mt-1 shadow-sm"
+                             style="display:none; z-index: 1000; width: calc(100% - 70px); max-height: 240px; overflow-y: auto;"></div>
                     </form>
                     <div id="stockQuoteError" class="text-danger small mb-2" style="display:none;"></div>
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -401,6 +403,57 @@
             e.preventDefault();
             const q = document.getElementById('stockSearchInput').value.trim();
             if (q) loadStockQuote(q);
+            hideStockSuggestions();
+        });
+
+        // 검색어가 여러 종목에 걸리면(예: "sk") 콤보박스처럼 후보 목록을 보여주고 고르게 한다.
+        const searchInput = document.getElementById('stockSearchInput');
+        const suggestBox = document.getElementById('stockSearchSuggest');
+        let suggestTimer = null;
+
+        function hideStockSuggestions() {
+            suggestBox.style.display = 'none';
+            suggestBox.innerHTML = '';
+        }
+
+        function renderStockSuggestions(items) {
+            if (!items.length) { hideStockSuggestions(); return; }
+            suggestBox.innerHTML = items.map(it =>
+                '<button type="button" class="list-group-item list-group-item-action py-1 px-2 stock-suggest-item" ' +
+                'data-ticker="' + it.ticker + '" style="font-size: 13px;">' +
+                escapeHtmlLocal(it.name) + ' <span class="text-muted">(' + it.ticker + ' · ' + it.market_type + ')</span>' +
+                '</button>'
+            ).join('');
+            suggestBox.style.display = 'block';
+            suggestBox.querySelectorAll('.stock-suggest-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    searchInput.value = btn.textContent.trim();
+                    loadStockQuote(btn.dataset.ticker);
+                    hideStockSuggestions();
+                });
+            });
+        }
+
+        function escapeHtmlLocal(s) {
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim();
+            clearTimeout(suggestTimer);
+            if (!q) { hideStockSuggestions(); return; }
+            suggestTimer = setTimeout(() => {
+                fetch("{% url 'stock_search_suggest' %}?q=" + encodeURIComponent(q))
+                    .then(res => res.json())
+                    .then(data => renderStockSuggestions(data.items || []))
+                    .catch(() => hideStockSuggestions());
+            }, 200);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#stockSearchForm')) hideStockSuggestions();
         });
 
         loadStockQuote('005930');  // 기본값: 삼성전자

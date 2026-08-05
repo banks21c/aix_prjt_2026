@@ -2,6 +2,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 import pandas as pd
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
@@ -106,6 +107,23 @@ def _get_stock_quote(stock, days=180):
         })
 
     return ohlc, realtime
+
+
+def stock_search_suggest_view(request):
+    """대시보드 종목 검색창의 자동완성 후보 목록 API. "sk"처럼 여러 종목에 걸리는 검색어를
+    입력하면 종목명/코드 부분일치 상위 10개를 반환해, 프론트엔드가 콤보박스 형태로 골라
+    선택하게 한다(하나로 임의로 확정하지 않음 — stock_quote_view는 검색창에서 직접
+    엔터/검색 버튼을 눌렀을 때만 쓰는 폴백이라 첫 매칭을 고른다)."""
+    q = (request.GET.get('q') or '').strip()
+    if not q:
+        return JsonResponse({'items': []})
+    matches = (
+        StockItem.objects.filter(is_active=True)
+        .filter(Q(ticker__icontains=q) | Q(name__icontains=q))
+        .order_by('name')[:10]
+    )
+    items = [{'ticker': s.ticker, 'name': s.name, 'market_type': s.market_type} for s in matches]
+    return JsonResponse({'items': items})
 
 
 def stock_quote_view(request):

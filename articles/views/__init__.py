@@ -18,7 +18,7 @@ from .news import (
 )
 from .stocks import (
     stock_detail_view, stock_minute_chart_view, stock_period_chart_view, market_index_minute_chart_view,
-    stock_quote_view,
+    stock_quote_view, stock_search_suggest_view,
 )
 from .chatbot import chatbot_ask_view
 from .auth import (
@@ -41,7 +41,7 @@ __all__ = [
     'news_edit_view', 'news_scrape_view', 'news_write_view', 'news_write_thumbnail_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
     'stock_period_chart_view',
-    'market_index_minute_chart_view', 'stock_quote_view', 'chatbot_ask_view',
+    'market_index_minute_chart_view', 'stock_quote_view', 'stock_search_suggest_view', 'chatbot_ask_view',
     'signup_view', 'login_view', 'logout_view', 'delete_account_view',
     'kakao_login_view', 'kakao_callback_view',
     'google_login_view', 'google_callback_view',
