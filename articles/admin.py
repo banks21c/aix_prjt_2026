@@ -408,16 +408,25 @@ class SubscriptionOrderAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     actions = ['approve_orders', 'reject_orders']
 
+    @staticmethod
+    def _activate_premium(order):
+        """승인 처리(액션이든 상세 화면에서 상태를 직접 바꿔 저장하든) 시 프리미엄 구독을
+        켜는 공통 로직. 액션 메서드에만 있으면, 상세 화면에서 처리 상태 드롭다운을 "승인
+        완료"로 바꾸고 Save만 눌러도 상태만 바뀌고 실제 구독은 활성화 안 되는 불일치가
+        생긴다 — 그래서 save_model에서도 똑같이 타도록 뽑아뒀다."""
+        subscription, _ = UserSubscription.objects.get_or_create(user=order.user)
+        now = timezone.now()
+        subscription.is_active_premium = True
+        subscription.subscribed_at = subscription.subscribed_at or now
+        subscription.expired_at = now + timezone.timedelta(days=30)
+        subscription.save(update_fields=['is_active_premium', 'subscribed_at', 'expired_at'])
+        return now
+
     @admin.action(description="선택한 신청을 승인하고 프리미엄 구독을 활성화")
     def approve_orders(self, request, queryset):
         approved = 0
         for order in queryset.filter(status='PENDING'):
-            subscription, _ = UserSubscription.objects.get_or_create(user=order.user)
-            now = timezone.now()
-            subscription.is_active_premium = True
-            subscription.subscribed_at = subscription.subscribed_at or now
-            subscription.expired_at = now + timezone.timedelta(days=30)
-            subscription.save(update_fields=['is_active_premium', 'subscribed_at', 'expired_at'])
+            now = self._activate_premium(order)
             order.status = 'APPROVED'
             order.reviewed_at = now
             order.save(update_fields=['status', 'reviewed_at'])
@@ -428,6 +437,15 @@ class SubscriptionOrderAdmin(admin.ModelAdmin):
     def reject_orders(self, request, queryset):
         rejected = queryset.filter(status='PENDING').update(status='REJECTED', reviewed_at=timezone.now())
         self.message_user(request, f"{rejected}건을 반려했습니다.")
+
+    def save_model(self, request, obj, form, change):
+        # 상세(변경) 화면에서 처리 상태를 직접 "승인 완료"로 바꿔 저장한 경우에도, 목록의
+        # 승인 액션과 동일하게 프리미엄을 활성화한다.
+        if change and 'status' in form.changed_data and obj.status == 'APPROVED':
+            now = self._activate_premium(obj)
+            if not obj.reviewed_at:
+                obj.reviewed_at = now
+        super().save_model(request, obj, form, change)
 
 
 # 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)
