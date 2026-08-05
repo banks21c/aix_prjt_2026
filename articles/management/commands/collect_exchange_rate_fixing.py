@@ -1,3 +1,4 @@
+import time
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
@@ -8,6 +9,12 @@ from articles.models import ExchangeRateSnapshot, GlobalMarketQuote
 # 고시가 없는 날(주말/공휴일)을 만나면 이만큼 과거로 거슬러 올라가며 가장 최근 영업일을 찾는다.
 MAX_LOOKBACK_DAYS = 7
 
+# 한국수출입은행 API가 SSL/연결 오류로 순간적으로 실패하는 경우(실측: 2026-08-05 00:00~02:30
+# 사이 반복 실패 후 자연 복구됨)를 대비해, 날짜 하나당 이만큼 짧게 재시도한 뒤에도 안 되면
+# MAX_LOOKBACK_DAYS의 다음 날짜로 넘어간다 — 무한 재시도 방지를 위해 횟수를 제한한다.
+FETCH_RETRY_ATTEMPTS = 3
+FETCH_RETRY_BACKOFF_SECONDS = 3
+
 
 class Command(BaseCommand):
     help = (
@@ -16,15 +23,34 @@ class Command(BaseCommand):
         'GlobalMarketQuote(category=FX_FIXING)로 올립니다(헤더 지수 티커용).'
     )
 
+    def _fetch_with_retry(self, date_str):
+        """SSL/연결 오류 등 순간적인 실패는 짧게 재시도하고, FETCH_RETRY_ATTEMPTS번 다 실패하면
+        마지막 예외를 그대로 올려서 호출부가 다음 날짜로 넘어가게 한다."""
+        last_error = None
+        for attempt in range(1, FETCH_RETRY_ATTEMPTS + 1):
+            try:
+                return get_exchange_rates(date_str)
+            except Exception as e:
+                last_error = e
+                if attempt < FETCH_RETRY_ATTEMPTS:
+                    self.stdout.write(self.style.WARNING(
+                        f"    ↳ {date_str} 조회 실패({attempt}/{FETCH_RETRY_ATTEMPTS}), "
+                        f"{FETCH_RETRY_BACKOFF_SECONDS}초 후 재시도: {e}"
+                    ))
+                    time.sleep(FETCH_RETRY_BACKOFF_SECONDS)
+        raise last_error
+
     def handle(self, *args, **options):
         today = date.today()
         rows, quote_date = None, None
         for offset in range(MAX_LOOKBACK_DAYS):
             check_date = today - timedelta(days=offset)
             try:
-                fetched = get_exchange_rates(check_date.strftime('%Y%m%d'))
+                fetched = self._fetch_with_retry(check_date.strftime('%Y%m%d'))
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"    ↳ {check_date} 조회 실패: {e}"))
+                self.stdout.write(self.style.ERROR(
+                    f"    ↳ {check_date} 조회 실패(재시도 {FETCH_RETRY_ATTEMPTS}회 모두 실패): {e}"
+                ))
                 continue
             if fetched:
                 rows, quote_date = fetched, check_date
