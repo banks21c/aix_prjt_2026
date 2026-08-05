@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -16,7 +17,7 @@ from django.views.decorators.http import require_POST
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
-    StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
+    StockDailyPrice, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
 )
 from ..utils import get_client_ip
 
@@ -366,6 +367,43 @@ def main_dashboard_view(request):
         signal_map = {row['trading_signal']: row['count'] for row in signal_counts}
         signal_values = [signal_map.get('BUY', 0), signal_map.get('SELL', 0), signal_map.get('HOLD', 0)]
 
+    # ---- 4행: 매수/매도 신호 종목 표 (홀드아웃이 종목 자체 기준선을 넘겨 실제로 신호를 낸
+    # 종목만 — run_stock_prediction이 기준선 미달 종목은 이미 HOLD로 걸러둔 상태) ----
+    buy_signals, sell_signals = [], []
+    if latest_pred_date:
+        buy_signals = list(
+            StockPrediction.objects
+            .filter(date=latest_pred_date, stock__is_active=True, trading_signal='BUY')
+            .select_related('stock').order_by('-up_probability')
+        )
+        sell_signals = list(
+            StockPrediction.objects
+            .filter(date=latest_pred_date, stock__is_active=True, trading_signal='SELL')
+            .select_related('stock').order_by('-down_probability')
+        )
+        signal_stock_ids = [p.stock_id for p in buy_signals + sell_signals]
+        # 종목마다 최신 종가만 필요한데 stock_id별 최신 1건을 MySQL에서 한 번에 뽑을 방법이
+        # 마땅치 않아(DISTINCT ON은 PostgreSQL 전용), 최근 10일치만 좁혀 가져온 뒤 종목별로
+        # 맨 앞(날짜 내림차순 첫 값)만 취한다 — 대상 종목 수(BUY+SELL)가 적어 충분히 가볍다.
+        latest_price_map = {}
+        recent_prices = (
+            StockDailyPrice.objects
+            .filter(stock_id__in=signal_stock_ids, date__gte=latest_pred_date - timedelta(days=10))
+            .order_by('stock_id', '-date')
+        )
+        for row in recent_prices:
+            latest_price_map.setdefault(row.stock_id, row.close_price)
+
+        for p in buy_signals + sell_signals:
+            p.price = latest_price_map.get(p.stock_id)
+            p.up_probability_pct = round(p.up_probability * 100, 1) if p.up_probability is not None else None
+            p.down_probability_pct = round(p.down_probability * 100, 1) if p.down_probability is not None else None
+            p.holdout_accuracy_pct = round(p.holdout_accuracy * 100, 1) if p.holdout_accuracy is not None else None
+            # ETN 등 마스터 밖 코드는 여기 안 걸리지만(예측 자체가 StockItem 있는 종목만 도니까),
+            # 혹시 모를 "Q" 접두사 코드에 대비해 특징종목과 동일한 방어 로직을 둔다.
+            naver_code = p.stock.ticker[1:] if p.stock.ticker.startswith('Q') else p.stock.ticker
+            p.naver_url = f"https://finance.naver.com/item/main.naver?code={naver_code}"
+
     context = {
         'site_title': 'NextFinUp - AI 차세대 자산 분석 포털',
         'kospi_index': kospi_index,
@@ -379,5 +417,7 @@ def main_dashboard_view(request):
         'mover_values': mover_values,
         'signal_labels': ['매수', '매도', '관망'],
         'signal_values': signal_values,
+        'buy_signals': buy_signals,
+        'sell_signals': sell_signals,
     }
     return render(request, 'articles/dashboard.html', context)

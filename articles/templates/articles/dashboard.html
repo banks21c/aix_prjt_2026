@@ -205,6 +205,80 @@
                 </div>
             </div>
         </div>
+
+        <!-- 4행: 매수/매도 신호 종목 (홀드아웃 검증에서 종목 자체 기준선을 실제로 넘긴 종목만) -->
+        <div class="row row-cols-1 row-cols-md-2 g-4 mt-1">
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">🟢 매수 신호 종목</h5>
+                    {% if buy_signals %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr class="text-muted" style="font-size: 12px;">
+                                        <th>종목</th>
+                                        <th class="text-end">기준가</th>
+                                        <th class="text-end">상승확률</th>
+                                        <th class="text-end">검증정확도</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in buy_signals %}
+                                        <tr style="font-size: 13px;">
+                                            <td>
+                                                <a href="{{ p.naver_url }}" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none text-dark">
+                                                    {{ p.stock.name }}({{ p.stock.ticker }})
+                                                </a>
+                                            </td>
+                                            <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end up-value">{{ p.up_probability_pct }}%</td>
+                                            <td class="text-end">{{ p.holdout_accuracy_pct }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">현재 매수 신호 종목이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">🔵 매도 신호 종목</h5>
+                    {% if sell_signals %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr class="text-muted" style="font-size: 12px;">
+                                        <th>종목</th>
+                                        <th class="text-end">기준가</th>
+                                        <th class="text-end">하락확률</th>
+                                        <th class="text-end">검증정확도</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in sell_signals %}
+                                        <tr style="font-size: 13px;">
+                                            <td>
+                                                <a href="{{ p.naver_url }}" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none text-dark">
+                                                    {{ p.stock.name }}({{ p.stock.ticker }})
+                                                </a>
+                                            </td>
+                                            <td class="text-end">{% if p.price %}{{ p.price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                            <td class="text-end down-value">{{ p.down_probability_pct }}%</td>
+                                            <td class="text-end">{{ p.holdout_accuracy_pct }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">현재 매도 신호 종목이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 
     {{ kospi_ohlc|json_script:"kospi-ohlc" }}
