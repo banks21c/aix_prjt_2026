@@ -131,6 +131,22 @@ def stock_detail_view(request, ticker):
         except Exception:
             logger.exception("KIS 온디맨드 현재가 조회 실패: %s", stock.ticker)
 
+    # collect_stock_data(--all)는 KST 02:00(장 시작 전)에 한 번만 돌아 그 시점까지의 완결된
+    # 거래일만 StockDailyPrice에 쌓는다 — 그래서 정규장 진행 중이거나 마감했지만 아직 다음날
+    # 02:00이 안 지난 "오늘" 거래일은 일봉 차트에 없고, 차트 마지막 캔들이 하루 전 종가에
+    # 멈춰 있는 것처럼 보인다(실측 사례: 어제 종가 64,800원이 표시되는데 실시간가는 이미
+    # 53,600원으로 크게 움직인 상태). realtime(캐시 또는 온디맨드)이 있으면 그 값으로 "오늘"
+    # 캔들을 즉석에서 만들어 붙여, 차트 마지막 점이 항상 최신 가격을 반영하게 한다.
+    today_kst = datetime.now(KST).date()
+    if realtime and (not ohlc or ohlc[-1]['time'] != today_kst.strftime('%Y-%m-%d')):
+        ohlc.append({
+            'time': today_kst.strftime('%Y-%m-%d'),
+            'open': float(realtime['open']),
+            'high': float(realtime['high']),
+            'low': float(realtime['low']),
+            'close': float(realtime['close']),
+        })
+
     context = {
         'site_title': f'NextFinUp - {stock.name}',
         'stock': stock,
