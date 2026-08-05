@@ -5,6 +5,7 @@
 from .market import (
     StockItem, KisAccessToken, RankedMover, StockRealtimePrice, MarketHoliday, MarketIndex,
     StockDailyPrice, StockPrediction, GlobalMarketQuote, ExchangeRateSnapshot, StockInvestorFlow,
+    StockDisclosure,
 )
 from .members import (
     UserSubscription, SubscriptionOrder, MemberGrade, UserPreference, BlogPostingAccount, LoginLog,
@@ -18,7 +19,7 @@ from .content import (
 __all__ = [
     'StockItem', 'KisAccessToken', 'RankedMover', 'StockRealtimePrice', 'MarketHoliday',
     'MarketIndex', 'StockDailyPrice', 'StockPrediction', 'GlobalMarketQuote', 'ExchangeRateSnapshot',
-    'StockInvestorFlow',
+    'StockInvestorFlow', 'StockDisclosure',
     'UserSubscription', 'SubscriptionOrder', 'MemberGrade', 'UserPreference', 'BlogPostingAccount',
     'LoginLog', 'MenuAccessLog', 'ChatMessage', 'SocialAccount',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',

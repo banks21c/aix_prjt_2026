@@ -282,6 +282,53 @@ class StockInvestorFlow(models.Model):
         return f"{self.stock.name} {self.date} 외국인 {self.foreign_net_qty:+,}주"
 
 
+class StockDisclosure(models.Model):
+    """collect_dart_disclosures가 DART(전자공시시스템) Open API list.json으로 채우는 종목별
+    공시 원본 메타데이터. corp_code 없이 날짜+공시유형만으로 시장 전체를 조회하면 응답에
+    stock_code가 바로 포함돼 있어, 종목별로 순회할 필요 없이 하루 단위로 한 번에 수집한다
+    (kis_client의 종목별 순회 방식과 다름 — investor_flow보다 훨씬 가벼운 호출 구조).
+    rcept_no(접수번호)가 DART 쪽 공시 고유 식별자라 이걸로 dedup한다. AI 요약/호재·악재
+    분류는 이 모델에 넣지 않고(원자재 원칙: 수집과 AI 분석 분리 — articles_ai.py 참고),
+    필요해지면 이 모델을 참조하는 별도 단계에서 처리한다."""
+    PBLNTF_TYPE_CHOICES = [
+        ('A', '정기공시'), ('B', '주요사항보고'), ('C', '발행공시'), ('D', '지분공시'),
+        ('E', '기타공시'), ('F', '외부감사관련'), ('G', '펀드공시'), ('H', '자산유동화'),
+        ('I', '거래소공시'), ('J', '공정위공시'),
+    ]
+
+    stock = models.ForeignKey(
+        StockItem, on_delete=models.CASCADE, null=True, blank=True,
+        related_name="disclosures", verbose_name="종목",
+        help_text="종목코드가 StockItem과 매칭되는 경우만 연결 (미상장/코넥스 등은 NULL)",
+    )
+    corp_name = models.CharField(max_length=100, verbose_name="회사명")
+    stock_code = models.CharField(max_length=6, blank=True, verbose_name="종목코드")
+    corp_cls = models.CharField(max_length=1, blank=True, verbose_name="법인구분(Y/K/N/E)")
+    report_nm = models.CharField(max_length=500, verbose_name="보고서명")
+    rcept_no = models.CharField(max_length=14, unique=True, verbose_name="접수번호")
+    rcept_dt = models.DateField(verbose_name="접수일자")
+    pblntf_ty = models.CharField(max_length=1, choices=PBLNTF_TYPE_CHOICES, verbose_name="공시유형")
+    pblntf_detail_ty = models.CharField(max_length=10, blank=True, verbose_name="공시상세유형")
+    flr_nm = models.CharField(max_length=100, blank=True, verbose_name="제출인명")
+    rm = models.CharField(max_length=20, blank=True, verbose_name="비고")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-rcept_dt', '-rcept_no']
+        indexes = [
+            models.Index(fields=['-rcept_dt', 'stock'], name='disclosure_date_stock_idx'),
+        ]
+        verbose_name = "종목 공시 (StockDisclosure)"
+        verbose_name_plural = "종목 공시 (StockDisclosure)"
+
+    def __str__(self):
+        return f"{self.rcept_dt} {self.corp_name} {self.report_nm}"
+
+    @property
+    def viewer_url(self):
+        return f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={self.rcept_no}"
+
+
 # ==========================================
 # 2-2. AI 주가 예측 결과 테이블
 # ==========================================
