@@ -17,6 +17,12 @@
         .up-value { color: #c62828; font-weight: bold; }
         .down-value { color: #1565c0; font-weight: bold; }
         .flat-value { color: #616161; font-weight: bold; }
+        /* Bootstrap 5의 .table > :not(caption) > * > * 셀렉터가 td 글자색을 정하는데, 단일 클래스
+           선택자(.up-value 등)보다 명시도가 높아 표 안에서는 위 색상 규칙이 그냥 씹힌다(신고:
+           "색깔이 다 까만색이야") — td.up-value 형태로 명시도를 올려서 표 안에서도 이기게 한다. */
+        td.up-value { color: #c62828; }
+        td.down-value { color: #1565c0; }
+        td.flat-value { color: #616161; }
         .signal-BUY { background-color: #ffebee; color: #c62828; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
         .signal-SELL { background-color: #e3f2fd; color: #1565c0; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
         .signal-HOLD { background-color: #f5f5f5; color: #616161; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
