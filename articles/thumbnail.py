@@ -365,34 +365,35 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
 
         _draw_index_summary_boxes(draw, margin, divider_y + 30, CANVAS_SIZE[0] - margin, 612, index_summary)
     else:
-        # 종목명(+티커) 또는 키워드
-        subject_font = _font(FONT_BOLD, 56)
+        # 종목명(+티커) — 날짜와 같은 줄 높이로 끌어올려, 위쪽 여백을 줄이고 시세 그리드가
+        # 이미지 중간까지 올라올 공간을 확보한다.
+        subject_font = _font(FONT_BOLD, 44)
         subject_text = f"{subject_label} ({ticker})" if ticker else subject_label
-        draw.text((margin, 118), subject_text, font=subject_font, fill=accent)
+        draw.text((margin, 46), subject_text, font=subject_font, fill=accent, anchor="lm")
         subject_w = draw.textlength(subject_text, font=subject_font)
 
         # 매수/매도/관망 시그널 뱃지 (종목 기사에만 존재)
         if signal_color_key in SIGNAL_LABELS:
-            _draw_signal_badge(draw, margin + subject_w + 24, 136, signal_color_key, accent)
+            _draw_signal_badge(draw, margin + subject_w + 24, 25, signal_color_key, accent)
 
         # 종목명 아래 구분선
-        draw.line([(margin, 203), (CANVAS_SIZE[0] - margin, 203)], fill="#2a3b5c", width=2)
+        draw.line([(margin, 100), (CANVAS_SIZE[0] - margin, 100)], fill="#2a3b5c", width=2)
 
-        # 기사 제목 (최대 3줄, 넘치면 말줄임)
+        # 기사 제목 (최대 3줄, 넘치면 말줄임) — 종목명을 따라 위로 올린 만큼 같이 올린다.
         title_font = _font(FONT_REGULAR, 42)
         max_text_width = CANVAS_SIZE[0] - margin * 2
         lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=3)
-        y = 235
+        y = 135
         for line in lines:
             draw.text((margin, y), line, font=title_font, fill=TITLE_COLOR)
             y += 58
 
-        # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로
-        # 하단 빈 공간을 채운다.
+        # 시세 그리드(종목 기사) > 없으면 AI 3줄 요약 패널(경제 뉴스가 아닌 일반 기사) 순으로,
+        # 이미지 절반(315px) 위치에서 시작하도록 끌어올려 그린다.
         if market_data:
-            _draw_market_grid(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, market_data)
+            _draw_market_grid(draw, margin, 315, CANVAS_SIZE[0] - margin, 480, market_data)
         elif summary_lines:
-            _draw_summary_panel(draw, margin, 435, CANVAS_SIZE[0] - margin, 600, summary_lines)
+            _draw_summary_panel(draw, margin, 315, CANVAS_SIZE[0] - margin, 480, summary_lines)
 
     from io import BytesIO
     buf = BytesIO()
