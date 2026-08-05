@@ -23,7 +23,13 @@ FEATURE_COLUMNS = [
 # 종목·같은 날짜에 나란히 학습해 StockPrediction의 *_flow 필드로 비교할 수 있게 하기 위함이다
 # (수급 데이터가 1년치뿐이라 전체 히스토리 대비 최근 구간에서만 계산 가능 — add_investor_flow_features
 # 참고).
-FLOW_FEATURE_COLUMNS = ['foreign_net_ratio', 'institution_net_ratio', 'pension_net_ratio']
+# 하루치 순매수비율(_net_ratio)은 하루 노이즈에 취약해 1차 비교(홀드아웃 정확도 47.51%→46.83%)에서
+# 신호로 못 잡혔다. 기관/외국인 수급은 하루가 아니라 며칠에 걸쳐 매집·매도가 이어지는 경향이 있어
+# _5d(5거래일 누적) 컬럼을 추가로 넣어, 지속적인 순매수/순매도 추세를 모델이 볼 수 있게 한다.
+FLOW_FEATURE_COLUMNS = [
+    'foreign_net_ratio', 'institution_net_ratio', 'pension_net_ratio',
+    'foreign_net_ratio_5d', 'institution_net_ratio_5d', 'pension_net_ratio_5d',
+]
 
 MIN_HISTORY_DAYS = 60  # 60거래일(ma60 등 계산에 필요한 최소 길이) 미만 종목은 제외
 
@@ -183,12 +189,26 @@ def add_investor_flow_features(df: pd.DataFrame, stock_id: int) -> pd.DataFrame:
 
     df['date'] = pd.to_datetime(df['date'])
     flow_df['date'] = pd.to_datetime(flow_df['date'])
-    merged = df.merge(flow_df, on='date', how='left')
+    merged = df.merge(flow_df, on='date', how='left').sort_values('date').reset_index(drop=True)
 
     safe_volume = merged['volume'].replace(0, np.nan)
     merged['foreign_net_ratio'] = merged['foreign_net_qty'] / safe_volume
     merged['institution_net_ratio'] = merged['institution_net_qty'] / safe_volume
     merged['pension_net_ratio'] = merged['pension_net_qty'] / safe_volume
+
+    # 5거래일 누적 순매수수량 / 5거래일 누적 거래량 — 하루 단위 비율보다 지속적인 수급 추세에
+    # 덜 민감하게 흔들린다. min_periods=3으로 둬 수급 데이터 시작 직후 며칠도 바로 값이 생기게
+    # 한다(그 이전 구간은 net_qty 자체가 NaN이라 rolling sum도 자연히 NaN이 된다).
+    safe_volume_5d = merged['volume'].rolling(5, min_periods=3).sum().replace(0, np.nan)
+    for base, qty_col in (
+        ('foreign', 'foreign_net_qty'),
+        ('institution', 'institution_net_qty'),
+        ('pension', 'pension_net_qty'),
+    ):
+        merged[f'{base}_net_ratio_5d'] = (
+            merged[qty_col].rolling(5, min_periods=3).sum() / safe_volume_5d
+        )
+
     return merged.drop(columns=['foreign_net_qty', 'institution_net_qty', 'pension_net_qty'])
 
 
