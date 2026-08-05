@@ -16,7 +16,7 @@ from ..forms import NewsArticleEditForm, NewsScrapeForm, NewsWriteForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
 from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
-    fetch_article_metadata, limit_label, scraping_stats,
+    fetch_article_metadata, limit_label, resolve_thumbnail_stock, scraping_stats,
 )
 
 
@@ -345,7 +345,7 @@ def news_ai_summarize_view(request, pk):
         article.ai_summarized_by = request.user
         article.ai_summarized_at = timezone.now()
         article.thumbnail = thumbnail.build_thumbnail_file(
-            article.title, article.stock, article.matched_keyword, ai_summary=draft['ai_summary'],
+            article.title, resolve_thumbnail_stock(article), article.matched_keyword, ai_summary=draft['ai_summary'],
         )
         article.save(update_fields=[
             'ai_summary', 'ai_analysis', 'blog_content',

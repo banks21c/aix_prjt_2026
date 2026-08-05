@@ -73,6 +73,44 @@ def _find_mentioned_stocks(text, max_count=20):
     return [stock for _, stock in found[:max_count]]
 
 
+def resolve_thumbnail_stock(article):
+    """썸네일 가격 카드에 실제로 보여줄 종목을 정한다. article.stock은 주로
+    NewsKeyword.linked_stock에서 옴(예: "AI" 키워드 → 이스트소프트) — 이건 회원이 그 키워드로
+    들어온 기사를 관심종목 뉴스로 분류해두려고 설정한 값이지, 매칭된 기사 하나하나가 실제로 그
+    종목을 다룬다는 뜻은 아니다(실측 사례: "AI" 키워드로 잡힌 카카오페이 실적 기사가
+    article.stock=이스트소프트로 분류돼, 썸네일에 카카오페이가 아니라 이스트소프트 시세가
+    나감 — 이스트소프트는 원문에 언급조차 없었음). article.stock 자체(분류 목적)는 그대로
+    두고, 썸네일만 원문에 실제로 등장하는 종목이 있으면 그걸 우선한다.
+
+    _find_mentioned_stocks는 "첫 등장 위치" 순으로 정렬해 표(build_mentioned_stocks_table)의
+    나열 순서로는 적합하지만, 썸네일처럼 "이 기사의 진짜 주인공 하나"를 골라야 할 때는 부정확할
+    수 있다(실측 사례: 카카오페이 실적 기사에서 "카카오"가 스테이블코인 문단에 지나가듯 한 번
+    언급되는데 그게 "카카오페이"의 첫 유효 언급보다 문자열 위치상 살짝 더 빨라, 위치 기준으로는
+    "카카오"가 이겨버림 — 실제로는 "카카오페이"가 10번 가까이 언급된 진짜 주제인데도). 그래서
+    여기서는 후보들 중 실제 언급 빈도가 가장 높은 종목을 고른다."""
+    if article.original_content:
+        text = article.original_content
+        mentioned = _find_mentioned_stocks(text, max_count=20)
+        if mentioned:
+            import re
+            # 긴 이름부터 먼저 훑어 이미 매칭된 구간은 다시 세지 않는다 — "카카오페이는"처럼
+            # 조사가 바로 붙는 게 정상적인 한국어라("카카오페이" 뒤 글자가 한글이라고 거절하면
+            # 사실상 모든 언급이 걸러진다), 자리 겹침만으로 "카카오페이" 안의 "카카오"를
+            # 걸러내고 그 외엔 전부 실제 등장으로 센다.
+            ordered = sorted(mentioned, key=lambda s: len(s.name), reverse=True)
+            counts = {stock.id: 0 for stock in mentioned}
+            covered = bytearray(len(text))
+            for stock in ordered:
+                for m in re.finditer(re.escape(stock.name), text):
+                    if any(covered[m.start():m.end()]):
+                        continue
+                    counts[stock.id] += 1
+                    for i in range(m.start(), m.end()):
+                        covered[i] = 1
+            return max(mentioned, key=lambda stock: counts[stock.id])
+    return article.stock
+
+
 def build_mentioned_stocks_table(text):
     """AI 요약 시점에 원문에서 언급된 종목들의 시세를 표로 정리한 HTML을 만든다
     (종목명(코드)/현재가/전일대비/등락률/거래량/거래대금). 장 마감 시황처럼 여러 종목이 한
