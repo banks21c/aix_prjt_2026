@@ -9,6 +9,35 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from .utils import format_signed_pct, format_signed_won, format_trading_value, format_volume, format_won
 
 CANVAS_SIZE = (1200, 630)  # 소셜 공유용 표준 OG 이미지 비율
+
+UPLOAD_MAX_DIMENSIONS = CANVAS_SIZE  # 회원이 직접 올리는 썸네일도 이 크기 안으로 눌러 담는다
+UPLOAD_JPEG_QUALITY = 85
+
+
+def compress_uploaded_image(uploaded_file, max_dimensions=UPLOAD_MAX_DIMENSIONS, quality=UPLOAD_JPEG_QUALITY):
+    """회원이 /post/write/에서 직접 올린 썸네일 원본(스마트폰 사진 등, 수 MB~십수 MB)을
+    표준 썸네일 크기 안으로 리사이즈하고 JPEG로 재압축해 반환한다 — nginx client_max_body_size는
+    업로드 자체를 막는 것뿐이라, 큰 원본이 그대로 media/에 저장되면 이후 그 이미지가 노출되는
+    모든 페이지(대시보드, 뉴스 목록 등)의 로딩이 느려진다. 원본보다 작을 때는 확대하지 않는다
+    (Image.thumbnail이 원본 비율을 유지하며 축소만 수행).
+    유효한 이미지가 아니면 PIL.UnidentifiedImageError를 그대로 던진다 — 호출부가 폼 에러로
+    처리한다."""
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import InMemoryUploadedFile
+
+    img = Image.open(uploaded_file)
+    img = img.convert('RGB')  # PNG 투명배경 등도 JPEG로 통일해 저장 가능하게
+    img.thumbnail(max_dimensions, Image.LANCZOS)
+
+    buf = BytesIO()
+    img.save(buf, format='JPEG', quality=quality, optimize=True)
+    size = buf.tell()
+    buf.seek(0)
+
+    return InMemoryUploadedFile(
+        buf, None, 'thumbnail.jpg', 'image/jpeg', size, None,
+    )
 BG_COLOR_TOP = "#1c2b4d"
 BG_COLOR_BOTTOM = "#0e1526"
 TITLE_COLOR = "#f4f6f9"
@@ -422,17 +451,19 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
     매칭 키워드(또는 'AI 요약')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
     category_label을 넘기면 상단 태그를 기본값(종목 분석 리포트/AI 요약 리포트) 대신 그 값으로 쓴다
     (예: 특징주 브리핑 커맨드는 "특징주 브리핑"을 넘김).
-    is_economic_news를 지정하지 않으면 stock 또는 matched_keyword가 있을 때만 경제/시황 기사로
-    보고 코스피/코스닥 지수 요약을 그린다 — 종목·키워드 매칭 없이 회원이 임의 URL을 스크랩한
-    기사(예: 사회 이슈 기사)까지 지수 카드가 붙는 걸 막기 위함. 특징주 브리핑처럼 종목/키워드가
-    없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다. 경제 뉴스가 아니라 지수 요약을 그리지
-    않는 경우, 그 자리엔 대신 ai_summary(3줄 요약)를 짧게 줄여 채운다."""
+    is_economic_news를 지정하지 않으면 stock이 있을 때만 경제/시황 기사로 보고 코스피/코스닥
+    지수 요약을 그린다 — matched_keyword만으로는 판단하지 않는다. matched_keyword는
+    NewsKeyword로 회원이 관심사 분류용으로 걸어둔 값일 뿐 그 기사가 실제로 국내 시황을 다룬다는
+    뜻이 아니라서(예: "AI" 키워드에 걸린 스페이스X 실적 기사), 그 경우까지 지수 카드를 붙이면
+    본문과 무관한 국내 지수가 나가버린다. stock도 없으면(=제목에 국내 종목명이 없으면) 대신
+    gpt-image-2로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
+    브리핑처럼 종목이 없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다."""
     from django.core.files.base import ContentFile
 
     from .models import MarketIndex, StockPrediction, StockRealtimePrice
 
     if is_economic_news is None:
-        is_economic_news = bool(stock or matched_keyword)
+        is_economic_news = bool(stock)
 
     index_summary = None
     summary_lines = None

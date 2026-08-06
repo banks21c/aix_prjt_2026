@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django.contrib import messages
@@ -17,6 +18,8 @@ from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
     fetch_article_metadata, html_to_plain_text, limit_label, resolve_thumbnail_stock, scraping_stats,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def news_board_view(request):
@@ -433,6 +436,20 @@ def _create_manual_article(request, title, content, **extra_fields):
     )
 
 
+def _get_compressed_upload_thumbnail(request):
+    """news_write_view의 두 발행 경로(AI 요약/바로 포스팅)가 공유하는 업로드 썸네일 처리.
+    (파일, 에러메시지) 튜플을 돌려준다 — 업로드가 없으면 (None, None), 있는데 이미지가 아니면
+    (None, 에러메시지)."""
+    uploaded = request.FILES.get('thumbnail_upload')
+    if not uploaded:
+        return None, None
+    try:
+        return thumbnail.compress_uploaded_image(uploaded), None
+    except Exception:
+        logger.exception("업로드 썸네일 압축 실패")
+        return None, "썸네일 이미지 파일을 처리할 수 없습니다. 다른 이미지로 다시 시도해주세요."
+
+
 
 
 @login_required
@@ -470,20 +487,24 @@ def news_write_view(request):
             if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
                 messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
             else:
-                # 회원이 직접 올린 이미지가 있으면 그걸 쓰고, 없으면 기존처럼 자동 생성한다.
-                uploaded_thumb = request.FILES.get('thumbnail_upload')
-                article = _create_manual_article(
-                    request, title, content,
-                    ai_summary=draft['ai_summary'],
-                    ai_analysis=draft['ai_analysis'],
-                    blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
-                    thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
-                    ai_generated=True,
-                    ai_summarized_by=request.user,
-                    ai_summarized_at=timezone.now(),
-                )
-                messages.success(request, "AI 요약이 완료됐습니다.")
-                return redirect('news_detail', pk=article.pk)
+                # 회원이 직접 올린 이미지가 있으면 표준 썸네일 크기로 압축해서 쓰고, 없으면
+                # 기존처럼 자동 생성한다.
+                uploaded_thumb, upload_error = _get_compressed_upload_thumbnail(request)
+                if upload_error:
+                    messages.error(request, upload_error)
+                else:
+                    article = _create_manual_article(
+                        request, title, content,
+                        ai_summary=draft['ai_summary'],
+                        ai_analysis=draft['ai_analysis'],
+                        blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
+                        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
+                        ai_generated=True,
+                        ai_summarized_by=request.user,
+                        ai_summarized_at=timezone.now(),
+                    )
+                    messages.success(request, "AI 요약이 완료됐습니다.")
+                    return redirect('news_detail', pk=article.pk)
 
     elif request.method == 'POST' and form.is_valid() and action == 'post_now':
         # AI를 호출하지 않고 직접 쓴 본문을 그대로 발행하는 경로라 posting_stats의 한도 대상이
@@ -500,25 +521,28 @@ def news_write_view(request):
             # 따로 변환한다 — 이 필드는 news_detail.html이 이스케이프해서 그대로 보여준다.
             content_html = form.cleaned_data['content']
             content = html_to_plain_text(content_html)
-            uploaded_thumb = request.FILES.get('thumbnail_upload')
-            article = _create_manual_article(
-                request, title, content,
-                blog_content=content_html,
-                thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
-                ai_generated=True,
-            )
+            uploaded_thumb, upload_error = _get_compressed_upload_thumbnail(request)
+            if upload_error:
+                messages.error(request, upload_error)
+            else:
+                article = _create_manual_article(
+                    request, title, content,
+                    blog_content=content_html,
+                    thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
+                    ai_generated=True,
+                )
 
-            success_count = 0
-            for account in accounts:
-                ok, result = blog_posting.publish_article(account, article)
-                if ok:
-                    success_count += 1
-                else:
-                    messages.error(request, f"{account.get_platform_display()} 발행 실패: {result}")
+                success_count = 0
+                for account in accounts:
+                    ok, result = blog_posting.publish_article(account, article)
+                    if ok:
+                        success_count += 1
+                    else:
+                        messages.error(request, f"{account.get_platform_display()} 발행 실패: {result}")
 
-            if success_count:
-                messages.success(request, f"AI 요약 없이 {success_count}개 계정에 바로 포스팅했습니다.")
-            return redirect('news_detail', pk=article.pk)
+                if success_count:
+                    messages.success(request, f"AI 요약 없이 {success_count}개 계정에 바로 포스팅했습니다.")
+                return redirect('news_detail', pk=article.pk)
 
     context = {
         'site_title': 'NextFinUp - 직접 작성하기',
