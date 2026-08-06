@@ -192,11 +192,27 @@
                         </div>
                     </li>
                     <li data-n="2">
+                        <p class="step-title">워드프레스: Site Kit로 한 번에 연결하기 (Google 공식 권장)</p>
+                        <p class="step-body">Google이 직접 배포하는 무료 오픈소스 플러그인 <b>Site Kit by Google</b>을 쓰면 코드를 직접 붙여넣지 않아도, 사이트를 애드센스 계정에 연결하는 것만으로 모든 페이지(AMP 버전 포함)에 광고 코드가 자동 삽입됩니다. 애드센스뿐 아니라 애널리틱스·서치 콘솔·PageSpeed Insights 통계도 워드프레스 대시보드에서 함께 볼 수 있습니다.</p>
+                        <div class="callout warn">
+                            <span>⚠️</span>
+                            <span>앞서 <b>WPCode</b> 등으로 이미 코드를 직접 붙여넣었다면 Site Kit를 추가로 설치하지 마세요 — 같은 광고 코드가 두 번 삽입될 수 있습니다. 아래는 코드를 아직 넣지 않았거나, 처음부터 Google 공식 방법으로 설정하고 싶은 경우를 위한 대안입니다.</span>
+                        </div>
+                        <p class="step-body"><b>1)</b> 워드프레스 대시보드 → <b>플러그인</b> → <b>새로 추가</b> → <span class="path">Google Site Kit</span> 검색 → 설치 → 활성화.</p>
+                        <p class="step-body"><b>2)</b> <b>설정 시작</b> 클릭 → 안내에 따라 구글 계정 연동.</p>
+                        <p class="step-body"><b>3)</b> Site Kit 대시보드(또는 <b>설정</b> 탭)에서 <b>애드센스</b> → <b>서비스 연결</b> 클릭 → 안내를 따라 진행하면 코드 삽입까지 자동으로 끝납니다.</p>
+                        <p class="step-body"><b>4)</b> 애드센스 화면에서 <b>광고</b> → <b>자동 광고</b>를 직접 켜야 실제로 광고가 게재됩니다 — Site Kit는 애드센스 계정 설정을 대신 바꿔주지 않습니다.</p>
+                        <div class="callout note">
+                            <span>ℹ️</span>
+                            <span>EEA(유럽경제지역)·영국·스위스 방문자가 있는 사이트라면, 연결 시 나오는 "계정 활성화 즉시 광고 게재" 옵션은 EU 사용자 동의 정책 준수를 위해 선택 해제하는 걸 권장합니다 — 이 설정은 승인 후 애드센스 화면에서 언제든 바꿀 수 있습니다.</span>
+                        </div>
+                    </li>
+                    <li data-n="3">
                         <p class="step-title">HTML을 직접 편집하는 경우 주의사항</p>
                         <p class="step-body">Dreamweaver 같은 WYSIWYG(디자인 보기) 편집기를 쓴다면, 반드시 <b>HTML 보기(코드 보기)</b>에서 코드를 붙여넣어야 합니다. '디자인' 보기에 그대로 붙여넣으면 코드가 깨지거나 오류가 발생할 수 있습니다.</p>
                         <p class="step-body">붙여넣은 뒤에는 편집기가 코드를 임의로 수정하거나 줄바꿈을 바꾸지 않았는지 다시 확인하세요 — 이런 변형이 생기면 광고가 정상적으로 게재되지 않을 수 있습니다.</p>
                     </li>
-                    <li data-n="3">
+                    <li data-n="4">
                         <p class="step-title">PHP로 직접 만든 사이트</p>
                         <p class="step-body">애드센스 코드는 자바스크립트 선언을 포함하지만 사실상 순수 HTML이라 대부분의 PHP 사이트에도 그대로 붙여넣으면 동작합니다. 템플릿 구조에 맞게 원하는 위치에 그대로 삽입하면 됩니다.</p>
                     </li>
@@ -244,6 +260,18 @@
                 <div class="qa-item">
                     <p class="q">블로그를 여러 개 연결하면 애드센스도 여러 번 신청해야 하나요?</p>
                     <p class="a">애드센스 계정 자체는 1개면 충분합니다. 계정 승인 후 <b>사이트</b> 메뉴에서 다른 블로그 주소를 추가로 등록하면 되고, 새로 추가한 사이트도 별도 검토를 거칩니다.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">Site Kit랑 WPCode(헤더/푸터 플러그인)는 뭐가 달라요?</p>
+                    <p class="a">Site Kit는 구글 계정으로 사이트를 애드센스에 직접 연결해 코드를 자동으로 심어주는 공식 플러그인이고, WPCode는 회원님이 직접 코드를 붙여넣는 범용 헤더/푸터 삽입 도구입니다. 어느 한쪽만 쓰면 됩니다 — 둘 다 설치하면 코드가 중복 삽입될 수 있습니다.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">Site Kit 설정은 끝났는데 사이트에 광고가 안 보여요</p>
+                    <p class="a">다음을 순서대로 확인하세요: ① Site Kit 설정 화면의 애드센스 섹션에 "코드가 삽입되었습니다"라는 문구가 있는지, ② 애드센스 <b>사이트</b> 페이지에 이 사이트가 등록돼 있는지, ③ 애드센스 <b>광고</b> 페이지에서 자동 광고가 켜져 있는지. 세 가지 모두 정상이면 트래픽이 반영되기까지 다소 시간이 걸릴 수 있습니다.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">Site Kit 말고 다른 연결 플러그인도 있나요?</p>
+                    <p class="a">Google이 공식 언급하는 대안으로 <b>Insert Headers and Footers</b>, <b>Advanced Ads</b>, <b>Ad Inserter</b> 플러그인이 있습니다. 다만 NextFinUp은 설치·설정이 가장 간단한 Site Kit(자동 연결) 또는 WPCode(코드 직접 붙여넣기) 둘 중 하나를 권장합니다.</p>
                 </div>
                 <div class="qa-item">
                     <p class="q">편집기에서 HTML 소스 코드가 안 보여요</p>
