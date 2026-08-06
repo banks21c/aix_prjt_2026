@@ -1,3 +1,19 @@
+def html_to_plain_text(html):
+    """Toast UI Editor(위지윅) 출력처럼 <p>/<br> 등으로 문단이 구분된 HTML을, 문단 구조는
+    줄바꿈으로 보존한 평문으로 변환한다. news_write_view의 original_content(원문 전문 표시용
+    — news_detail.html이 그대로 {{ }}로 이스케이프해서 보여줌), AI 프롬프트 입력, 썸네일
+    미리보기 텍스트는 전부 평문을 기대하는데, 에디터 도입 후 HTML을 그대로 넣으면 태그가
+    화면에 글자 그대로 노출된다(신고: "원문 전문에 태그가 붙어서 나오네")."""
+    import re
+    from django.utils.html import strip_tags
+
+    text = re.sub(r'</(p|div|h[1-6]|li|blockquote)>', '\n', html, flags=re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = strip_tags(text)
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
+    return text
+
+
 def round_to_krx_tick(price):
     """KRX(코스피/코스닥) 실제 호가단위로 스냅한다. 가격대별 최소 호가 간격이 달라서
     (예: 5만원대는 100원 단위, 20만원대는 500원 단위, 50만원 이상은 1000원 단위로만 실제
@@ -58,18 +74,24 @@ def format_trading_value(amount):
     return f"{amount:,.0f}원"
 
 
-def _find_mentioned_stocks(text, max_count=20):
-    """장 마감 시황처럼 여러 종목명이 한꺼번에 나오는 기사 원문에서, 실시간 시세 캐시가 있는
-    is_major_index 종목만 후보로 놓고 실제로 언급된 종목을 찾는다. "SK"가 "SK하이닉스"/"SK스퀘어"
-    안에서 잘못 매칭되는 것을 막기 위해, 이름이 긴 종목부터 먼저 매칭하고 앞뒤 글자가 한글
-    음절/영숫자로 이어지면(=다른 종목명의 일부) 그 매칭은 버린다."""
+def find_mentioned_stocks(text, max_count=20, major_index_only=True):
+    """장 마감 시황처럼 여러 종목명이 한꺼번에 나오는 기사 원문에서 실제로 언급된 종목을 찾는다.
+    "SK"가 "SK하이닉스"/"SK스퀘어" 안에서 잘못 매칭되는 것을 막기 위해, 이름이 긴 종목부터 먼저
+    매칭하고 앞뒤 글자가 한글 음절/영숫자로 이어지면(=다른 종목명의 일부) 그 매칭은 버린다.
+    major_index_only=True(기본값)면 실시간 시세 캐시가 있는 is_major_index 종목만 후보로
+    놓는다 — resolve_thumbnail_stock/build_mentioned_stocks_table은 그 캐시(StockRealtimePrice)에
+    의존해서 이 기본값이 맞아야 한다. collect_keyword_news --full-universe처럼 시세 표시 없이
+    "본문에 이 종목명이 등장하는지"만 보면 되는 호출부는 False로 넘겨 활성 전종목을 후보로 쓴다."""
     import re
     from .models import StockItem
 
     if not text:
         return []
 
-    candidates = list(StockItem.objects.filter(is_active=True, is_major_index=True).only('id', 'ticker', 'name'))
+    stock_qs = StockItem.objects.filter(is_active=True)
+    if major_index_only:
+        stock_qs = stock_qs.filter(is_major_index=True)
+    candidates = list(stock_qs.only('id', 'ticker', 'name'))
     candidates.sort(key=lambda s: len(s.name), reverse=True)
 
     boundary_re = re.compile(r'[가-힣a-zA-Z0-9]')
@@ -97,41 +119,37 @@ def _find_mentioned_stocks(text, max_count=20):
 
 
 def resolve_thumbnail_stock(article):
-    """썸네일 가격 카드에 실제로 보여줄 종목을 정한다. article.stock은 주로
-    NewsKeyword.linked_stock에서 옴(예: "AI" 키워드 → 이스트소프트) — 이건 회원이 그 키워드로
-    들어온 기사를 관심종목 뉴스로 분류해두려고 설정한 값이지, 매칭된 기사 하나하나가 실제로 그
-    종목을 다룬다는 뜻은 아니다(실측 사례: "AI" 키워드로 잡힌 카카오페이 실적 기사가
-    article.stock=이스트소프트로 분류돼, 썸네일에 카카오페이가 아니라 이스트소프트 시세가
-    나감 — 이스트소프트는 원문에 언급조차 없었음). article.stock 자체(분류 목적)는 그대로
-    두고, 썸네일만 원문에 실제로 등장하는 종목이 있으면 그걸 우선한다.
+    """썸네일 가격 카드에 실제로 보여줄 종목을 정한다. 제목에서만 국내 종목명을 찾는다 —
+    본문까지 보면 기사의 진짜 주제가 아닌 종목(예: 해외 기업 기사에서 문맥상 스쳐 지나가듯
+    언급되는 국내 공급망 종목)이 잡혀 엉뚱한 시세가 썸네일에 나가기 쉽다(실측 사례:
+    스페이스X 실적 기사 본문에 "하이닉스"가 한 번 언급됐다는 이유로 썸네일에 스페이스X가 아닌
+    하이닉스 시세가 붙음). 제목은 그 기사가 실제로 어떤 종목을 다루는지 훨씬 신뢰도 높은
+    신호라, 제목에 국내 종목명이 없으면 이 기사는 특정 종목을 다루는 게 아니라고 보고 None을
+    반환한다 — 호출부(build_thumbnail_file)가 종목 시세 카드 대신 매칭 키워드/AI 요약 기반의
+    종목 없는 카드로 자연스럽게 폴백한다."""
+    title = article.title or ''
+    mentioned = find_mentioned_stocks(title, max_count=20)
+    if not mentioned:
+        return None
+    if len(mentioned) == 1:
+        return mentioned[0]
 
-    _find_mentioned_stocks는 "첫 등장 위치" 순으로 정렬해 표(build_mentioned_stocks_table)의
-    나열 순서로는 적합하지만, 썸네일처럼 "이 기사의 진짜 주인공 하나"를 골라야 할 때는 부정확할
-    수 있다(실측 사례: 카카오페이 실적 기사에서 "카카오"가 스테이블코인 문단에 지나가듯 한 번
-    언급되는데 그게 "카카오페이"의 첫 유효 언급보다 문자열 위치상 살짝 더 빨라, 위치 기준으로는
-    "카카오"가 이겨버림 — 실제로는 "카카오페이"가 10번 가까이 언급된 진짜 주제인데도). 그래서
-    여기서는 후보들 중 실제 언급 빈도가 가장 높은 종목을 고른다."""
-    if article.original_content:
-        text = article.original_content
-        mentioned = _find_mentioned_stocks(text, max_count=20)
-        if mentioned:
-            import re
-            # 긴 이름부터 먼저 훑어 이미 매칭된 구간은 다시 세지 않는다 — "카카오페이는"처럼
-            # 조사가 바로 붙는 게 정상적인 한국어라("카카오페이" 뒤 글자가 한글이라고 거절하면
-            # 사실상 모든 언급이 걸러진다), 자리 겹침만으로 "카카오페이" 안의 "카카오"를
-            # 걸러내고 그 외엔 전부 실제 등장으로 센다.
-            ordered = sorted(mentioned, key=lambda s: len(s.name), reverse=True)
-            counts = {stock.id: 0 for stock in mentioned}
-            covered = bytearray(len(text))
-            for stock in ordered:
-                for m in re.finditer(re.escape(stock.name), text):
-                    if any(covered[m.start():m.end()]):
-                        continue
-                    counts[stock.id] += 1
-                    for i in range(m.start(), m.end()):
-                        covered[i] = 1
-            return max(mentioned, key=lambda stock: counts[stock.id])
-    return article.stock
+    import re
+    # 긴 이름부터 먼저 훑어 이미 매칭된 구간은 다시 세지 않는다 — "카카오페이는"처럼 조사가
+    # 바로 붙는 게 정상적인 한국어라("카카오페이" 뒤 글자가 한글이라고 거절하면 사실상 모든
+    # 언급이 걸러진다), 자리 겹침만으로 "카카오페이" 안의 "카카오"를 걸러내고 그 외엔 전부
+    # 실제 등장으로 센다.
+    ordered = sorted(mentioned, key=lambda s: len(s.name), reverse=True)
+    counts = {stock.id: 0 for stock in mentioned}
+    covered = bytearray(len(title))
+    for stock in ordered:
+        for m in re.finditer(re.escape(stock.name), title):
+            if any(covered[m.start():m.end()]):
+                continue
+            counts[stock.id] += 1
+            for i in range(m.start(), m.end()):
+                covered[i] = 1
+    return max(mentioned, key=lambda stock: counts[stock.id])
 
 
 def build_mentioned_stocks_table(text):
@@ -150,7 +168,7 @@ def build_mentioned_stocks_table(text):
     from .kis_client import get_stock_close_price, is_regular_session_open
     from .models import StockRealtimePrice
 
-    stocks = _find_mentioned_stocks(text)
+    stocks = find_mentioned_stocks(text)
     if not stocks:
         return ''
 

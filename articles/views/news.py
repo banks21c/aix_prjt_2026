@@ -16,7 +16,7 @@ from ..forms import NewsArticleEditForm, NewsScrapeForm, NewsWriteForm
 from ..models import AnalyzedArticle, BlogPostingAccount, PostedArticle
 from ..utils import (
     ai_summarize_stats, build_mentioned_stocks_table, detect_reuse_restriction,
-    fetch_article_metadata, limit_label, resolve_thumbnail_stock, scraping_stats,
+    fetch_article_metadata, html_to_plain_text, limit_label, resolve_thumbnail_stock, scraping_stats,
 )
 
 
@@ -450,7 +450,9 @@ def news_write_thumbnail_view(request):
     title = request.POST.get('title', '').strip()
     if not title:
         return JsonResponse({'error': '제목을 먼저 입력해주세요.'}, status=400)
-    content = request.POST.get('content', '').strip()
+    # news_write.html의 본문 입력창이 Toast UI Editor라 HTML로 넘어온다 — 썸네일 미리보기
+    # 텍스트는 평문이어야 태그가 잘려서 이상하게 나오는 일이 없다.
+    content = html_to_plain_text(request.POST.get('content', '')).strip()
 
     cf = thumbnail.build_thumbnail_file(title, ai_summary=content[:400] if content else None)
     path = default_storage.save(f"{_PENDING_THUMBNAIL_DIR}/{uuid.uuid4()}.png", cf)
@@ -502,7 +504,11 @@ def news_write_view(request):
             )
         else:
             title = form.cleaned_data['title']
-            content = form.cleaned_data['content']
+            # content 입력창은 Toast UI Editor(위지윅)라 HTML로 넘어온다 — original_content는
+            # news_detail.html이 그대로 {{ }}(이스케이프)로 보여주는 평문 필드라 HTML을 그대로
+            # 넣으면 태그가 글자 그대로 노출된다(신고 사유). AI 프롬프트도 평문이 더 깔끔해서
+            # 여기서 미리 변환해둔다.
+            content = html_to_plain_text(form.cleaned_data['content'])
 
             draft = article_ai.generate_draft(title, content, restricted=False)
             if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
@@ -532,11 +538,15 @@ def news_write_view(request):
             messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
         else:
             title = form.cleaned_data['title']
-            content = form.cleaned_data['content']
+            # blog_content(실제 발행 본문)는 에디터의 HTML 그대로 써서 문단 서식을 살리고,
+            # original_content(원문 전문 표시용 평문 필드)/썸네일 미리보기 텍스트는 평문으로
+            # 따로 변환한다 — 이 필드는 news_detail.html이 이스케이프해서 그대로 보여준다.
+            content_html = form.cleaned_data['content']
+            content = html_to_plain_text(content_html)
             pending_thumb = _pop_pending_thumbnail(request.POST.get('pending_thumbnail'))
             article = _create_manual_article(
                 request, title, content,
-                blog_content=content,
+                blog_content=content_html,
                 thumbnail=pending_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
                 ai_generated=True,
             )
