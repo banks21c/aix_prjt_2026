@@ -70,7 +70,7 @@
                     {% if article.source_type == 'RSS' %}
                     <a href="{{ article.original_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">원문 보기 ↗</a>
                     {% endif %}
-                    {% if not article.ai_generated and article.original_content and user.is_authenticated %}
+                    {% if not article.ai_summary and article.original_content and user.is_authenticated %}
                     <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
                             {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                     {% endif %}
