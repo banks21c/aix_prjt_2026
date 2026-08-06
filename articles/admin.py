@@ -208,9 +208,9 @@ class StockPredictionAdmin(admin.ModelAdmin):
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_by', 'scraped_at')
+    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'ai_generated', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
-    list_filter = ('source_media', 'is_premium', 'is_posted', 'applied_template')
+    list_filter = ('ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template')
     search_fields = ('title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
     ordering = ('-scraped_at',)
 
@@ -282,10 +282,14 @@ class PostedArticleAdmin(admin.ModelAdmin):
 # 4. 유저 프리미엄 구독 정보 관리
 @admin.register(UserSubscription)
 class UserSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'is_active_premium', 'subscribed_at', 'expired_at')
+    list_display = ('user', 'user_email', 'is_active_premium', 'subscribed_at', 'expired_at')
     list_editable = ('is_active_premium',)
     list_filter = ('is_active_premium',)
     search_fields = ('user__username', 'user__email')
+
+    @admin.display(description='이메일')
+    def user_email(self, obj):
+        return obj.user.email
 
 # 5. 소셜 로그인(카카오/구글) 연동 계정 관리
 @admin.register(SocialAccount)
@@ -402,6 +406,11 @@ class ConsultRequestAdmin(admin.ModelAdmin):
 @admin.register(SubscriptionOrder)
 class SubscriptionOrderAdmin(admin.ModelAdmin):
     list_display = ('created_at', 'user', 'name', 'phone', 'payment_method', 'status', 'reviewed_at')
+    # 목록 줄 끝에서 바로 콤보박스로 처리 상태를 바꾸고 한 번에 저장할 수 있게 한다(요청:
+    # "목록 라인 맨 끝에 저장 버튼"). Django가 list_editable을 쓰면 목록 첫 컬럼을 자동으로
+    # 상세화면 링크로 돌려주고, 그 아래 "Save" 버튼 하나로 변경된 행을 한꺼번에 저장한다 —
+    # 이 저장 경로도 save_model()을 그대로 타므로 승인 시 프리미엄 활성화 로직이 똑같이 적용된다.
+    list_editable = ('status',)
     list_filter = ('status', 'payment_method', 'referral_source', 'motivation')
     search_fields = ('name', 'phone', 'user__username', 'user__email')
     readonly_fields = ('user', 'name', 'phone', 'referral_source', 'motivation', 'payment_method', 'created_at')
