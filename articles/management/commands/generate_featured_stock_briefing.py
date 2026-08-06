@@ -1,3 +1,6 @@
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
@@ -93,23 +96,36 @@ class Command(BaseCommand):
             AnalyzedArticle.objects
             .filter(title__startswith='[리포트 브리핑]', scraped_at__date=today)
             .exclude(stock=None)
-            .select_related('stock', 'stock__realtime_price')
+            .select_related('stock')
             .order_by('scraped_at')
         )
-        def _report_dict(r):
-            rt_price = getattr(r.stock, 'realtime_price', None)
-            price, change_pct = None, None
-            if rt_price:
-                price, change_pct = rt_price.close_price, rt_price.change_pct
-            else:
-                # 코스피200·코스닥150 밖이라 5분 캐시(StockRealtimePrice)가 없는 종목은 chatbot_client의
-                # 온디맨드 조회와 같은 방식으로 KIS에 직접 조회한다 — 실시간 시세는 종목코드만 있으면
-                # 지수 편입 여부와 무관하게 조회 가능하다. 조회마저 실패하면 가격 없이 이름만 남긴다.
+        reports_list = list(reports_qs)
+
+        # StockRealtimePrice(5분 캐시)는 정규장 마감 직전 마지막 틱(정산 전 값)에 멈춰 있어
+        # 마감 후 조회하면 실제 종가와 어긋난다(2026-08-06 심텍 사례: 캐시 106,700/+3.59% vs
+        # 실제 종가 106,000/+2.91%) — 대시보드 매수/매도 신호 표에서 같은 문제를 캐시를 아예
+        # 쓰지 않고 get_stock_close_price 온디맨드 조회로 고친 것과 동일한 방식으로 맞춘다
+        # (정규장 중엔 실시간가, 마감 후엔 정산된 종가를 알아서 골라 줌). KIS 일봉 조회가 동시
+        # 요청에 약해 4개씩 병렬 + 재시도로 조회한다.
+        def _fetch_price(r, attempts=3):
+            for attempt in range(attempts):
                 try:
                     fetched = get_stock_close_price(r.stock.ticker)
-                    price, change_pct = fetched['close'], fetched['change_pct']
+                    return r.pk, fetched['close'], fetched['change_pct']
                 except Exception:
-                    pass
+                    if attempt == attempts - 1:
+                        return r.pk, None, None
+                    time.sleep(0.3)
+            return r.pk, None, None
+
+        price_map = {}
+        if reports_list:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                for pk, price, change_pct in executor.map(_fetch_price, reports_list):
+                    price_map[pk] = (price, change_pct)
+
+        def _report_dict(r):
+            price, change_pct = price_map.get(r.pk, (None, None))
             return {
                 'ticker': r.stock.ticker,
                 'name': r.stock.name,
@@ -118,7 +134,7 @@ class Command(BaseCommand):
                 'change_pct': change_pct,
             }
 
-        reports = [_report_dict(r) for r in reports_qs]
+        reports = [_report_dict(r) for r in reports_list]
 
         self.stdout.write(self.style.SUCCESS(
             f"🚀 {today} {session_label} AI 특징주 브리핑을 생성합니다. (증권사 리포트 {len(reports)}건 포함)"
