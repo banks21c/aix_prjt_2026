@@ -81,12 +81,19 @@ def find_mentioned_stocks(text, max_count=20, major_index_only=True):
     major_index_only=True(기본값)면 실시간 시세 캐시가 있는 is_major_index 종목만 후보로
     놓는다 — resolve_thumbnail_stock/build_mentioned_stocks_table은 그 캐시(StockRealtimePrice)에
     의존해서 이 기본값이 맞아야 한다. collect_keyword_news --full-universe처럼 시세 표시 없이
-    "본문에 이 종목명이 등장하는지"만 보면 되는 호출부는 False로 넘겨 활성 전종목을 후보로 쓴다."""
+    "본문에 이 종목명이 등장하는지"만 보면 되는 호출부는 False로 넘겨 활성 전종목을 후보로 쓴다.
+
+    언론사 저작권 안내문(예: "<ⓒ투자가를 위한 경제콘텐츠 플랫폼, 아시아경제. 무단전재 배포금지...>")은
+    매칭 전에 제거한다 — "아시아경제"가 실제로 상장된 종목명(127710)이라, 이 문구가 실린 기사는
+    본문에 다른 종목이 전혀 언급되지 않아도 매번 아시아경제로 잘못 매칭되는 문제가 있었다
+    (2026-08-06 확인: 오늘 수집분 중 이 문구 때문에 잘못 매칭된 기사 5건)."""
     import re
     from .models import StockItem
 
     if not text:
         return []
+
+    text = re.sub(r'<ⓒ[^\n]*?>', ' ', text)
 
     stock_qs = StockItem.objects.filter(is_active=True)
     if major_index_only:
