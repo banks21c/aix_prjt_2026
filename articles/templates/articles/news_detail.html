@@ -102,6 +102,7 @@
                     <div class="ms-auto d-flex gap-2">
                         {% if has_any_posted %}
                         <button type="submit" formaction="{% url 'republish_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 재발행 중..." title="체크한 계정에 이미 올라간 글을 최신 내용으로 덮어씁니다">🔄 재발행</button>
+                        <button type="submit" formaction="{% url 'repost_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 포스팅 중..." title="이미 올라간 글은 그대로 두고 별개의 새 글로 다시 포스팅합니다">다시포스팅</button>
                         {% endif %}
                         {% if article.ai_generated %}
                             {% if is_posted %}
