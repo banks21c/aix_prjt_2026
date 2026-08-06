@@ -54,7 +54,7 @@
         </div>
         {% endif %}
 
-        <form method="get" class="mb-4">
+        <form method="get" class="card card-custom bg-white p-3 mb-3">
             <div class="input-group">
                 <input type="text" name="q" class="form-control" placeholder="제목, 종목명, 키워드로 검색" value="{{ query }}">
                 <button type="submit" class="btn btn-primary">검색</button>
@@ -62,7 +62,7 @@
                 <a href="{% url 'news_board' %}" class="btn btn-outline-secondary">초기화</a>
                 {% endif %}
             </div>
-            <div class="form-check mt-2">
+            <div class="form-check mt-2 mb-0">
                 <input type="checkbox" class="form-check-input" name="ai_only" value="1" id="aiOnlyCheck" {% if ai_only %}checked{% endif %} onchange="this.form.submit()">
                 <label class="form-check-label small" for="aiOnlyCheck">AI 요약 완료 보기</label>
             </div>
@@ -78,44 +78,47 @@
             {% csrf_token %}
             {% if user_blog_accounts %}
             <input type="hidden" name="next" value="{{ next_url }}">
-            <div class="card card-custom bg-white p-3 mb-3 d-flex flex-row align-items-center flex-wrap gap-2">
-                <label class="fw-semibold small mb-0">포스팅 계정</label>
-                {% for account in user_blog_accounts %}
-                <div class="form-check form-check-inline mb-0">
-                    <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="acct-{{ account.pk }}" checked>
-                    <label class="form-check-label small" for="acct-{{ account.pk }}">
-                        {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
-                    </label>
-                    {% if account.site_url %}
-                    <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
-                    {% endif %}
+            <div class="card card-custom bg-white p-3 mb-3">
+                <div class="d-flex flex-row align-items-center flex-wrap gap-2">
+                    <label class="fw-semibold small mb-0">포스팅 계정</label>
+                    {% for account in user_blog_accounts %}
+                    <div class="form-check form-check-inline mb-0">
+                        <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="acct-{{ account.pk }}" checked>
+                        <label class="form-check-label small" for="acct-{{ account.pk }}">
+                            {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
+                        </label>
+                        {% if account.site_url %}
+                        <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-            <div class="card card-custom bg-white p-3 mb-3 d-flex flex-row align-items-center gap-2">
-                <div class="form-check mb-0">
-                    <input type="checkbox" class="form-check-input" id="selectAll" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
-                    <label class="form-check-label small" for="selectAll">전체 선택</label>
+                <hr class="my-2">
+                <div class="d-flex flex-row align-items-center flex-wrap gap-2">
+                    <div class="form-check mb-0">
+                        <input type="checkbox" class="form-check-input" id="selectAll" {% if posting_stats.remaining == 0 %}disabled{% endif %}>
+                        <label class="form-check-label small" for="selectAll">전체 선택</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" data-loading-text="⏳ 포스팅 중..." {% if posting_stats.remaining == 0 %}disabled{% endif %}>선택 포스팅</button>
+                    {% for message in messages %}
+                    {% if 'post-count' in message.tags %}
+                    <span class="text-success small fw-semibold">{{ message }}</span>
+                    {% endif %}
+                    {% endfor %}
+                    <span class="text-muted small ms-auto text-end">
+                        {% if summarize_stats.remaining is not None %}
+                            <span class="badge bg-light text-dark border me-2">AI 요약 오늘 {{ summarize_stats.remaining }}건 남음</span>
+                        {% endif %}
+                        {% if posting_stats.remaining is None %}
+                            <span class="badge bg-dark me-2">관리자 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
+                        {% elif posting_stats.is_premium %}
+                            <span class="badge bg-warning text-dark me-2">프리미엄 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark border me-2">{{ posting_stats.grade.name|default:"일반" }} 회원 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
+                        {% endif %}
+                        <span id="selectedCount">0</span>건 선택됨
+                    </span>
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm" data-loading-text="⏳ 포스팅 중..." {% if posting_stats.remaining == 0 %}disabled{% endif %}>선택 포스팅</button>
-                {% for message in messages %}
-                {% if 'post-count' in message.tags %}
-                <span class="text-success small fw-semibold">{{ message }}</span>
-                {% endif %}
-                {% endfor %}
-                <span class="text-muted small ms-auto">
-                    {% if summarize_stats.remaining is not None %}
-                        <span class="badge bg-light text-dark border me-2">AI 요약 오늘 {{ summarize_stats.remaining }}건 남음</span>
-                    {% endif %}
-                    {% if posting_stats.remaining is None %}
-                        <span class="badge bg-dark me-2">관리자 · 무제한 · {{ posting_stats.total_count }}건 완료</span>
-                    {% elif posting_stats.is_premium %}
-                        <span class="badge bg-warning text-dark me-2">프리미엄 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
-                    {% else %}
-                        <span class="badge bg-light text-dark border me-2">{{ posting_stats.grade.name|default:"일반" }} 회원 · 오늘 {{ posting_stats.remaining }}건 남음 · {{ posting_stats.today_count }}건 완료</span>
-                    {% endif %}
-                    <span id="selectedCount">0</span>건 선택됨
-                </span>
             </div>
             {% endif %}
 
