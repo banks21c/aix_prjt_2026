@@ -39,7 +39,7 @@ from articles.views import (
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
-    my_page_view, verify_email_view,
+    my_page_view, my_posted_articles_view, verify_email_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
 sitemaps = {
@@ -100,6 +100,7 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('accounts/delete/', delete_account_view, name='delete_account'),
     path('mypage/', my_page_view, name='my_page'),  # ◀ 내 정보 관리(뉴스구독/자동포스팅 설정)
+    path('mypage/posted/', my_posted_articles_view, name='my_posted_articles'),  # ◀ 내가 발행한 글 이력
     path('verify-email/<uidb64>/<token>/', verify_email_view, name='verify_email'),  # ◀ 이메일 인증 링크
 
     path('accounts/kakao/login/', kakao_login_view, name='kakao_login'),

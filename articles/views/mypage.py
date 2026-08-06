@@ -5,12 +5,13 @@ import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.shortcuts import render, redirect
 from django.urls import reverse
 
 from ..email_utils import send_verification_email
 from ..forms import BlogAccountForm, UserContactForm, UserPreferenceForm
-from ..models import BlogPostingAccount, MemberGrade, UserPreference
+from ..models import BlogPostingAccount, MemberGrade, PostedArticle, UserPreference
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,28 @@ def my_page_view(request):
         ],
     }
     return render(request, 'articles/my_page.html', context)
+
+
+@login_required
+def my_posted_articles_view(request):
+    """마이페이지 '4. 자동 포스팅'에서 링크로 들어오는, 내 블로그 계정으로 발행한 글 이력.
+    PostedArticle이 계정×기사 단위로 이미 기록해두고 있어(발행된 글 실제 URL 포함) 화면만
+    새로 만들면 된다."""
+    postings = (
+        PostedArticle.objects
+        .filter(blog_account__user=request.user)
+        .select_related('article', 'blog_account')
+        .order_by('-posted_at')
+    )
+
+    paginator = Paginator(postings, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    context = {
+        'site_title': 'NextFinUp - 내 포스팅 이력',
+        'page_obj': page_obj,
+    }
+    return render(request, 'articles/my_posted_articles.html', context)
 
 
 # ==========================================

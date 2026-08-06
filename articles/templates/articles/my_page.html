@@ -135,7 +135,13 @@
 
             <!-- 4. 자동 포스팅 -->
             <div class="card card-custom bg-white p-4 mb-4">
-                <h5 class="section-title mb-3">4. 자동 포스팅</h5>
+                <h5 class="section-title mb-3 d-flex align-items-center justify-content-between">
+                    4. 자동 포스팅
+                    <span>
+                        <a href="{% url 'my_posted_articles' %}" class="small fw-normal me-3">내 포스팅 이력 →</a>
+                        <a href="{% url 'blog_connect_guide' %}" target="_blank" rel="noopener noreferrer" class="small fw-normal">가입·연결 방법 안내 →</a>
+                    </span>
+                </h5>
                 <div class="form-check form-switch mb-4">
                     {{ pref_form.auto_posting_enabled }}
                     <label class="form-check-label" for="{{ pref_form.auto_posting_enabled.id_for_label }}">

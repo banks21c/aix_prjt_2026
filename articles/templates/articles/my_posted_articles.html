@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .posting-row { border-bottom: 1px solid #eee; padding: 14px 0; }
+        .posting-row:last-child { border-bottom: none; }
+        .posting-title { font-weight: 700; color: #212529; }
+        .posting-title:hover { color: #0d47a1; }
+        .posting-meta { font-size: 12px; color: #868e96; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+
+    <div class="container my-5" style="max-width: 780px;">
+        <div class="mb-4 d-flex justify-content-between align-items-start">
+            <div>
+                <h2 class="fw-bold text-dark">📮 내 포스팅 이력</h2>
+                <p class="text-muted mb-0">내 블로그 계정으로 발행한 글 목록입니다.</p>
+            </div>
+            <a href="{% url 'my_page' %}" class="btn btn-sm btn-outline-secondary">← 내 정보 관리로</a>
+        </div>
+
+        <div class="card card-custom bg-white p-4">
+            {% if page_obj.object_list %}
+                {% for posting in page_obj %}
+                <div class="posting-row d-flex align-items-start justify-content-between">
+                    <div>
+                        <a href="{% url 'news_detail' posting.article.pk %}" class="posting-title text-decoration-none d-block">
+                            {{ posting.article.title }}
+                        </a>
+                        <div class="posting-meta">
+                            {{ posting.blog_account.get_platform_display }}
+                            ({{ posting.blog_account.account_id|default:posting.blog_account.site_url|default:"계정" }})
+                            · 발행 {{ posting.posted_at|date:"Y-m-d H:i" }}
+                            {% if posting.updated_at|date:"YmdHi" != posting.posted_at|date:"YmdHi" %} · 재발행 {{ posting.updated_at|date:"Y-m-d H:i" }}{% endif %}
+                        </div>
+                    </div>
+                    {% if posting.external_url %}
+                    <a href="{{ posting.external_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary flex-shrink-0 ms-3">
+                        발행된 글 보기 ↗
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted text-center my-4">아직 발행한 글이 없습니다.</p>
+            {% endif %}
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item{% if not page_obj.has_previous %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number|default:page_obj.number }}">&lsaquo;</a>
+                </li>
+                {% for n in page_obj.paginator.page_range %}
+                <li class="page-item{% if n == page_obj.number %} active{% endif %}">
+                    <a class="page-link" href="?page={{ n }}">{{ n }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number|default:page_obj.number }}">&rsaquo;</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

@@ -28,7 +28,7 @@ from .auth import (
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
 )
-from .mypage import my_page_view, blogger_connect_view, blogger_callback_view
+from .mypage import my_page_view, my_posted_articles_view, blogger_connect_view, blogger_callback_view
 
 __all__ = [
     'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
@@ -48,5 +48,5 @@ __all__ = [
     'google_login_view', 'google_callback_view',
     'naver_login_view', 'naver_callback_view',
     'blogger_connect_view', 'blogger_callback_view',
-    'my_page_view', 'verify_email_view',
+    'my_page_view', 'my_posted_articles_view', 'verify_email_view',
 ]
