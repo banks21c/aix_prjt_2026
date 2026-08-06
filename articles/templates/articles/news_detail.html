@@ -62,6 +62,15 @@
             <img src="{{ article.thumbnail.url }}" alt="{{ article.title }}" class="img-fluid rounded mb-3">
             {% endif %}
 
+            <!-- AI 요약 버튼을 아래 '📄 원문 전문' 제목 옆으로 옮기면서, 그 버튼이 시각적으로
+                 속한 위치와 실제 제출되는 폼(newsDetailForm, action=post_articles)이 달라졌다 —
+                 news_edit.html의 aiSummarizeForm과 같은 패턴으로, DOM 어디에 있든 버튼의
+                 form="aiSummarizeForm" 속성으로 이 폼에 연결한다. -->
+            <form method="post" action="{% url 'news_ai_summarize' article.pk %}" id="aiSummarizeForm">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+            </form>
+
             <form method="post" action="{% url 'post_articles' %}" id="newsDetailForm">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
@@ -69,10 +78,6 @@
                 <div class="d-flex align-items-center gap-2 mb-3">
                     {% if article.source_type == 'RSS' %}
                     <a href="{{ article.original_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">원문 보기 ↗</a>
-                    {% endif %}
-                    {% if not article.ai_summary and article.original_content and user.is_authenticated %}
-                    <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
-                            {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                     {% endif %}
                 </div>
 
@@ -120,7 +125,7 @@
             <div class="content-block">{{ article.ai_analysis }}</div>
             {% else %}
             <p class="text-muted small mt-3">
-                {% if not article.original_content %}이 기사는 원문이 없어 AI 요약을 생성할 수 없습니다.{% else %}아직 AI 요약이 생성되지 않았습니다.{% if user.is_authenticated %} 위 "✨ AI 요약" 버튼을 눌러 생성해주세요.{% endif %}{% endif %}
+                {% if not article.original_content %}이 기사는 원문이 없어 AI 요약을 생성할 수 없습니다.{% else %}아직 AI 요약이 생성되지 않았습니다.{% if user.is_authenticated %} 아래 "📄 원문 전문" 옆의 "✨ AI 요약" 버튼을 눌러 생성해주세요.{% endif %}{% endif %}
             </p>
             {% endif %}
 
@@ -136,7 +141,13 @@
             {% endif %}
 
             {% if article.original_content %}
-            <h6 class="section-title">📄 원문 전문</h6>
+            <div class="d-flex justify-content-between align-items-center" style="margin-top: 24px; margin-bottom: 12px;">
+                <h6 class="section-title mb-0" style="margin-top: 0;">📄 원문 전문</h6>
+                {% if not article.ai_summary and user.is_authenticated %}
+                <button type="submit" form="aiSummarizeForm" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
+                        {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
+                {% endif %}
+            </div>
             <div class="content-block">{{ article.original_content }}</div>
             {% endif %}
         </div>
@@ -152,12 +163,14 @@
     </div>
 
     <script>
-        const newsDetailForm = document.getElementById('newsDetailForm');
         const loadingOverlay = document.getElementById('formLoadingOverlay');
         const loadingText = document.getElementById('formLoadingText');
 
-        if (newsDetailForm && loadingOverlay) {
-            newsDetailForm.addEventListener('submit', function (e) {
+        // AI 요약 버튼이 aiSummarizeForm으로, 나머지(재발행/포스팅 등)는 newsDetailForm으로
+        // 제출된다 — 로딩 오버레이는 두 폼 어느 쪽이 제출되든 똑같이 떠야 한다.
+        function attachLoadingOverlay(form) {
+            if (!form || !loadingOverlay) return;
+            form.addEventListener('submit', function (e) {
                 const submitter = e.submitter || document.activeElement;
                 if (!submitter || submitter.type !== 'submit') return;
 
@@ -173,6 +186,8 @@
                 setTimeout(function () { submitter.disabled = true; }, 0);
             });
         }
+        attachLoadingOverlay(document.getElementById('newsDetailForm'));
+        attachLoadingOverlay(document.getElementById('aiSummarizeForm'));
 
         // 뒤로가기로 캐시된(bfcache) 페이지가 복원될 때 오버레이/비활성화가 그대로 남지 않게 초기화
         window.addEventListener('pageshow', function (e) {
