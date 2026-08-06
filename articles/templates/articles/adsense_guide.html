@@ -168,10 +168,45 @@
                 </ol>
             </section>
 
+            <!-- ===================== 코드 구현 ===================== -->
+            <section class="platform">
+                <div class="platform-head">
+                    <h2>2. 코드 구현 안내서</h2>
+                    <span class="platform-badge" style="background:#eef1f4;color:#495057;">Google 공식 안내 요약</span>
+                </div>
+                <p class="platform-sub">애드센스 코드를 페이지의 어느 위치에, 어떻게 붙여넣어야 하는지에 대한 Google 공식 가이드를 NextFinUp 회원 상황에 맞게 정리했습니다.</p>
+
+                <div class="callout warn">
+                    <span>⚠️</span>
+                    <span>코드를 붙여넣기 전에 사이트가 <b>애드센스 프로그램 정책</b>을 준수하는지 먼저 확인하세요. 정책을 위반하면 Google은 언제든 사이트의 광고 게재를 중단하거나 애드센스 계정을 사용중지할 수 있습니다.</span>
+                </div>
+
+                <ol class="steps">
+                    <li data-n="1">
+                        <p class="step-title">콘텐츠 관리 시스템(CMS)에 따라 방법이 다릅니다</p>
+                        <p class="step-body"><b>애드센스가 기본 내장된 CMS</b>(Blogger, Hubpages, Weebly, Yola)는 관리 화면에서 연결 버튼만 누르면 됩니다 — 코드를 직접 붙여넣을 필요가 없습니다.</p>
+                        <p class="step-body"><b>플러그인이 필요한 CMS</b>(워드프레스, Drupal, MediaWiki 등)는 헤더/푸터에 스크립트를 삽입해주는 플러그인을 설치해야 합니다. Google은 이런 플러그인을 직접 보증·지원하지 않지만, 광고 코드 자체를 바꾸거나 영향을 주지만 않으면 사용에는 문제가 없습니다.</p>
+                        <div class="callout note">
+                            <span>ℹ️</span>
+                            <span>워드프레스라면 <b>WPCode – Insert Headers and Footers</b>(300만+ 설치, 무료) 설치를 권장합니다. 설치 후 <b>Code Snippets → Header & Footer</b> 메뉴의 <b>Header</b> 칸에 애드센스 코드를 붙여넣고 저장하면 사이트 모든 페이지의 <span class="path">&lt;head&gt;</span>에 자동으로 삽입됩니다. 플러그인 자체의 오류·업데이트 관련 문의는 Google이 아니라 플러그인 지원 채널로 해야 합니다.</span>
+                        </div>
+                    </li>
+                    <li data-n="2">
+                        <p class="step-title">HTML을 직접 편집하는 경우 주의사항</p>
+                        <p class="step-body">Dreamweaver 같은 WYSIWYG(디자인 보기) 편집기를 쓴다면, 반드시 <b>HTML 보기(코드 보기)</b>에서 코드를 붙여넣어야 합니다. '디자인' 보기에 그대로 붙여넣으면 코드가 깨지거나 오류가 발생할 수 있습니다.</p>
+                        <p class="step-body">붙여넣은 뒤에는 편집기가 코드를 임의로 수정하거나 줄바꿈을 바꾸지 않았는지 다시 확인하세요 — 이런 변형이 생기면 광고가 정상적으로 게재되지 않을 수 있습니다.</p>
+                    </li>
+                    <li data-n="3">
+                        <p class="step-title">PHP로 직접 만든 사이트</p>
+                        <p class="step-body">애드센스 코드는 자바스크립트 선언을 포함하지만 사실상 순수 HTML이라 대부분의 PHP 사이트에도 그대로 붙여넣으면 동작합니다. 템플릿 구조에 맞게 원하는 위치에 그대로 삽입하면 됩니다.</p>
+                    </li>
+                </ol>
+            </section>
+
             <!-- ===================== 승인 후 ===================== -->
             <section class="platform wordpress">
                 <div class="platform-head">
-                    <h2>2. 승인 후 설정</h2>
+                    <h2>3. 승인 후 설정</h2>
                     <span class="platform-badge">필수</span>
                 </div>
                 <p class="platform-sub">심사를 통과했다는 이메일을 받은 뒤 진행하는 단계입니다.</p>
@@ -209,6 +244,14 @@
                 <div class="qa-item">
                     <p class="q">블로그를 여러 개 연결하면 애드센스도 여러 번 신청해야 하나요?</p>
                     <p class="a">애드센스 계정 자체는 1개면 충분합니다. 계정 승인 후 <b>사이트</b> 메뉴에서 다른 블로그 주소를 추가로 등록하면 되고, 새로 추가한 사이트도 별도 검토를 거칩니다.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">편집기에서 HTML 소스 코드가 안 보여요</p>
+                    <p class="a">사용 중인 홈페이지 제작 도구(카페24, 아임웹, Wix 등)의 고객센터에 "HTML 삽입" 또는 "코드 보기" 기능이 있는지 문의하세요. 대부분의 도구는 이름은 달라도 비슷한 기능을 제공합니다.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">그 밖에 CMS별 구현 방법이 더 궁금해요</p>
+                    <p class="a">"[CMS 이름] 애드센스 구현"으로 검색하거나, <a href="https://support.google.com/adsense/community" target="_blank" rel="noopener noreferrer">애드센스 고객센터 커뮤니티</a>에서 같은 CMS를 쓰는 다른 게시자의 사례를 찾아보는 것도 도움이 됩니다.</p>
                 </div>
             </div>
 
