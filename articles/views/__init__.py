@@ -3,6 +3,7 @@
 from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
+    blog_connect_guide_view,
     consult_request_view, header_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
     subscribe_view, subscribe_apply_view,
 )
@@ -13,7 +14,7 @@ from .admin_tools import (
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
-    news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view,
+    news_edit_view, news_scrape_view, news_write_view, post_articles_view,
     repost_article_view, republish_article_view,
 )
 from .stocks import (
@@ -38,7 +39,7 @@ __all__ = [
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
-    'news_edit_view', 'news_scrape_view', 'news_write_view', 'news_write_thumbnail_view', 'post_articles_view',
+    'news_edit_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
     'stock_period_chart_view',
     'market_index_minute_chart_view', 'stock_quote_view', 'stock_search_suggest_view', 'chatbot_ask_view',

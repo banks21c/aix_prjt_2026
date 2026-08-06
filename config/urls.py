@@ -22,7 +22,7 @@ from django.urls import path
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view, consult_request_view, header_fragment_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, insurance_compare_view, consult_request_view, header_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     expert_consult_apply_view,
@@ -31,7 +31,7 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, news_write_thumbnail_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
     signup_view, login_view, logout_view, delete_account_view,
@@ -65,6 +65,7 @@ urlpatterns = [
     path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
+    path('guide/blog-connect/', blog_connect_guide_view, name='blog_connect_guide'),
     path('experts/', expert_consult_view, name='expert_consult'),
     path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
     path('subscribe/', subscribe_view, name='subscribe'),
@@ -81,7 +82,6 @@ urlpatterns = [
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
     path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑
     path('post/write/', news_write_view, name='news_write'),  # ◀ 원문 링크 없이 제목+본문 직접 입력 → AI 요약
-    path('post/write/thumbnail/', news_write_thumbnail_view, name='news_write_thumbnail'),  # ◀ 직접작성하기 썸네일 미리 생성 AJAX
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
     path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX

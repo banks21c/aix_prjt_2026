@@ -2,7 +2,6 @@ import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import SuspiciousOperation
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import JsonResponse
@@ -434,49 +433,6 @@ def _create_manual_article(request, title, content, **extra_fields):
     )
 
 
-_PENDING_THUMBNAIL_DIR = 'thumbnails/pending'
-
-
-@login_required
-@require_POST
-def news_write_thumbnail_view(request):
-    """news_write.html의 '썸네일 생성' 버튼이 쓰는 AJAX 엔드포인트. 제목(+본문 일부)으로
-    thumbnail.build_thumbnail_file을 미리 호출해 결과를 바로 미리보기로 보여준다. 실제
-    글 등록(AI 요약/바로 포스팅) 시 이 이미지를 다시 만들지 않고 그대로 재사용하도록, 파일을
-    media/thumbnails/pending/에 임시 저장하고 그 경로를 토큰으로 돌려준다 — gpt-image-2 호출은
-    비용이 드는 데다 매번 다시 그리면 미리 본 것과 실제 발행되는 이미지가 달라질 수 있어서다."""
-    from django.core.files.storage import default_storage
-
-    title = request.POST.get('title', '').strip()
-    if not title:
-        return JsonResponse({'error': '제목을 먼저 입력해주세요.'}, status=400)
-    # news_write.html의 본문 입력창이 Toast UI Editor라 HTML로 넘어온다 — 썸네일 미리보기
-    # 텍스트는 평문이어야 태그가 잘려서 이상하게 나오는 일이 없다.
-    content = html_to_plain_text(request.POST.get('content', '')).strip()
-
-    cf = thumbnail.build_thumbnail_file(title, ai_summary=content[:400] if content else None)
-    path = default_storage.save(f"{_PENDING_THUMBNAIL_DIR}/{uuid.uuid4()}.png", cf)
-    return JsonResponse({'url': default_storage.url(path), 'token': path})
-
-
-def _pop_pending_thumbnail(token):
-    """news_write_thumbnail_view가 만들어둔 임시 썸네일을 토큰(저장 경로)으로 찾아 ContentFile로
-    반환하고 원본 임시 파일은 삭제한다. 토큰이 없거나, pending 디렉터리 밖을 가리키거나(경로
-    조작 방지), 파일이 없으면 None."""
-    from django.core.files.base import ContentFile
-    from django.core.files.storage import default_storage
-
-    if not token or not token.startswith(f"{_PENDING_THUMBNAIL_DIR}/"):
-        return None
-    try:
-        if not default_storage.exists(token):
-            return None
-        with default_storage.open(token, 'rb') as f:
-            data = f.read()
-        default_storage.delete(token)
-    except (SuspiciousOperation, OSError, ValueError):
-        return None
-    return ContentFile(data, name="thumbnail.png")
 
 
 @login_required
@@ -514,13 +470,14 @@ def news_write_view(request):
             if draft['ai_summary'] in (article_ai.SIMULATION_SUMMARY, article_ai.ERROR_SUMMARY):
                 messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
             else:
-                pending_thumb = _pop_pending_thumbnail(request.POST.get('pending_thumbnail'))
+                # 회원이 직접 올린 이미지가 있으면 그걸 쓰고, 없으면 기존처럼 자동 생성한다.
+                uploaded_thumb = request.FILES.get('thumbnail_upload')
                 article = _create_manual_article(
                     request, title, content,
                     ai_summary=draft['ai_summary'],
                     ai_analysis=draft['ai_analysis'],
                     blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
-                    thumbnail=pending_thumb or thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
+                    thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
                     ai_generated=True,
                     ai_summarized_by=request.user,
                     ai_summarized_at=timezone.now(),
@@ -543,11 +500,11 @@ def news_write_view(request):
             # 따로 변환한다 — 이 필드는 news_detail.html이 이스케이프해서 그대로 보여준다.
             content_html = form.cleaned_data['content']
             content = html_to_plain_text(content_html)
-            pending_thumb = _pop_pending_thumbnail(request.POST.get('pending_thumbnail'))
+            uploaded_thumb = request.FILES.get('thumbnail_upload')
             article = _create_manual_article(
                 request, title, content,
                 blog_content=content_html,
-                thumbnail=pending_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
+                thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
                 ai_generated=True,
             )
 

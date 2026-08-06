@@ -67,7 +67,7 @@
                 {% endif %}
             </p>
 
-            <form method="post" novalidate id="writeForm">
+            <form method="post" enctype="multipart/form-data" novalidate id="writeForm">
                 {% csrf_token %}
 
                 {% for field in form %}
@@ -84,14 +84,10 @@
                 {% endfor %}
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">썸네일</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="thumbnailGenBtn">🖼️ 썸네일 생성</button>
-                        <span class="small text-muted" id="thumbnailStatus"></span>
-                    </div>
-                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="생성된 썸네일 미리보기">
-                    <input type="hidden" name="pending_thumbnail" id="pendingThumbnailInput">
-                    <div class="form-text">생성하지 않고 등록하면 자동으로 기본 썸네일이 만들어집니다.</div>
+                    <label for="thumbnailUploadInput" class="form-label fw-semibold">썸네일 업로드</label>
+                    <input type="file" name="thumbnail_upload" accept="image/*" class="form-control form-control-sm" id="thumbnailUploadInput">
+                    <div class="form-text">포스팅시 기본 썸네일 이미지가 생성됩니다. 다른 썸네일 이미지를 원하시면 업로드해주세요.</div>
+                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="업로드한 썸네일 미리보기">
                 </div>
 
                 {% if user_blog_accounts %}
@@ -131,8 +127,7 @@
     <script>
         // content(본문)를 Toast UI Editor로 대체한다(news_edit.html의 blog_content와 동일한
         // 패턴). 원본 textarea는 화면에서 숨기고 값 저장소로만 쓴다 — 에디터 'change' 시마다
-        // textarea.value를 계속 동기화해두면, 폼 제출뿐 아니라 아래 썸네일 생성 AJAX가 읽는
-        // contentInput.value도 항상 최신 HTML을 보게 돼 별도 수정이 필요 없다.
+        // textarea.value를 계속 동기화해, 폼 제출 시 최신 HTML이 그대로 넘어가게 한다.
         (function () {
             const textarea = document.getElementById('{{ form.content.id_for_label }}');
             const mount = document.getElementById('contentEditor');
@@ -176,52 +171,21 @@
         })();
 
         (function () {
-            const genBtn = document.getElementById('thumbnailGenBtn');
-            const statusEl = document.getElementById('thumbnailStatus');
+            // 서버 왕복 없이 선택한 파일을 바로 미리보기만 해준다 — 실제 저장은 폼 제출 시
+            // multipart/form-data로 thumbnail_upload 그대로 전달된다.
+            const fileInput = document.getElementById('thumbnailUploadInput');
             const preview = document.getElementById('thumbnailPreview');
-            const pendingInput = document.getElementById('pendingThumbnailInput');
-            const titleInput = document.getElementById('{{ form.title.id_for_label }}');
-            const contentInput = document.getElementById('{{ form.content.id_for_label }}');
-            if (!genBtn) return;
+            if (!fileInput || !preview) return;
 
-            genBtn.addEventListener('click', function () {
-                const title = titleInput.value.trim();
-                if (!title) {
-                    statusEl.textContent = '제목을 먼저 입력해주세요.';
+            fileInput.addEventListener('change', function () {
+                const file = fileInput.files[0];
+                if (!file) {
+                    preview.classList.add('d-none');
+                    preview.removeAttribute('src');
                     return;
                 }
-                genBtn.disabled = true;
-                statusEl.textContent = '⏳ 이미지 생성 중... (최대 30초 소요)';
-
-                const body = new URLSearchParams();
-                body.set('title', title);
-                body.set('content', contentInput.value);
-
-                fetch('{% url "news_write_thumbnail" %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: body.toString(),
-                })
-                    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
-                    .then(function (result) {
-                        if (!result.ok) {
-                            statusEl.textContent = result.data.error || '썸네일 생성에 실패했습니다.';
-                            return;
-                        }
-                        preview.src = result.data.url;
-                        preview.classList.remove('d-none');
-                        pendingInput.value = result.data.token;
-                        statusEl.textContent = '생성 완료 — 등록 시 이 이미지가 함께 첨부됩니다.';
-                    })
-                    .catch(function () {
-                        statusEl.textContent = '썸네일 생성 중 오류가 발생했습니다.';
-                    })
-                    .finally(function () {
-                        genBtn.disabled = false;
-                    });
+                preview.src = URL.createObjectURL(file);
+                preview.classList.remove('d-none');
             });
         })();
     </script>
