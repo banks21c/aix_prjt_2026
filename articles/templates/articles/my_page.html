@@ -43,17 +43,20 @@
     {% include "articles/_header.html" %}
 
     <div class="container my-5" style="max-width: 780px;">
-        <div class="mb-4">
-            <h2 class="fw-bold text-dark">👤 내 정보 관리</h2>
-            <p class="text-muted mb-0">
-                {{ user.first_name|default:user.username }}님 ({{ user.email|default:"이메일 미등록" }})
-                {% if user.subscription.is_active_premium %}
-                <span class="badge bg-warning text-dark ms-1">프리미엄 회원</span>
-                {% else %}
-                <span class="badge bg-secondary ms-1">일반회원</span>
-                <a href="{% url 'subscribe' %}" class="btn btn-sm btn-outline-primary ms-2">구독하기</a>
-                {% endif %}
-            </p>
+        <div class="mb-4 d-flex justify-content-between align-items-start">
+            <div>
+                <h2 class="fw-bold text-dark">👤 내 정보 관리</h2>
+                <p class="text-muted mb-0">
+                    {{ user.first_name|default:user.username }}님 ({{ user.email|default:"이메일 미등록" }})
+                    {% if user.subscription.is_active_premium %}
+                    <span class="badge bg-warning text-dark ms-1">프리미엄 회원</span>
+                    {% else %}
+                    <span class="badge bg-secondary ms-1">일반회원</span>
+                    <a href="{% url 'subscribe' %}" class="btn btn-sm btn-outline-primary ms-2">구독하기</a>
+                    {% endif %}
+                </p>
+            </div>
+            <a href="{% url 'my_posted_articles' %}" class="btn btn-sm btn-outline-secondary flex-shrink-0">내 포스팅 이력 →</a>
         </div>
 
         {% if messages %}
@@ -137,10 +140,7 @@
             <div class="card card-custom bg-white p-4 mb-4">
                 <h5 class="section-title mb-3 d-flex align-items-center justify-content-between">
                     4. 자동 포스팅
-                    <span>
-                        <a href="{% url 'my_posted_articles' %}" class="small fw-normal me-3">내 포스팅 이력 →</a>
-                        <a href="{% url 'blog_connect_guide' %}" target="_blank" rel="noopener noreferrer" class="small fw-normal">가입·연결 방법 안내 →</a>
-                    </span>
+                    <a href="{% url 'blog_connect_guide' %}" target="_blank" rel="noopener noreferrer" class="small fw-normal">가입·연결 방법 안내 →</a>
                 </h5>
                 <div class="form-check form-switch mb-4">
                     {{ pref_form.auto_posting_enabled }}
