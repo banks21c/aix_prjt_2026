@@ -3,7 +3,7 @@
 from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
-    blog_connect_guide_view,
+    blog_connect_guide_view, adsense_guide_view,
     consult_request_view, header_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
     subscribe_view, subscribe_apply_view,
 )

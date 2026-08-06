@@ -23,7 +23,7 @@ from articles.business_admin import business_admin_site  # ◀ 업무(상담·�
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, insurance_compare_view, consult_request_view, header_fragment_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, insurance_compare_view, consult_request_view, header_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     expert_consult_apply_view,
@@ -68,6 +68,7 @@ urlpatterns = [
     path('terms/', terms_of_service_view, name='terms_of_service'),
     path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
     path('guide/blog-connect/', blog_connect_guide_view, name='blog_connect_guide'),
+    path('guide/adsense/', adsense_guide_view, name='adsense_guide'),
     path('experts/', expert_consult_view, name='expert_consult'),
     path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
     path('subscribe/', subscribe_view, name='subscribe'),

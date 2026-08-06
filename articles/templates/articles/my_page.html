@@ -140,7 +140,11 @@
             <div class="card card-custom bg-white p-4 mb-4">
                 <h5 class="section-title mb-3 d-flex align-items-center justify-content-between">
                     4. 자동 포스팅
-                    <a href="{% url 'blog_connect_guide' %}" target="_blank" rel="noopener noreferrer" class="small fw-normal">가입·연결 방법 안내 →</a>
+                    <span class="small fw-normal">
+                        <a href="{% url 'blog_connect_guide' %}" target="_blank" rel="noopener noreferrer">가입·연결 방법 안내 →</a>
+                        <span class="text-muted mx-1">|</span>
+                        <a href="{% url 'adsense_guide' %}" target="_blank" rel="noopener noreferrer">구글 애드센스 신청 가이드 →</a>
+                    </span>
                 </h5>
                 <div class="form-check form-switch mb-4">
                     {{ pref_form.auto_posting_enabled }}

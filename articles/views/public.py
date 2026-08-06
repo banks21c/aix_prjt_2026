@@ -31,7 +31,13 @@ def landing_page_view(request):
     # 예측 대상 범위(is_active 전체)와 일치해야 한다. collect_stock_data/run_stock_prediction이
     # 매일 새벽 --all(is_active 전체)로 돌아 최신 유지된다(deploy/crontab 02:00/04:30 KST).
     active_stock_count = StockItem.objects.filter(is_active=True).count()
-    latest_articles = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:6]
+    # collect_kis_news(원문 링크 없는 KIS 시황_공시 API)로 들어온 기사는 본문이 항상 비어있어
+    # "본문없음"만 반복 노출된다 — 본문이 실제로 있는 기사만 골라 보여준다.
+    latest_articles = (
+        AnalyzedArticle.objects.select_related('stock')
+        .exclude(original_content='')
+        .order_by('-scraped_at')[:6]
+    )
 
     context = {
         'site_title': 'NextFinUp - AI 차세대 자산 분석 포털',
@@ -80,6 +86,14 @@ def terms_of_service_view(request):
 
 def email_collection_refusal_view(request):
     return render(request, 'articles/email_collection_refusal.html', {'site_title': 'NextFinUp - 전자우편 무단수집거부'})
+
+
+def blog_connect_guide_view(request):
+    return render(request, 'articles/blog_connect_guide.html', {'site_title': 'NextFinUp - 블로그 연결 가이드'})
+
+
+def adsense_guide_view(request):
+    return render(request, 'articles/adsense_guide.html', {'site_title': 'NextFinUp - 구글 애드센스 신청 가이드'})
 
 
 def expert_consult_view(request):
@@ -321,7 +335,13 @@ def main_dashboard_view(request):
     kosdaq_index = _build_index_chart('KOSDAQ', days=1095)
 
     # ---- 2행: 주요뉴스 (전체 종목 통틀어 가장 최근 수집된 기사) ----
-    major_news = AnalyzedArticle.objects.select_related('stock', 'matched_keyword').order_by('-scraped_at')[:7]
+    # collect_kis_news(원문 링크 없는 KIS 시황_공시 API)로 들어온 기사는 본문이 항상 비어있어
+    # "본문없음"만 반복 노출된다 — 본문이 실제로 있는 기사만 골라 보여준다.
+    major_news = (
+        AnalyzedArticle.objects.select_related('stock', 'matched_keyword')
+        .exclude(original_content='')
+        .order_by('-scraped_at')[:7]
+    )
 
     # ---- 2행: 특징종목 (한국투자증권 등락률 순위 API 기준 상승률 상위 5개 + 하락률 상위 5개) ----
     top_gainers = list(RankedMover.objects.filter(rank_type='GAINER').order_by('rank'))
