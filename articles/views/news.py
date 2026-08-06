@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 def news_board_view(request):
     query = request.GET.get('q', '').strip()
+    ai_only = request.GET.get('ai_only') == '1'
 
     # 원문이 없으면(KIS 시황_공시 API 수집분, 스크래핑 실패 RSS) AI 요약도 포스팅도 할 수 없으니
     # 게시판에는 원문이 있는 기사만 노출한다.
@@ -37,6 +38,11 @@ def news_board_view(request):
         articles = articles.filter(
             Q(title__icontains=query) | Q(stock__name__icontains=query) | Q(matched_keyword__keyword__icontains=query)
         )
+    if ai_only:
+        # ai_generated이 아니라 ai_summary로 걸러야 한다 — ai_generated은 "포스팅 준비완료"에
+        # 가까운 필드라 '바로 포스팅'(AI 미호출) 기사도 True라, 그걸 기준으로 하면 AI 요약이
+        # 실제로 없는 글까지 "AI요약만 보기"에 섞여 나온다.
+        articles = articles.exclude(ai_summary='')
 
     paginator = Paginator(articles, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -85,6 +91,7 @@ def news_board_view(request):
         'prev_block_page': prev_block_page,
         'next_block_page': next_block_page,
         'query': query,
+        'ai_only': ai_only,
         'user_blog_accounts': user_blog_accounts,
         'posted_article_ids': posted_article_ids,
         'next_url': next_url,

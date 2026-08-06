@@ -58,9 +58,13 @@
             <div class="input-group">
                 <input type="text" name="q" class="form-control" placeholder="제목, 종목명, 키워드로 검색" value="{{ query }}">
                 <button type="submit" class="btn btn-primary">검색</button>
-                {% if query %}
+                {% if query or ai_only %}
                 <a href="{% url 'news_board' %}" class="btn btn-outline-secondary">초기화</a>
                 {% endif %}
+            </div>
+            <div class="form-check mt-2">
+                <input type="checkbox" class="form-check-input" name="ai_only" value="1" id="aiOnlyCheck" {% if ai_only %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label small" for="aiOnlyCheck">AI요약만 보기</label>
             </div>
         </form>
 
@@ -173,21 +177,21 @@
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
-                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">&laquo;</a>
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&laquo;</a>
                 </li>
                 <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}">&lsaquo;</a>
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&lsaquo;</a>
                 </li>
                 {% for n in page_range %}
                 <li class="page-item{% if n == page_obj.number %} active{% endif %}">
-                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}">{{ n }}</a>
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">{{ n }}</a>
                 </li>
                 {% endfor %}
                 <li class="page-item{% if not next_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}">&rsaquo;</a>
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&rsaquo;</a>
                 </li>
                 <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}">&raquo;</a>
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&raquo;</a>
                 </li>
             </ul>
         </nav>
