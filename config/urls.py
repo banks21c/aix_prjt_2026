@@ -19,6 +19,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
+from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
@@ -49,7 +50,8 @@ sitemaps = {
 }
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls),  # ◀ 시스템 관리 — 슈퍼유저 전용(articles/admin.py에서 제한)
+    path('staff/', business_admin_site.urls),  # ◀ 업무 관리(상담 신청/재무상담 시트/구독 신청/프리미엄 구독) — is_staff면 접근 가능
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap'),
     path('', landing_page_view, name='landing_page'),  # ◀ 메인 홈페이지(랜딩 페이지)
     path('newsletter/subscribe/', newsletter_subscribe_view, name='newsletter_subscribe'),

@@ -22,6 +22,18 @@ admin.site.site_header = "NextFinUp administration"
 admin.site.site_title = "NextFinUp admin"
 admin.site.index_title = "NextFinUp 관리"
 
+# /admin/(이 파일에 등록된 시스템 전체 — 파이프라인/ML/회원계정/자격증명 등)은 슈퍼유저 전용으로
+# 잠근다. 업무(상담·구독) 담당자는 articles/business_admin.py의 별도 /staff/ 사이트를 쓴다 —
+# 거기는 기본 권한 체크(is_staff)만 요구해 스태프면 누구나 들어오지만, is_superuser가 아닌
+# 스태프는 여기(/admin/) 로그인 자체가 막힌다. 이미 만들어진 admin.site 싱글턴의 __class__를
+# 바꿔치기하는 방식이라(공식 문서에도 나오는 패턴), 아래 @admin.register들은 손댈 필요 없다.
+class _SuperuserOnlyAdminSite(admin.AdminSite):
+    def has_permission(self, request):
+        return super().has_permission(request) and request.user.is_superuser
+
+
+admin.site.__class__ = _SuperuserOnlyAdminSite
+
 
 # 0-0-3. 회원 권한 등급 생성/수정/삭제 화면 (5단계로 시작, Admin에서 자유롭게 추가·수정·삭제 가능)
 @admin.register(MemberGrade)
