@@ -55,7 +55,7 @@
                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}({{ article.stock.ticker }})</a>{% endif %}
                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
                 {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
-                {% if article.ai_generated %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
+                {% if article.ai_summary %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
             </div>
 
             {% if article.thumbnail %}
@@ -124,7 +124,11 @@
             </p>
             {% endif %}
 
-            <h6 class="section-title">AI 요약 전문</h6>
+            <!-- blog_content는 AI 요약 흐름(draft['blog_content'])과 '바로 포스팅'(회원이 직접
+                 쓴 원고 그대로)이 같이 채우는 필드다 — ai_summary가 있을 때만 실제로 AI가 만든
+                 결과이므로, 없을 때는 "AI 요약 전문"이라고 부르면 안 된다(신고: "AI요약한것이
+                 아니기 때문에 이 자리에 들어가면 안돼"). -->
+            <h6 class="section-title">{% if article.ai_summary %}AI 요약 전문{% else %}포스팅 원고{% endif %}</h6>
             {% if article.blog_content %}
             <div class="content-block">{{ article.blog_content|safe }}</div>
             {% else %}
