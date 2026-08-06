@@ -32,6 +32,9 @@
     <div class="container my-5" style="max-width: 780px;">
         <div class="d-flex justify-content-end align-items-center gap-2">
             <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary">목록</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'news_write' %}" class="btn btn-sm btn-outline-primary">✍️ 직접 작성하기</a>
+            {% endif %}
             {% if user.is_staff %}
             <a href="{% url 'news_edit' article.pk %}" class="btn btn-sm btn-outline-primary">✏️ 수정</a>
             {% endif %}
