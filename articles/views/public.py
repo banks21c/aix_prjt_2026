@@ -12,6 +12,7 @@ from django.db.models import Count, Max
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -19,7 +20,7 @@ from .. import kis_client
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
-    StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
+    StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
 )
 from ..utils import get_client_ip
 
@@ -343,7 +344,7 @@ def main_dashboard_view(request):
         .order_by('-scraped_at')[:7]
     )
 
-    # ---- 2행: 특징종목 (한국투자증권 등락률 순위 API 기준 상승률 상위 5개 + 하락률 상위 5개) ----
+    # ---- 2행: 등락률 상위 (한국투자증권 등락률 순위 API 기준 상승률 상위 5개 + 하락률 상위 5개) ----
     top_gainers = list(RankedMover.objects.filter(rank_type='GAINER').order_by('rank'))
     top_losers = list(RankedMover.objects.filter(rank_type='LOSER').order_by('rank'))
     featured_stocks = top_gainers + top_losers
@@ -369,6 +370,67 @@ def main_dashboard_view(request):
             naver_code = mover.ticker[1:] if mover.ticker.startswith('Q') else mover.ticker
             mover.detail_url = f"https://finance.naver.com/item/main.naver?code={naver_code}"
             mover.detail_external = True
+
+    # ---- 2행: 진짜 특징종목 (등락률만 보는 위 순위와 달리, 오늘 실제 뉴스·공시가 붙어 "왜
+    # 움직였는지 설명되는" 종목만 추린다). 등락률 상위(RankedMover)는 상승률/하락률 5개뿐이라
+    # 후보가 너무 좁아 뉴스/공시와 거의 안 겹치므로, 후보군 자체를 실시간 시세 캐시(코스피200/
+    # 코스닥150, 350종목) 전체로 넓히고 거기서 오늘 뉴스나 DART 공시가 매칭된 종목만 남긴 뒤
+    # 등락률 절댓값 상위를 뽑는다 — "많이 움직였다"가 아니라 "많이 움직였고 이유도 있다"가 기준.
+    today = timezone.localdate()
+    news_stock_ids = set(
+        AnalyzedArticle.objects.filter(scraped_at__date=today).exclude(stock=None)
+        .values_list('stock_id', flat=True)
+    )
+    disclosure_stock_ids = set(
+        StockDisclosure.objects.filter(rcept_dt=today).exclude(stock=None)
+        .values_list('stock_id', flat=True)
+    )
+    explainable_ids = news_stock_ids | disclosure_stock_ids
+
+    REAL_FEATURED_MIN_CHANGE_PCT = 2.0
+    real_featured_stocks = []
+    if explainable_ids:
+        candidates = list(
+            StockRealtimePrice.objects.filter(stock_id__in=explainable_ids)
+            .select_related('stock')
+        )
+        candidates = [c for c in candidates if abs(c.change_pct) >= REAL_FEATURED_MIN_CHANGE_PCT]
+        candidates.sort(key=lambda c: abs(c.change_pct), reverse=True)
+        candidates = candidates[:10]
+
+        for c in candidates:
+            c.change_abs = abs(c.change)
+            c.change_pct_abs = abs(c.change_pct)
+            reasons = []
+            reason_link, reason_link_external, reason_text = None, False, None
+
+            if c.stock_id in news_stock_ids:
+                reasons.append('뉴스')
+                latest_news = (
+                    AnalyzedArticle.objects.filter(stock_id=c.stock_id, scraped_at__date=today)
+                    .order_by('-scraped_at').first()
+                )
+                if latest_news:
+                    reason_link = reverse('news_detail', args=[latest_news.pk])
+                    reason_link_external = False
+                    reason_text = latest_news.title
+            if c.stock_id in disclosure_stock_ids:
+                reasons.append('공시')
+                if reason_link is None:  # 뉴스 링크가 없을 때만 공시(외부 DART) 링크로 대체
+                    latest_disc = (
+                        StockDisclosure.objects.filter(stock_id=c.stock_id, rcept_dt=today)
+                        .order_by('-rcept_no').first()
+                    )
+                    if latest_disc:
+                        reason_link = latest_disc.viewer_url
+                        reason_link_external = True
+                        reason_text = latest_disc.report_nm
+
+            c.reason_label = '+'.join(reasons)
+            c.reason_link = reason_link
+            c.reason_link_external = reason_link_external
+            c.reason_text = reason_text
+            real_featured_stocks.append(c)
 
     latest_pred_date = StockPrediction.objects.aggregate(m=Max('date'))['m']
 
@@ -473,6 +535,7 @@ def main_dashboard_view(request):
         'major_news': major_news,
         'top_gainers': top_gainers,
         'top_losers': top_losers,
+        'real_featured_stocks': real_featured_stocks,
         'kospi_ohlc': kospi_index['ohlc'],
         'kosdaq_ohlc': kosdaq_index['ohlc'],
         'mover_labels': mover_labels,

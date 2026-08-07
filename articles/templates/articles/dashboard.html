@@ -143,7 +143,12 @@
                                     {% if news.stock %}
                                     <a href="{% url 'stock_detail' news.stock.ticker %}" class="badge bg-light text-dark border me-1 text-decoration-none">{{ news.stock.name }}</a>
                                     {% endif %}
+                                    {% if news.original_content %}
                                     <a href="{% url 'news_detail' news.pk %}" class="fw-semibold text-decoration-none text-dark">{{ news.title }}</a>
+                                    {% else %}
+                                    <span class="fw-semibold text-dark">{{ news.title }}</span>
+                                    <span class="badge bg-light text-muted border ms-1" style="font-size: 11px;">본문없음</span>
+                                    {% endif %}
                                 </div>
                                 <div class="text-muted" style="font-size: 12px;">{{ news.source_media }} · {{ news.scraped_at|date:"m/d H:i" }}</div>
                             </div>
@@ -155,7 +160,7 @@
             </div>
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <h5 class="section-title">⭐ 특징종목 <small class="text-muted fw-normal" style="font-size: 11px;">(한국투자증권 등락률 순위)</small></h5>
+                    <h5 class="section-title">📈 등락률 상위 <small class="text-muted fw-normal" style="font-size: 11px;">(한국투자증권 등락률 순위)</small></h5>
 
                     <div class="fw-bold text-danger mb-1" style="font-size: 13px;">🔺 상승률 상위 5</div>
                     {% if top_gainers %}
@@ -192,11 +197,61 @@
             </div>
         </div>
 
+        <!-- 2-1행: 진짜 특징종목 (등락률뿐 아니라 오늘 뉴스·공시로 이유가 설명되는 종목만) -->
+        <div class="row row-cols-1 g-4 mb-2">
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">🎯 진짜 특징종목 <small class="text-muted fw-normal" style="font-size: 11px;">(등락 + 오늘 뉴스·공시 근거)</small></h5>
+                    {% if real_featured_stocks %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr class="text-muted" style="font-size: 12px;">
+                                        <th>종목</th>
+                                        <th class="text-end">현재가</th>
+                                        <th class="text-end">전일대비</th>
+                                        <th class="text-end">등락률</th>
+                                        <th>근거</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in real_featured_stocks %}
+                                        <tr style="font-size: 13px;">
+                                            <td>
+                                                <a href="{% url 'stock_detail' s.stock.ticker %}" class="fw-bold text-decoration-none text-dark">
+                                                    {{ s.stock.name }}({{ s.stock.ticker }})
+                                                </a>
+                                            </td>
+                                            <td class="text-end">{{ s.close_price|floatformat:0|intcomma }}</td>
+                                            <td class="text-end {% if s.change_pct > 0 %}up-value{% elif s.change_pct < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if s.change_pct > 0 %}▲{% elif s.change_pct < 0 %}▼{% else %}-{% endif %}{{ s.change_abs|floatformat:0|intcomma }}
+                                            </td>
+                                            <td class="text-end {% if s.change_pct > 0 %}up-value{% elif s.change_pct < 0 %}down-value{% else %}flat-value{% endif %}">
+                                                {% if s.change_pct > 0 %}▲{% elif s.change_pct < 0 %}▼{% else %}-{% endif %}{{ s.change_pct_abs|floatformat:2 }}%
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border me-1" style="font-size: 11px;">{{ s.reason_label }}</span>
+                                                {% if s.reason_link %}
+                                                <a href="{{ s.reason_link }}" {% if s.reason_link_external %}target="_blank" rel="noopener noreferrer"{% endif %} class="text-decoration-none" style="font-size: 12.5px;">{{ s.reason_text|truncatechars:28 }}</a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">오늘은 등락률(±2% 이상)과 뉴스·공시가 동시에 겹치는 종목이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <!-- 3행: 파이썬(Django ORM) 분석 그래프 -->
         <div class="row row-cols-1 row-cols-md-2 g-4">
             <div class="col">
                 <div class="card card-custom bg-white p-4 h-100">
-                    <h5 class="section-title">📊 특징종목 등락률</h5>
+                    <h5 class="section-title">📊 등락률 상위 그래프</h5>
                     {% if mover_labels %}
                         <div class="chart-wrap-sm"><canvas id="moverChart"></canvas></div>
                     {% else %}
