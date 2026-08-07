@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IRP — 퇴직금과 노후자금, 한 계좌로</title>
-<link rel="stylesheet" href="/asset-management/common.css?v=20260807">
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <style>
   /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
   :root{
@@ -242,7 +242,15 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>

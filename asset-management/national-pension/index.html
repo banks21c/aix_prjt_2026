@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>국민연금 — 쉽고 정확하게 안내합니다</title>
-<link rel="stylesheet" href="/asset-management/common.css?v=20260807">
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <style>
   /* 이 페이지 고유의 변수명(--brand, --bg …)은 그대로 두고 값만 NextFinUp
      팔레트에 매핑한다. 마크업을 건드리지 않고 분위기만 통일하기 위해서다. */
@@ -262,7 +262,15 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>
