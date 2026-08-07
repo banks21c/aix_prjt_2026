@@ -19,6 +19,7 @@
         .news-summary { font-size: 14px; color: #495057; margin-top: 6px; }
         .news-post-action { flex-shrink: 0; width: 110px; text-align: right; }
         .post-toolbar { position: sticky; top: 0; z-index: 5; }
+        .filter-toggle-compact .btn { padding: 2px 8px; font-size: 12px; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -58,13 +59,21 @@
             <div class="input-group">
                 <input type="text" name="q" class="form-control" placeholder="제목, 종목명, 키워드로 검색" value="{{ query }}">
                 <button type="submit" class="btn btn-primary">검색</button>
-                {% if query or ai_only %}
+                {% if query or ai_filter != 'all' or content_filter != 'all' %}
                 <a href="{% url 'news_board' %}" class="btn btn-outline-secondary">초기화</a>
                 {% endif %}
             </div>
-            <div class="form-check mt-2 mb-0">
-                <input type="checkbox" class="form-check-input" name="ai_only" value="1" id="aiOnlyCheck" {% if ai_only %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label small" for="aiOnlyCheck">AI 요약 완료 보기</label>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <div class="btn-group btn-group-sm filter-toggle-compact" role="group" aria-label="AI 요약 상태 필터">
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=all{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'all' %} active{% endif %}">전체</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=pending{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'pending' %} active{% endif %}">AI요약전</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=done{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'done' %} active{% endif %}">AI요약완료</a>
+                </div>
+                <div class="btn-group btn-group-sm filter-toggle-compact" role="group" aria-label="본문 여부 필터">
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=all{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'all' %} active{% endif %}">전체</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=has{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'has' %} active{% endif %}">본문있음</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=none{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'none' %} active{% endif %}">본문없음</a>
+                </div>
             </div>
         </form>
 
@@ -153,7 +162,7 @@
                         </div>
                         <div class="news-post-action ps-3 d-flex flex-column align-items-end gap-1">
                             {% if not article.ai_generated %}
-                                {% if user.is_authenticated %}
+                                {% if user.is_authenticated and article.original_content %}
                                 <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
                                         {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                                 {% endif %}
@@ -181,21 +190,21 @@
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
-                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&laquo;</a>
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}">&laquo;</a>
                 </li>
                 <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&lsaquo;</a>
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}">&lsaquo;</a>
                 </li>
                 {% for n in page_range %}
                 <li class="page-item{% if n == page_obj.number %} active{% endif %}">
-                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">{{ n }}</a>
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}">{{ n }}</a>
                 </li>
                 {% endfor %}
                 <li class="page-item{% if not next_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&rsaquo;</a>
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}">&rsaquo;</a>
                 </li>
                 <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if ai_only %}&ai_only=1{% endif %}">&raquo;</a>
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}">&raquo;</a>
                 </li>
             </ul>
         </nav>

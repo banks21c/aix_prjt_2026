@@ -24,13 +24,18 @@ logger = logging.getLogger(__name__)
 
 def news_board_view(request):
     query = request.GET.get('q', '').strip()
-    ai_only = request.GET.get('ai_only') == '1'
+    ai_filter = request.GET.get('ai_filter', 'all')
+    if ai_filter not in ('all', 'pending', 'done'):
+        ai_filter = 'all'
+    content_filter = request.GET.get('content_filter', 'all')
+    if content_filter not in ('all', 'has', 'none'):
+        content_filter = 'all'
 
-    # 원문이 없으면(KIS 시황_공시 API 수집분, 스크래핑 실패 RSS) AI 요약도 포스팅도 할 수 없으니
-    # 게시판에는 원문이 있는 기사만 노출한다.
+    # 원문이 없는 기사(KIS 시황_공시 API 수집분, 스크래핑 실패 RSS)는 AI 요약/포스팅은 못 하지만,
+    # 게시판은 전체 수집 현황을 보여주는 곳이라 숨기지 않고 "본문없음" 배지로 표시한다
+    # (news_board.html).
     articles = (
         AnalyzedArticle.objects
-        .exclude(original_content='')
         .select_related('stock', 'matched_keyword')
         .order_by('-scraped_at')
     )
@@ -38,11 +43,17 @@ def news_board_view(request):
         articles = articles.filter(
             Q(title__icontains=query) | Q(stock__name__icontains=query) | Q(matched_keyword__keyword__icontains=query)
         )
-    if ai_only:
-        # ai_generated이 아니라 ai_summary로 걸러야 한다 — ai_generated은 "포스팅 준비완료"에
-        # 가까운 필드라 '바로 포스팅'(AI 미호출) 기사도 True라, 그걸 기준으로 하면 AI 요약이
-        # 실제로 없는 글까지 "AI요약만 보기"에 섞여 나온다.
+    # ai_generated이 아니라 ai_summary로 걸러야 한다 — ai_generated은 "포스팅 준비완료"에
+    # 가까운 필드라 '바로 포스팅'(AI 미호출) 기사도 True라, 그걸 기준으로 하면 AI 요약이
+    # 실제로 없는 글까지 "AI요약완료"에 섞여 나온다.
+    if ai_filter == 'done':
         articles = articles.exclude(ai_summary='')
+    elif ai_filter == 'pending':
+        articles = articles.filter(ai_summary='')
+    if content_filter == 'has':
+        articles = articles.exclude(original_content='')
+    elif content_filter == 'none':
+        articles = articles.filter(original_content='')
 
     paginator = Paginator(articles, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -91,7 +102,8 @@ def news_board_view(request):
         'prev_block_page': prev_block_page,
         'next_block_page': next_block_page,
         'query': query,
-        'ai_only': ai_only,
+        'ai_filter': ai_filter,
+        'content_filter': content_filter,
         'user_blog_accounts': user_blog_accounts,
         'posted_article_ids': posted_article_ids,
         'next_url': next_url,
