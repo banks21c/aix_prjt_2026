@@ -144,12 +144,15 @@
             {% if article.original_content %}
             <div class="d-flex justify-content-between align-items-center" style="margin-top: 24px; margin-bottom: 12px;">
                 <h6 class="section-title mb-0" style="margin-top: 0;">📄 원문 전문</h6>
-                {% if not article.ai_summary and user.is_authenticated %}
-                <button type="submit" form="aiSummarizeForm" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
-                        {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
-                {% endif %}
+                <div class="d-flex gap-2">
+                    {% if not article.ai_summary and user.is_authenticated %}
+                    <button type="submit" form="aiSummarizeForm" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
+                            {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleOriginalContentBtn">숨기기</button>
+                </div>
             </div>
-            <div class="content-block">{{ article.original_content }}</div>
+            <div class="content-block" id="originalContentBlock">{{ article.original_content }}</div>
             {% endif %}
         </div>
     </div>
@@ -196,6 +199,16 @@
                 loadingOverlay.style.display = 'none';
             }
         });
+
+        const toggleOriginalContentBtn = document.getElementById('toggleOriginalContentBtn');
+        const originalContentBlock = document.getElementById('originalContentBlock');
+        if (toggleOriginalContentBtn && originalContentBlock) {
+            toggleOriginalContentBtn.addEventListener('click', function () {
+                const isHidden = originalContentBlock.style.display === 'none';
+                originalContentBlock.style.display = isHidden ? '' : 'none';
+                toggleOriginalContentBtn.textContent = isHidden ? '숨기기' : '보기';
+            });
+        }
     </script>
 {% include "articles/_cookie_banner.html" %}
 </body>
