@@ -49,7 +49,7 @@
         {% endif %}
 
         <div class="card card-custom bg-white p-4 mt-3">
-            <h3 class="fw-bold">{{ article.title }}</h3>
+            <h3 class="fw-bold">{{ article.title }}{% if not article.original_content %} <span class="badge bg-light text-muted border" style="font-size: 11px;">본문없음</span>{% endif %}</h3>
             <div class="news-meta mb-3">
                 {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}({{ article.stock.ticker }})</a>{% endif %}

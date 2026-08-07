@@ -225,6 +225,7 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .news-item .date { flex: 0 0 auto; font-size: 12px; color: #adb5bd; white-space: nowrap; }
+        .news-item .badge-nolink { flex: 0 0 auto; font-size: 11px; font-weight: 500; color: #adb5bd; border: 1px solid #dee2e6; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
         .news-empty { text-align: center; color: #adb5bd; font-size: 14px; padding: 32px 0; }
 
         /* 뉴스레터 */
@@ -478,11 +479,20 @@
             </div>
             <div class="news-list">
                 {% for article in latest_articles %}
+                {% if article.original_content %}
                 <a href="{% url 'news_detail' article.pk %}" class="news-item">
                     <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
                     <span class="title">{{ article.title }}</span>
                     <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
                 </a>
+                {% else %}
+                <div class="news-item">
+                    <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
+                    <span class="title">{{ article.title }}</span>
+                    <span class="badge-nolink">본문없음</span>
+                    <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
+                </div>
+                {% endif %}
                 {% empty %}
                 <div class="news-empty">아직 수집된 분석 브리핑이 없습니다.</div>
                 {% endfor %}

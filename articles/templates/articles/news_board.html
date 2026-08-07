@@ -138,6 +138,7 @@
                         <div class="flex-grow-1">
                             <a href="{% url 'news_detail' article.pk %}" class="news-title text-decoration-none d-block">
                                 {{ article.title }}
+                                {% if not article.original_content %}<span class="badge bg-light text-muted border" style="font-size: 11px;">본문없음</span>{% endif %}
                             </a>
                             <div class="news-meta">
                                 {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}

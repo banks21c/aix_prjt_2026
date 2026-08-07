@@ -176,9 +176,16 @@
             {% if news %}
                 {% for article in news %}
                 <div class="news-item">
+                    {% if article.original_content %}
                     <a href="{% url 'news_detail' article.pk %}" class="fw-semibold text-decoration-none text-dark d-block" style="font-size: 14px;">
                         {{ article.title }}
                     </a>
+                    {% else %}
+                    <span class="fw-semibold text-dark d-block" style="font-size: 14px;">
+                        {{ article.title }}
+                        <span class="badge bg-light text-muted border ms-1" style="font-size: 11px;">본문없음</span>
+                    </span>
+                    {% endif %}
                     <div class="text-muted" style="font-size: 12px;">{{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}</div>
                 </div>
                 {% endfor %}
