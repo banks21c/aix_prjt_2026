@@ -200,6 +200,40 @@
         gap: 8px;
     }
 
+    /* 메뉴(경제 동향/대시보드/ISA 등)는 KRX/NXT 탭(finance.naver.com) 스타일 — 서로 붙어있는
+       탭 형태로 로그인/로그아웃/구독 같은 "버튼"과 확실히 구분되게 한다. 왼쪽은 옆 탭과 붙어
+       각지고, 오른쪽 두 모서리만 둥글게 해서 버튼과는 다른 탭 모양임을 드러낸다. */
+    .nav-tabs { display: inline-flex; align-items: stretch; }
+    .nav-tab {
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #868e96;
+        background: #f1f3f5;
+        border: 1px solid #dee2e6;
+        border-radius: 0 8px 0 0;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .nav-tabs > .nav-tab,
+    .nav-tabs > .nav-dropdown {
+        margin-left: -1px;
+    }
+    .nav-tabs > .nav-tab:first-child,
+    .nav-tabs > .nav-dropdown:first-child {
+        margin-left: 0;
+    }
+    .nav-tab:hover, .nav-tab:focus {
+        background: #fff;
+        color: #0d47a1;
+        border-color: #0d47a1;
+        position: relative;
+        z-index: 1;
+        text-decoration: none;
+    }
     .nav-dropdown { position: relative; display: inline-block; }
     .nav-dropdown-menu {
         display: none;
@@ -319,6 +353,10 @@
         }
         .app-nav-menu.open { display: flex !important; }
         .app-nav-menu .btn { width: 100%; justify-content: center; }
+        .nav-tabs { flex-direction: column; width: 100%; }
+        .nav-tabs > .nav-tab, .nav-tabs > .nav-dropdown { width: 100%; margin-left: 0; margin-top: -1px; }
+        .nav-tabs > .nav-tab:first-child, .nav-tabs > .nav-dropdown:first-child { margin-top: 0; }
+        .nav-tab { width: 100%; justify-content: center; border-radius: 8px; }
     }
 </style>
 <script>
