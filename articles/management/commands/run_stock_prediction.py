@@ -21,6 +21,13 @@ EMBARGO_DAYS = 5
 # 검증이 의미를 가지려면 학습 표본이 최소 이 정도는 있어야 합니다.
 MIN_TRAIN_ROWS = 120
 
+# BUY/SELL 발동에 필요한 최소 확률. 2026-08-07 실측(확정된 실제 결과가 있는 라이브 예측
+# 9,650건을 신뢰도 구간별로 집계): confidence(=|prob-0.5|*2) 0.2 구간(=이 값 0.60)은 실현
+# 정확도 55~59%였는데, 0.5 구간(=이 값 0.75, 표본 374건)은 69.3%까지 올라갔다. 그 이상
+# 구간은 표본이 40건 이하로 너무 적어 신뢰할 수 없어 채택하지 않았다. 임계값을 올리면 신호가
+# 뜨는 종목 수는 줄어드는 대신(정확도-커버리지 트레이드오프) 신호 자체의 정확도는 올라간다.
+SIGNAL_PROB_THRESHOLD = 0.75
+
 # 그래디언트 부스팅(LightGBM)과 배깅(RandomForest)은 편향/분산 특성이 달라, 두 모델의 예측을
 # 평균 내는 앙상블이 홀드아웃 40일치처럼 표본이 적은 검증에서 한쪽 모델의 우연한 과적합에
 # 흔들리지 않고 더 안정적인 결과를 준다. num_leaves=31은 LightGBM 기본값(max_depth=6과 궁합이
@@ -85,9 +92,9 @@ def _train_and_predict(feature_cols, labeled, latest_row):
 
     if not beats_baseline:
         signal = 'HOLD'
-    elif prob_up >= 0.60 and pred_ret5 > 0.01:
+    elif prob_up >= SIGNAL_PROB_THRESHOLD and pred_ret5 > 0.01:
         signal = 'BUY'
-    elif prob_down >= 0.60 and pred_ret5 < -0.01:
+    elif prob_down >= SIGNAL_PROB_THRESHOLD and pred_ret5 < -0.01:
         signal = 'SELL'
     else:
         signal = 'HOLD'
