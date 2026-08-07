@@ -97,7 +97,7 @@ class AnalyzedArticle(models.Model):
     # 않으므로(토큰 비용) 이 세 필드를 비워둔 채 저장한다 — ai_generated=True로 바뀌는 시점
     # (news_ai_summarize_view/news_scrape_view/특징주 브리핑)에만 실제 값이 채워진다.
     ai_summary = models.TextField(blank=True, default='', verbose_name="AI 3줄 요약")
-    ai_analysis = models.TextField(blank=True, default='', verbose_name="AI 투자 관점 분석")
+    ai_analysis = models.TextField(blank=True, default='', verbose_name="AI 관점 분석")
     blog_content = models.TextField(blank=True, default='', verbose_name="블로그/티스토리 포스팅용 원고")
     original_content = models.TextField(blank=True, default='', verbose_name="원문 본문(스크래핑)")
 

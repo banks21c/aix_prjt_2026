@@ -32,8 +32,8 @@
         <div class="card card-custom bg-white p-4 mt-3">
             <h3 class="fw-bold mb-2">🔗 뉴스 수집</h3>
             <p class="text-muted small mb-4">
-                기사 원문 URL을 입력하면 본문을 자동으로 스크래핑해 아래에 보여줍니다. AI 3줄 요약·
-                투자 관점 분석·블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
+                기사 원문 URL을 입력하고 '스크래핑' 버튼을 누르면 본문을 가져와 아래에 보여줍니다. AI 3줄 요약·
+                관점 분석·블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
             </p>
 
             <p class="mb-4">
@@ -52,20 +52,17 @@
                 {% csrf_token %}
 
                 {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                <div class="input-group mb-2">
+                    <span class="input-group-text fw-semibold">{{ field.label }}</span>
                     {{ field }}
-                    {% if field.errors %}
-                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-
-                <div class="d-flex justify-content-end gap-2 mt-4">
                     <button type="submit" class="btn btn-primary" id="scrapeSubmitBtn" {% if scraping_stats.remaining == 0 %}disabled{% endif %}>
                         스크래핑
                     </button>
                 </div>
+                {% if field.errors %}
+                <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                {% endif %}
+                {% endfor %}
             </form>
         </div>
 
@@ -76,12 +73,12 @@
                 <div class="fw-semibold mb-1">스크랩한 내용</div>
                 <textarea class="form-control small" id="previewContent" rows="8" readonly></textarea>
             </div>
-            <div class="mb-3">
+            <div class="mb-3 d-none" id="previewSummaryBlock">
                 <div class="fw-semibold mb-1">AI 3줄 요약</div>
                 <div id="previewSummary" class="small" style="white-space: pre-line;"></div>
             </div>
-            <div class="mb-3">
-                <div class="fw-semibold mb-1">AI 투자 관점 분석</div>
+            <div class="mb-3 d-none" id="previewAnalysisBlock">
+                <div class="fw-semibold mb-1">AI 관점 분석</div>
                 <div id="previewAnalysis" class="small" style="white-space: pre-line;"></div>
             </div>
             <div class="d-flex justify-content-end gap-2">
@@ -105,6 +102,8 @@
             const previewContent = document.getElementById('previewContent');
             const previewSummary = document.getElementById('previewSummary');
             const previewAnalysis = document.getElementById('previewAnalysis');
+            const previewSummaryBlock = document.getElementById('previewSummaryBlock');
+            const previewAnalysisBlock = document.getElementById('previewAnalysisBlock');
             const previewDetailLink = document.getElementById('previewDetailLink');
             const previewAiSummarizeForm = document.getElementById('previewAiSummarizeForm');
             const previewAiSummarizeNext = document.getElementById('previewAiSummarizeNext');
@@ -118,8 +117,10 @@
                         previewTitle.textContent = data.title;
                         previewMeta.textContent = `${data.source_media} · ${data.scraped_at}`;
                         previewContent.value = data.original_content || '(스크랩한 원문이 없습니다)';
-                        previewSummary.textContent = data.ai_summary || '(AI 요약이 아직 없습니다)';
-                        previewAnalysis.textContent = data.ai_analysis || '(AI 분석이 아직 없습니다)';
+                        previewSummary.textContent = data.ai_summary || '';
+                        previewAnalysis.textContent = data.ai_analysis || '';
+                        previewSummaryBlock.classList.toggle('d-none', !data.ai_summary);
+                        previewAnalysisBlock.classList.toggle('d-none', !data.ai_analysis);
                         previewDetailLink.href = data.detail_url;
                         // AI 요약이 끝나면 편집 화면이 아니라 바로 상세 화면으로 이동한다.
                         previewAiSummarizeForm.action = data.ai_summarize_url;

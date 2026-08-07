@@ -9,8 +9,10 @@ import re
 import requests
 from django.conf import settings
 from django.utils import timezone
+from requests_oauthlib import OAuth1
 
 from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPrediction, UserSubscription
+from .utils import resolve_thumbnail_stock
 
 # blog_content는 두 가지 출처가 섞여 있다: (1) RSS 자동 수집 파이프라인(collect_keyword_news 등)이
 # 만드는 개행(\n) 기반 평문, (2) news_scrape → news_edit에서 Toast UI Editor(WYSIWYG)로 작성/수정한
@@ -20,6 +22,7 @@ _BLOCK_HTML_RE = re.compile(r'<(p|h[1-6]|ul|ol|li|div|blockquote|table|img|br)\b
 
 WP_POST_STATUS = "publish"  # 검증 완료 후 바로 공개 발행으로 전환.
 BLOGGER_IS_DRAFT = False  # 검증 완료 후 바로 공개 발행으로 전환.
+TUMBLR_POST_STATE = "published"  # 검증 완료 후 바로 공개 발행으로 전환.
 
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
@@ -112,16 +115,20 @@ def _section_h3(text):
     return f'<h3 style="{_SECTION_H3_STYLE}">{text}</h3>'
 
 
-def _build_pred_html(article, latest_pred):
-    """StockPrediction이 있으면(관련 종목이 있고 예측이 이미 돌아간 경우) ML 예측 표 HTML,
-    없으면 빈 문자열. 3개 템플릿이 모두 공유하는 블록이라 여기서 한 번만 만든다."""
-    if not (latest_pred and latest_pred.pred_next_close is not None):
+def _build_pred_html(stock, latest_pred):
+    """StockPrediction이 있으면(제목에서 실제로 종목이 인식됐고 예측이 이미 돌아간 경우) ML
+    예측 표 HTML, 없으면 빈 문자열. 3개 템플릿이 모두 공유하는 블록이라 여기서 한 번만 만든다.
+    stock은 article.stock이 아니라 resolve_thumbnail_stock(article)로 받은, 제목 기반으로
+    확인된 종목이어야 한다 — article.stock은 NewsKeyword.linked_stock에서 온 분류용 값이라
+    기사가 실제로 그 종목을 다룬다는 보장이 없다(예: "AI" 키워드로 잡힌 스페이스X 기사가
+    article.stock=이스트소프트라, 예전엔 이스트소프트의 ML 예측이 붙어 나갔음)."""
+    if not (stock and latest_pred and latest_pred.pred_next_close is not None):
         return ""
     signal_color = "#E53935" if latest_pred.trading_signal == 'BUY' else ("#1E88E5" if latest_pred.trading_signal == 'SELL' else "#757575")
     return f"""
     <div style="padding: 20px; border: 2px solid #EEE; border-radius: 10px; background-color: #FAFAFA; margin-bottom: 20px;">
         <h3 style="margin-top: 0; color: #333;">🤖 머신러닝 주가 추론 브리핑</h3>
-        <p><b>🎯 분석 기준 종목:</b> {article.stock.name} ({article.stock.ticker})</p>
+        <p><b>🎯 분석 기준 종목:</b> {stock.name} ({stock.ticker})</p>
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <tr style="background-color: #F5F5F5;"><th style="padding: 8px; border: 1px solid #DDD;">예측 항목</th><th style="padding: 8px; border: 1px solid #DDD;">AI 추론 결과</th></tr>
             <tr><td style="padding: 8px; border: 1px solid #DDD;">내일 예상 종가</td><td style="padding: 8px; border: 1px solid #DDD; font-weight: bold;">{latest_pred.pred_next_close:,.0f} 원</td></tr>
@@ -143,8 +150,10 @@ def _blog_content_body(article):
     return f"<p>{safe_blog_content}</p>"
 
 
-def _subject_label(article):
-    return article.stock.name if article.stock else (
+def _subject_label(article, stock):
+    """stock은 resolve_thumbnail_stock(article)로 받은 제목 기반 종목 — article.stock(분류용
+    키워드 연결 값)을 쓰면 _build_pred_html과 같은 오귀속 문제가 생긴다."""
+    return stock.name if stock else (
         article.matched_keyword.keyword if article.matched_keyword else "경제"
     )
 
@@ -158,7 +167,7 @@ def _is_investment_related(article):
     return bool(article.stock or article.matched_keyword)
 
 
-def _render_t1(article, safe_summary, blog_content_body, pred_html):
+def _render_t1(article, safe_summary, blog_content_body, pred_html, resolved_stock):
     """템플릿 1 (뉴스 요약형): 뉴스 핵심 요약을 가장 먼저 보여주고, 투자 분석 → 실전 가이드
     순으로 이어지는 원래(기본) 레이아웃. 투자와 무관한 글(문학/에세이 등)이거나 AI 요약 없이
     '바로 포스팅'한 글은 해당 필드가 비어있을 수 있어 그 섹션 자체를 생략하고, 내용이 있어도
@@ -191,11 +200,11 @@ def _render_t1(article, safe_summary, blog_content_body, pred_html):
     """
 
 
-def _render_t2(article, safe_summary, blog_content_body, pred_html):
+def _render_t2(article, safe_summary, blog_content_body, pred_html, resolved_stock):
     """템플릿 2 (종목 분석형): 종목명을 헤더로 내세우고 ML 예측/투자 분석을 먼저 배치, 원본
     뉴스 요약은 맨 뒤에 참고 자료로 축소해서 붙인다 — 뉴스 자체보다 종목 분석이 중심."""
     investment_related = _is_investment_related(article)
-    subject = _subject_label(article)
+    subject = _subject_label(article, resolved_stock)
     header = f"""
     <div style="padding: 16px 20px; background: #0D47A1; color: #fff; border-radius: 10px; margin-bottom: 20px;">
         <h2 style="margin: 0; font-size: 20px;">📊 종목 분석 리포트: {subject}</h2>
@@ -232,7 +241,7 @@ def _render_t2(article, safe_summary, blog_content_body, pred_html):
     """
 
 
-def _render_t3(article, safe_summary, blog_content_body, pred_html):
+def _render_t3(article, safe_summary, blog_content_body, pred_html, resolved_stock):
     """템플릿 3 (카드뉴스 대본형): 제목/3줄 요약/투자 시사점을 카드뉴스 슬라이드처럼 짧고
     굵은 카드 단위로 나열한 뒤, 실전 가이드 본문을 이어 붙인다."""
     investment_related = _is_investment_related(article)
@@ -278,15 +287,20 @@ _TEMPLATE_RENDERERS = {
 def build_post_content(article):
     """기사 + 최신 ML 예측을 결합한 블로그 포스팅용 (제목, HTML 본문, 종목/키워드 라벨) 반환.
     article.applied_template(T1/T2/T3)에 따라 서로 다른 레이아웃(_TEMPLATE_RENDERERS)을 적용한다 —
-    값이 비어있거나 알 수 없는 경우 기본값인 T1(뉴스 요약형)으로 처리."""
-    latest_pred = StockPrediction.objects.filter(stock=article.stock).order_by('-date').first() if article.stock else None
+    값이 비어있거나 알 수 없는 경우 기본값인 T1(뉴스 요약형)으로 처리.
+    ML 예측/종목 라벨은 article.stock이 아니라 resolve_thumbnail_stock(article)로 제목에서
+    다시 확인한 종목을 쓴다 — article.stock은 NewsKeyword.linked_stock 분류값이라 기사 본문의
+    실제 주제와 다를 수 있다(예: "AI" 키워드로 잡힌 스페이스X 기사의 article.stock=이스트소프트).
+    thumbnail.build_thumbnail_file도 같은 이유로 이미 이 함수를 쓴다."""
+    resolved_stock = resolve_thumbnail_stock(article)
+    latest_pred = StockPrediction.objects.filter(stock=resolved_stock).order_by('-date').first() if resolved_stock else None
 
     safe_summary = article.ai_summary.replace('\n', '<br>')
     blog_content_body = _blog_content_body(article)
-    pred_html = _build_pred_html(article, latest_pred)
+    pred_html = _build_pred_html(resolved_stock, latest_pred)
 
     renderer = _TEMPLATE_RENDERERS.get(article.applied_template, _render_t1)
-    full_html_content = renderer(article, safe_summary, blog_content_body, pred_html)
+    full_html_content = renderer(article, safe_summary, blog_content_body, pred_html, resolved_stock)
 
     if article.thumbnail:
         # 워드프레스/블로거는 외부 URL로 이미지를 그대로 fetch하므로 절대 URL이 필요하다
@@ -298,7 +312,7 @@ def build_post_content(article):
         )
         full_html_content = thumbnail_html + full_html_content
 
-    subject_label = _subject_label(article)
+    subject_label = _subject_label(article, resolved_stock)
     # 게시판에 뜨는 원본 기사 제목(article.title)을 그대로 살려서, 회원이 블로그 관리자 화면에서
     # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이
     # 만든 콘텐츠"라는 걸 밝히지 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의
@@ -309,14 +323,57 @@ def build_post_content(article):
     return blog_title, full_html_content, subject_label
 
 
+WP_CATEGORY_NAME = "BASIC"  # 카테고리를 안 넘기면 워드프레스가 전부 Uncategorized로 넣는다.
+
+
+def _get_or_create_wp_category(account):
+    """이 계정 사이트에 WP_CATEGORY_NAME 카테고리가 있으면 그 id, 없으면 새로 만들어 id를
+    반환한다. 조회/생성 둘 다 실패하면 None — 호출부가 categories 없이(=Uncategorized로)
+    발행을 계속 진행하게 하기 위함(카테고리 하나 때문에 발행 자체를 막지 않는다)."""
+    try:
+        res = requests.get(
+            f"{account.site_url}/wp-json/wp/v2/categories",
+            auth=(account.account_id, account.credential),
+            params={'search': WP_CATEGORY_NAME, 'per_page': 100},
+            timeout=10,
+        )
+        if res.status_code == 200:
+            for cat in res.json():
+                if cat.get('name') == WP_CATEGORY_NAME:
+                    return cat['id']
+    except Exception:
+        pass
+
+    try:
+        res = requests.post(
+            f"{account.site_url}/wp-json/wp/v2/categories",
+            auth=(account.account_id, account.credential),
+            json={'name': WP_CATEGORY_NAME},
+            timeout=10,
+        )
+        body = res.json()
+        if res.status_code == 201:
+            return body.get('id')
+        # 동시 요청 등으로 그 사이 이미 만들어졌으면 워드프레스가 term_exists 에러와 함께
+        # 기존 id를 같이 돌려준다.
+        return (body.get('data') or {}).get('term_id')
+    except Exception:
+        return None
+
+
 def publish_to_wordpress(account, blog_title, content):
     """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 글 ID는 나중에 republish_article이
     같은 글을 업데이트(새 글 생성이 아니라)하는 데 쓴다."""
+    payload = {"title": blog_title, "content": content, "status": WP_POST_STATUS}
+    category_id = _get_or_create_wp_category(account)
+    if category_id:
+        payload["categories"] = [category_id]
+
     try:
         res = requests.post(
             f"{account.site_url}/wp-json/wp/v2/posts",
             auth=(account.account_id, account.credential),
-            json={"title": blog_title, "content": content, "status": WP_POST_STATUS},
+            json=payload,
             timeout=15,
         )
     except Exception as e:
@@ -331,11 +388,16 @@ def publish_to_wordpress(account, blog_title, content):
 def update_to_wordpress(account, post_id, blog_title, content):
     """반환: (성공 여부, 발행된 글 URL, 실패 사유). 워드프레스 REST API는 기존 글 엔드포인트에
     POST하면 update로 처리된다(PUT 대신 POST여도 동작 — 워드프레스 REST API 관례)."""
+    payload = {"title": blog_title, "content": content, "status": WP_POST_STATUS}
+    category_id = _get_or_create_wp_category(account)
+    if category_id:
+        payload["categories"] = [category_id]
+
     try:
         res = requests.post(
             f"{account.site_url}/wp-json/wp/v2/posts/{post_id}",
             auth=(account.account_id, account.credential),
-            json={"title": blog_title, "content": content, "status": WP_POST_STATUS},
+            json=payload,
             timeout=15,
         )
     except Exception as e:
@@ -407,14 +469,82 @@ def update_to_blogger(account, post_id, blog_title, content):
     return False, '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
 
+def _tumblr_auth(account):
+    """OAuth 1.0a는 블로거(OAuth2 bearer 토큰)와 달리 매 요청을 앱 컨슈머 키/시크릿 +
+    이 계정의 액세스 토큰/시크릿 네 개로 서명해야 한다 — 헤더 하나로 끝나지 않으므로
+    requests의 auth= 인자에 넘길 OAuth1 서명기를 만들어 반환한다."""
+    return OAuth1(
+        settings.TUMBLR_CONSUMER_KEY,
+        client_secret=settings.TUMBLR_CONSUMER_SECRET,
+        resource_owner_key=account.credential,
+        resource_owner_secret=account.oauth_token_secret,
+    )
+
+
+def _tumblr_post_url(account, post_id, body):
+    """레거시 포스트 생성/수정 응답에 post_url이 있으면 그대로 쓰고, 없으면(일부 응답에서
+    빠짐) 텀블러의 고정 퍼머링크 규칙(슬러그 없이도 정상 리다이렉트됨)으로 직접 구성한다."""
+    post_url = body.get('post_url')
+    if post_url:
+        return post_url
+    if post_id and account.site_url:
+        return f"{account.site_url.rstrip('/')}/post/{post_id}"
+    return ''
+
+
+def publish_to_tumblr(account, blog_title, content):
+    """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 레거시 텍스트 포스트 타입(NPF 아님)
+    — title/body(HTML) 그대로 넘기면 되어 워드프레스/블로거와 콘텐츠 조립 로직을 공유할 수 있다."""
+    payload = {"type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
+    try:
+        res = requests.post(
+            f"https://api.tumblr.com/v2/blog/{account.account_id}/post",
+            auth=_tumblr_auth(account),
+            data=payload,
+            timeout=15,
+        )
+        body = res.json()
+    except Exception as e:
+        return False, '', '', f"네트워크 연동 실패: {e}"
+
+    if res.status_code in (200, 201):
+        resp = body.get('response') or {}
+        post_id = str(resp.get('id') or resp.get('id_string') or '')
+        return True, _tumblr_post_url(account, post_id, resp), post_id, None
+    return False, '', '', f"텀블러 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
+
+
+def update_to_tumblr(account, post_id, blog_title, content):
+    """반환: (성공 여부, 발행된 글 URL, 실패 사유). 레거시 수정 엔드포인트는 글 id를
+    쿼리/바디 파라미터로 받는다(URL 경로가 아니라) — 워드프레스/블로거와 다른 부분."""
+    payload = {"id": post_id, "type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
+    try:
+        res = requests.post(
+            f"https://api.tumblr.com/v2/blog/{account.account_id}/post/edit",
+            auth=_tumblr_auth(account),
+            data=payload,
+            timeout=15,
+        )
+        body = res.json()
+    except Exception as e:
+        return False, '', f"네트워크 연동 실패: {e}"
+
+    if res.status_code == 200:
+        resp = body.get('response') or {}
+        return True, _tumblr_post_url(account, post_id, resp), None
+    return False, '', f"텀블러 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
+
+
 PUBLISHERS = {
     'WORDPRESS': lambda account, title, content, subject_label: publish_to_wordpress(account, title, content),
     'BLOGGER': lambda account, title, content, subject_label: publish_to_blogger(account, title, content),
+    'TUMBLR': lambda account, title, content, subject_label: publish_to_tumblr(account, title, content),
 }
 
 UPDATERS = {
     'WORDPRESS': update_to_wordpress,
     'BLOGGER': update_to_blogger,
+    'TUMBLR': update_to_tumblr,
 }
 
 

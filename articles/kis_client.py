@@ -550,6 +550,11 @@ def get_stock_close_price(ticker):
     (stck_clpr)를 쓴다 — 주식현재가 조회는 이 구간에서 시간외단일가 등 정규장 종가가 아닌 값을
     돌려줄 수 있기 때문. 전일대비/등락률은 API가 주는 값 대신, 함께 받아온 최근 2개 영업일
     종가로 직접 계산해 일봉 응답의 필드명에 의존하지 않는다.
+
+    당일 장이 아직 열리지 않은 시간대(자정~09:00 KST)에 조회하면, KIS가 아직 거래되지 않은
+    다음 영업일 행을 직전 종가를 그대로 복사한 거래량 0짜리 더미로 함께 내려준다 — 이걸 그대로
+    "오늘" 행으로 쓰면 전일대비/등락률/거래량이 전부 0으로 나온다(실측 신고로 확인됨). 그래서
+    실제로 체결이 있었던(거래량>0) 행만 남기고 그중 최신 2개로 계산한다.
     """
     if is_regular_session_open():
         return get_stock_current_price(ticker)
@@ -557,6 +562,7 @@ def get_stock_close_price(ticker):
     end_date = datetime.now(KST).date()
     start_date = end_date - timedelta(days=14)
     rows = get_stock_daily_price(ticker, start_date.strftime('%Y%m%d'), end_date.strftime('%Y%m%d'))
+    rows = [r for r in rows if r['volume'] > 0]
     if len(rows) < 2:
         raise RuntimeError(f"{ticker}: 종가를 계산할 만큼의 일봉 데이터가 없습니다.")
 

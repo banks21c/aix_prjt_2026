@@ -16,7 +16,7 @@ SIMULATION_SUMMARY = (
     "AI 요약 기능은 현재 준비 중입니다. 관리자가 AI 요약용 API 키를 설정하면 "
     "실시간 AI 요약이 제공됩니다. (현재 시뮬레이션 모드)"
 )
-SIMULATION_ANALYSIS = "AI 투자 관점 분석 기능은 현재 준비 중입니다. (현재 시뮬레이션 모드)"
+SIMULATION_ANALYSIS = "AI 관점 분석 기능은 현재 준비 중입니다. (현재 시뮬레이션 모드)"
 ERROR_SUMMARY = "일시적인 오류로 AI 요약을 생성하지 못했습니다. 아래 원문을 참고해 직접 작성해주세요."
 ERROR_ANALYSIS = "일시적인 오류로 AI 분석을 생성하지 못했습니다."
 

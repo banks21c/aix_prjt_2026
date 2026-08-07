@@ -40,6 +40,7 @@ from articles.views import (
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
+    tumblr_connect_view, tumblr_callback_view,
     my_page_view, my_posted_articles_view, verify_email_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
@@ -116,6 +117,8 @@ urlpatterns = [
 
     path('accounts/blogger/connect/', blogger_connect_view, name='blogger_connect'),  # ◀ 마이페이지 - 블로거 자동포스팅 연동
     path('accounts/blogger/callback/', blogger_callback_view, name='blogger_callback'),
+    path('accounts/tumblr/connect/', tumblr_connect_view, name='tumblr_connect'),  # ◀ 마이페이지 - 텀블러 자동포스팅 연동
+    path('accounts/tumblr/callback/', tumblr_callback_view, name='tumblr_callback'),
 ]
 
 if settings.DEBUG:

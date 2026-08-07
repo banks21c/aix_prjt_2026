@@ -189,7 +189,7 @@ class SubscriptionOrderForm(forms.ModelForm):
 
 class NewsScrapeForm(forms.Form):
     url = forms.URLField(
-        label="기사 URL",
+        label="URL",
         widget=forms.URLInput(attrs={
             'class': 'form-control',
             'placeholder': 'https://example.com/news/12345',
@@ -234,7 +234,7 @@ class NewsArticleEditForm(forms.ModelForm):
             'title': '원본 제목',
             'source_media': '언론사',
             'ai_summary': 'AI 3줄 요약',
-            'ai_analysis': 'AI 투자 관점 분석',
+            'ai_analysis': 'AI 관점 분석',
             'blog_content': 'AI 요약 원고',
             'applied_template': '적용된 템플릿',
             'is_premium': '유료 회원 전용 콘텐츠',

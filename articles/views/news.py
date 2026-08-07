@@ -425,7 +425,6 @@ def news_scrape_view(request):
                 source_type=AnalyzedArticle.SOURCE_RSS,
                 original_content=scraped['content'],
                 has_reuse_restriction=restricted,
-                thumbnail=thumbnail.build_thumbnail_file(article_title),
                 applied_template='T1',
                 scraped_by=request.user,
             )
@@ -567,7 +566,7 @@ def news_write_view(request):
                 return redirect('news_detail', pk=article.pk)
 
     context = {
-        'site_title': 'NextFinUp - 직접 작성하기',
+        'site_title': 'NextFinUp - 자유 포스팅',
         'form': form,
         'summarize_stats': summarize_stats,
         'posting_stats': posting_stats_val,

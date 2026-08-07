@@ -265,6 +265,10 @@
             return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
         }
 
+        function chartPriceFormatter(price) {
+            return Math.round(price).toLocaleString('ko-KR');
+        }
+
         function addOverlaySeries() {
             if (!indicatorData || overlaySeries) return;
             overlaySeries = {
@@ -320,13 +324,14 @@
                 layout: { textColor: '#495057', background: { type: 'solid', color: 'transparent' } },
                 grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
                 timeScale: { borderColor: '#e0e0e0', tickMarkFormatter: chartTickFormatter },
-                localization: { timeFormatter: chartCrosshairFormatter },
+                localization: { timeFormatter: chartCrosshairFormatter, priceFormatter: chartPriceFormatter },
                 rightPriceScale: { borderColor: '#e0e0e0' },
             });
             series = chart.addCandlestickSeries({
                 upColor: '#c62828', downColor: '#1565c0',
                 borderUpColor: '#c62828', borderDownColor: '#1565c0',
                 wickUpColor: '#c62828', wickDownColor: '#1565c0',
+                priceFormat: { type: 'price', precision: 0, minMove: 1 },
             });
             addOverlaySeries();
             window.addEventListener('resize', () => chart.applyOptions({ width: el.clientWidth }));

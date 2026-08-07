@@ -170,7 +170,7 @@
                             {{ platform_label }}
                         </label>
                     </div>
-                    {% if platform_code == 'BLOGGER' %}
+                    {% if platform_code == 'BLOGGER' or platform_code == 'TUMBLR' %}
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         {% if account_form.instance.credential %}
                             <span class="badge bg-success">연결됨</span>
@@ -182,9 +182,15 @@
                         {% else %}
                             <span class="badge bg-secondary">연결 안 됨</span>
                         {% endif %}
+                        {% if platform_code == 'BLOGGER' %}
                         <a href="{% url 'blogger_connect' %}" class="btn btn-sm btn-outline-primary">
                             {% if account_form.instance.credential %}다시 연결{% else %}구글로 연결하기{% endif %}
                         </a>
+                        {% else %}
+                        <a href="{% url 'tumblr_connect' %}" class="btn btn-sm btn-outline-primary">
+                            {% if account_form.instance.credential %}다시 연결{% else %}텀블러로 연결하기{% endif %}
+                        </a>
+                        {% endif %}
                     </div>
                     {% else %}
                     <div class="row g-3">
