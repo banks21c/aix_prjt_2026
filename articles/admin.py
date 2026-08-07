@@ -443,6 +443,18 @@ class SubscriptionOrderAdmin(admin.ModelAdmin):
         subscription.save(update_fields=['is_active_premium', 'subscribed_at', 'expired_at'])
         return now
 
+    @staticmethod
+    def _deactivate_premium(order):
+        """반려 처리 시(액션이든 상세 화면 저장이든) 프리미엄을 끈다. _activate_premium과
+        대칭 — 승인 후 반려로 뒤집는 경우(예: 결제 확인 전 실수로 승인) is_active_premium이
+        REJECTED 상태에서도 True로 남아있던 버그(2026-08-07, 다비드 계정에서 실측: 주문은
+        REJECTED인데 구독 페이지엔 "이미 프리미엄 구독 중"으로 표시됨) 재발 방지.
+        UserSubscription이 어느 주문으로 활성화됐는지 FK로 추적하진 않으므로, 이 사용자의
+        다른 주문이 이미 APPROVED 상태라면(정상적으로 유효한 별개의 구독) 끄지 않는다."""
+        if SubscriptionOrder.objects.filter(user=order.user, status='APPROVED').exclude(pk=order.pk).exists():
+            return
+        UserSubscription.objects.filter(user=order.user).update(is_active_premium=False)
+
     @admin.action(description="선택한 신청을 승인하고 프리미엄 구독을 활성화")
     def approve_orders(self, request, queryset):
         approved = 0
@@ -456,16 +468,27 @@ class SubscriptionOrderAdmin(admin.ModelAdmin):
 
     @admin.action(description="선택한 신청을 반려")
     def reject_orders(self, request, queryset):
-        rejected = queryset.filter(status='PENDING').update(status='REJECTED', reviewed_at=timezone.now())
+        rejected = 0
+        for order in queryset.exclude(status='REJECTED'):
+            self._deactivate_premium(order)
+            order.status = 'REJECTED'
+            order.reviewed_at = timezone.now()
+            order.save(update_fields=['status', 'reviewed_at'])
+            rejected += 1
         self.message_user(request, f"{rejected}건을 반려했습니다.")
 
     def save_model(self, request, obj, form, change):
-        # 상세(변경) 화면에서 처리 상태를 직접 "승인 완료"로 바꿔 저장한 경우에도, 목록의
-        # 승인 액션과 동일하게 프리미엄을 활성화한다.
-        if change and 'status' in form.changed_data and obj.status == 'APPROVED':
-            now = self._activate_premium(obj)
-            if not obj.reviewed_at:
-                obj.reviewed_at = now
+        # 상세(변경) 화면에서 처리 상태를 직접 바꿔 저장한 경우에도, 목록의 승인/반려
+        # 액션과 동일하게 프리미엄 활성화/비활성화가 같이 반영되게 한다.
+        if change and 'status' in form.changed_data:
+            if obj.status == 'APPROVED':
+                now = self._activate_premium(obj)
+                if not obj.reviewed_at:
+                    obj.reviewed_at = now
+            elif obj.status == 'REJECTED':
+                self._deactivate_premium(obj)
+                if not obj.reviewed_at:
+                    obj.reviewed_at = timezone.now()
         super().save_model(request, obj, form, change)
 
 
