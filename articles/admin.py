@@ -495,11 +495,21 @@ class SubscriptionOrderAdmin(admin.ModelAdmin):
 # 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)
 @admin.register(FinancialConsultSheet)
 class FinancialConsultSheetAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_display = ('created_at', 'name_with_load_link', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_display_links = ('name_with_load_link',)  # created_at은 더 이상 (기본 admin 변경화면으로 가는) 링크가 아니게
     list_filter = ('created_at', 'consult_date')
     search_fields = ('customer_name', 'customer_phone', 'consultant_name')
     readonly_fields = ('customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'data', 'created_by', 'created_at')
     ordering = ('-created_at',)
+
+    @admin.display(description='고객명')
+    def name_with_load_link(self, obj):
+        # 예전엔 이름이 아니라 저장 일시(created_at, list_display 첫 컬럼이라 기본 admin이
+        # 자동으로 링크를 건다)를 클릭하면 원본 JSONField를 그대로 보여주는 기본 변경화면으로
+        # 갔었다 — 이름을 눌렀을 때 실제 시트 화면(financial_consult_sheet_view)이 그 데이터로
+        # 채워진 채 열리도록 ?load=<id>로 바꾼다.
+        url = f"{reverse('financial_consult_sheet')}?load={obj.pk}"
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.customer_name or '(이름 없음)')
 
 
 # 14. Django Admin 목록(NextFinUp 관리 앱)에서 발행 기록(PostedArticle) 바로 아래에 파이프라인
