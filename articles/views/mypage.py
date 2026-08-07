@@ -8,7 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from requests_oauthlib import OAuth1Session
 
 from ..email_utils import send_verification_email
 from ..forms import BlogAccountForm, UserContactForm, UserPreferenceForm
@@ -203,72 +202,76 @@ def blogger_callback_view(request):
 
 
 # ==========================================
-# 마이페이지 - 텀블러(Tumblr) OAuth 1.0a 연동
-# 텀블러 API v2는 OAuth 2.0이 아니라 구식 OAuth 1.0a(3-legged: request token → 사용자 승인 →
-# access token 교환)를 쓴다 — 블로거처럼 인가 코드 하나로 끝나지 않고, 임시 request
-# token/secret을 세션에 잠깐 보관했다가 콜백에서 access token으로 교환해야 한다. 발급받은
-# access token(oauth_token)과 그 짝인 oauth_token_secret 둘 다 있어야 이후 API 호출 서명이
-# 유효해서(articles/blog_posting.py의 _tumblr_auth), 두 값 다 BlogPostingAccount에 저장한다.
+# 마이페이지 - 텀블러(Tumblr) OAuth 2.0 연동
+# 처음엔 텀블러 API v2 문서 기준 OAuth 1.0a(3-legged)로 구현했으나, request_token/access_token
+# 엔드포인트가 있는 www.tumblr.com 도메인이 이 서버 IP(오라클 클라우드)에서 엣지 차단(403,
+# 실측 확인 — 같은 IP로 www.tumblr.com 홈페이지 접속조차 막힘)돼 있어 동작하지 않았다. 텀블러가
+# 나중에 추가한 OAuth 2.0은 인가 화면만 www.tumblr.com이고(이건 회원의 브라우저가 직접 여는
+# 리다이렉트라 이 서버 IP와 무관), 토큰 교환/이후 API 호출은 전부 차단되지 않은 api.tumblr.com을
+# 쓰므로 이 문제를 피해간다. 결과적으로 블로거(Google OAuth2)와 거의 동일한 구조 —
+# 리프레시 토큰 하나만 있으면 되어(articles/blog_posting.py의 _get_tumblr_access_token) OAuth1
+# 때 필요했던 토큰/시크릿 쌍 저장(oauth_token_secret 필드)이 필요 없어졌다.
 # ==========================================
 
-TUMBLR_REQUEST_TOKEN_URL = "https://www.tumblr.com/oauth/request_token"
-TUMBLR_AUTHORIZE_URL = "https://www.tumblr.com/oauth/authorize"
-TUMBLR_ACCESS_TOKEN_URL = "https://www.tumblr.com/oauth/access_token"
+TUMBLR_AUTHORIZE_URL = "https://www.tumblr.com/oauth2/authorize"
+TUMBLR_TOKEN_URL = "https://api.tumblr.com/v2/oauth2/token"
 
 
 @login_required
 def tumblr_connect_view(request):
-    callback_uri = request.build_absolute_uri(reverse('tumblr_callback'))
-    tumblr = OAuth1Session(
-        settings.TUMBLR_CONSUMER_KEY, client_secret=settings.TUMBLR_CONSUMER_SECRET,
-        callback_uri=callback_uri,
+    state = secrets.token_urlsafe(16)
+    request.session['tumblr_oauth_state'] = state
+
+    redirect_uri = request.build_absolute_uri(reverse('tumblr_callback'))
+    authorize_url = (
+        f"{TUMBLR_AUTHORIZE_URL}"
+        f"?client_id={settings.TUMBLR_CONSUMER_KEY}"
+        f"&redirect_uri={redirect_uri}"
+        "&response_type=code"
+        "&scope=write%20offline_access"  # offline_access가 있어야 리프레시 토큰이 내려온다
+        f"&state={state}"
     )
-    try:
-        request_token = tumblr.fetch_request_token(TUMBLR_REQUEST_TOKEN_URL)
-    except Exception as e:
-        messages.error(request, f"텀블러 연동 요청 실패: {e}")
-        return redirect('my_page')
-
-    # access token 교환(콜백)까지는 요청 토큰 자체가 인증에 필요한 자격정보라, 계정 테이블이
-    # 아니라 임시로 세션에만 둔다(블로거의 state 파라미터와 같은 역할 — 콜백이 진짜 이 흐름에서
-    # 이어진 요청인지 검증).
-    request.session['tumblr_request_token'] = request_token.get('oauth_token')
-    request.session['tumblr_request_token_secret'] = request_token.get('oauth_token_secret')
-
-    return redirect(tumblr.authorization_url(TUMBLR_AUTHORIZE_URL))
+    return redirect(authorize_url)
 
 
 @login_required
 def tumblr_callback_view(request):
-    oauth_token = request.GET.get('oauth_token')
-    oauth_verifier = request.GET.get('oauth_verifier')
-    saved_token = request.session.pop('tumblr_request_token', None)
-    saved_secret = request.session.pop('tumblr_request_token_secret', None)
-    if not oauth_verifier or not saved_token or oauth_token != saved_token:
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    expected_state = request.session.pop('tumblr_oauth_state', None)
+    if not code or not state or state != expected_state:
         messages.error(request, "텀블러 연동이 취소되었거나 유효하지 않은 요청입니다.")
         return redirect('my_page')
 
-    tumblr = OAuth1Session(
-        settings.TUMBLR_CONSUMER_KEY, client_secret=settings.TUMBLR_CONSUMER_SECRET,
-        resource_owner_key=saved_token, resource_owner_secret=saved_secret,
-        verifier=oauth_verifier,
-    )
+    redirect_uri = request.build_absolute_uri(reverse('tumblr_callback'))
     try:
-        access_token_res = tumblr.fetch_access_token(TUMBLR_ACCESS_TOKEN_URL)
+        token_res = requests.post(
+            TUMBLR_TOKEN_URL,
+            data={
+                'grant_type': 'authorization_code',
+                'client_id': settings.TUMBLR_CONSUMER_KEY,
+                'client_secret': settings.TUMBLR_CONSUMER_SECRET,
+                'redirect_uri': redirect_uri,
+                'code': code,
+            },
+            timeout=10,
+        ).json()
     except Exception as e:
         messages.error(request, f"텀블러 연동 실패: {e}")
         return redirect('my_page')
 
-    access_token = access_token_res.get('oauth_token')
-    access_token_secret = access_token_res.get('oauth_token_secret')
-    if not access_token or not access_token_secret:
-        messages.error(request, "텀블러 연동 실패: 액세스 토큰을 받지 못했습니다.")
+    access_token = token_res.get('access_token')
+    refresh_token = token_res.get('refresh_token')
+    if not access_token or not refresh_token:
+        messages.error(request, f"텀블러 연동 실패: {token_res.get('error_description', token_res.get('error', '알 수 없는 오류'))}")
         return redirect('my_page')
 
-    # fetch_access_token()이 세션 내부 토큰을 access token으로 갱신해두므로, 뒤이은 호출은
-    # 새로 딴 access token으로 서명된다(요청 토큰이 아니라).
     try:
-        info_res = tumblr.get("https://api.tumblr.com/v2/user/info", timeout=10).json()
+        info_res = requests.get(
+            "https://api.tumblr.com/v2/user/info",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10,
+        ).json()
     except Exception as e:
         messages.error(request, f"텀블러 블로그 목록 조회 실패: {e}")
         return redirect('my_page')
@@ -283,8 +286,7 @@ def tumblr_callback_view(request):
     account.is_enabled = True
     account.account_id = blog.get('name', '')  # API 호출에 쓰는 blog-identifier
     account.site_url = blog.get('url', '')
-    account.credential = access_token
-    account.oauth_token_secret = access_token_secret
+    account.credential = refresh_token
     account.save()
 
     messages.success(request, f"텀블러 '{blog.get('title') or blog.get('name', '')}' 블로그가 연결되었습니다!")

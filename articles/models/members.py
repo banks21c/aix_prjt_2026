@@ -159,15 +159,15 @@ class BlogPostingAccount(models.Model):
     # 워드프레스는 계정 ID+PW 방식
     # 블로거는 OAuth 연동이라 account_id에 블로그 ID를 자동으로 채워넣음(사용자 직접 입력 아님)
     account_id = models.CharField(max_length=150, blank=True, verbose_name="계정 ID / 블로그 ID")
-    # 블로거는 비밀번호가 아니라 구글 OAuth 리프레시 토큰을 저장(구글 로그인 연동 시 자동으로 채워넣음)
-    # 텀블러는 OAuth 1.0a라 액세스 토큰(oauth_token)을 저장(연동 시 자동으로 채워넣음) — 아래
-    # oauth_token_secret과 한 쌍이어야 API 호출 서명이 유효하다.
+    # 블로거/텀블러는 비밀번호가 아니라 OAuth 리프레시 토큰을 저장(각 OAuth 연동 시 자동으로
+    # 채워넣음) — 텀블러는 처음에 OAuth 1.0a로 구현했다가, www.tumblr.com이 이 서버 IP에서
+    # 엣지 차단(403)돼 OAuth 2.0(인가 화면은 사용자 브라우저가 열고, 토큰 교환/API 호출은
+    # 차단되지 않은 api.tumblr.com을 씀)으로 바꿨다 — 그 결과 블로거와 같은 리프레시 토큰
+    # 구조라 별도 필드가 필요 없어졌다(이전엔 OAuth1 access token/secret 쌍을 저장하는
+    # oauth_token_secret 필드가 있었으나 제거).
     # DB에는 Fernet으로 암호화되어 저장되고(articles/fields.py), 파이썬 쪽에는 평문으로 노출된다.
     # 암호화 오버헤드 때문에 실제 저장 길이가 평문보다 길어져 max_length를 넉넉히 잡았다.
-    credential = EncryptedCharField(max_length=1024, blank=True, verbose_name="비밀번호 / API Key / OAuth 토큰")
-    # 텀블러 OAuth 1.0a 전용 — 워드프레스/블로거는 쓰지 않는다(항상 빈 문자열). 텀블러는 OAuth1
-    # 특성상 토큰 하나(credential)만으로는 요청 서명이 안 되고 이 secret이 항상 같이 있어야 한다.
-    oauth_token_secret = EncryptedCharField(max_length=1024, blank=True, verbose_name="OAuth 토큰 시크릿(텀블러 전용)")
+    credential = EncryptedCharField(max_length=1024, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
     class Meta:
@@ -182,9 +182,7 @@ class BlogPostingAccount(models.Model):
     def is_connected(self):
         """마이페이지 방문 시 모든 플랫폼에 빈 stub 행이 자동 생성되므로(get_or_create),
         실제로 발행에 쓸 수 있는 계정인지(자격 정보가 채워졌는지)는 따로 확인해야 한다."""
-        if self.platform == 'TUMBLR':
-            return bool(self.account_id and self.credential and self.oauth_token_secret)
-        if self.platform in ('WORDPRESS', 'BLOGGER'):
+        if self.platform in ('WORDPRESS', 'BLOGGER', 'TUMBLR'):
             return bool(self.site_url and self.account_id and self.credential)
         return False
 

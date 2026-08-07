@@ -9,7 +9,6 @@ import re
 import requests
 from django.conf import settings
 from django.utils import timezone
-from requests_oauthlib import OAuth1
 
 from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPrediction, UserSubscription
 from .utils import resolve_thumbnail_stock
@@ -469,16 +468,31 @@ def update_to_blogger(account, post_id, blog_title, content):
     return False, '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
 
-def _tumblr_auth(account):
-    """OAuth 1.0a는 블로거(OAuth2 bearer 토큰)와 달리 매 요청을 앱 컨슈머 키/시크릿 +
-    이 계정의 액세스 토큰/시크릿 네 개로 서명해야 한다 — 헤더 하나로 끝나지 않으므로
-    requests의 auth= 인자에 넘길 OAuth1 서명기를 만들어 반환한다."""
-    return OAuth1(
-        settings.TUMBLR_CONSUMER_KEY,
-        client_secret=settings.TUMBLR_CONSUMER_SECRET,
-        resource_owner_key=account.credential,
-        resource_owner_secret=account.oauth_token_secret,
-    )
+def _get_tumblr_access_token(account):
+    """계정에 저장된 OAuth 리프레시 토큰으로 새 액세스 토큰을 발급 (블로거와 같은 패턴).
+    api.tumblr.com은 이 서버 IP에서 차단되지 않는다(www.tumblr.com만 차단됨 — mypage.py의
+    텀블러 연동 뷰 주석 참고) — 그래서 리프레시/발행 API 호출은 전부 정상 동작한다.
+
+    블로거(구글)와 달리 텀블러의 리프레시 토큰은 1회용(rotating)이다 — 한 번 쓰면 그 토큰은
+    무효가 되고 응답에 실린 새 refresh_token으로 바로 교체해서 저장해야 다음 호출이 산다
+    (실측 확인: 첫 발행은 성공했는데 바로 다음 재발행 시도가 "Invalid refresh token"으로 죽음).
+    저장을 이 함수 안에서 바로 해버려야, 호출부마다 매번 챙기지 않아도 안전하다."""
+    res = requests.post(
+        "https://api.tumblr.com/v2/oauth2/token",
+        data={
+            'grant_type': 'refresh_token',
+            'client_id': settings.TUMBLR_CONSUMER_KEY,
+            'client_secret': settings.TUMBLR_CONSUMER_SECRET,
+            'refresh_token': account.credential,
+        },
+        timeout=10,
+    ).json()
+    access_token = res.get('access_token')
+    new_refresh_token = res.get('refresh_token')
+    if access_token and new_refresh_token and new_refresh_token != account.credential:
+        account.credential = new_refresh_token
+        account.save(update_fields=['credential', 'updated_at'])
+    return access_token, res.get('error_description') or res.get('error')
 
 
 def _tumblr_post_url(account, post_id, body):
@@ -495,11 +509,15 @@ def _tumblr_post_url(account, post_id, body):
 def publish_to_tumblr(account, blog_title, content):
     """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 레거시 텍스트 포스트 타입(NPF 아님)
     — title/body(HTML) 그대로 넘기면 되어 워드프레스/블로거와 콘텐츠 조립 로직을 공유할 수 있다."""
+    access_token, error = _get_tumblr_access_token(account)
+    if not access_token:
+        return False, '', '', f"텀블러 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 텀블러를 다시 연결해야 할 수 있습니다)"
+
     payload = {"type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
     try:
         res = requests.post(
             f"https://api.tumblr.com/v2/blog/{account.account_id}/post",
-            auth=_tumblr_auth(account),
+            headers={'Authorization': f'Bearer {access_token}'},
             data=payload,
             timeout=15,
         )
@@ -517,11 +535,15 @@ def publish_to_tumblr(account, blog_title, content):
 def update_to_tumblr(account, post_id, blog_title, content):
     """반환: (성공 여부, 발행된 글 URL, 실패 사유). 레거시 수정 엔드포인트는 글 id를
     쿼리/바디 파라미터로 받는다(URL 경로가 아니라) — 워드프레스/블로거와 다른 부분."""
+    access_token, error = _get_tumblr_access_token(account)
+    if not access_token:
+        return False, '', f"텀블러 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 텀블러를 다시 연결해야 할 수 있습니다)"
+
     payload = {"id": post_id, "type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
     try:
         res = requests.post(
             f"https://api.tumblr.com/v2/blog/{account.account_id}/post/edit",
-            auth=_tumblr_auth(account),
+            headers={'Authorization': f'Bearer {access_token}'},
             data=payload,
             timeout=15,
         )

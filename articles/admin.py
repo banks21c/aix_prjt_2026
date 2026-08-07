@@ -247,8 +247,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
         if self.value() not in ('yes', 'no'):
             return queryset
         connected_q = (
-            (Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential=''))
-            | (Q(platform='TUMBLR') & ~Q(account_id='') & ~Q(credential='') & ~Q(oauth_token_secret=''))
+            Q(platform__in=('WORDPRESS', 'BLOGGER', 'TUMBLR')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential='')
         )
         return queryset.filter(connected_q) if self.value() == 'yes' else queryset.exclude(connected_q)
 
@@ -260,10 +259,9 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
     list_select_related = ('user',)
     ordering = ('user', 'platform')
-    # credential(비밀번호/API Key/OAuth 토큰)과 oauth_token_secret(텀블러 전용 짝 시크릿)은
-    # 목록/폼 어디에도 평문 노출하지 않고, 재입력할 때만 갱신 — 등록 여부만 has_credential로
-    # 별도 표시한다.
-    exclude = ('credential', 'oauth_token_secret')
+    # credential(비밀번호/API Key/OAuth 리프레시 토큰)은 목록/폼 어디에도 평문 노출하지 않고,
+    # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
+    exclude = ('credential',)
     readonly_fields = ('has_credential',)
 
     @admin.display(description='연동 상태')
