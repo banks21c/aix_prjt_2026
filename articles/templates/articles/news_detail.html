@@ -149,10 +149,10 @@
                     <button type="submit" form="aiSummarizeForm" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
                             {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                     {% endif %}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleOriginalContentBtn">숨기기</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleOriginalContentBtn">{% if article.ai_summary %}보기{% else %}숨기기{% endif %}</button>
                 </div>
             </div>
-            <div class="content-block" id="originalContentBlock">{{ article.original_content }}</div>
+            <div class="content-block" id="originalContentBlock" {% if article.ai_summary %}style="display:none;"{% endif %}>{{ article.original_content }}</div>
             {% endif %}
         </div>
     </div>
