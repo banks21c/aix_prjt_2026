@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, time as dt_time, timedelta, timezone as dt_timezone
 
 import pandas as pd
 from django.db.models import Q
@@ -96,8 +96,16 @@ def _get_stock_quote(stock, days=180):
     # 02:00이 안 지난 "오늘" 거래일은 일봉 차트에 없고, 차트 마지막 캔들이 하루 전 종가에
     # 멈춰 있는 것처럼 보인다. realtime(캐시 또는 온디맨드)이 있으면 그 값으로 "오늘" 캔들을
     # 즉석에서 만들어 붙여, 차트 마지막 점이 항상 최신 가격을 반영하게 한다.
-    today_kst = datetime.now(KST).date()
-    if realtime and (not ohlc or ohlc[-1]['time'] != today_kst.strftime('%Y-%m-%d')):
+    #
+    # 단, 자정을 넘겨 날짜는 바뀌었지만 아직 오늘 장이 열리지 않은 시간대(00:00~09:00 KST)엔
+    # realtime이 "오늘" 값이 아니라 어제 마감 시세를 그대로 들고 있다(장이 안 열렸으니 새로
+    # 체결된 값이 없음) — 이 상태에서 그대로 붙이면 어제 캔들과 값이 완전히 같은 "오늘" 캔들이
+    # 하나 더 그려져 차트에 같은 날이 두 번 찍힌 것처럼 보인다(실측 신고로 확인됨). 그래서
+    # 오늘 장 시작 시각(09:00 KST)이 지난 뒤에만 "오늘" 캔들을 만든다.
+    now_kst = datetime.now(KST)
+    today_kst = now_kst.date()
+    market_opened_today = now_kst.time() >= dt_time(kis_client.MARKET_OPEN_HOUR, kis_client.MARKET_OPEN_MINUTE)
+    if realtime and market_opened_today and (not ohlc or ohlc[-1]['time'] != today_kst.strftime('%Y-%m-%d')):
         ohlc.append({
             'time': today_kst.strftime('%Y-%m-%d'),
             'open': float(realtime['open']),
