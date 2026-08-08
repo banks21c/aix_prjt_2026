@@ -102,9 +102,19 @@ def _get_stock_quote(stock, days=180):
     # 체결된 값이 없음) — 이 상태에서 그대로 붙이면 어제 캔들과 값이 완전히 같은 "오늘" 캔들이
     # 하나 더 그려져 차트에 같은 날이 두 번 찍힌 것처럼 보인다(실측 신고로 확인됨). 그래서
     # 오늘 장 시작 시각(09:00 KST)이 지난 뒤에만 "오늘" 캔들을 만든다.
+    #
+    # 시간만으로는 부족하다 — 주말/공휴일은 애초에 장이 열리지 않아 09:00을 넘겨도 realtime이
+    # 계속 직전 거래일 종가를 들고 있고, 그걸 "오늘" 캔들로 붙이면 직전 거래일 캔들이 그대로
+    # 복제된다(토요일 낮에 실측 신고로 확인됨). MarketHoliday 캐시로 오늘이 실제 개장일인지도
+    # 함께 확인한다.
     now_kst = datetime.now(KST)
     today_kst = now_kst.date()
     market_opened_today = now_kst.time() >= dt_time(kis_client.MARKET_OPEN_HOUR, kis_client.MARKET_OPEN_MINUTE)
+    if market_opened_today:
+        try:
+            market_opened_today = kis_client.is_market_open(today_kst)
+        except Exception:
+            logger.exception("오늘 개장일 여부 조회 실패: %s", today_kst)
     if realtime and market_opened_today and (not ohlc or ohlc[-1]['time'] != today_kst.strftime('%Y-%m-%d')):
         ohlc.append({
             'time': today_kst.strftime('%Y-%m-%d'),
