@@ -5,11 +5,11 @@
 from .market import (
     StockItem, KisAccessToken, RankedMover, StockRealtimePrice, MarketHoliday, MarketIndex,
     StockDailyPrice, StockPrediction, GlobalMarketQuote, ExchangeRateSnapshot, StockInvestorFlow,
-    StockDisclosure,
+    StockDisclosure, PredictionAccuracySnapshot,
 )
 from .members import (
     UserSubscription, SubscriptionOrder, MemberGrade, UserPreference, BlogPostingAccount, LoginLog,
-    MenuAccessLog, ChatMessage, SocialAccount,
+    MenuAccessLog, ChatMessage, SocialAccount, Watchlist,
 )
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import (
@@ -19,9 +19,9 @@ from .content import (
 __all__ = [
     'StockItem', 'KisAccessToken', 'RankedMover', 'StockRealtimePrice', 'MarketHoliday',
     'MarketIndex', 'StockDailyPrice', 'StockPrediction', 'GlobalMarketQuote', 'ExchangeRateSnapshot',
-    'StockInvestorFlow', 'StockDisclosure',
+    'StockInvestorFlow', 'StockDisclosure', 'PredictionAccuracySnapshot',
     'UserSubscription', 'SubscriptionOrder', 'MemberGrade', 'UserPreference', 'BlogPostingAccount',
-    'LoginLog', 'MenuAccessLog', 'ChatMessage', 'SocialAccount',
+    'LoginLog', 'MenuAccessLog', 'ChatMessage', 'SocialAccount', 'Watchlist',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
     'FinancialConsultSheet',

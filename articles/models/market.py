@@ -142,6 +142,16 @@ class StockRealtimePrice(models.Model):
     change = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="전일 대비")
     change_pct = models.FloatField(verbose_name="전일 대비율(%)")
     volume = models.BigIntegerField(verbose_name="누적 거래량")
+    # 밸류에이션 지표(종목 상세 페이지 표시용). KIS 주식현재가 조회 API가 실시간가와 함께 내려주는
+    # 값이라 collect_stock_realtime_price가 5분 주기로 갱신할 때 추가 API 호출 없이 같이 채운다.
+    # null=True: 이 필드가 생기기 전에 만들어진 기존 행, 그리고 아직 한 번도 갱신 안 된 신규 행 대비.
+    per = models.FloatField(null=True, blank=True, verbose_name="PER")
+    pbr = models.FloatField(null=True, blank=True, verbose_name="PBR")
+    eps = models.FloatField(null=True, blank=True, verbose_name="EPS")
+    bps = models.FloatField(null=True, blank=True, verbose_name="BPS")
+    market_cap = models.BigIntegerField(null=True, blank=True, verbose_name="시가총액(원)")
+    week52_high = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="52주 최고가")
+    week52_low = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="52주 최저가")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="갱신 시각")
 
     class Meta:
@@ -378,3 +388,29 @@ class StockPrediction(models.Model):
 
     def __str__(self):
         return f"{self.stock.name} - {self.date} 예측"
+
+
+# ==========================================
+# AI 예측 성과 트랙레코드 페이지용 스냅샷. 신뢰도(확신도) 구간별 실현 정확도를 매일 배치로
+# 미리 계산해 저장한다 — StockPrediction 전체 이력(만 건 이상)과 StockDailyPrice를 조인해
+# "다음날 실제로 올랐는지"를 계산하는 작업이 실측 약 6초 걸려(2026-08-09 기준, 전종목 대상
+# StockDailyPrice 조인), 공개 페이지 요청마다 라이브로 돌리기엔 무겁다. 반면 이미 발동된
+# 매수/매도 시그널만 다시 결과 확인하는 건 표본이 훨씬 작아(수백 건) 라이브 계산해도 가벼워서,
+# 그쪽은 이 스냅샷 없이 ai_performance_view가 매 요청마다 직접 계산한다.
+# ==========================================
+class PredictionAccuracySnapshot(models.Model):
+    computed_at = models.DateTimeField(auto_now_add=True, verbose_name="계산 시각")
+    total_resolved = models.IntegerField(verbose_name="결과 확정된 예측 수(신뢰도 무관 전체)")
+    overall_accuracy = models.FloatField(verbose_name="전체 방향성 정확도(신뢰도 무관)")
+    # [{'threshold': 0.55, 'confidence': 0.10, 'n': 8597, 'accuracy': 0.558}, ...] 형태.
+    # 신뢰도 구간별 누적(threshold 이상) 표본수/정확도 — compute_prediction_accuracy 커맨드가
+    # 채우는 필드/구조와 반드시 맞춰야 한다.
+    buckets = models.JSONField(verbose_name="신뢰도 구간별 누적 정확도")
+
+    class Meta:
+        ordering = ['-computed_at']
+        verbose_name = "AI 예측 정확도 스냅샷 (PredictionAccuracySnapshot)"
+        verbose_name_plural = "AI 예측 정확도 스냅샷 (PredictionAccuracySnapshot)"
+
+    def __str__(self):
+        return f"{self.computed_at:%Y-%m-%d %H:%M} 기준 (표본 {self.total_resolved}건)"

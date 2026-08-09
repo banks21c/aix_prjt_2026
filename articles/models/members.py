@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 from articles.fields import EncryptedCharField
+from .market import StockItem
 
 
 # ==========================================
@@ -292,3 +293,21 @@ class SocialAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()}"
+
+
+# ==========================================
+# 6. 관심종목 (종목 상세 페이지의 ⭐ 토글로 추가/삭제, 대시보드에 실시간가와 함께 노출)
+# ==========================================
+class Watchlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="watchlist_items", verbose_name="회원")
+    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="watchlisted_by", verbose_name="종목")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="추가일시")
+
+    class Meta:
+        unique_together = ('user', 'stock')
+        ordering = ['-created_at']
+        verbose_name = "관심종목 (Watchlist)"
+        verbose_name_plural = "관심종목 (Watchlist)"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.stock.name}"
