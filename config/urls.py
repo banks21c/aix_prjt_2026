@@ -32,9 +32,11 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view,
+    operations_overview_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
+    ai_performance_view,
     signup_view, login_view, logout_view, delete_account_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
@@ -62,6 +64,7 @@ urlpatterns = [
     path('admin-tools/pipeline/', pipeline_status_view, name='pipeline_status'),
     path('admin-tools/pipeline/run/<str:key>/', pipeline_trigger_view, name='pipeline_trigger'),
     path('admin-tools/health/', server_health_view, name='server_health'),
+    path('admin-tools/overview/', operations_overview_view, name='operations_overview'),
     path('admin-tools/consult-sheet/', financial_consult_sheet_view, name='financial_consult_sheet'),
     path('admin-tools/consult-sheet/save/', financial_consult_sheet_save_view, name='financial_consult_sheet_save'),
     path('admin-tools/consult-sheet/search/', financial_consult_sheet_search_view, name='financial_consult_sheet_search'),
@@ -80,6 +83,7 @@ urlpatterns = [
     path('api/ticker/stocks/', ticker_stocks_view, name='ticker_stocks'),  # ◀ 두 번째(개별 종목) 티커가 폴링하는 JSON
     path('api/consult/', consult_request_view, name='consult_request'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
+    path('performance/', ai_performance_view, name='ai_performance'),  # ◀ AI 예측 성과 공개 트랙레코드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
     path('api/stock-quote/', stock_quote_view, name='stock_quote'),  # ◀ 대시보드 종목 검색 위젯이 호출하는 온디맨드 API
     path('api/stock-search/', stock_search_suggest_view, name='stock_search_suggest'),  # ◀ 검색창 자동완성 후보 목록 API
@@ -96,6 +100,7 @@ urlpatterns = [
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
     path('stocks/<str:ticker>/period-chart/<str:period>/', stock_period_chart_view, name='stock_period_chart'),  # ◀ 주봉/월봉 온디맨드 API
+    path('stocks/<str:ticker>/watchlist/', watchlist_toggle_view, name='watchlist_toggle'),  # ◀ 관심종목 추가/삭제 토글 API
 
     path('api/chatbot/', chatbot_ask_view, name='chatbot_ask'),  # ◀ 주식/경제 챗봇 위젯 API
 

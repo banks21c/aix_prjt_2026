@@ -21,8 +21,9 @@ from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
     AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
     StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
+    Watchlist,
 )
-from ..utils import get_client_ip
+from ..utils import format_trading_value, format_volume, get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +330,28 @@ def _build_index_chart(market_type, days=90):
 
 
 def main_dashboard_view(request):
+    # ---- 0행: 관심종목 (로그인 회원 전용). 코스피200/코스닥150 밖 종목도 저장할 수 있어
+    # 실시간 캐시(StockRealtimePrice)가 없을 수 있다 — 그런 경우만 온디맨드로 조회한다. 회원별
+    # 목록이라 보통 몇 개 안 되므로(수십 개 규모의 매수/매도 신호 표와 달리) 스레드풀 없이
+    # 순차 조회로 충분하다.
+    watchlist_items = []
+    if request.user.is_authenticated:
+        watchlist_items = list(
+            Watchlist.objects.filter(user=request.user).select_related('stock').order_by('-created_at')[:10]
+        )
+        for w in watchlist_items:
+            cached = StockRealtimePrice.objects.filter(stock=w.stock).first()
+            if cached:
+                w.price, w.change, w.change_pct = cached.close_price, cached.change, cached.change_pct
+            else:
+                try:
+                    fetched = kis_client.get_stock_close_price(w.stock.ticker)
+                    w.price, w.change, w.change_pct = fetched['close'], fetched['change'], fetched['change_pct']
+                except Exception:
+                    logger.exception("관심종목 온디맨드 시세 조회 실패: %s", w.stock.ticker)
+                    w.price, w.change, w.change_pct = None, None, None
+            w.change_pct_abs = abs(w.change_pct) if w.change_pct is not None else None
+
     # ---- 1행: 코스피/코스닥 지수 차트(지수/등락/등락%) ----
     # 3년치를 한 번에 내려보내, 클라이언트에서 3개월/1년/3년 버튼을 누르면 다시 조회하지 않고
     # 이미 받은 배열을 기간만큼 잘라서 그린다. 당일(1일) 분봉은 별도 온디맨드 API로 받는다.
@@ -368,8 +391,34 @@ def main_dashboard_view(request):
             # ETN 코드는 KIS에서 "Q" 접두사가 붙어 오지만(예: Q760027), 네이버 증권은 접두사 없는
             # 코드(760027)라야 종목 상세로 가고 붙이면 증권 메인으로 튕긴다 — 실측 확인.
             naver_code = mover.ticker[1:] if mover.ticker.startswith('Q') else mover.ticker
-            mover.detail_url = f"https://finance.naver.com/item/main.naver?code={naver_code}"
+            mover.detail_url = f"https://stock.naver.com/domestic/stock/{naver_code}/price"
             mover.detail_external = True
+
+    # ---- 2행: 거래대금/거래량 상위 5종목 (실시간 시세 캐시 StockRealtimePrice 기준 — 등락률
+    # 상위(RankedMover)와 달리 코스피200/코스닥150 전체(350종목)가 후보군이라 시장별(코스피/
+    # 코스닥) 상위 5개를 그 안에서 직접 뽑는다. StockRealtimePrice는 정규장 중에만 5분마다
+    # 갱신되고 마감 후엔 마감 직전 캐시가 그대로 남으므로, 이 랭킹도 마감 후엔 마감 시점 기준이
+    # 된다. 거래대금 필드가 따로 없어 종가*거래량으로 근사한다(build_mentioned_stocks_table과
+    # 동일한 방식).
+    realtime_rows = list(
+        StockRealtimePrice.objects.filter(stock__is_active=True, volume__gt=0)
+        .select_related('stock')
+    )
+    value_leaders = {'KOSPI': [], 'KOSDAQ': []}
+    volume_leaders = {'KOSPI': [], 'KOSDAQ': []}
+    for market in ('KOSPI', 'KOSDAQ'):
+        rows = [r for r in realtime_rows if r.stock.market_type == market]
+        for r in rows:
+            r.trading_value = r.close_price * r.volume
+            r.trading_value_label = format_trading_value(r.trading_value)
+            r.volume_label = format_volume(r.volume)
+            r.change_abs = abs(r.change)
+            r.change_pct_abs = abs(r.change_pct)
+        value_leaders[market] = sorted(rows, key=lambda r: r.trading_value, reverse=True)[:5]
+        # 거래량이 동률인 경우(드묾) 시가총액이 큰 종목을 우선한다("시가총액 우선순위").
+        volume_leaders[market] = sorted(
+            rows, key=lambda r: (r.volume, r.stock.market_cap or 0), reverse=True
+        )[:5]
 
     # ---- 2행: 진짜 특징종목 (등락률만 보는 위 순위와 달리, 오늘 실제 뉴스·공시가 붙어 "왜
     # 움직였는지 설명되는" 종목만 추린다). 등락률 상위(RankedMover)는 상승률/하락률 5개뿐이라
@@ -526,15 +575,18 @@ def main_dashboard_view(request):
             # ETN 등 마스터 밖 코드는 여기 안 걸리지만(예측 자체가 StockItem 있는 종목만 도니까),
             # 혹시 모를 "Q" 접두사 코드에 대비해 특징종목과 동일한 방어 로직을 둔다.
             naver_code = p.stock.ticker[1:] if p.stock.ticker.startswith('Q') else p.stock.ticker
-            p.naver_url = f"https://finance.naver.com/item/main.naver?code={naver_code}"
+            p.naver_url = f"https://stock.naver.com/domestic/stock/{naver_code}/price"
 
     context = {
         'site_title': 'NextFinUp - AI 차세대 자산 분석 포털',
+        'watchlist_items': watchlist_items,
         'kospi_index': kospi_index,
         'kosdaq_index': kosdaq_index,
         'major_news': major_news,
         'top_gainers': top_gainers,
         'top_losers': top_losers,
+        'value_leaders': value_leaders,
+        'volume_leaders': volume_leaders,
         'real_featured_stocks': real_featured_stocks,
         'kospi_ohlc': kospi_index['ohlc'],
         'kosdaq_ohlc': kosdaq_index['ohlc'],

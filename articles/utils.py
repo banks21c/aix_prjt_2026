@@ -204,7 +204,7 @@ def build_mentioned_stocks_table(text):
         color = '#e53935' if change > 0 else '#1e88e5' if change < 0 else '#495057'
         move_style = f'{cell_base};color:{color}'
         trading_value = close_price * volume
-        naver_url = f"https://finance.naver.com/item/main.naver?code={stock.ticker}"
+        naver_url = f"https://stock.naver.com/domestic/stock/{stock.ticker}/price"
         rows.append(
             '<tr>'
             f'<td style="{cell_base}">'
@@ -317,18 +317,25 @@ def detect_reuse_restriction(text):
 
 
 def fetch_article_content(url):
-    """뉴스 원문 URL에서 기사 본문 텍스트를 스크래핑한다. 언론사마다 HTML 구조가 달라
-    사이트별 셀렉터 대신 trafilatura의 범용 추출을 사용한다. 실패해도 수집 파이프라인
-    자체가 끊기면 안 되므로 예외를 삼키고 빈 문자열을 반환한다."""
+    """뉴스 원문 URL에서 기사 본문 텍스트를 스크래핑하고, 한경 프리미엄9 유료 잠금 기사인지도
+    함께 판별한다. {'content': 추출된 본문(실패 시 ''), 'is_premium': bool}을 반환.
+
+    프리미엄 여부는 URL 패턴으로는 못 가른다 — 일반/프리미엄 기사 모두 hankyung.com/article/
+    NNNNN 형식으로 동일하고(premium9는 섹션 홈 URL일 뿐), 본문이 비어있다고 프리미엄인 것도
+    아니다(trafilatura가 일반 기사도 종종 본문 추출에 실패함, 실측 확인). 유일하게 신뢰할 수
+    있는 마커는 원문 HTML에 있는 유료 결제 레이어(`<div class="paywall type-layer">` — 평소엔
+    JS로 "active" 클래스가 붙어야 화면에 뜨지만, 서버가 내려주는 원본 HTML에도 항상 박혀 있고
+    비프리미엄 기사에는 아예 없음, 실측 확인)라 이걸로 판별한다."""
     try:
         import trafilatura
         downloaded = trafilatura.fetch_url(url)
         if not downloaded:
-            return ''
+            return {'content': '', 'is_premium': False}
+        is_premium = 'class="paywall type-layer' in downloaded
         text = trafilatura.extract(downloaded)
-        return (text or '').strip()
+        return {'content': (text or '').strip(), 'is_premium': is_premium}
     except Exception:
-        return ''
+        return {'content': '', 'is_premium': False}
 
 
 def _domain_from_url(url):

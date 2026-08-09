@@ -2,7 +2,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from django.core.management.base import BaseCommand
 from articles.models import NewsSource, NewsKeyword, AnalyzedArticle
-from articles.utils import fetch_article_content, detect_reuse_restriction, find_mentioned_stocks
+from articles.utils import detect_reuse_restriction, fetch_article_content, find_mentioned_stocks
 
 
 class Command(BaseCommand):
@@ -92,7 +92,8 @@ class Command(BaseCommand):
 
                 self.stdout.write(self.style.SUCCESS(f"    ↳ [{match_label} 매칭] {title[:30]}..."))
 
-                content = fetch_article_content(link)
+                fetched = fetch_article_content(link)
+                content = fetched['content']
                 AnalyzedArticle.objects.create(
                     stock=matched_stock,
                     matched_keyword=matched_keyword,
@@ -103,7 +104,7 @@ class Command(BaseCommand):
                     original_content=content,
                     has_reuse_restriction=detect_reuse_restriction(content),
                     applied_template='T1',
-                    is_premium=False,
+                    is_premium=fetched['is_premium'],
                     is_posted=False,
                 )
                 count += 1

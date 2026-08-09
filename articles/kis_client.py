@@ -774,6 +774,16 @@ def get_stock_current_price(ticker):
         'change': float(output['prdy_vrss']),
         'change_pct': float(output['prdy_ctrt']),
         'volume': int(output['acml_vol']),
+        # 밸류에이션 지표 — per/pbr/eps/bps는 이 API가 원래 같이 내려주는데 기존엔 안 쓰고
+        # 버렸다. hts_avls(시가총액)는 KIS 응답 단위가 억원이라 원 단위로 맞추려 1억을 곱한다
+        # (실측: 005930 hts_avls=13504904 -> 시가총액 1,350.49조원, stck_prpr*lstn_stcn과 일치).
+        'per': float(output['per']) if output.get('per') not in (None, '') else None,
+        'pbr': float(output['pbr']) if output.get('pbr') not in (None, '') else None,
+        'eps': float(output['eps']) if output.get('eps') not in (None, '') else None,
+        'bps': float(output['bps']) if output.get('bps') not in (None, '') else None,
+        'market_cap': int(float(output['hts_avls']) * 1_0000_0000) if output.get('hts_avls') not in (None, '') else None,
+        'week52_high': float(output['w52_hgpr']) if output.get('w52_hgpr') not in (None, '') else None,
+        'week52_low': float(output['w52_lwpr']) if output.get('w52_lwpr') not in (None, '') else None,
     }
 
 

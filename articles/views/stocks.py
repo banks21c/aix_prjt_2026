@@ -2,14 +2,17 @@ import logging
 from datetime import date, datetime, time as dt_time, timedelta, timezone as dt_timezone
 
 import pandas as pd
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .. import kis_client
 from ..ml.features import compute_display_indicators
-from ..models import AnalyzedArticle, StockDailyPrice, StockItem, StockPrediction, StockRealtimePrice
+from ..models import AnalyzedArticle, StockDailyPrice, StockItem, StockPrediction, StockRealtimePrice, Watchlist
+from ..utils import format_trading_value
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +162,12 @@ def stock_quote_view(request):
     if not stock:
         return JsonResponse({'ok': False, 'error': f'"{q}"에 해당하는 종목을 찾을 수 없습니다.'})
 
-    ohlc, realtime = _get_stock_quote(stock)
+    # 위젯에 일봉/주봉/월봉 토글이 있어 주봉·월봉은 여러 해가 쌓여야 의미가 있으므로,
+    # stock_detail_view(지표 계산용 180거래일)보다 훨씬 넓게 3년치를 요청한다. 코스피200/
+    # 코스닥150 밖이라 로컬 데이터가 없는 종목은 _get_stock_quote의 KIS 온디맨드 폴백이
+    # 대신 쓰이는데, 그쪽 API는 한 번에 최대 100영업일만 내려주므로 이 종목들은 주봉/월봉이
+    # 몇 개 안 나올 수 있다(에러는 아님).
+    ohlc, realtime = _get_stock_quote(stock, days=1095)
     if not ohlc:
         return JsonResponse({'ok': False, 'error': f'{stock.name}의 시세 데이터를 불러오지 못했습니다.'})
 
@@ -188,6 +196,23 @@ def stock_detail_view(request, ticker):
     ohlc, realtime = _get_stock_quote(stock)
     history = list(prices[:180])  # 최근 180거래일 정도만 차트에 표시(지표 계산용)
     history.reverse()
+
+    # 밸류에이션 지표(PER/PBR/EPS/BPS/52주 최고·최저). 코스피200/코스닥150(is_major_index) 종목은
+    # collect_stock_realtime_price가 5분마다 이미 채워둔 캐시를 그대로 쓴다(추가 API 호출 없음).
+    # 그 밖의 종목은 이 캐시 자체가 없으므로, 상세 페이지 조회 시에만 온디맨드로 한 번 조회한다.
+    valuation_fields = ('per', 'pbr', 'eps', 'bps', 'market_cap', 'week52_high', 'week52_low')
+    realtime_cache_row = StockRealtimePrice.objects.filter(stock=stock).first()
+    if realtime_cache_row and realtime_cache_row.per is not None:
+        valuation = {f: getattr(realtime_cache_row, f) for f in valuation_fields}
+    else:
+        valuation = None
+        try:
+            fetched = kis_client.get_stock_current_price(stock.ticker)
+            valuation = {f: fetched.get(f) for f in valuation_fields}
+        except Exception:
+            logger.exception("KIS 밸류에이션 지표 온디맨드 조회 실패: %s", stock.ticker)
+    if valuation and valuation.get('market_cap') is not None:
+        valuation['market_cap_label'] = format_trading_value(valuation['market_cap'])
 
     # 기술적 지표(이동평균/RSI/MACD/볼린저밴드/거래량비율 등)는 거래량이 있는 자체 수집 데이터
     # (history)가 있을 때만 계산한다. KIS 온디맨드 조회는 거래량을 안 줘서 계산할 수 없다.
@@ -225,6 +250,11 @@ def stock_detail_view(request, ticker):
 
     news = AnalyzedArticle.objects.filter(stock=stock).select_related('matched_keyword').order_by('-scraped_at')[:10]
 
+    is_watching = (
+        request.user.is_authenticated
+        and Watchlist.objects.filter(user=request.user, stock=stock).exists()
+    )
+
     context = {
         'site_title': f'NextFinUp - {stock.name}',
         'stock': stock,
@@ -235,8 +265,23 @@ def stock_detail_view(request, ticker):
         'realtime': realtime,
         'indicators': indicators,
         'latest_indicators': latest_indicators,
+        'valuation': valuation,
+        'is_watching': is_watching,
     }
     return render(request, 'articles/stock_detail.html', context)
+
+
+@login_required
+@require_POST
+def watchlist_toggle_view(request, ticker):
+    """종목 상세 페이지의 ⭐ 버튼이 호출하는 관심종목 추가/삭제 토글 API. 이미 있으면 삭제,
+    없으면 추가 — 버튼 하나로 두 동작을 겸하므로 클라이언트가 현재 상태를 미리 알 필요 없다."""
+    stock = get_object_or_404(StockItem, ticker=ticker)
+    obj, created = Watchlist.objects.get_or_create(user=request.user, stock=stock)
+    if not created:
+        obj.delete()
+        return JsonResponse({'ok': True, 'watching': False})
+    return JsonResponse({'ok': True, 'watching': True})
 
 
 def stock_minute_chart_view(request, ticker):

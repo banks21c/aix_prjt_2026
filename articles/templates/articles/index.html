@@ -84,19 +84,50 @@
         .hero-stat strong { font-size: 26px; font-weight: 800; }
         .hero-stat span { font-size: 14px; color: #dce8fb; }
 
-        .hero-grid {
+        .hero-grid { display: block; }
+        /* slick.js가 원본 슬라이드 엘리먼트에 직접 .slick-slide 클래스를 붙이는데(별도 래퍼 없이),
+           slick.css의 `.slick-initialized .slick-slide { display: block; }`가 클래스 2개짜리라
+           단일 클래스 `.hero-slide{display:grid}`보다 우선순위가 높아 grid가 조용히 무시된다
+           (텍스트가 화면 크기와 무관하게 항상 컨테이너 전체 폭을 차지하는 형태로 관측됨).
+           동일한 우선순위(클래스 2개)로 맞추고, slick.css보다 뒤에 선언해 이겨야 한다. */
+        .hero-slick .hero-slide {
+            /* slick.css는 `.slick-slide { float: left; }`로 슬라이드를 가로로 나란히 붙여 넘기고,
+               1장씩(slidesToShow:1) 보여줄 슬라이드 폭만큼 트랙을 transform으로 밀어 넘긴다.
+               그런데 float에 width를 안 주면 grid 컨테이너는 자기 내용물 크기로만 줄어든다
+               (inline-block처럼 shrink-to-fit) — 그러면 실제 렌더 폭이 slick이 계산한 "슬라이드 1장
+               폭"보다 좁아져서, 다음 슬라이드로 넘어가도 이전 슬라이드가 다 안 밀려나고 그 옆에
+               다음 슬라이드 글자가 겹쳐 보인다(실측 신고: "3번째 슬라이드 글씨가 1번째에 겹침").
+               width:100%로 슬라이드 폭을 슬롯 전체로 강제 고정해야 한다.
+               width를 고정해도 겹침이 재현돼(실측 신고: 3번 슬라이드 문단 중간 단어들이 1번에
+               겹침) — grid 내부 콘텐츠(문단 텍스트 등)가 어떤 이유로든 자기 칼럼 폭을 넘겨
+               흘러나오면 slick-list의 overflow:hidden(슬라이드 "사이" 클리핑용)만으로는 같은
+               슬라이드 박스 밖으로 새는 걸 못 막는다. 슬라이드 자기 자신도 overflow:hidden으로
+               막아, 안의 내용이 뭐든 자기 박스 밖으로는 절대 못 나가게 이중으로 잠근다. */
             display: grid;
+            width: 100%;
+            overflow: hidden;
             grid-template-columns: 1.1fr 0.9fr;
             gap: 40px;
             align-items: center;
         }
-        .hero-chart {
+        .hero-chart, .hero-visual {
+            /* CSS grid의 fr 트랙은 기본적으로 min-width:auto(=자기 내용물의 최소 너비)를
+               바닥값으로 깔고 그 이상에서만 1.1fr:0.9fr 비율로 나눈다. 슬라이드2는 노드 3개
+               (60px×3=180)+패딩(44) = 224px가 이 칼럼의 콘텐츠 최소 너비라, 텍스트 칼럼이
+               차지하는 몫까지 더하면 폭 배분이 224px(=거의 딱 이 컨텐츠 최소값)로 눌려버렸다
+               (실측 신고: 다른 슬라이드 372px인데 이건 225px). 슬라이드마다 텍스트 길이가
+               달라 칼럼별 최소너비 경쟁 결과가 슬라이드마다 달라지는 게 원인이라, min-width:0로
+               그 바닥값 자체를 없애 항상 fr 비율(+max-width 캡)대로만 계산되게 한다. */
+            min-width: 0;
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.16);
             border-radius: 16px;
             padding: 22px 22px 26px;
             backdrop-filter: blur(6px);
         }
+        /* 차트 슬라이드는 영상/애니메이션 슬라이드보다 내용이 작아, 칼럼 폭을 꽉 채우지 않고
+           텍스트 바로 옆으로 붙는 크기로 줄인다. */
+        .hero-chart { max-width: 380px; }
         .hero-chart-label {
             display: flex;
             align-items: center;
@@ -133,17 +164,249 @@
         .hero-chart-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
         .hero-chart-unit { font-size: 12px; color: #dce8fb; }
 
-        @media (max-width: 900px) {
-            .hero-grid { grid-template-columns: 1fr; }
-            .hero-chart { order: -1; max-width: 460px; margin: 0 auto 8px; }
+        /* 슬라이드1 — AI 예측 파이프라인 다이어그램. 5개 레이어(데이터→피처→RF/LightGBM→
+           앙상블→예측가) 카드가 세로로 쌓이고, 위에서 아래로 순차적으로 밝아지며 활성화되는
+           빌드업 애니메이션. 실제 영상 대신 CSS/SVG로 구현 — 텍스트·숫자가 항상 정확하게
+           고정되고(영상 생성 AI가 흔히 틀리는 부분), 9:16 세로 비율에도 자연스럽게 맞는다. */
+        .hero-ml-pipeline {
+            max-width: 380px;
+            aspect-ratio: 3 / 4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 3px;
+            overflow: hidden;
+            padding: 12px 12px 10px;
+        }
+        .mlp-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 8px;
+            padding: 6px 8px;
+            opacity: 0.35;
+            filter: grayscale(1);
+            transform: scale(0.97);
+            animation: mlpReveal 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-layer1 { opacity: 1; filter: none; transform: none; animation: none; border-color: rgba(255,255,255,0.2); }
+        .mlp-card-title {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 3px;
+        }
+        .mlp-card-title-sm { font-size: 9px; font-weight: 700; color: #fff; text-align: center; margin-top: 3px; }
+        .mlp-card-sub { font-size: 7.5px; color: #aebfdc; margin-top: 3px; }
+        .mlp-icon { width: 14px; height: 14px; flex: none; color: #fff; }
+        .mlp-candles { display: block; width: 100%; height: 28px; }
+        .mlp-pills { display: flex; flex-wrap: wrap; gap: 3px; }
+        .mlp-pill {
+            font-size: 7px; font-weight: 600; color: #dce8fb;
+            background: rgba(0,194,168,0.16); border: 1px solid rgba(0,194,168,0.4);
+            border-radius: 999px; padding: 2px 5px;
+            opacity: 0; transform: translateY(3px);
+            animation: mlpPillIn 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-pill:nth-child(1) { animation-delay: 0.7s; }
+        .mlp-pill:nth-child(2) { animation-delay: 0.8s; }
+        .mlp-pill:nth-child(3) { animation-delay: 0.9s; }
+        .mlp-pill:nth-child(4) { animation-delay: 1.0s; }
+        .mlp-pill:nth-child(5) { animation-delay: 1.1s; }
+        .mlp-pill:nth-child(6) { animation-delay: 1.2s; }
+        .mlp-pill:nth-child(7) { animation-delay: 1.3s; }
+        .mlp-pill:nth-child(8) { animation-delay: 1.4s; }
+        .mlp-row { display: flex; gap: 5px; }
+        .mlp-card-half { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
+        .mlp-rf { animation-delay: 2.3s; }
+        .mlp-lgbm { animation-delay: 2.3s; }
+        .mlp-rf .mlp-icon { color: #ff8a3d; }
+        .mlp-lgbm .mlp-icon { color: #4da8ff; }
+        .mlp-layer2 { animation-delay: 0.6s; }
+        .mlp-layer4 { animation-delay: 3.3s; display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
+        .mlp-layer4 .mlp-icon { color: #8e5cff; }
+        .mlp-layer5 { animation-delay: 4.3s; }
+        .mlp-arrow {
+            align-self: center;
+            width: 2px; height: 8px;
+            background: linear-gradient(#0002, #0002);
+            position: relative;
+            opacity: 0.35;
+            animation: mlpArrow 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-arrow::after {
+            content: ''; position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%);
+            border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid rgba(255,255,255,0.5);
+        }
+        .mlp-arrow-1 { animation-delay: 0.3s; }
+        .mlp-arrow-split { animation-delay: 2.0s; }
+        .mlp-arrow-merge { animation-delay: 3.0s; }
+        .mlp-arrow-4 { animation-delay: 4.0s; }
+        @keyframes mlpReveal {
+            0% { opacity: 0.35; filter: grayscale(1); transform: scale(0.97); }
+            6% { opacity: 1; filter: grayscale(0); transform: scale(1); }
+            92% { opacity: 1; filter: grayscale(0); transform: scale(1); }
+            97%, 100% { opacity: 0.35; filter: grayscale(1); transform: scale(0.97); }
+        }
+        @keyframes mlpPillIn {
+            0% { opacity: 0; transform: translateY(3px); }
+            5% { opacity: 1; transform: translateY(0); }
+            92% { opacity: 1; transform: translateY(0); }
+            97%, 100% { opacity: 0; transform: translateY(3px); }
+        }
+        @keyframes mlpArrow {
+            0% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
+            6% { opacity: 1; background: linear-gradient(#00c2a8, #facc15); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            92% { opacity: 1; background: linear-gradient(#00c2a8, #facc15); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            97%, 100% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
+        }
+        .mlp-sparkline { display: block; width: 100%; height: 22px; margin-top: 2px; }
+        .mlp-sparkline path {
+            stroke-dasharray: 140;
+            stroke-dashoffset: 140;
+            animation: mlpSparkDraw 9s ease-in-out infinite;
+        }
+        @keyframes mlpSparkDraw {
+            0%, 50% { stroke-dashoffset: 140; }
+            64% { stroke-dashoffset: 0; }
+            92% { stroke-dashoffset: 0; }
+            97%, 100% { stroke-dashoffset: 140; }
+        }
+        .mlp-accuracy { margin-top: 5px; }
+        .mlp-bar-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+        .mlp-bar-label { font-size: 6.5px; color: #aebfdc; width: 34px; flex: none; }
+        .mlp-bar { flex: 1 1 auto; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
+        .mlp-bar-value { font-size: 6.5px; color: #dce8fb; width: 26px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+        .mlp-bar-fill { height: 100%; border-radius: 3px; }
+        .mlp-bar-base .mlp-bar-fill {
+            width: 0%; background: #64748b;
+            animation: mlpBarBase 9s ease-in-out infinite;
+        }
+        @keyframes mlpBarBase {
+            0%, 68% { width: 0%; }
+            74% { width: 100%; }
+            92% { width: 100%; }
+            97%, 100% { width: 0%; }
+        }
+        .mlp-bar-fill-improved {
+            width: 0%; background: linear-gradient(90deg, #facc15, #22c55e);
+            animation: mlpBarImproved 9s ease-in-out infinite;
+        }
+        @keyframes mlpBarImproved {
+            0%, 74% { width: 0%; }
+            80% { width: 50%; }
+            92% { width: 50%; }
+            97%, 100% { width: 0%; }
+        }
+        .mlp-badge {
+            margin-top: 5px; text-align: center; font-size: 7.5px; font-weight: 700;
+            color: #22c55e; background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4);
+            border-radius: 999px; padding: 2px 6px;
+            opacity: 0; transform: scale(0.7);
+            animation: mlpBadgePop 9s ease-in-out infinite;
+        }
+        @keyframes mlpBadgePop {
+            0%, 82% { opacity: 0; transform: scale(0.7); }
+            86% { opacity: 1; transform: scale(1.12); }
+            89% { transform: scale(1); }
+            92% { opacity: 1; transform: scale(1); }
+            97%, 100% { opacity: 0; transform: scale(0.7); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .mlp-card, .mlp-pill, .mlp-arrow, .mlp-sparkline path, .mlp-bar-base .mlp-bar-fill,
+            .mlp-bar-fill-improved, .mlp-badge { animation: none !important; opacity: 1 !important; filter: none !important; transform: none !important; }
+            .mlp-sparkline path { stroke-dashoffset: 0 !important; }
+            .mlp-bar-base .mlp-bar-fill { width: 100% !important; }
+            .mlp-bar-fill-improved { width: 50% !important; }
         }
 
-        /* 히어로 좌측 텍스트 영역 — Slick으로 3장 슬라이드 전환. 이미지 없이 h1/p/버튼/스탯을
-           그대로 슬라이드 콘텐츠로 씀. 슬라이드마다 텍스트 길이가 달라 높이가 들쭉날쭉하면
-           전환할 때마다 아래 "AI 분석 브리핑" 영역이 들썩이므로, 가장 긴 슬라이드(1번)
-           기준 min-height를 고정해 셋 다 같은 높이를 쓰게 한다(adaptiveHeight: false). */
+        /* 슬라이드2 — RSS 수집→AI 요약→블로그 자동배포 흐름 애니메이션. 차트 슬라이드처럼
+           라벨/캡션을 더해 내용을 채우고, 아이콘 행은 그 사이에 둔다. 다른 두 슬라이드의
+           비주얼(.hero-ml-pipeline/.hero-chart)은 max-width:380px인데 여기만 340px로 더
+           좁게 잡혀 있었다 — 슬라이드마다 비주얼 박스 너비가 들쭉날쭉해 보였던 원인 중 하나라
+           같은 380px로 맞춘다. */
+        .hero-flow-panel { max-width: 380px; }
+        .hero-flow-panel .hero-chart-readout { margin-top: 14px; }
+        .hero-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 160px;
+            padding: 0 4px;
+        }
+        .hero-flow-node { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 auto; width: 60px; }
+        .hero-flow-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.24);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            animation: flowGlow 4.5s ease-in-out infinite;
+        }
+        .hero-flow-icon svg { width: 20px; height: 20px; }
+        .hero-flow-node:nth-child(1) .hero-flow-icon { animation-delay: 0s; }
+        .hero-flow-node:nth-child(3) .hero-flow-icon { animation-delay: -1.5s; }
+        .hero-flow-node:nth-child(5) .hero-flow-icon { animation-delay: -3s; }
+        .hero-flow-label { font-size: 11px; font-weight: 700; color: #dce8fb; text-align: center; line-height: 1.35; }
+        .hero-flow-arrow { position: relative; flex: 1 1 auto; height: 2px; background: rgba(255,255,255,0.2); margin: 0 -4px 20px; border-radius: 2px; overflow: visible; }
+        .hero-flow-arrow::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 6px;
+            height: 6px;
+            margin-top: -3px;
+            border-radius: 50%;
+            background: #6ee7b7;
+            box-shadow: 0 0 8px 1px rgba(110,231,183,0.7);
+            opacity: 0;
+            animation: flowTravel 4.5s ease-in-out infinite;
+        }
+        .hero-flow-arrow.hero-flow-arrow-2::after { animation-delay: -1.5s; }
+        @keyframes flowGlow {
+            0%, 8% { transform: scale(1.12); background: rgba(110,231,183,0.28); border-color: rgba(110,231,183,0.6); }
+            25%, 100% { transform: scale(1); background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.24); }
+        }
+        @keyframes flowTravel {
+            0% { left: 0; opacity: 0; }
+            8% { opacity: 1; }
+            33% { left: calc(100% - 8px); opacity: 1; }
+            41%, 100% { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-flow-icon, .hero-flow-arrow::after { animation: none; }
+            .hero-flow-node:nth-child(3) .hero-flow-icon { background: rgba(110,231,183,0.28); border-color: rgba(110,231,183,0.6); }
+        }
+
+        @media (max-width: 900px) {
+            /* 위 .hero-slick .hero-slide(클래스 2개, 우선순위 0,0,2,0)를 이겨야 실제로 1열로
+               바뀐다 — 여기 .hero-slide 단일 클래스로는 순서상 뒤에 와도 우선순위에서 져서
+               조용히 무시되고, 데스크톱용 2열(1.1fr 0.9fr) 그리드가 모바일 폭에 그대로 남아
+               텍스트와 차트가 겹쳐 보였다(88번째 줄 주석과 동일한 종류의 문제). */
+            .hero-slick .hero-slide { grid-template-columns: 1fr; }
+            /* order:-1로 차트를 텍스트보다 먼저 보여주던 걸 제거 — 데스크톱과 같은 순서
+               (설명 먼저, 차트 나중)로 통일한다. */
+            /* margin-left/right:auto는 그리드 아이템의 기본 justify-items:stretch를 깨고
+               "내용물 크기로 줄인 뒤 auto 여백으로 가운데 정렬"로 바꿔버린다 — 그래서 콘텐츠가
+               작은 슬라이드2(.hero-flow-panel, 아이콘 3개뿐)만 눈에 띄게 좁아졌다(실측: 372px
+               트랙인데 225px로 줄어듦 — 슬라이드1/3은 내부 콘텐츠 자체가 커서 우연히 안 티났을
+               뿐, 같은 버그였다). auto 여백을 빼서 1열에서도 트랙 폭 그대로 stretch하게 한다. */
+            .hero-chart, .hero-visual { max-width: 460px; margin-top: 24px; }
+        }
+
+        /* 히어로 영역 — Slick으로 3장 슬라이드 전환. 슬라이드마다 텍스트(h1/p/버튼/스탯) +
+           우측 비주얼(영상/애니메이션/차트)을 한 쌍으로 묶어 하나의 슬라이드를 구성한다.
+           슬라이드마다 콘텐츠 높이가 달라 들쭉날쭉하면 전환할 때마다 아래 "AI 분석 브리핑"
+           영역이 들썩이므로, 가장 긴 슬라이드(1번) 기준 min-height를 고정해 셋 다 같은
+           높이를 쓰게 한다(adaptiveHeight: false). */
         .hero-slick { overflow: hidden; }
-        .hero-slick .hero-text { min-height: 460px; }
+        .hero-slick .hero-text { min-height: 460px; min-width: 0; }
+        .hero-slick .hero-slide { min-height: 460px; }
         .hero-slick .slick-dots { position: static; text-align: left; margin-top: 12px; }
         .hero-slick .slick-dots li { width: 9px; height: 9px; margin: 0 4px 0 0; }
         .hero-slick .slick-dots li button { width: 9px; height: 9px; padding: 0; }
@@ -407,64 +670,224 @@
     <div class="hero">
         <div class="container hero-grid">
             <div class="hero-slick">
-                <div class="hero-text">
-                    <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
-                    <p>
-                        LightGBM·RandomForest 앙상블 머신러닝 모델이 코스피·코스닥 전종목의 다음날 종가와
-                        상승 확률, 5일 예상 수익률, 매수·매도·관망 시그널을 예측해 투자 판단에
-                        필요한 인사이트를 제공합니다.
-                    </p>
-                    <div class="hero-actions">
-                        <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
-                        <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
+                        <p>
+                            LightGBM·RandomForest 앙상블 머신러닝 모델이 코스피·코스닥 전종목의 다음날 종가와
+                            상승 확률, 5일 예상 수익률, 매수·매도·관망 시그널을 예측해 투자 판단에
+                            필요한 인사이트를 제공합니다.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
+                            <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>{{ active_stock_count }}</strong>
+                            <span>개 종목 AI 모니터링 중</span>
+                        </div>
                     </div>
-                    <div class="hero-stat">
-                        <strong>{{ active_stock_count }}</strong>
-                        <span>개 종목 AI 모니터링 중</span>
+                    <div class="hero-visual hero-ml-pipeline" aria-hidden="true">
+                        <div class="mlp-card mlp-layer1">
+                            <div class="mlp-card-title">10년치 주가 데이터</div>
+                            <svg class="mlp-candles" viewBox="0 0 100 34" preserveAspectRatio="none">
+                                <line x1="6" y1="4" x2="6" y2="18" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="3" y="8" width="6" height="7" fill="#ef4444"/>
+                                <line x1="18" y1="2" x2="18" y2="20" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="15" y="6" width="6" height="10" fill="#22c55e"/>
+                                <line x1="30" y1="6" x2="30" y2="24" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="27" y="10" width="6" height="9" fill="#22c55e"/>
+                                <line x1="42" y1="3" x2="42" y2="16" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="39" y="5" width="6" height="8" fill="#ef4444"/>
+                                <line x1="54" y1="7" x2="54" y2="26" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="51" y="12" width="6" height="10" fill="#22c55e"/>
+                                <line x1="66" y1="4" x2="66" y2="19" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="63" y="7" width="6" height="9" fill="#22c55e"/>
+                                <line x1="78" y1="8" x2="78" y2="28" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="75" y="13" width="6" height="11" fill="#ef4444"/>
+                                <line x1="90" y1="5" x2="90" y2="21" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="87" y="9" width="6" height="9" fill="#22c55e"/>
+                                <rect x="3" y="30" width="6" height="4" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="15" y="28" width="6" height="6" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="27" y="29" width="6" height="5" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="39" y="31" width="6" height="3" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="51" y="27" width="6" height="7" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="63" y="30" width="6" height="4" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="75" y="28" width="6" height="6" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="87" y="29" width="6" height="5" fill="rgba(34,197,94,0.5)"/>
+                            </svg>
+                            <div class="mlp-card-sub">KRX 일봉 · 2016.8–2026.8 · 약 2,500일</div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-1"></div>
+
+                        <div class="mlp-card mlp-layer2">
+                            <div class="mlp-card-title">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.7 6.3a4 4 0 1 0-5.4 5.4l-6 6a1.5 1.5 0 0 0 2 2l6-6a4 4 0 0 0 5.4-5.4l-2.1 2.1-2-2 2.1-2.1z"/>
+                                </svg>
+                                피처 엔지니어링
+                            </div>
+                            <div class="mlp-pills">
+                                <span class="mlp-pill">외국인 순매수</span>
+                                <span class="mlp-pill">외국인 순매도</span>
+                                <span class="mlp-pill">기관 순매수</span>
+                                <span class="mlp-pill">기관 순매도</span>
+                                <span class="mlp-pill">거래량</span>
+                                <span class="mlp-pill">MA(5/20)</span>
+                                <span class="mlp-pill">RSI</span>
+                                <span class="mlp-pill">MACD</span>
+                            </div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-split"></div>
+
+                        <div class="mlp-row">
+                            <div class="mlp-card mlp-card-half mlp-rf">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22v-7"/>
+                                    <path d="M12 15l-5-5"/>
+                                    <path d="M12 15l5-5"/>
+                                    <path d="M12 10V4"/>
+                                    <path d="M8 6l4-4 4 4"/>
+                                </svg>
+                                <div class="mlp-card-title-sm">Random Forest</div>
+                            </div>
+                            <div class="mlp-card mlp-card-half mlp-lgbm">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M11 20A7 7 0 0 1 4 13c0-6 7-11 15-11 0 8-5 15-11 15z"/>
+                                    <path d="M4 20 12 12"/>
+                                </svg>
+                                <div class="mlp-card-title-sm">LightGBM</div>
+                            </div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-merge"></div>
+
+                        <div class="mlp-card mlp-layer4">
+                            <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/>
+                            </svg>
+                            <div class="mlp-card-title-sm">앙상블 스태킹</div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-4"></div>
+
+                        <div class="mlp-card mlp-layer5">
+                            <div class="mlp-card-title-sm">예측 주가</div>
+                            <svg class="mlp-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="mlpSparkGrad" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stop-color="#facc15"/>
+                                        <stop offset="100%" stop-color="#22c55e"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M2,20 L14,17 L26,18 L38,12 L50,14 L62,8 L74,9 L86,4 L98,3" fill="none" stroke="url(#mlpSparkGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <div class="mlp-accuracy">
+                                <div class="mlp-bar-row">
+                                    <span class="mlp-bar-label">기본 모델</span>
+                                    <div class="mlp-bar mlp-bar-base"><div class="mlp-bar-fill"></div></div>
+                                    <span class="mlp-bar-value">0.082</span>
+                                </div>
+                                <div class="mlp-bar-row">
+                                    <span class="mlp-bar-label">피처 추가</span>
+                                    <div class="mlp-bar"><div class="mlp-bar-fill mlp-bar-fill-improved"></div></div>
+                                    <span class="mlp-bar-value">0.041</span>
+                                </div>
+                                <div class="mlp-badge">↑ 정확도 50% 개선</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="hero-text">
-                    <h1>실시간 경제 뉴스,<br>AI가 종목별로 정리해드립니다.</h1>
-                    <p>
-                        주요 경제지 피드를 실시간으로 수집해 관심 종목과 자동 매칭하고,
-                        개별 기사는 포스팅 시점에 AI 요약이 함께 제공됩니다. 등락률 상위
-                        특징종목은 하루 두 번(장중·마감후) AI가 통합 분석 리포트로 발행합니다.
-                    </p>
-                    <div class="hero-actions">
-                        <a href="#ai-briefing" class="btn btn-outline">AI 분석 브리핑</a>
-                        <a href="/news/" class="btn btn-primary">실시간 뉴스보기</a>
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>실시간 경제 뉴스,<br>AI가 종목별로 정리해드립니다.</h1>
+                        <p>
+                            주요 경제지 피드를 실시간으로 수집해 관심 종목과 자동 매칭하고,
+                            개별 기사는 포스팅 시점에 AI 요약이 함께 제공됩니다. 등락률 상위
+                            특징종목은 하루 두 번(장중·마감후) AI가 통합 분석 리포트로 발행합니다.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="#ai-briefing" class="btn btn-outline">AI 분석 브리핑</a>
+                            <a href="/news/" class="btn btn-primary">실시간 뉴스보기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>하루 2회</strong>
+                            <span>AI 특징종목 브리핑 자동 발행</span>
+                        </div>
                     </div>
-                    <div class="hero-stat">
-                        <strong>하루 2회</strong>
-                        <span>AI 특징종목 브리핑 자동 발행</span>
+                    <div class="hero-visual hero-flow-panel">
+                        <div class="hero-chart-label">
+                            <span class="dot"></span>
+                            뉴스 자동화 파이프라인
+                        </div>
+                        <div class="hero-flow" aria-hidden="true">
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/>
+                                        <path d="M4 11a9 9 0 0 1 9 9"/>
+                                        <path d="M4 5a15 15 0 0 1 15 15"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">RSS 뉴스<br>수집</span>
+                            </div>
+                            <div class="hero-flow-arrow hero-flow-arrow-1"></div>
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/>
+                                        <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">AI 요약</span>
+                            </div>
+                            <div class="hero-flow-arrow hero-flow-arrow-2"></div>
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="22" y1="2" x2="11" y2="13"/>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">블로그<br>자동배포</span>
+                            </div>
+                        </div>
+                        <div class="hero-chart-readout">
+                            <span class="hero-chart-value">5분</span>
+                            <span class="hero-chart-unit">마다 자동 수집 · 요약 · 발행</span>
+                        </div>
                     </div>
                 </div>
-                <div class="hero-text">
-                    <h1>AI만으로 부족하다면,<br>전문가와 함께 점검하세요.</h1>
-                    <p>
-                        국민연금부터 부동산까지, 자산 전체를 전문가가 무료로 함께 점검해드립니다.
-                        AI 분석은 참고 자료일 뿐, 최종 판단은 사람이 직접 상담해드리는
-                        전문가 상담 서비스로 한 번 더 확인해보세요.
-                    </p>
-                    <div class="hero-actions">
-                        <a href="{% url 'expert_consult_apply' %}" class="btn btn-primary">전문가 상담 신청하기</a>
-                        <a href="/asset-management/" class="btn btn-outline">자산관리 시작하기</a>
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>AI만으로 부족하다면,<br>전문가와 함께 점검하세요.</h1>
+                        <p>
+                            국민연금부터 부동산까지, 자산 전체를 전문가가 무료로 함께 점검해드립니다.
+                            AI 분석은 참고 자료일 뿐, 최종 판단은 사람이 직접 상담해드리는
+                            전문가 상담 서비스로 한 번 더 확인해보세요.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="{% url 'expert_consult_apply' %}" class="btn btn-primary">전문가 상담 신청하기</a>
+                            <a href="/asset-management/" class="btn btn-outline">자산관리 시작하기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>무료 상담</strong>
+                            <span>자산 전체를 전문가와 함께</span>
+                        </div>
                     </div>
-                    <div class="hero-stat">
-                        <strong>무료 상담</strong>
-                        <span>자산 전체를 전문가와 함께</span>
+                    <div class="hero-chart">
+                        <div class="hero-chart-label">
+                            <span class="dot"></span>
+                            AI 자산 증식 시뮬레이션
+                        </div>
+                        <canvas id="heroChart" width="520" height="360" aria-hidden="true"></canvas>
+                        <div class="hero-chart-readout">
+                            <span class="hero-chart-value" id="heroChartValue">100.0</span>
+                            <span class="hero-chart-unit">자산 지수 (시작 100)</span>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="hero-chart">
-                <div class="hero-chart-label">
-                    <span class="dot"></span>
-                    AI 자산 증식 시뮬레이션
-                </div>
-                <canvas id="heroChart" width="520" height="360" aria-hidden="true"></canvas>
-                <div class="hero-chart-readout">
-                    <span class="hero-chart-value" id="heroChartValue">100.0</span>
-                    <span class="hero-chart-unit">자산 지수 (시작 100)</span>
                 </div>
             </div>
         </div>
@@ -693,7 +1116,7 @@
             dots: true,
             arrows: false,
             autoplay: true,
-            autoplaySpeed: 4000,
+            autoplaySpeed: 6000,
             infinite: true,
             adaptiveHeight: false,
             speed: 500,
@@ -707,6 +1130,17 @@
             const ctx = canvas.getContext('2d');
             const valueEl = document.getElementById('heroChartValue');
             const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            // 이 캔버스가 속한 슬라이드가 지금 slick의 활성(보이는) 슬라이드일 때만 그린다.
+            // 비활성 슬라이드는 slick이 화면 밖으로 밀어둘 뿐 DOM/레이아웃은 그대로 살아있는데,
+            // 애니메이션 루프가 멈추지 않고 계속 resizeCanvas()로 캔버스의 실제 내부 해상도
+            // (width/height 속성, height:auto라 표시 크기가 여기 따라간다)를 매 프레임 다시
+            // 재는 바람에, 비활성 상태에서 잰(원래) 크기로 되돌아가 다른 슬라이드를 침범하는
+            // 증상으로 관측됐다(실측 신고: "자기 차례일 땐 맞다가 다른 슬라이드로 넘어가면
+            // 원래 크기로 돌아가 옆 슬라이드에 영향을 줌"). 활성 상태에서만 리사이즈/드로우해,
+            // 비활성 동안은 마지막으로 맞춰둔 크기를 그대로 유지(freeze)한다.
+            const slide = canvas.closest('.hero-slide');
+            let isActive = !slide || slide.classList.contains('slick-active');
 
             // 자산 지수(시작=100)가 우상향하며 커가는 과정을 보여주기 위한 합성 데이터.
             // 실제 시세가 아니라 연출용 시뮬레이션이며, 매 페이지 로드마다 살짝 다른 곡선이 나오도록
@@ -737,6 +1171,7 @@
             }
 
             function draw(progressCount) {
+                if (!isActive) return;
                 const { w, h } = resizeCanvas();
                 ctx.clearRect(0, 0, w, h);
 
@@ -786,6 +1221,17 @@
                 ctx.fill();
 
                 if (valueEl) valueEl.textContent = visible[lastIdx].toFixed(1);
+            }
+
+            // slick이 슬라이드를 전환할 때마다 활성 여부를 다시 확인하고, 막 활성화된
+            // 순간에는 반드시 한 번 즉시 다시 그려 크기를 최신 상태로 맞춘다(비활성 동안
+            // freeze해뒀던 크기를 그대로 안 쓰고 그 자리에서 새로 잰다).
+            if (slide) {
+                $('.hero-slick').on('init afterChange', function () {
+                    const wasActive = isActive;
+                    isActive = slide.classList.contains('slick-active');
+                    if (isActive && !wasActive) draw(POINTS);
+                });
             }
 
             if (reduceMotion) {

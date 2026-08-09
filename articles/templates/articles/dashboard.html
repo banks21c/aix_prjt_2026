@@ -47,6 +47,41 @@
             </div>
         </div>
 
+        <!-- 0행: 관심종목 (로그인 회원 전용) -->
+        {% if user.is_authenticated %}
+        <div class="row row-cols-1 g-4 mb-2">
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">⭐ 관심종목</h5>
+                    {% if watchlist_items %}
+                        <div class="row row-cols-1 row-cols-md-2 g-2">
+                            {% for w in watchlist_items %}
+                                <div class="col">
+                                    <div class="mover-item d-flex justify-content-between align-items-center">
+                                        <a href="{% url 'stock_detail' w.stock.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ w.stock.name }}({{ w.stock.ticker }})</a>
+                                        <div class="d-flex align-items-center gap-2">
+                                            {% if w.price is not None %}
+                                                <div class="{% if w.change > 0 %}up-value{% elif w.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
+                                                    {{ w.price|floatformat:0|intcomma }}
+                                                    {% if w.change > 0 %}▲{% elif w.change < 0 %}▼{% else %}-{% endif %}{{ w.change_pct_abs|floatformat:2 }}%
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted" style="font-size: 12px;">시세 조회 실패</span>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-sm btn-link text-muted p-0 watchlist-remove-btn" style="font-size: 16px; line-height:1; text-decoration:none;" data-url="{% url 'watchlist_toggle' w.stock.ticker %}" title="관심종목 삭제">×</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">관심종목이 없습니다. 종목 상세 페이지에서 ☆ 버튼을 눌러 추가해보세요.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- 1행: 코스피/코스닥 지수 차트(탭) + 종목 검색 -->
         <div class="row row-cols-1 row-cols-md-2 g-4 mb-2">
             <div class="col">
@@ -72,9 +107,13 @@
                         {% if kospi_ohlc %}
                             <div class="btn-group btn-group-sm mb-2" role="group">
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1d">1일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="7d">1주일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1m">1개월</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3m">3개월</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="6m">6개월</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1y">1년</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="3y">3년</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kospiChart" data-period="1w">주봉</button>
                             </div>
                             <div class="chart-wrap" id="kospiChart"></div>
                         {% else %}
@@ -98,9 +137,13 @@
                         {% if kosdaq_ohlc %}
                             <div class="btn-group btn-group-sm mb-2" role="group">
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1d">1일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="7d">1주일</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1m">1개월</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3m">3개월</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="6m">6개월</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1y">1년</button>
                                 <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="3y">3년</button>
+                                <button type="button" class="btn btn-outline-primary period-btn" data-chart="kosdaqChart" data-period="1w">주봉</button>
                             </div>
                             <div class="chart-wrap" id="kosdaqChart"></div>
                         {% else %}
@@ -125,6 +168,11 @@
                             <div class="fs-4 fw-bold" id="stockQuotePrice">-</div>
                             <div id="stockQuoteChange"></div>
                         </div>
+                    </div>
+                    <div class="btn-group btn-group-sm mb-2 align-self-start" role="group">
+                        <button type="button" class="btn btn-primary quote-range-btn" data-range="1d">일봉</button>
+                        <button type="button" class="btn btn-outline-primary quote-range-btn" data-range="1w">주봉</button>
+                        <button type="button" class="btn btn-outline-primary quote-range-btn" data-range="1m">월봉</button>
                     </div>
                     <div class="chart-wrap" id="stockQuoteChart"></div>
                 </div>
@@ -193,6 +241,102 @@
                     {% else %}
                         <p class="text-muted small mb-0">데이터가 없습니다. <code>collect_fluctuation_ranking</code> 명령을 실행하세요.</p>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2-0행: 거래대금/거래량 상위 5종목 (실시간 캐시, 코스피200/코스닥150 대상) -->
+        <div class="row row-cols-1 row-cols-md-2 g-4 mb-2">
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">💰 거래대금 상위 5종목 <small class="text-muted fw-normal" style="font-size: 11px;">(실시간 캐시)</small></h5>
+                    <div class="btn-group btn-group-sm mb-3" role="group">
+                        <button type="button" class="btn btn-primary leader-tab-btn" data-group="value" data-pane="KOSPI">코스피</button>
+                        <button type="button" class="btn btn-outline-primary leader-tab-btn" data-group="value" data-pane="KOSDAQ">코스닥</button>
+                    </div>
+
+                    <div class="leader-tab-pane" data-group="value" data-pane="KOSPI">
+                        {% if value_leaders.KOSPI %}
+                            {% for r in value_leaders.KOSPI %}
+                                <div class="mover-item d-flex justify-content-between align-items-center">
+                                    <a href="{% url 'stock_detail' r.stock.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ r.stock.name }}({{ r.stock.ticker }})</a>
+                                    <div class="text-end">
+                                        <div class="{% if r.change > 0 %}up-value{% elif r.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
+                                            {{ r.close_price|floatformat:0|intcomma }}
+                                            {% if r.change > 0 %}▲{% elif r.change < 0 %}▼{% else %}-{% endif %}{{ r.change_pct_abs|floatformat:2 }}%
+                                        </div>
+                                        <div class="text-muted" style="font-size: 11px;">거래대금 {{ r.trading_value_label }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted small mb-0">데이터가 없습니다.</p>
+                        {% endif %}
+                    </div>
+                    <div class="leader-tab-pane d-none" data-group="value" data-pane="KOSDAQ">
+                        {% if value_leaders.KOSDAQ %}
+                            {% for r in value_leaders.KOSDAQ %}
+                                <div class="mover-item d-flex justify-content-between align-items-center">
+                                    <a href="{% url 'stock_detail' r.stock.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ r.stock.name }}({{ r.stock.ticker }})</a>
+                                    <div class="text-end">
+                                        <div class="{% if r.change > 0 %}up-value{% elif r.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
+                                            {{ r.close_price|floatformat:0|intcomma }}
+                                            {% if r.change > 0 %}▲{% elif r.change < 0 %}▼{% else %}-{% endif %}{{ r.change_pct_abs|floatformat:2 }}%
+                                        </div>
+                                        <div class="text-muted" style="font-size: 11px;">거래대금 {{ r.trading_value_label }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted small mb-0">데이터가 없습니다.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card card-custom bg-white p-4 h-100">
+                    <h5 class="section-title">📊 거래량 상위 5종목 <small class="text-muted fw-normal" style="font-size: 11px;">(시가총액 우선순위)</small></h5>
+                    <div class="btn-group btn-group-sm mb-3" role="group">
+                        <button type="button" class="btn btn-primary leader-tab-btn" data-group="volume" data-pane="KOSPI">코스피</button>
+                        <button type="button" class="btn btn-outline-primary leader-tab-btn" data-group="volume" data-pane="KOSDAQ">코스닥</button>
+                    </div>
+
+                    <div class="leader-tab-pane" data-group="volume" data-pane="KOSPI">
+                        {% if volume_leaders.KOSPI %}
+                            {% for r in volume_leaders.KOSPI %}
+                                <div class="mover-item d-flex justify-content-between align-items-center">
+                                    <a href="{% url 'stock_detail' r.stock.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ r.stock.name }}({{ r.stock.ticker }})</a>
+                                    <div class="text-end">
+                                        <div class="{% if r.change > 0 %}up-value{% elif r.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
+                                            {{ r.close_price|floatformat:0|intcomma }}
+                                            {% if r.change > 0 %}▲{% elif r.change < 0 %}▼{% else %}-{% endif %}{{ r.change_pct_abs|floatformat:2 }}%
+                                        </div>
+                                        <div class="text-muted" style="font-size: 11px;">거래량 {{ r.volume_label }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted small mb-0">데이터가 없습니다.</p>
+                        {% endif %}
+                    </div>
+                    <div class="leader-tab-pane d-none" data-group="volume" data-pane="KOSDAQ">
+                        {% if volume_leaders.KOSDAQ %}
+                            {% for r in volume_leaders.KOSDAQ %}
+                                <div class="mover-item d-flex justify-content-between align-items-center">
+                                    <a href="{% url 'stock_detail' r.stock.ticker %}" class="fw-bold text-decoration-none text-dark" style="font-size: 13px;">{{ r.stock.name }}({{ r.stock.ticker }})</a>
+                                    <div class="text-end">
+                                        <div class="{% if r.change > 0 %}up-value{% elif r.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 13px;">
+                                            {{ r.close_price|floatformat:0|intcomma }}
+                                            {% if r.change > 0 %}▲{% elif r.change < 0 %}▼{% else %}-{% endif %}{{ r.change_pct_abs|floatformat:2 }}%
+                                        </div>
+                                        <div class="text-muted" style="font-size: 11px;">거래량 {{ r.volume_label }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted small mb-0">데이터가 없습니다.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -377,15 +521,87 @@
             return el ? JSON.parse(el.textContent) : [];
         }
 
-        // 코스피/코스닥 지수 차트: 1일(당일 분봉, 온디맨드 조회) / 3개월·1년·3년(서버에서 미리 받은
-        // 3년치 일봉을 기간만큼 잘라서 그림) 버튼 토글. 종목 상세 페이지의 일봉/분봉 토글과 동일한 패턴.
-        const PERIOD_TRADING_DAYS = { '3m': 63, '1y': 252, '3y': 756 };
+        function getCookie(name) {
+            const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? decodeURIComponent(match.pop()) : '';
+        }
+
+        document.querySelectorAll('.watchlist-remove-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.disabled = true;
+                fetch(btn.dataset.url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.ok) {
+                            const col = btn.closest('.col');
+                            if (col) col.remove();
+                        }
+                    })
+                    .finally(() => { btn.disabled = false; });
+            });
+        });
+
+        // 코스피/코스닥 지수 차트: 1일(당일 분봉, 온디맨드 조회) / 1주일·1개월·3개월·6개월·1년·3년
+        // (서버에서 미리 받은 3년치 일봉을 기간만큼 잘라서 그림) / 주봉(그 3년치를 주 단위로 합산)
+        // 버튼 토글. 종목 상세 페이지의 일봉/분봉 토글과 동일한 패턴.
+        const PERIOD_TRADING_DAYS = { '7d': 5, '1m': 21, '3m': 63, '6m': 126, '1y': 252, '3y': 756 };
+
+        // 일봉 배열을 월요일 시작 기준 주 단위로 묶어 주봉 OHLC로 합산한다(시가=그 주 첫 거래일
+        // 시가, 종가=그 주 마지막 거래일 종가, 고가/저가=그 주 안에서의 최고/최저).
+        function toWeeklyOhlc(dailyOhlc) {
+            const weeks = [];
+            let current = null;
+            let currentKey = null;
+            for (const bar of dailyOhlc) {
+                const d = new Date(`${bar.time}T00:00:00`);
+                const day = d.getDay();
+                const monday = new Date(d);
+                monday.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+                const key = monday.toISOString().slice(0, 10);
+                if (key !== currentKey) {
+                    if (current) weeks.push(current);
+                    current = { time: key, open: bar.open, high: bar.high, low: bar.low, close: bar.close };
+                    currentKey = key;
+                } else {
+                    current.high = Math.max(current.high, bar.high);
+                    current.low = Math.min(current.low, bar.low);
+                    current.close = bar.close;
+                }
+            }
+            if (current) weeks.push(current);
+            return weeks;
+        }
+
+        // toWeeklyOhlc와 동일한 방식으로, 이번엔 달(年-月) 단위로 묶어 월봉 OHLC를 만든다.
+        function toMonthlyOhlc(dailyOhlc) {
+            const months = [];
+            let current = null;
+            let currentKey = null;
+            for (const bar of dailyOhlc) {
+                const key = bar.time.slice(0, 7);  // 'YYYY-MM'
+                if (key !== currentKey) {
+                    if (current) months.push(current);
+                    current = { time: `${key}-01`, open: bar.open, high: bar.high, low: bar.low, close: bar.close };
+                    currentKey = key;
+                } else {
+                    current.high = Math.max(current.high, bar.high);
+                    current.low = Math.min(current.low, bar.low);
+                    current.close = bar.close;
+                }
+            }
+            if (current) months.push(current);
+            return months;
+        }
 
         function createIndexChartController(containerId, dailyOhlc, minuteUrl) {
             let chart = null;
             let candleSeries = null;
             let lineSeries = null;
             let minuteCache = null;
+            let weeklyCache = null;
 
             function ensureChart() {
                 if (chart) return;
@@ -399,7 +615,7 @@
                     timeScale: { borderColor: '#e0e0e0' },
                     rightPriceScale: { borderColor: '#e0e0e0' },
                 });
-                // 일봉(3개월/1년/3년)은 캔들, 당일(1일)은 시각별 지수값 하나뿐이라 라인으로 그린다.
+                // 일봉(1주일/1개월/3개월/6개월/1년/3년)·주봉은 캔들, 당일(1일)은 시각별 지수값 하나뿐이라 라인으로 그린다.
                 candleSeries = chart.addCandlestickSeries({
                     upColor: '#c62828', downColor: '#1565c0',
                     borderUpColor: '#c62828', borderDownColor: '#1565c0',
@@ -421,11 +637,31 @@
                 ensureChart();
                 if (!candleSeries || !dailyOhlc.length) return;
                 setActive(period);
+                chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
+                const n = PERIOD_TRADING_DAYS[period];
+                const bars = n ? dailyOhlc.slice(-n) : dailyOhlc;
+                if (period === '7d') {
+                    // 1주일(5거래일)은 캔들 5개뿐이면 휑해 보이므로 1일(당일 분봉) 뷰처럼 종가 라인으로 그린다.
+                    candleSeries.applyOptions({ visible: false });
+                    lineSeries.applyOptions({ visible: true });
+                    lineSeries.setData(bars.map(b => ({ time: b.time, value: b.close })));
+                } else {
+                    lineSeries.applyOptions({ visible: false });
+                    candleSeries.applyOptions({ visible: true });
+                    candleSeries.setData(bars);
+                }
+                chart.timeScale().fitContent();
+            }
+
+            function showWeekly() {
+                ensureChart();
+                if (!candleSeries || !dailyOhlc.length) return;
+                setActive('1w');
                 lineSeries.applyOptions({ visible: false });
                 candleSeries.applyOptions({ visible: true });
                 chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
-                const n = PERIOD_TRADING_DAYS[period];
-                candleSeries.setData(n ? dailyOhlc.slice(-n) : dailyOhlc);
+                if (!weeklyCache) weeklyCache = toWeeklyOhlc(dailyOhlc);
+                candleSeries.setData(weeklyCache);
                 chart.timeScale().fitContent();
             }
 
@@ -456,7 +692,7 @@
                     .catch(() => showDaily('3m'));
             }
 
-            return { showDaily, showMinute, hasDaily: dailyOhlc.length > 0 };
+            return { showDaily, showWeekly, showMinute, hasDaily: dailyOhlc.length > 0 };
         }
 
         const kospiChartCtrl = createIndexChartController('kospiChart', readJson('kospi-ohlc'), "{% url 'market_index_minute_chart' 'KOSPI' %}");
@@ -485,11 +721,30 @@
             btn.addEventListener('click', () => activateIndexPane(btn.dataset.pane));
         });
 
+        // 거래대금/거래량 카드 각각의 코스피·코스닥 탭 — 두 카드가 독립적으로 동작하도록
+        // data-group(value/volume)으로 범위를 나눈다.
+        document.querySelectorAll('.leader-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const group = btn.dataset.group;
+                const pane = btn.dataset.pane;
+                document.querySelectorAll(`.leader-tab-btn[data-group="${group}"]`).forEach(b => {
+                    const active = b.dataset.pane === pane;
+                    b.classList.toggle('btn-primary', active);
+                    b.classList.toggle('btn-outline-primary', !active);
+                });
+                document.querySelectorAll(`.leader-tab-pane[data-group="${group}"]`).forEach(el => {
+                    el.classList.toggle('d-none', el.dataset.pane !== pane);
+                });
+            });
+        });
+
         document.querySelectorAll('.period-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const ctrl = btn.dataset.chart === 'kospiChart' ? kospiChartCtrl : kosdaqChartCtrl;
                 if (btn.dataset.period === '1d') {
                     ctrl.showMinute();
+                } else if (btn.dataset.period === '1w') {
+                    ctrl.showWeekly();
                 } else {
                     ctrl.showDaily(btn.dataset.period);
                 }
@@ -501,6 +756,10 @@
         // 🔍 종목 검색 위젯: 기본값 삼성전자, 검색창에 종목명/코드 입력 후 검색하면 그 종목으로 교체.
         let stockQuoteChart = null;
         let stockQuoteSeries = null;
+        let stockQuoteDailyOhlc = [];
+        let stockQuoteWeeklyCache = null;
+        let stockQuoteMonthlyCache = null;
+        let stockQuoteRange = '1d';
 
         function ensureStockQuoteChart() {
             if (stockQuoteChart) return;
@@ -521,6 +780,37 @@
             });
             window.addEventListener('resize', () => stockQuoteChart.applyOptions({ width: el.clientWidth }));
         }
+
+        // 일봉/주봉/월봉 토글: 매번 다시 조회하지 않고, stock_quote_view가 내려준 3년치 일봉을
+        // 그대로(일봉) 쓰거나 클라이언트에서 주/월 단위로 합산해서 그린다. 일봉은 기존과 동일하게
+        // 최근 180거래일만 보여주고(전체 3년을 그대로 캔들로 그리면 너무 빽빽해짐), 주봉/월봉은
+        // 몇 년치가 쌓여야 의미가 있으므로 3년 전체를 합산 대상으로 쓴다.
+        function renderStockQuoteChart(range) {
+            stockQuoteRange = range;
+            document.querySelectorAll('.quote-range-btn').forEach(btn => {
+                const active = btn.dataset.range === range;
+                btn.classList.toggle('btn-primary', active);
+                btn.classList.toggle('btn-outline-primary', !active);
+            });
+            ensureStockQuoteChart();
+            if (!stockQuoteSeries || !stockQuoteDailyOhlc.length) return;
+            let data;
+            if (range === '1w') {
+                if (!stockQuoteWeeklyCache) stockQuoteWeeklyCache = toWeeklyOhlc(stockQuoteDailyOhlc);
+                data = stockQuoteWeeklyCache;
+            } else if (range === '1m') {
+                if (!stockQuoteMonthlyCache) stockQuoteMonthlyCache = toMonthlyOhlc(stockQuoteDailyOhlc);
+                data = stockQuoteMonthlyCache;
+            } else {
+                data = stockQuoteDailyOhlc.slice(-180);
+            }
+            stockQuoteSeries.setData(data);
+            stockQuoteChart.timeScale().fitContent();
+        }
+
+        document.querySelectorAll('.quote-range-btn').forEach(btn => {
+            btn.addEventListener('click', () => renderStockQuoteChart(btn.dataset.range));
+        });
 
         function loadStockQuote(q) {
             const errEl = document.getElementById('stockQuoteError');
@@ -546,9 +836,10 @@
                     } else {
                         changeEl.textContent = '';
                     }
-                    ensureStockQuoteChart();
-                    stockQuoteSeries.setData(data.ohlc);
-                    stockQuoteChart.timeScale().fitContent();
+                    stockQuoteDailyOhlc = data.ohlc;
+                    stockQuoteWeeklyCache = null;
+                    stockQuoteMonthlyCache = null;
+                    renderStockQuoteChart(stockQuoteRange);
                 })
                 .catch(() => {
                     errEl.textContent = '조회 중 오류가 발생했습니다.';
@@ -567,10 +858,27 @@
         const searchInput = document.getElementById('stockSearchInput');
         const suggestBox = document.getElementById('stockSearchSuggest');
         let suggestTimer = null;
+        let activeSuggestIndex = -1;
 
         function hideStockSuggestions() {
             suggestBox.style.display = 'none';
             suggestBox.innerHTML = '';
+            activeSuggestIndex = -1;
+        }
+
+        function selectStockSuggestion(btn) {
+            searchInput.value = btn.textContent.trim();
+            loadStockQuote(btn.dataset.ticker);
+            hideStockSuggestions();
+        }
+
+        // 방향키로 옮겨다닐 때 현재 위치를 표시(Bootstrap list-group의 .active 스타일 재사용)하고,
+        // 목록이 스크롤 영역(max-height: 240px)을 넘어가면 선택 항목이 보이게 스크롤한다.
+        function setActiveSuggestion(index) {
+            const items = suggestBox.querySelectorAll('.stock-suggest-item');
+            items.forEach((btn, i) => btn.classList.toggle('active', i === index));
+            activeSuggestIndex = index;
+            if (index >= 0 && items[index]) items[index].scrollIntoView({ block: 'nearest' });
         }
 
         function renderStockSuggestions(items) {
@@ -582,12 +890,9 @@
                 '</button>'
             ).join('');
             suggestBox.style.display = 'block';
+            activeSuggestIndex = -1;
             suggestBox.querySelectorAll('.stock-suggest-item').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    searchInput.value = btn.textContent.trim();
-                    loadStockQuote(btn.dataset.ticker);
-                    hideStockSuggestions();
-                });
+                btn.addEventListener('click', () => selectStockSuggestion(btn));
             });
         }
 
@@ -607,6 +912,27 @@
                     .then(data => renderStockSuggestions(data.items || []))
                     .catch(() => hideStockSuggestions());
             }, 200);
+        });
+
+        // 후보 목록이 열려있을 때 방향키(↑/↓)로 이동, Enter로 선택, Esc로 닫기.
+        // 아무 항목도 선택 안 한 채 Enter를 누르면 기존처럼 입력한 텍스트 그대로 검색된다
+        // (stockSearchForm의 submit 핸들러가 처리).
+        searchInput.addEventListener('keydown', (e) => {
+            const items = suggestBox.querySelectorAll('.stock-suggest-item');
+            if (suggestBox.style.display === 'none' || !items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveSuggestion(activeSuggestIndex < items.length - 1 ? activeSuggestIndex + 1 : 0);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveSuggestion(activeSuggestIndex > 0 ? activeSuggestIndex - 1 : items.length - 1);
+            } else if (e.key === 'Enter' && activeSuggestIndex >= 0) {
+                e.preventDefault();
+                selectStockSuggestion(items[activeSuggestIndex]);
+            } else if (e.key === 'Escape') {
+                hideStockSuggestions();
+            }
         });
 
         document.addEventListener('click', (e) => {
@@ -646,10 +972,13 @@
         const signalValues = readJson('signal-values');
         const signalEl = document.getElementById('signalChart');
         if (signalEl) {
+            // 범례에 "매수 (5)"처럼 건수를 같이 보여준다 — 조각 크기만으로는 관망이 압도적이라
+            // 매수/매도 건수를 가늠하기 어렵다는 피드백.
+            const signalLabelsWithCount = signalLabels.map((label, i) => `${label} (${signalValues[i]})`);
             new Chart(signalEl, {
                 type: 'doughnut',
                 data: {
-                    labels: signalLabels,
+                    labels: signalLabelsWithCount,
                     datasets: [{
                         data: signalValues,
                         backgroundColor: ['#c62828', '#1565c0', '#9e9e9e'],

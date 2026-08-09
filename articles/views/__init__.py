@@ -11,6 +11,7 @@ from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
     financial_consult_sheet_search_view,
     integration_status_view, pipeline_status_view, pipeline_trigger_view, server_health_view,
+    operations_overview_view,
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
@@ -19,9 +20,10 @@ from .news import (
 )
 from .stocks import (
     stock_detail_view, stock_minute_chart_view, stock_period_chart_view, market_index_minute_chart_view,
-    stock_quote_view, stock_search_suggest_view,
+    stock_quote_view, stock_search_suggest_view, watchlist_toggle_view,
 )
 from .chatbot import chatbot_ask_view
+from .performance import ai_performance_view
 from .auth import (
     signup_view, login_view, logout_view, delete_account_view, verify_email_view,
     kakao_login_view, kakao_callback_view,
@@ -41,11 +43,13 @@ __all__ = [
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
+    'operations_overview_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
-    'stock_period_chart_view',
+    'stock_period_chart_view', 'watchlist_toggle_view',
     'market_index_minute_chart_view', 'stock_quote_view', 'stock_search_suggest_view', 'chatbot_ask_view',
+    'ai_performance_view',
     'signup_view', 'login_view', 'logout_view', 'delete_account_view',
     'kakao_login_view', 'kakao_callback_view',
     'google_login_view', 'google_callback_view',

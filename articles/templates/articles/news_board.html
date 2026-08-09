@@ -153,7 +153,7 @@
                                 {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
                                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}</a>{% endif %}
                                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
-                                {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
+                                {% if article.is_premium %} · <span class="badge bg-warning text-dark">한경 프리미엄9</span>{% endif %}
                                 {% if article.ai_summary %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
                             </div>
                             {% if article.ai_summary %}
