@@ -9,7 +9,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -153,6 +153,43 @@ def _pipeline_is_running(command_name):
 def _latest_pipeline_log(logs_dir, log_prefix):
     candidates = sorted(logs_dir.glob(f'{log_prefix}_*.log'), key=lambda p: p.stat().st_mtime, reverse=True)
     return candidates[0] if candidates else None
+
+
+# run_stock_prediction --all이 매일 새벽 도는 것 자체가 (stock, date) 유니크 StockPrediction에
+# 날짜별로 새 행을 쌓는 구조라, 정확도 이력을 위한 별도 테이블 없이 이 값을 날짜별로 GROUP BY만
+# 하면 그대로 시계열이 나온다. is_major_index/--all 스케일업 이전(2026-08-03 이전)은 종목 수가
+# 1~5개뿐인 테스트성 데이터라 평균이 크게 흔들리므로, 차트에는 MIN_STOCKS_FOR_TREND 이상인
+# 날짜만 신뢰 가능한 것으로 표시한다 — 다만 표에는 전부 보여줘서 숨기지 않는다.
+MIN_STOCKS_FOR_TREND = 50
+
+
+def _prediction_accuracy_history(days=90):
+    from django.db.models import Avg, Count
+    from ..models import StockPrediction
+
+    since = (datetime.now(KST) - timedelta(days=days)).date()
+    rows = (
+        StockPrediction.objects
+        .filter(date__gte=since)
+        .exclude(holdout_accuracy__isnull=True)
+        .values('date')
+        .annotate(
+            n=Count('id'),
+            avg_acc=Avg('holdout_accuracy'),
+            avg_acc_flow=Avg('holdout_accuracy_flow'),
+        )
+        .order_by('date')
+    )
+    history = []
+    for row in rows:
+        history.append({
+            'date': row['date'].strftime('%Y-%m-%d'),
+            'n': row['n'],
+            'avg_acc_pct': round(row['avg_acc'] * 100, 2) if row['avg_acc'] is not None else None,
+            'avg_acc_flow_pct': round(row['avg_acc_flow'] * 100, 2) if row['avg_acc_flow'] is not None else None,
+            'reliable': row['n'] >= MIN_STOCKS_FOR_TREND,
+        })
+    return history
 
 
 @staff_member_required
@@ -444,6 +481,84 @@ def integration_status_view(request):
         'groups': groups,
     }
     return render(request, 'articles/integration_status.html', context)
+
+
+OVERVIEW_DAYS = 60  # 회원가입/뉴스/발행/상담 4개 차트가 공유하는 조회 기간
+
+
+def _daily_counts(queryset, date_field, days=OVERVIEW_DAYS, group_field=None):
+    """queryset을 date_field 기준 날짜별 건수로 집계. group_field를 주면(예: 'blog_account__platform')
+    그 값별로 나눠(스택형 차트용) {날짜: {그룹값: 건수}} 형태까지 같이 만든다. 4개 차트 전부
+    "특정 시점 이후 하루 단위 카운트" 패턴이 같아서, 각 뷰마다 집계 로직을 따로 안 짜도 되게
+    여기 한 곳에 모았다 — _prediction_accuracy_history와 같은 이유(GROUP BY 재사용)."""
+    from django.db.models.functions import TruncDate
+
+    since = datetime.now(KST) - timedelta(days=days)
+    qs = queryset.filter(**{f'{date_field}__gte': since}).annotate(_day=TruncDate(date_field))
+
+    if group_field:
+        rows = qs.values('_day', group_field).annotate(n=Count('id')).order_by('_day')
+        by_day = {}
+        groups = set()
+        for row in rows:
+            day = row['_day'].strftime('%Y-%m-%d')
+            g = row[group_field] or '기타'
+            groups.add(g)
+            by_day.setdefault(day, {})[g] = row['n']
+        return by_day, sorted(groups)
+
+    rows = qs.values('_day').annotate(n=Count('id')).order_by('_day')
+    return {row['_day'].strftime('%Y-%m-%d'): row['n'] for row in rows}
+
+
+def _date_range_labels(days=OVERVIEW_DAYS):
+    today = datetime.now(KST).date()
+    return [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days - 1, -1, -1)]
+
+
+@staff_member_required
+def operations_overview_view(request):
+    """cron/pipeline/health/integrations는 전부 '지금 상태'만 보여주는데, 한 달 넘게 쌓인 실제
+    운영 데이터(가입·수집·발행·상담)는 로그/테이블로만 존재하고 추이를 볼 화면이 없었다.
+    4개 지표를 하루 단위로 집계해 한 화면에서 라인/스택 바 차트로 보여준다."""
+    from django.contrib.auth.models import User
+    from ..models import AnalyzedArticle, ConsultRequest, PostedArticle
+
+    labels = _date_range_labels()
+
+    signups = _daily_counts(User.objects.all(), 'date_joined')
+    collected = _daily_counts(AnalyzedArticle.objects.all(), 'scraped_at')
+    summarized = _daily_counts(AnalyzedArticle.objects.exclude(ai_summarized_at__isnull=True), 'ai_summarized_at')
+    posted_by_platform, platform_groups = _daily_counts(
+        PostedArticle.objects.all(), 'posted_at', group_field='blog_account__platform',
+    )
+    consult_by_product, product_groups = _daily_counts(
+        ConsultRequest.objects.all(), 'created_at', group_field='product',
+    )
+
+    context = {
+        'site_title': 'NextFinUp - 운영 현황',
+        'overview_days': OVERVIEW_DAYS,
+        'labels_json': json.dumps(labels),
+        'signups_json': json.dumps([signups.get(d, 0) for d in labels]),
+        'collected_json': json.dumps([collected.get(d, 0) for d in labels]),
+        'summarized_json': json.dumps([summarized.get(d, 0) for d in labels]),
+        'platform_groups_json': json.dumps(platform_groups),
+        'posted_by_platform_json': json.dumps(
+            {g: [posted_by_platform.get(d, {}).get(g, 0) for d in labels] for g in platform_groups}
+        ),
+        'product_groups_json': json.dumps(product_groups),
+        'consult_by_product_json': json.dumps(
+            {g: [consult_by_product.get(d, {}).get(g, 0) for d in labels] for g in product_groups}
+        ),
+        'total_signups': User.objects.count(),
+        'total_collected': AnalyzedArticle.objects.count(),
+        'total_posted': PostedArticle.objects.count(),
+        'total_consults': ConsultRequest.objects.count(),
+        'accuracy_history': _prediction_accuracy_history(),
+        'min_stocks_for_trend': MIN_STOCKS_FOR_TREND,
+    }
+    return render(request, 'articles/operations_overview.html', context)
 
 
 @staff_member_required

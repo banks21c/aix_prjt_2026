@@ -144,6 +144,12 @@
   .bottom-save .save-btn:hover{ background:var(--accent-2); }
   .bottom-save .save-btn:disabled{ opacity:.6; cursor:default; }
   .bottom-save .save-status{ font-size:12.5px; color:var(--muted); white-space:nowrap; }
+  .bottom-save .list-btn{
+    background:#fff; color:var(--accent); border:1px solid var(--accent);
+    font-size:14.5px; font-weight:700; padding:10px 30px; border-radius:6px; cursor:pointer;
+    text-decoration:none; display:inline-block;
+  }
+  .bottom-save .list-btn:hover{ background:#f4f6f9; }
 
   /* ---- header / masthead ---- */
   .masthead{
@@ -712,6 +718,7 @@
   <div class="bottom-save no-print">
     <span class="save-status" id="save-status"></span>
     <button type="button" class="save-btn" id="save-btn">저장</button>
+    <a href="{% url 'admin:articles_financialconsultsheet_changelist' %}" class="list-btn">목록</a>
   </div>
 
   <footer>종합 재무상담 시트 · 국민연금 · 퇴직연금(IRP) · 연금저축 · ISA 통합 상담용 내부 양식</footer>

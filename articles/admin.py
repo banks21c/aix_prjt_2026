@@ -13,7 +13,7 @@ from .models import (
     LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
-    ExchangeRateSnapshot, SubscriptionOrder,
+    ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -310,6 +310,20 @@ class SocialAccountAdmin(admin.ModelAdmin):
     list_filter = ('provider',)
     search_fields = ('user__username', 'provider_uid', 'email')
 
+@admin.register(Watchlist)
+class WatchlistAdmin(admin.ModelAdmin):
+    list_display = ('user', 'stock', 'created_at')
+    search_fields = ('user__username', 'stock__name', 'stock__ticker')
+    ordering = ('-created_at',)
+
+@admin.register(PredictionAccuracySnapshot)
+class PredictionAccuracySnapshotAdmin(admin.ModelAdmin):
+    list_display = ('computed_at', 'total_resolved', 'overall_accuracy')
+    ordering = ('-computed_at',)
+
+    def has_add_permission(self, request):
+        return False  # compute_prediction_accuracy 커맨드를 통해서만 생성됨
+
 # 6. 챗봇 대화 기록 관리 (읽기 전용 조회 용도)
 @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
@@ -364,7 +378,8 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     search_fields = ('subject', 'body')
     ordering = ('-created_at',)
-    readonly_fields = ('article_count', 'created_at', 'sent_at', 'recipient_count')
+    fields = ('subject', 'body', 'body_preview', 'status', 'article_count', 'created_at', 'sent_at', 'recipient_count')
+    readonly_fields = ('body_preview', 'article_count', 'created_at', 'sent_at', 'recipient_count')
     actions = ['mark_ready']
 
     def get_readonly_fields(self, request, obj=None):
@@ -372,6 +387,27 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
         if obj and obj.status == 'SENT':
             return self.readonly_fields + ('subject', 'body', 'status')
         return self.readonly_fields
+
+    def body_preview(self, obj):
+        # body는 실제 발송되는 이메일 HTML 원문이라 관리자 화면엔 텍스트로만 보여 눈으로 검수하기
+        # 어렵다 — iframe(srcdoc)에 그대로 렌더링해 실제 렌더 결과를 바로 옆에서 확인할 수 있게
+        # 한다. sandbox=""(모든 권한 없음)로 스크립트 실행/폼 제출/최상위 창 탐색을 전부 막아,
+        # AI가 만든 본문에 악의적인 스크립트가 섞여 있어도 admin 세션에 영향을 줄 수 없다.
+        if not obj or not obj.body:
+            return "(본문 없음)"
+        # Django admin이 readonly 필드 값을 감싸는 .readonly div는 기본 display:inline-block
+        # (내용 크기에 맞춰 줄어듦)이라, 그 안의 iframe에 width:100%를 줘도 퍼센트 기준이 되는
+        # 조상 자체가 "내용 크기만큼"이라 순환 참조가 되어 iframe 기본 폭(300px)으로 주저앉는다
+        # (실측: 287px). .field-body_preview .readonly를 block으로 강제해 조상 폭을 폼 너비
+        # 전체로 고정해야 안의 width:100%가 정상적으로 그 폭을 기준으로 계산된다.
+        return format_html(
+            '<style>.field-body_preview .readonly {{ display: block; width: 100%; }}</style>'
+            '<iframe srcdoc="{}" sandbox="" '
+            'style="display:block;width:100%;box-sizing:border-box;min-height:600px;'
+            'border:1px solid #ccc;background:#fff;"></iframe>',
+            obj.body,
+        )
+    body_preview.short_description = "본문 미리보기 (HTML 렌더링)"
 
     def has_add_permission(self, request):
         return False  # generate_newsletter_draft 커맨드를 통해서만 생성됨
@@ -512,31 +548,78 @@ class FinancialConsultSheetAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">{}</a>', url, obj.customer_name or '(이름 없음)')
 
 
-# 14. Django Admin 목록(NextFinUp 관리 앱)에서 발행 기록(PostedArticle) 바로 아래에 파이프라인
-# 수동 실행 화면(/admin-tools/pipeline/, articles.views.admin_tools.pipeline_status_view) 링크를
-# 끼워 넣는다. 실제 모델/DB 테이블은 없는 화면이라 ModelAdmin으로 등록할 수 없어, Django가
-# 앱 목록을 만들 때 쓰는 get_app_list를 감싸서 모델 항목처럼 보이는 dict 하나를 삽입한다.
+# 14. Django Admin 목록을 하나의 "NextFinUp 관리" 통짜 목록 대신 5개 카테고리로 재구성한다
+# (신고: "장고 admin 메뉴가 카테고리화되지 않아 불편하다"). 실제 Django 앱은 여전히 auth/articles
+# 둘뿐이라 진짜 앱을 쪼갤 순 없지만, admin index 템플릿은 get_app_list가 돌려주는 dict 리스트를
+# 그대로 순회해서 섹션을 그리므로, 모델을 카테고리별로 재배치한 가짜 "app" dict들을 만들어
+# 돌려주는 것만으로 화면상 카테고리처럼 보이게 할 수 있다(공식 문서에 나오는 패턴은 아니지만
+# get_app_list 오버라이드 자체는 흔한 방법). 각 카테고리 안에서는 Django 기본 정렬(표시 이름
+# 가나다순)을 그대로 유지한다 — 신고: "카테고리가 어려우면 가나다순으로"도 이미 만족된다.
+#
+# admin-tools/*(cron_status 등)는 실제 모델/DB 테이블이 없는 화면이라 ModelAdmin으로 등록할 수
+# 없어서, 모델 항목처럼 보이는 dict를 "운영 도구" 카테고리에 직접 끼워 넣는다.
 _original_get_app_list = admin.site.get_app_list
 
+_CATEGORY_ORDER = ['시세·예측', '뉴스', '회원', '콘텐츠·상담', '운영 도구']
 
-def _get_app_list_with_pipeline_link(request, app_label=None):
-    app_list = _original_get_app_list(request, app_label=app_label)
-    for app in app_list:
-        if app['app_label'] != 'articles':
-            continue
-        models = app['models']
-        idx = next((i for i, m in enumerate(models) if m['object_name'] == 'PostedArticle'), None)
-        if idx is None:
-            continue
-        models.insert(idx + 1, {
-            'name': '발행 파이프라인 즉시 실행',
-            'object_name': 'PipelineTrigger',
-            'admin_url': reverse('pipeline_status'),
-            'add_url': None,
-            'view_only': True,
+_MODEL_CATEGORY = {
+    # 시세·예측 (articles/models/market.py)
+    'StockItem': '시세·예측', 'StockDailyPrice': '시세·예측', 'StockPrediction': '시세·예측',
+    'MarketIndex': '시세·예측', 'MarketHoliday': '시세·예측', 'KisAccessToken': '시세·예측',
+    'StockRealtimePrice': '시세·예측', 'RankedMover': '시세·예측', 'GlobalMarketQuote': '시세·예측',
+    'ExchangeRateSnapshot': '시세·예측',
+    # 뉴스 (articles/models/news.py)
+    'NewsSource': '뉴스', 'NewsKeyword': '뉴스', 'MediaOutlet': '뉴스',
+    'AnalyzedArticle': '뉴스', 'PostedArticle': '뉴스',
+    # 회원 (articles/models/members.py + auth)
+    'User': '회원', 'Group': '회원', 'MemberGrade': '회원', 'UserPreference': '회원',
+    'BlogPostingAccount': '회원', 'UserSubscription': '회원', 'SocialAccount': '회원',
+    'LoginLog': '회원', 'MenuAccessLog': '회원', 'ChatMessage': '회원',
+    # 콘텐츠·상담 (articles/models/content.py)
+    'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
+    'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
+}
+
+# (표시명, url name) — admin-tools 뷰들. 재무상담 시트는 목록(FinancialConsultSheetAdmin,
+# 콘텐츠·상담 카테고리)과 별개로 "작성 화면" 자체도 도구라 여기 따로 둔다.
+_TOOL_LINKS = [
+    ('크론 작업 현황', 'cron_status'),
+    ('발행 파이프라인 즉시 실행', 'pipeline_status'),
+    ('외부 연동 상태', 'integration_status'),
+    ('서버 상태', 'server_health'),
+    ('운영 현황', 'operations_overview'),
+    ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
+]
+
+
+def _get_categorized_app_list(request, app_label=None):
+    original = _original_get_app_list(request, app_label=app_label)
+
+    buckets = {cat: [] for cat in _CATEGORY_ORDER}
+    for app in original:
+        for m in app['models']:
+            buckets.setdefault(_MODEL_CATEGORY.get(m['object_name'], '기타'), []).append(m)
+
+    for name, url_name in _TOOL_LINKS:
+        buckets['운영 도구'].append({
+            'name': name, 'object_name': url_name,
+            'admin_url': reverse(url_name), 'add_url': None, 'view_only': True,
         })
-    return app_list
+
+    result = []
+    for i, cat in enumerate(_CATEGORY_ORDER):
+        models = sorted(buckets.get(cat, []), key=lambda m: m['name'])
+        if not models:
+            continue
+        result.append({
+            'name': cat,
+            'app_label': f'category_{i}',
+            'app_url': None,
+            'has_module_perms': True,
+            'models': models,
+        })
+    return result
 
 
-admin.site.get_app_list = _get_app_list_with_pipeline_link
+admin.site.get_app_list = _get_categorized_app_list
 

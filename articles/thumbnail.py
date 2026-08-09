@@ -162,12 +162,34 @@ def _draw_market_grid(draw, x0, y0, x1, y1, market_data):
         draw.text((cx0, cy0 + 28), value, font=value_font, fill=color)
 
 
+def _draw_sparkline(draw, x0, y0, x1, y1, values, color):
+    """values(일별 종가 등 최소 2개)를 x0~x1, y0~y1 영역에 꽉 차는 꺾은선으로 그린다.
+    코스피/코스닥 박스의 거래량/수급 자리 대신, 주간 시황 정리처럼 여러 날짜에 걸친 값이
+    있을 때 추이를 한눈에 보여주는 용도(_draw_index_summary_boxes가 호출)."""
+    if len(values) < 2:
+        return
+    lo, hi = min(values), max(values)
+    span = (hi - lo) or (abs(lo) or 1)
+    pad = 6
+    step = (x1 - x0) / (len(values) - 1)
+    points = [
+        (x0 + step * i, y1 - pad - (v - lo) / span * (y1 - y0 - pad * 2))
+        for i, v in enumerate(values)
+    ]
+    draw.line(points, fill=color, width=4, joint='curve')
+    for x, y in points:
+        draw.ellipse([x - 4, y - 4, x + 4, y + 4], fill=color)
+
+
 def _draw_index_summary_boxes(draw, x0, y0, x1, y1, index_rows):
     """특정 종목이 없는 카드(예: 특징주 브리핑)용 — 코스피/코스닥을 좌/우로 나란히 놓인
     별도 박스 2개로 그린다(이전 버전은 위아래로 쌓았다). 헤드라인이 제목으로 대체되며 생긴
     여유 공간 덕분에 글자 크기를 이전 대비 큼직하게 키웠다.
     index_rows: [{'label','close','change','change_pct','volume','flows'}, ...] (코스피, 코스닥 순).
-    flows: {'foreign','institution','retail'} (수량, 주) — 없으면 그 줄들은 생략."""
+    flows: {'foreign','institution','retail'} (수량, 주) — 없으면 그 줄들은 생략.
+    week_closes: [지난 5거래일 종가, ...]가 있으면(주간 시황 정리) 거래량/수급 대신 그 자리에
+    스파크라인을 그린다 — 일별 등락(daily flows)과 주간 추이(week_closes)는 같은 idx에
+    동시에 존재하지 않는다."""
     n = max(len(index_rows), 1)
     gap = 20
     box_w = (x1 - x0 - gap * (n - 1)) / n
@@ -192,13 +214,23 @@ def _draw_index_summary_boxes(draw, x0, y0, x1, y1, index_rows):
 
         # 시장명
         draw.text((cx, cy), idx['label'], font=label_font, fill=SUBTITLE_COLOR)
-        # 지수값 + 등락률
+        # 지수값 (+ 있으면 등락폭을 바로 옆에) + 등락률
         cy += 44
-        draw.text((cx, cy), f"{idx['close']:,.2f}", font=value_font, fill=TITLE_COLOR)
+        close_text = f"{idx['close']:,.2f}"
+        draw.text((cx, cy), close_text, font=value_font, fill=TITLE_COLOR)
+        if idx.get('change') is not None:
+            change_x = cx + draw.textlength(close_text, font=value_font) + 14
+            draw.text((change_x, cy + 10), f"{idx['change']:+,.2f}", font=pct_font, fill=move_color)
         cy += 56
         draw.text((cx, cy), format_signed_pct(idx['change_pct']), font=pct_font, fill=move_color)
+        cy += 44
+
+        week_closes = idx.get('week_closes')
+        if week_closes:
+            _draw_sparkline(draw, cx, cy, bx1 - 30, y1 - 24, week_closes, move_color)
+            continue
+
         # 거래량
-        cy += 48
         vol_text = f"거래량 {format_volume(idx['volume'])}" if idx.get('volume') else "거래량 -"
         draw.text((cx, cy), vol_text, font=sub_font, fill=SUBTITLE_COLOR)
 
@@ -445,7 +477,7 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
 
 
 def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label=None,
-                          ai_summary=None, is_economic_news=None):
+                          ai_summary=None, is_economic_news=None, index_summary=None):
     """news_ai_summarize_view/news_scrape_view/generate_featured_stock_briefing에서 AI 요약이
     만들어지는 시점에 호출. stock이 있으면 종목명/티커/최신 매매 시그널·실시간 시세로, 없으면
     매칭 키워드(또는 'AI 요약')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
@@ -457,7 +489,11 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
     뜻이 아니라서(예: "AI" 키워드에 걸린 스페이스X 실적 기사), 그 경우까지 지수 카드를 붙이면
     본문과 무관한 국내 지수가 나가버린다. stock도 없으면(=제목에 국내 종목명이 없으면) 대신
     gpt-image-2로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
-    브리핑처럼 종목이 없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다."""
+    브리핑처럼 종목이 없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다.
+    index_summary를 직접 넘기면(주간 시황 정리처럼 "오늘" 지수가 아니라 이미 계산해둔 값을 쓰는
+    경우) 아래의 오늘자 MarketIndex 자동 조회를 건너뛰고 그 값을 그대로 쓴다 — 토요일에 도는
+    generate_weekly_market_briefing은 그날 MarketIndex가 없어(휴장) 자동 조회가 항상 비므로
+    이 경로가 필요하다."""
     from django.core.files.base import ContentFile
 
     from .models import MarketIndex, StockPrediction, StockRealtimePrice
@@ -465,7 +501,6 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
     if is_economic_news is None:
         is_economic_news = bool(stock)
 
-    index_summary = None
     summary_lines = None
     ai_background_bytes = None
     if stock:
@@ -494,7 +529,7 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
         market_data = None
         category_label = category_label or "AI 요약 리포트"
 
-        if is_economic_news:
+        if is_economic_news and not index_summary:
             # 특정 종목이 없어 카드가 휑해 보이므로, 대신 오늘자 코스피/코스닥 지수 요약을 보여준다.
             today_indices = {
                 row.market_type: row

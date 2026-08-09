@@ -28,6 +28,10 @@
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
+# DART 공시(주요사항보고, B유형)는 인자 없이 돌리면 오늘 하루치만 조회해 API 호출 1회로 끝나므로
+# (일일 한도 대비 여유 충분) 다른 5분 주기 작업들과 같은 빈도로 둔다. 대시보드 "특징종목"(등락+
+# 뉴스·공시 동시 매칭)이 이 데이터가 없으면 공시 쪽 매칭이 하루 종일 0건으로 비어 있었다.
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_dart_disclosures.log venv/bin/python manage.py collect_dart_disclosures
 # 하나은행 고시 환율은 하루 단위로만 갱신되는 값이라(당일 내내 동일) 5분 주기는 낭비 — 30분마다
 # 확인해 그날 첫 고시가 뜨는 대로 반영한다.
 */30 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_exchange_rate_fixing.log venv/bin/python manage.py collect_exchange_rate_fixing
@@ -46,6 +50,10 @@
 # 안에 끝나므로 30분 버퍼를 두고 시작하며, 자체 소요시간(2.5~2.8시간)을 감안해도 장 시작 전에
 # 끝난다.
 30 19 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/run_stock_prediction.log venv/bin/python manage.py run_stock_prediction --all
+# 08:00 KST — run_stock_prediction(04:30 KST 시작, 소요 2.5~2.8시간)이 끝난 뒤 AI 예측
+# 정확도 스냅샷 갱신(/performance/ 트랙레코드 페이지가 읽는 캐시). 전종목 이력 조인이 실측
+# 약 6~10초 걸려 페이지 요청마다 라이브로 계산하지 않고 이렇게 하루 한 번만 미리 계산해둔다.
+0 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/compute_prediction_accuracy.log venv/bin/python manage.py compute_prediction_accuracy
 
 # 13:00 KST(장중) — 특징주 브리핑 생성
 0 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=midday
@@ -63,3 +71,11 @@
 0 7 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
 # 21:00 KST(밤 9시) — 뉴스레터 발송
 0 12 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/send_newsletter.log venv/bin/python manage.py send_newsletter
+
+# 토요일 10:00 KST — 주간 시황 정리 생성(지난 5거래일 코스피/코스닥 등락 + 주간 급등락 종목).
+# 평일 마감후 브리핑과 달리 휴장일 체크가 필요 없다(토요일 자체가 항상 휴장이라 늘 실행).
+0 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_weekly_market_briefing.log venv/bin/python manage.py generate_weekly_market_briefing
+# 토요일 10:05 KST — 주간 시황 정리 발행
+5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1

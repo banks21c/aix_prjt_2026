@@ -86,11 +86,19 @@ actual Korea-time (KST = UTC+9) equivalent that the hour was chosen to hit:**
 45 6 * * 1-5 post_to_blogger --limit 1       # KST 15:45
 0 7 * * 1-5  generate_newsletter_draft       # KST 16:00 — dress that day's close-session briefing as a NewsletterIssue, status=READY (no manual review)
 0 12 * * *   send_newsletter                 # KST 21:00 — email READY issues to NewsletterSubscriber list as HTML, mark SENT
+0 1 * * 6    generate_weekly_market_briefing # KST Sat 10:00 — weekly recap (last 5 trading days' KOSPI/KOSDAQ change + weekly top movers among is_major_index stocks), AnalyzedArticle source_type=AI_BRIEFING
+5 1 * * 6    post_to_wordpress --limit 1     # KST Sat 10:05
+5 1 * * 6    post_to_blogger --limit 1       # KST Sat 10:05
 ```
 `generate_newsletter_draft` depends on the close-session briefing already existing for the day — it
 looks up `AnalyzedArticle` by the pseudo-URL `internal://featured-briefing/<date>/close` and skips
 (no issue created) if that briefing hasn't run yet, so its cron time must stay after the close
 briefing's (KST 15:40 / UTC 6:40).
+`generate_weekly_market_briefing` has no holiday check (unlike `generate_featured_stock_briefing`)
+since Saturday is always non-trading — it just reads the most recent 6 trading-day dates from
+`MarketIndex`/`StockDailyPrice` (1 baseline day + the 5 trading days just completed), so it's
+immune to which weekday holidays fell on. Writes `AnalyzedArticle` at the pseudo-URL
+`internal://weekly-briefing/<date>`.
 `collect_stock_data` defaults to `is_major_index=True` (350 stocks) and only requests, per stock,
 the OHLCV since that stock's latest stored date — for a stock with existing data this now goes
 through the KIS 국내주식기간별시세 API (`kis_client.get_stock_daily_price`), not yfinance;
