@@ -5,8 +5,8 @@ from django.conf import settings
 from django.db.models import Max
 
 from .models import (
-    AnalyzedArticle, MarketIndex, RankedMover, StockDailyPrice, StockItem, StockPrediction,
-    StockRealtimePrice,
+    AnalyzedArticle, MarketIndex, NewsKeyword, RankedMover, StockDailyPrice, StockItem,
+    StockPrediction, StockRealtimePrice,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,9 @@ SYSTEM_PROMPT = """당신은 NextFinUp의 AI 주식/경제 챗봇입니다.
   가격·등락률·예측 수치를 절대로 지어내지 마세요. NextFinUp이 그 종목을 추적하지 않는다고
   (코스피200·코스닥150 종목만 지원한다고) 사실대로 답하세요. 다른 곳에서 본 것 같은 대략적인
   가격이라도 마치 실제 데이터인 것처럼 제시하면 안 됩니다.
+- "OO주 전망"처럼 특정 종목이 아닌 테마/섹터를 묻는 질문에는, [제공 데이터]의 "'OO' 테마 관련
+  최신 뉴스" 목록을 근거로 최근 동향을 요약해 답하세요. 다만 목록에 없는 구체적 가격·등락률·
+  예측 수치는 지어내지 마세요.
 - 주식, 증시, 경제, 투자와 무관한 질문에는 정중히 답변을 거절하고 주식/경제 관련 질문을 유도하세요.
 - 한국어로, 간결하고 명확하게 답변하세요.
 - 원화(원) 가격을 말할 때는 소수점 없이 정수로만 표시하세요 (예: 254,250원, 254,250.00원 금지).
@@ -72,6 +75,22 @@ def _find_mentioned_stocks(question, limit=3):
                 candidates.append(name[len(prefix):])
         if ticker in question or any(candidate in question for candidate in candidates):
             matched.append((ticker, name))
+        if len(matched) >= limit:
+            break
+    return matched
+
+
+# "로봇주 전망"처럼 특정 종목명이 아니라 테마/섹터를 묻는 질문은 _find_mentioned_stocks로는
+# 잡히지 않는다. collect_keyword_news가 이미 NewsKeyword(관리자가 등록한 감지 키워드) 기준으로
+# 관련 기사를 모아두고 있으므로, 질문에 등록된 키워드가 들어있으면 그 키워드로 태깅된 최근 기사를
+# 컨텍스트에 얹어 테마성 질문도 답할 수 있게 한다.
+def _find_mentioned_keywords(question, limit=2):
+    # is_active는 "신규 기사를 계속 수집할지"만 통제한다 — 꺼져 있어도 과거에 이 키워드로
+    # 태깅된 기사(matched_keyword)는 그대로 유효한 데이터이므로 필터링하지 않는다.
+    matched = []
+    for keyword in NewsKeyword.objects.values_list('keyword', flat=True):
+        if keyword in question:
+            matched.append(keyword)
         if len(matched) >= limit:
             break
     return matched
@@ -162,6 +181,18 @@ def _build_context(question):
         for a in articles:
             suffix = f": {a.ai_summary}" if a.ai_summary else ""
             lines.append(f"- [{name} 관련 뉴스] {a.title}{suffix}")
+
+    for keyword in _find_mentioned_keywords(question):
+        keyword_articles = (
+            AnalyzedArticle.objects
+            .filter(matched_keyword__keyword=keyword)
+            .order_by('-scraped_at')[:5]
+        )
+        if keyword_articles:
+            lines.append(f"- '{keyword}' 테마 관련 최신 뉴스:")
+            for a in keyword_articles:
+                suffix = f": {a.ai_summary}" if a.ai_summary else ""
+                lines.append(f"  · {a.title}{suffix}")
 
     latest_news = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:5]
     if latest_news:
