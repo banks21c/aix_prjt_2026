@@ -106,7 +106,7 @@
     .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
   }
 
-  /* ---------- 5가지 보험 카드 ---------- */
+  /* ---------- 6가지 보험 카드 ---------- */
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
   a.card { display:block; background:var(--card); border:1px solid var(--line); border-radius:12px;
            padding:22px 24px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s; }
@@ -242,6 +242,7 @@
     <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
     <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
     <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
+    <a href="/asset-management/insurance/third/" class="am-tab">제3보험</a>
   </div>
 </div>
 
@@ -269,7 +270,7 @@
     <h1 class="pt-title"><span class="pt-icon">🛡️</span>보험, 어느 쪽부터 봐야 할까</h1>
     <p class="pt-desc">보험은 크게 손해보험과 생명보험으로 나뉘고, 그 안에 종신·정기·변액·제3보험까지 다섯 갈래가 더 있어요. 보상 방식이 근본적으로 다른 이 구조를 알면, 내게 필요한 보장과 불필요하게 겹친 보장이 한눈에 보여요.</p>
     <div class="hero-ctas">
-      <a href="#compare" class="btn">5가지 보험 비교표 보기</a>
+      <a href="#compare" class="btn">6가지 보험 비교표 보기</a>
       <a href="#persona" class="btn-outline">내게 맞는 보험 찾기</a>
     </div>
   </div>
@@ -328,7 +329,7 @@
 
       <section id="compare">
         <div class="section-head">
-          <h2 class="section-title">5가지 보험, 한눈에 비교</h2>
+          <h2 class="section-title">6가지 보험, 한눈에 비교</h2>
           <span class="section-note">각 페이지에서 원리·종류·주의사항을 더 자세히 볼 수 있어요</span>
         </div>
         <div class="cards">
@@ -357,8 +358,12 @@
             <h2>변액보험 &rarr;</h2>
             <p>낸 보험료 일부가 펀드로 투자돼 성과에 따라 보험금 · 해지환급금이 달라져요. 예금자보호 대상이 아니에요.</p>
           </a>
+          <a class="card" href="../insurance/third/index.html">
+            <span class="type-tag">第三保險</span>
+            <h2>제3보험 &rarr;</h2>
+            <p>손해보험과 생명보험 사이 영역. 실손의료보험 · 암보험 · 간병보험이 여기 속해요. 실제 가입자가 가장 많아요.</p>
+          </a>
         </div>
-        <p style="margin-top:16px; font-size:14px; color:var(--ink-soft);">실손의료보험 · 암보험 등 <strong>제3보험</strong>은 손해보험과 생명보험 사이에 있어요. <a href="#third" style="color:var(--accent); font-weight:700;">아래에서 바로 보기 &rarr;</a></p>
       </section>
 
       <section id="trio">
@@ -406,7 +411,7 @@
           <span class="section-note">상황을 고르면 관련 페이지로 이동해요</span>
         </div>
         <div class="persona-grid">
-          <a class="persona" href="../insurance/damage/index.html">
+          <a class="persona" href="../insurance/third/index.html">
             <div class="persona-q">병원비·수술비가 걱정돼요</div>
             <div class="persona-a">제3보험(실손의료보험) 보기</div>
           </a>

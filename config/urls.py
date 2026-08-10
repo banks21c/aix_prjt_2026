@@ -22,7 +22,8 @@ from django.urls import path
 from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
-    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
+    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
+    newsletter_sample_view, cron_status_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, insurance_compare_view, consult_request_view, header_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
@@ -32,7 +33,7 @@ from articles.views import (
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    operations_overview_view,
+    operations_overview_view, ai_performance_admin_view,
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
@@ -43,7 +44,7 @@ from articles.views import (
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
     tumblr_connect_view, tumblr_callback_view,
-    my_page_view, my_posted_articles_view, verify_email_view,
+    my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
 sitemaps = {
@@ -59,12 +60,14 @@ urlpatterns = [
     path('', landing_page_view, name='landing_page'),  # ◀ 메인 홈페이지(랜딩 페이지)
     path('newsletter/subscribe/', newsletter_subscribe_view, name='newsletter_subscribe'),
     path('newsletter/unsubscribe/<str:token>/', newsletter_unsubscribe_view, name='newsletter_unsubscribe'),
+    path('newsletter/sample/', newsletter_sample_view, name='newsletter_sample'),
     path('admin-tools/cron/', cron_status_view, name='cron_status'),
     path('admin-tools/integrations/', integration_status_view, name='integration_status'),
     path('admin-tools/pipeline/', pipeline_status_view, name='pipeline_status'),
     path('admin-tools/pipeline/run/<str:key>/', pipeline_trigger_view, name='pipeline_trigger'),
     path('admin-tools/health/', server_health_view, name='server_health'),
     path('admin-tools/overview/', operations_overview_view, name='operations_overview'),
+    path('admin-tools/performance/', ai_performance_admin_view, name='ai_performance_admin'),
     path('admin-tools/consult-sheet/', financial_consult_sheet_view, name='financial_consult_sheet'),
     path('admin-tools/consult-sheet/save/', financial_consult_sheet_save_view, name='financial_consult_sheet_save'),
     path('admin-tools/consult-sheet/search/', financial_consult_sheet_search_view, name='financial_consult_sheet_search'),
@@ -110,6 +113,7 @@ urlpatterns = [
     path('accounts/delete/', delete_account_view, name='delete_account'),
     path('mypage/', my_page_view, name='my_page'),  # ◀ 내 정보 관리(뉴스구독/자동포스팅 설정)
     path('mypage/posted/', my_posted_articles_view, name='my_posted_articles'),  # ◀ 내가 발행한 글 이력
+    path('mypage/blog/<str:platform>/disconnect/', blog_account_disconnect_view, name='blog_account_disconnect'),
     path('verify-email/<uidb64>/<token>/', verify_email_view, name='verify_email'),  # ◀ 이메일 인증 링크
 
     path('accounts/kakao/login/', kakao_login_view, name='kakao_login'),

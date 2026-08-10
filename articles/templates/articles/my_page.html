@@ -191,8 +191,27 @@
                             {% if account_form.instance.credential %}다시 연결{% else %}텀블러로 연결하기{% endif %}
                         </a>
                         {% endif %}
+                        {% if account_form.instance.credential %}
+                        <form method="post" action="{% url 'blog_account_disconnect' platform_code %}" class="d-inline"
+                              onsubmit="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">연결 해제</button>
+                        </form>
+                        {% endif %}
                     </div>
                     {% else %}
+                    <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                        {% if account_form.instance.credential %}
+                            <span class="badge bg-success">연결됨</span>
+                            <form method="post" action="{% url 'blog_account_disconnect' platform_code %}" class="d-inline"
+                                  onsubmit="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">연결 해제</button>
+                            </form>
+                        {% else %}
+                            <span class="badge bg-secondary">연결 안 됨</span>
+                        {% endif %}
+                    </div>
                     <div class="row g-3">
                         {% if platform_code == 'WORDPRESS' %}
                         <div class="col-12">
@@ -207,6 +226,19 @@
                         {% endif %}
                         <div class="col-md-6">
                             <label class="form-label small text-muted" for="{{ account_form.account_id.id_for_label }}">계정 ID</label>
+                            <!-- 브라우저(특히 크롬)의 비밀번호 관리자는 "텍스트 입력 바로 뒤 비밀번호
+                                 입력"이라는 형태만으로 로그인 폼이라 판단해 autocomplete="off"를
+                                 무시하고 저장된 값을 자동으로 채워 넣는다(이 사이트에서 실제로
+                                 신고된 사례 — 다른 계정으로 입력했던 값이 뜬 것처럼 보였음). 보이지
+                                 않는 미끼 입력창을 실제 필드 바로 앞에 둬서, 브라우저가 이 폼을
+                                 "이 필드 쌍이 로그인 폼"이라 여기고 자동완성을 여기로 흡수하게
+                                 한다 — 실제 필드 name/id와 겹치지 않고, 폼 제출 시 서버는 그냥 무시. -->
+                            <input type="text" name="{{ platform_code }}-decoy_username" autocomplete="username"
+                                   tabindex="-1" aria-hidden="true"
+                                   style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;">
+                            <input type="password" name="{{ platform_code }}-decoy_password" autocomplete="new-password"
+                                   tabindex="-1" aria-hidden="true"
+                                   style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;">
                             {{ account_form.account_id }}
                         </div>
                         <div class="col-md-6">

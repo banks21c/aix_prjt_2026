@@ -2,6 +2,7 @@
 # import (...)`로 가져오던 이름들을 여기서 그대로 재수출해, urls.py는 손댈 필요가 없다.
 from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
+    newsletter_sample_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
     blog_connect_guide_view, adsense_guide_view,
     consult_request_view, header_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
@@ -11,7 +12,7 @@ from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
     financial_consult_sheet_search_view,
     integration_status_view, pipeline_status_view, pipeline_trigger_view, server_health_view,
-    operations_overview_view,
+    operations_overview_view, ai_performance_admin_view,
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
@@ -31,19 +32,20 @@ from .auth import (
     naver_login_view, naver_callback_view,
 )
 from .mypage import (
-    my_page_view, my_posted_articles_view, blogger_connect_view, blogger_callback_view,
+    my_page_view, my_posted_articles_view, blog_account_disconnect_view,
+    blogger_connect_view, blogger_callback_view,
     tumblr_connect_view, tumblr_callback_view,
 )
 
 __all__ = [
     'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
-    'newsletter_unsubscribe_view', 'cron_status_view', 'privacy_policy_view',
+    'newsletter_unsubscribe_view', 'newsletter_sample_view', 'cron_status_view', 'privacy_policy_view',
     'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
     'header_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
-    'operations_overview_view',
+    'operations_overview_view', 'ai_performance_admin_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
@@ -56,5 +58,5 @@ __all__ = [
     'naver_login_view', 'naver_callback_view',
     'blogger_connect_view', 'blogger_callback_view',
     'tumblr_connect_view', 'tumblr_callback_view',
-    'my_page_view', 'my_posted_articles_view', 'verify_email_view',
+    'my_page_view', 'my_posted_articles_view', 'blog_account_disconnect_view', 'verify_email_view',
 ]

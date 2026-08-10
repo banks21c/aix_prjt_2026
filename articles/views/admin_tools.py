@@ -8,6 +8,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.sites import site as admin_site
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
@@ -16,6 +17,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from ..models import FinancialConsultSheet
+from .performance import build_ai_performance_context
 
 KST = dt_timezone(timedelta(hours=9))
 
@@ -192,11 +194,68 @@ def _prediction_accuracy_history(days=90):
     return history
 
 
+def _blog_publish_preview(platform):
+    """post_to_wordpress/post_to_blogger를 지금 실행하면 계정별로 무엇이 발행될지 미리 계산.
+    실제 커맨드(post_to_wordpress.py 등)가 쓰는 select_candidates(limit=1)를 그대로 재사용해서
+    미리보기가 실제 발행 대상과 어긋나지 않게 한다."""
+    from ..blog_posting import enabled_accounts, select_candidates
+
+    rows = []
+    for account in enabled_accounts(platform):
+        candidates = select_candidates(account, account.user.preference, limit=1)
+        rows.append({
+            'username': account.user.username,
+            'site_url': account.site_url,
+            'article_title': candidates[0].title if candidates else None,
+        })
+    return rows
+
+
+def _newsletter_draft_preview():
+    """generate_newsletter_draft.py와 완전히 같은 판정(READY 이슈 존재 여부 → 오늘 마감
+    브리핑 존재 여부)을 실행 전에 미리 보여준다. timezone.localdate()는 명령어 쪽과 동일하게
+    맞춘다 — 서버/장고 TIME_ZONE이 UTC라 KST 자정 근처엔 날짜가 하루 어긋날 수 있음."""
+    from django.utils import timezone
+
+    from ..models import AnalyzedArticle, NewsletterIssue
+
+    pending = NewsletterIssue.objects.filter(status='READY').first()
+    if pending:
+        return {'skip_reason': f'이미 발송 대기 중인 초안이 있어 새로 만들지 않고 건너뜁니다: "{pending.subject}"'}
+
+    today = timezone.localdate()
+    briefing_exists = AnalyzedArticle.objects.filter(
+        original_url=f"internal://featured-briefing/{today}/close",
+    ).exists()
+    return {
+        'skip_reason': None if briefing_exists else f'오늘({today}) 마감 특징주 브리핑이 아직 없어 건너뜁니다.',
+    }
+
+
+def _newsletter_send_preview():
+    from ..models import NewsletterIssue, NewsletterSubscriber
+
+    return {
+        'ready_issues': list(NewsletterIssue.objects.filter(status='READY').values('subject', 'article_count')),
+        'subscriber_count': NewsletterSubscriber.objects.filter(is_active=True).count(),
+    }
+
+
+_PREVIEW_BUILDERS = {
+    'post_wordpress': lambda: {'type': 'blog', 'rows': _blog_publish_preview('WORDPRESS')},
+    'post_blogger': lambda: {'type': 'blog', 'rows': _blog_publish_preview('BLOGGER')},
+    'newsletter_draft': lambda: {'type': 'newsletter_draft', **_newsletter_draft_preview()},
+    'newsletter_send': lambda: {'type': 'newsletter_send', **_newsletter_send_preview()},
+}
+
+
 @staff_member_required
 def pipeline_status_view(request):
     """collect_stock_data/run_stock_prediction처럼 무겁고 비정기적인 파이프라인 커맨드를
     버튼으로 백그라운드 실행하고, 마지막 실행 상태/로그를 확인하는 화면 (지금까지는 SSH로
-    manage.py를 직접 실행해야만 볼 수 있었다)."""
+    manage.py를 직접 실행해야만 볼 수 있었다). 발행/발송 계열 4개(post_wordpress/post_blogger/
+    newsletter_draft/newsletter_send)는 실제로 회원 블로그·구독자에게 라이브로 나가는 동작이라,
+    누르기 전에 "지금 누르면 무엇이 나갈지" _PREVIEW_BUILDERS로 미리 계산해 보여준다."""
     logs_dir = Path(settings.BASE_DIR) / 'logs'
     pipelines = []
     for key, conf in PIPELINE_COMMANDS.items():
@@ -211,6 +270,8 @@ def pipeline_status_view(request):
             log_tail = _tail_file(log_file)
             status = _log_status(log_tail)
 
+        preview_builder = _PREVIEW_BUILDERS.get(key)
+
         pipelines.append({
             'key': key,
             'label': conf['label'],
@@ -220,10 +281,12 @@ def pipeline_status_view(request):
             'last_run_ago_minutes': last_run_ago_minutes,
             'log_tail': log_tail,
             'status': status,
+            'preview': preview_builder() if preview_builder else None,
         })
 
     context = {
-        'site_title': 'NextFinUp - 파이프라인 수동 실행',
+        **admin_site.each_context(request),
+        'title': '⚙️ 파이프라인 수동 실행',
         'pipelines': pipelines,
     }
     return render(request, 'articles/pipeline_status.html', context)
@@ -318,7 +381,8 @@ def server_health_view(request):
     cert_days_left = (cert_expiry - datetime.now(dt_timezone.utc)).days if cert_expiry else None
 
     context = {
-        'site_title': 'NextFinUp - 서버 상태',
+        **admin_site.each_context(request),
+        'title': '🩺 서버 상태',
         'services': services,
         'cpu_count': os.cpu_count(),
         'load1': load1, 'load5': load5, 'load15': load15,
@@ -400,7 +464,8 @@ def cron_status_view(request):
         })
 
     context = {
-        'site_title': 'NextFinUp - 크론 작업 현황',
+        **admin_site.each_context(request),
+        'title': '⏱ 크론 작업 현황',
         'jobs': jobs,
         'error': error,
     }
@@ -477,7 +542,8 @@ def integration_status_view(request):
     ]
 
     context = {
-        'site_title': 'NextFinUp - 외부 연동 상태',
+        **admin_site.each_context(request),
+        'title': '🔌 외부 연동 상태',
         'groups': groups,
     }
     return render(request, 'articles/integration_status.html', context)
@@ -537,7 +603,8 @@ def operations_overview_view(request):
     )
 
     context = {
-        'site_title': 'NextFinUp - 운영 현황',
+        **admin_site.each_context(request),
+        'title': '📊 운영 현황',
         'overview_days': OVERVIEW_DAYS,
         'labels_json': json.dumps(labels),
         'signups_json': json.dumps([signups.get(d, 0) for d in labels]),
@@ -559,6 +626,20 @@ def operations_overview_view(request):
         'min_stocks_for_trend': MIN_STOCKS_FOR_TREND,
     }
     return render(request, 'articles/operations_overview.html', context)
+
+
+@staff_member_required
+def ai_performance_admin_view(request):
+    """공개 트랙레코드 페이지(/performance/, ai_performance_view)와 같은 데이터를 admin
+    레이아웃 안에서 보는 화면. 공개 페이지는 로그인 없이 누구나 보므로 그대로 두고, staff가
+    admin 좌측 메뉴에서 바로 확인할 수 있도록 여기 별도로 추가했다 — build_ai_performance_context()로
+    데이터 계산 로직만 공유하고 템플릿/레이아웃은 분리."""
+    context = {
+        **admin_site.each_context(request),
+        'title': '🎯 AI 예측 성과',
+        **build_ai_performance_context(),
+    }
+    return render(request, 'articles/ai_performance_admin.html', context)
 
 
 @staff_member_required

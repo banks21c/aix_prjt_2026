@@ -58,8 +58,10 @@ def _resolve_recent_signals():
     return resolved
 
 
-def ai_performance_view(request):
-    """AI 예측 성과 공개 트랙레코드 페이지. 두 축으로 구성:
+def build_ai_performance_context():
+    """AI 예측 성과 데이터를 두 축으로 구성해 context dict로 반환한다. 공개 트랙레코드 페이지
+    (ai_performance_view)와 admin 내 운영 도구 화면(admin_tools.ai_performance_admin_view)이
+    이 계산 로직을 그대로 공유한다 — 화면(템플릿/레이아웃)만 다르고 데이터는 같아야 하므로.
     (1) 신뢰도(확신도) 구간별 실현 정확도 — PredictionAccuracySnapshot 캐시(매일 배치 갱신)를
         그대로 읽는다. SIGNAL_PROB_THRESHOLD(run_stock_prediction.py) 임계값 선택 근거와
         동일한 데이터.
@@ -93,8 +95,7 @@ def ai_performance_view(request):
             'accuracy_pct': round(correct / total * 100, 1) if total else None,
         }
 
-    context = {
-        'site_title': 'NextFinUp - AI 예측 성과',
+    return {
         'snapshot': snapshot,
         'buckets_display': buckets_display,
         'recent_signals': signals[:30],
@@ -102,4 +103,9 @@ def ai_performance_view(request):
         'summary_buy': _summarize(buy_signals),
         'summary_sell': _summarize(sell_signals),
     }
+
+
+def ai_performance_view(request):
+    """AI 예측 성과 공개 트랙레코드 페이지 (로그인 불필요 — 대외 공개용)."""
+    context = {'site_title': 'NextFinUp - AI 예측 성과', **build_ai_performance_context()}
     return render(request, 'articles/ai_performance.html', context)

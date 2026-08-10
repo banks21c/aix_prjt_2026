@@ -19,9 +19,9 @@ from django.views.decorators.http import require_POST
 from .. import kis_client
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
-    AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterSubscriber, RankedMover,
-    StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder, UserSubscription,
-    Watchlist,
+    AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterIssue, NewsletterSubscriber,
+    RankedMover, StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder,
+    UserSubscription, Watchlist,
 )
 from ..utils import format_trading_value, format_volume, get_client_ip
 
@@ -62,6 +62,18 @@ def newsletter_subscribe_view(request):
     else:
         messages.error(request, "올바른 이메일 주소를 입력해주세요.")
     return redirect(f"{reverse('landing_page')}#newsletter")
+
+
+def newsletter_sample_view(request):
+    """랜딩 페이지 뉴스레터 구독 폼 옆 '샘플 보기' 링크가 여는, 실제 발송 이력 중 가장 최근
+    것을 그대로 보여주는 읽기 전용 페이지. 가짜 샘플을 따로 만들어 유지하지 않고, 실제
+    send_newsletter가 발송한 NewsletterIssue.body(이메일에 실제로 나간 HTML)를 재사용한다."""
+    issue = NewsletterIssue.objects.filter(status='SENT').order_by('-sent_at').first()
+    context = {
+        'site_title': 'NextFinUp - 뉴스레터 샘플',
+        'issue': issue,
+    }
+    return render(request, 'articles/newsletter_sample.html', context)
 
 
 def newsletter_unsubscribe_view(request, token):

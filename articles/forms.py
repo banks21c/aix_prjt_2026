@@ -139,10 +139,18 @@ class BlogAccountForm(forms.ModelForm):
         widgets = {
             'is_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'site_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://내블로그.com'}),
-            'account_id': forms.TextInput(attrs={'class': 'form-control'}),
-            # 저장된 값은 보안상 다시 화면에 노출하지 않고, 새로 입력했을 때만 갱신
+            # autocomplete="off" — 공용 PC 등 같은 브라우저에서 다른 회원 세션으로 이 필드에
+            # 입력했던 값을 브라우저가 자동완성으로 제안해, 서버가 채운 값처럼 오인될 수 있음
+            # (실제 신고 사례: 계정 ID/비밀번호 칸에 다른 회원이 입력했던 값이 뜬 것처럼 보임 —
+            # DB 확인 결과 서버 데이터는 비어있었고 브라우저 자동완성이 원인이었음).
+            'account_id': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'off'}),
+            # 저장된 값은 보안상 다시 화면에 노출하지 않고, 새로 입력했을 때만 갱신.
+            # autocomplete="off"는 크롬 등 주요 브라우저의 저장된 비밀번호 자동채움에는 대부분
+            # 무시되므로(문서화된 동작 — "새 비밀번호 입력" 의도를 알리는 값만 존중함),
+            # "new-password"를 대신 사용한다. (my_page.html의 미끼 입력 필드와 함께 적용)
             'credential': forms.PasswordInput(
-                render_value=False, attrs={'class': 'form-control', 'placeholder': '변경 시에만 입력'}
+                render_value=False,
+                attrs={'class': 'form-control', 'placeholder': '변경 시에만 입력', 'autocomplete': 'new-password'},
             ),
         }
 

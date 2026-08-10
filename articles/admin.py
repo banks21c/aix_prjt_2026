@@ -588,6 +588,7 @@ _TOOL_LINKS = [
     ('외부 연동 상태', 'integration_status'),
     ('서버 상태', 'server_health'),
     ('운영 현황', 'operations_overview'),
+    ('AI 예측 성과', 'ai_performance_admin'),
     ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
 ]
 

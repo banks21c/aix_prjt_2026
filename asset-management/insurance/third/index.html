@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>생명보험 — 얼마를 받을지 미리 정해두는 보험</title>
+<title>제3보험 — 손해보험과 생명보험 사이, 실손의료보험이 있는 곳</title>
 <link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
-<!-- 아래 스타일은 irp/index.html과 시각적 일관성을 위해 그대로 복사한 것이라 사용하지 않는 선택자가 포함되어 있다 -->
+<!-- 아래 스타일은 term-life/index.html과 시각적 일관성을 위해 그대로 복사한 것이라 사용하지 않는 선택자가 포함되어 있다 -->
 <style>
   /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
   :root, :root[data-theme="dark"], :root[data-theme="light"] {
@@ -55,7 +55,7 @@
     display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
     transform: rotate(-6deg);
   }
-  #nav ul { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  #nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
   #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
   #nav a:hover, #nav a:focus-visible { opacity: 1; }
   .nav-toggle { display: none; }
@@ -69,74 +69,6 @@
       display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
       background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
     }
-  }
-
-  /* ---------- hero: passbook cover ---------- */
-  .hero { padding: 40px 0; }
-  .passbook {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    display: grid;
-    grid-template-columns: 1fr 220px;
-    overflow: hidden;
-    position: relative;
-  }
-  .passbook-main { padding: 40px 40px 32px; }
-  .eyebrow {
-    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink-soft); margin-bottom: 14px;
-  }
-  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.01em; max-width: 22ch; }
-  .hero-desc { margin: 14px 0 28px; color: var(--ink-soft); font-size: 15px; max-width: 48ch; }
-
-  .calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .field label {
-    display: block; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
-  }
-  .field input, .field select {
-    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 6px;
-    padding: 10px 11px; font-size: 14px; color: var(--ink); font-family: inherit;
-  }
-  .field input:focus, .field select:focus { border-color: var(--accent); }
-
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
-    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 20px; background: var(--accent); color: var(--accent-ink);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(13,71,161,0.28); }
-  .btn:active { transform: translateY(0); }
-  .btn-block { width: 100%; margin-top: 18px; }
-
-  /* passbook cover panel with wax-seal stamp */
-  .passbook-cover {
-    background: var(--card-stub);
-    border-left: 1px solid var(--line);
-    padding: 28px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-  }
-  .seal {
-    width: 96px; height: 96px; border-radius: 50%;
-    border: 3px double var(--accent);
-    color: var(--accent);
-    display: flex; align-items: center; justify-content: center;
-    text-align: center;
-    font-weight: 800; font-size: 13px; letter-spacing: 0.02em;
-    transform: rotate(-8deg);
-  }
-  .cover-label { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
-
-  @media (max-width: 760px) {
-    .passbook { grid-template-columns: 1fr; }
-    .passbook-cover { border-left: none; border-top: 1px solid var(--line); flex-direction: row; padding: 20px; }
-    .calc-grid { grid-template-columns: 1fr 1fr; }
   }
 
   section { padding: 32px 0; }
@@ -171,43 +103,19 @@
     letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
     border-radius: 3px; padding: 2px 7px;
   }
-  .acct-no { margin-top: 14px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11px; color: var(--ink-soft); }
 
   .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
-  .ledger-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .ledger-item .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
-  .ledger-item .v { font-size: 14px; font-weight: 600; }
-  .ledger-feature { font-size: 12.5px; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 12px; }
-
-  .ledger-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
-  .fee .k { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
-  .fee .v { font-size: 20px; font-weight: 800; color: var(--accent); }
-  .fee .unit { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
 
   @media (max-width: 700px) {
     .ledger-entry { grid-template-columns: 1fr; }
     .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
-    .ledger-grid { grid-template-columns: 1fr 1fr; }
-    .ledger-footer { flex-direction: column; align-items: stretch; }
   }
 
-  .terms-strip {
-    margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
-    font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 11.5px; line-height: 1.7; color: var(--ink-soft);
-  }
-  .terms-strip strong { color: var(--ink); }
-
-  .consult { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 36px 40px; max-width: 640px; }
-  .consult-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .consult-grid .full { grid-column: 1 / -1; }
-  .consult-grid label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
-  .consult-grid input, .consult-grid textarea {
-    width: 100%; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
-    padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit;
-  }
-  .consult-grid input:focus, .consult-grid textarea:focus { border-color: var(--accent); }
-  .consult-success { display: none; margin-top: 14px; background: var(--success-bg); color: var(--success); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
-  @media (max-width: 560px) { .consult { padding: 28px 22px; } .consult-grid { grid-template-columns: 1fr; } }
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  .cmp th { background: var(--card); font-weight: 700; }
+  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
 
   /* ---------- 상담 유도 배너 ---------- */
   .consult-cta {
@@ -221,12 +129,6 @@
     font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 22px; background: #fff; color: var(--accent);
     text-decoration: none; white-space: nowrap;
   }
-
-  .table-scroll { overflow-x: auto; margin: 20px 0; }
-  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
-  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
-  .cmp th { background: var(--card); font-weight: 700; }
-  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
 
   /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
   .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
@@ -256,7 +158,7 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-       
+
         if (realMenu && menuTarget) {
           menuTarget.innerHTML = realMenu.innerHTML;
           var path = window.location.pathname;
@@ -284,35 +186,36 @@
 <div class="am-tabs am-tabs-sub">
   <div class="am-tabs-inner">
     <a href="/asset-management/insurance/" class="am-tab">개요</a>
-    <a href="/asset-management/insurance/life/" class="am-tab is-active">생명보험</a>
+    <a href="/asset-management/insurance/life/" class="am-tab">생명보험</a>
     <a href="/asset-management/insurance/damage/" class="am-tab">손해보험</a>
     <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
     <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
     <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
-    <a href="/asset-management/insurance/third/" class="am-tab">제3보험</a>
+    <a href="/asset-management/insurance/third/" class="am-tab is-active">제3보험</a>
   </div>
 </div>
 
 
   <header>
     <div class="nav-inner">
-      <div class="brand"><span class="seal">🛡️</span>생명보험</div>
+      <div class="brand"><span class="seal">🛡️</span>제3보험</div>
       <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
       <nav id="nav">
         <ul>
           <li><a href="#basics">핵심 원리</a></li>
-          <li><a href="#types">종류</a></li>
-          <li><a href="#compare">손해보험과 차이</a></li>
-          <li><a href="#third">제3보험</a></li>
+          <li><a href="#types">상품 종류</a></li>
+          <li><a href="#vs">생명·손해보험과 비교</a></li>
+          <li><a href="#renew">갱신형 특성</a></li>
+          <li><a href="#checklist">가입 전 확인</a></li>
         </ul>
       </nav>
     </div>
   </header>
 
   <div class="pt-hero">
-    <div class="pt-eyebrow">生命保險</div>
-    <h1 class="pt-title"><span class="pt-icon">🛡️</span>얼마를 받을지 미리 정해두는 보험</h1>
-    <p class="pt-desc">사람의 생사를 보험사고로 삼아, 손해액과 무관하게 약정한 금액을 지급합니다.</p>
+    <div class="pt-eyebrow">第三保險</div>
+    <h1 class="pt-title"><span class="pt-icon">🛡️</span>손해보험과 생명보험 사이에 있는 보험</h1>
+    <p class="pt-desc">사람의 신체를 대상으로 하지만, 실제로 들어간 치료비를 보상하는 실손형과 진단 시 정해진 금액을 주는 정액형이 섞여 있어 어느 한쪽으로 분류되지 않습니다. 실손의료보험 · 암보험 · 간병보험이 여기 속하고, 실제로 가장 많은 사람이 가입하는 영역입니다.</p>
   </div>
 
   <main>
@@ -320,34 +223,34 @@
       <div class="wrap">
         <div class="section-head">
           <h2 class="section-title">핵심 원리</h2>
-          <span class="section-note">손해보험과 갈라지는 지점</span>
+          <span class="section-note">생명보험도 손해보험도 아닌, 제3의 영역</span>
         </div>
         <div class="plans">
           <div class="ledger-entry rise">
             <div class="ledger-stub">
-              <div class="inst-name">정액보상 원칙</div>
-              <span class="type-tag">손해액 무관</span>
+              <div class="inst-name">대상은 사람의 신체</div>
+              <span class="type-tag">생명보험 쪽 성격</span>
             </div>
             <div class="ledger-body">
-              <p>사람의 생명에는 가격을 매길 수 없습니다. 그래서 실제 손해를 따지지 않고 계약에서 미리 정한 금액을 그대로 지급합니다. 사망·진단처럼 정액으로 지급하는 보장은 여러 건에 가입했다면 각각 전액을 받습니다 (아래 제3보험은 예외).</p>
+              <p>질병 · 상해 · 간병 상태처럼 사람에게 생긴 일을 보장 대상으로 삼습니다. 재산상 손해를 다루는 순수 손해보험과는 이 지점에서 다릅니다.</p>
             </div>
           </div>
           <div class="ledger-entry rise">
             <div class="ledger-stub">
-              <div class="inst-name">피보험자 &ne; 보험수익자</div>
-              <span class="type-tag">3자 구조</span>
+              <div class="inst-name">지급방식은 실손 + 정액 혼재</div>
+              <span class="type-tag">손해보험 쪽 성격</span>
             </div>
             <div class="ledger-body">
-              <p>보험사고의 대상이 되는 사람(피보험자)과 보험금을 받는 사람(보험수익자)이 다를 수 있습니다. 타인의 사망을 보험사고로 하려면 그 사람의 서면 동의가 필요합니다.</p>
+              <p>실손의료보험처럼 실제 쓴 치료비만큼 주는 실손형과, 암 진단비처럼 정해진 금액을 그대로 주는 정액형이 상품에 따라 섞여 있습니다.</p>
             </div>
           </div>
           <div class="ledger-entry rise">
             <div class="ledger-stub">
-              <div class="inst-name">대위가 없다</div>
-              <span class="type-tag">청구권 유지</span>
+              <div class="inst-name">두 보험사 모두 취급</div>
+              <span class="type-tag">손해보험사 · 생명보험사</span>
             </div>
             <div class="ledger-body">
-              <p>보험금을 받아도 가해자에 대한 손해배상 청구권은 그대로 남습니다. 실손보상이 아니므로 이중이득 문제가 생기지 않기 때문입니다.</p>
+              <p>대상(사람의 신체)은 생명보험 영역이지만 손해보험사도 판매할 수 있도록 별도로 분류돼 있어, 어느 회사에서 가입했는지보다 상품의 지급방식을 확인하는 게 더 중요합니다.</p>
             </div>
           </div>
         </div>
@@ -357,62 +260,82 @@
     <section id="types">
       <div class="wrap">
         <div class="section-head">
-          <h2 class="section-title">종류</h2>
+          <h2 class="section-title">대표 상품 3가지</h2>
+          <span class="section-note">실제 가입률이 가장 높은 상품들</span>
         </div>
-        <div class="table-scroll">
-          <table class="cmp">
-            <thead><tr><th>구분</th><th>보험사고</th><th>비고</th></tr></thead>
-            <tbody>
-              <tr><td><a href="../../insurance/whole-life/index.html">종신보험 &rarr;</a></td><td>사망 (기간 제한 없음)</td><td>보험료 높음, 해지환급금 존재</td></tr>
-              <tr><td><a href="../../insurance/term-life/index.html">정기보험 &rarr;</a></td><td>정해진 기간 내 사망</td><td>같은 보장에 보험료 가장 저렴</td></tr>
-              <tr><td>양로보험</td><td>사망 또는 만기 생존</td><td>생사혼합. 저축 성격</td></tr>
-              <tr><td>변액보험</td><td>사망 · 생존 (투자실적 연동)</td><td>원금 손실 가능</td></tr>
-              <tr><td>연금보험</td><td>약정 시점 이후 생존</td><td>오래 살수록 유리</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section id="compare">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 class="section-title">손해보험과의 차이</h2>
-        </div>
-        <div class="table-scroll">
-          <table class="cmp">
-            <thead><tr><th>구분</th><th>생명보험</th><th>손해보험</th></tr></thead>
-            <tbody>
-              <tr><td>보험사고</td><td>사람의 생사</td><td>재산상 손해</td></tr>
-              <tr><td>지급방식</td><td>정액보상 — 약정 금액</td><td>실손보상 — 실제 손해액 한도</td></tr>
-              <tr><td>중복가입</td><td>계약마다 각각 전액 지급</td><td>보험사끼리 비례분담</td></tr>
-              <tr><td>보험기간</td><td>장기</td><td>1년 단위 갱신이 일반적 (장기손해보험 예외)</td></tr>
-              <tr><td>대위</td><td>없음</td><td>있음</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p><a href="../../insurance/damage/index.html">손해보험 페이지에서 반대편 관점 보기 &rarr;</a></p>
-      </div>
-    </section>
-
-    <section id="third">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 class="section-title">경계에 있는 것 — 제3보험</h2>
-          <span class="section-note">손해보험사 · 생명보험사 모두 취급</span>
-        </div>
-        <p>사람의 신체를 대상으로 하지만 실제로 들어간 치료비를 보상하는 영역이 있습니다. 대상은 생명보험 쪽이고 보상 방식은 실손과 정액이 섞여 있어 어느 한쪽으로 분류되지 않습니다.</p>
         <div class="table-scroll">
           <table class="cmp">
             <thead><tr><th>상품</th><th>보장</th><th>지급방식</th></tr></thead>
             <tbody>
-              <tr><td>실손의료보험</td><td>질병 · 상해 치료비</td><td>실손 — 자기부담금 제외 후 실제 지출</td></tr>
-              <tr><td>암보험 · 진단비</td><td>특정 질병 진단</td><td>정액 — 진단 시 약정 금액</td></tr>
-              <tr><td>간병보험</td><td>장기요양 상태</td><td>정액 또는 실손</td></tr>
+              <tr><td>실손의료보험</td><td>질병 · 상해로 발생한 치료비</td><td>실손 — 자기부담금을 뺀 실제 지출분</td></tr>
+              <tr><td>암보험 · 진단비보험</td><td>암 등 특정 질병 진단</td><td>정액 — 진단 확정 시 약정 금액</td></tr>
+              <tr><td>간병보험</td><td>장기요양 · 일상생활 장해 상태</td><td>정액 또는 실손 (상품에 따라 다름)</td></tr>
             </tbody>
           </table>
         </div>
-        <p>실손의료보험은 여러 건에 가입해도 실제 치료비를 넘겨 받을 수 없습니다. 중복 가입이 의미 없는 이유입니다.</p>
+        <p>실손의료보험은 "제2의 건강보험"이라 불릴 만큼 많이 가입하지만, 진단비 · 간병 성격의 보장은 없습니다. 반대로 암보험 · 간병보험은 실제 치료비와 무관하게 정해진 금액이 나오지만 평소 소소한 병원비는 보장하지 않습니다 — 서로 보완 관계입니다.</p>
+      </div>
+    </section>
+
+    <section id="vs">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">생명보험 · 손해보험과 무엇이 다른가</h2>
+          <span class="section-note">기준은 대상이 아니라 지급방식</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>생명보험</th><th>손해보험</th><th>제3보험</th></tr></thead>
+            <tbody>
+              <tr><td>대상</td><td>사람의 생사</td><td>재산상 손해</td><td>사람의 신체(질병 · 상해 · 간병)</td></tr>
+              <tr><td>지급방식</td><td>정액</td><td>실손</td><td>실손 + 정액 혼재</td></tr>
+              <tr><td>중복 가입 시</td><td>계약마다 전액 지급</td><td>비례분담, 손해액 한도</td><td>실손형은 손해보험처럼 중복 무의미, 정액형은 생명보험처럼 중복 가입한 만큼 지급</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>실손의료보험을 여러 건 가입해도 실제 치료비 이상을 받을 수 없습니다(이득금지 원칙). 반면 암 진단비 같은 정액형은 여러 건 가입한 만큼 각각 지급됩니다. 같은 "제3보험"이라도 상품 성격에 따라 중복 가입의 의미가 완전히 달라지는 이유입니다.
+          <a href="../../insurance/damage/index.html">손해보험 페이지에서 실손 원칙 자세히 보기 &rarr;</a></p>
+      </div>
+    </section>
+
+    <section id="renew">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">갱신형이 대부분인 이유</h2>
+          <span class="section-note">나이 들수록 확인해야 할 부분</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>특징</th></tr></thead>
+            <tbody>
+              <tr><td>보험기간</td><td>대부분 1~5년 단위로 갱신되는 구조</td></tr>
+              <tr><td>보험료</td><td>나이가 들고 손해율이 오르면 갱신 시점에 인상될 수 있음</td></tr>
+              <tr><td>보장 내용</td><td>제도 변경(예: 자기부담금 비율 조정)에 따라 갱신 때 바뀔 수 있음</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>사망을 보장하는 종신 · 정기보험과 달리, 제3보험은 의료 환경 변화에 맞춰 보험료 · 보장 조건이 주기적으로 조정되는 구조가 일반적입니다. 가입할 때의 조건이 평생 고정된다고 오해하지 않는 게 중요합니다.</p>
+      </div>
+    </section>
+
+    <section id="checklist">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">가입 전 확인할 것</h2>
+          <span class="section-note">이미 있는 보장과 겹치지 않는지가 핵심</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>#</th><th>확인 항목</th><th>기준</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>실손의료보험 중복 여부</td><td>이미 있다면 추가 가입은 보장 확대 효과가 없음</td></tr>
+              <tr><td>2</td><td>정액형(암 · 간병) 보장 공백</td><td>실손형만으로는 채워지지 않는 진단비 · 요양비 대비</td></tr>
+              <tr><td>3</td><td>갱신형 여부와 갱신 주기</td><td>총 납입 예상액을 장기로 따져볼 것</td></tr>
+              <tr><td>4</td><td>자기부담금 비율</td><td>실손형은 상품마다 자기부담 구조가 다름</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>제3보험은 실손형(의료비)과 정액형(진단비 · 간병비)의 성격이 다르므로, 이미 가진 보장이 어느 쪽인지부터 확인한 뒤 비어 있는 쪽을 채우는 순서로 접근하는 것이 중복 가입을 피하는 방법입니다.</p>
       </div>
     </section>
 
@@ -431,8 +354,8 @@
 
   <footer>
     <div class="footer-inner">
-      <div class="footer-brand">🛡️ 생명보험 안내</div>
-      <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 생명보험을 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 보험사나 상품을 권유하지 않아요.</p>
+      <div class="footer-brand">🛡️ 제3보험 안내</div>
+      <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 제3보험을 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 보험사나 상품을 권유하지 않아요.</p>
       <div class="disclaimer">
         교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다. 가입한 보험의 보장 중복·공백 점검 등 개인별 맞춤 상담은 NextFinUp 전문가 상담을 통해 받아보실 수 있습니다.
       </div>
