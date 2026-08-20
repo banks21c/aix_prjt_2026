@@ -51,7 +51,10 @@ class MemberGradeAdmin(admin.ModelAdmin):
 class UserPreferenceInline(admin.StackedInline):
     model = UserPreference
     can_delete = False
-    fields = ('phone_number', 'grade')
+    fields = (
+        'phone_number', 'grade', 'news_subscription', 'interested_keywords',
+        'post_all_articles', 'auto_posting_enabled',
+    )
 
 # User 편집 화면에서 바로 프리미엄 구독 여부를 켜고 끌 수 있도록 UserSubscription도 인라인으로
 # 붙인다. 결제 연동이 없어 이 체크박스가 유일한 프리미엄 부여 수단이라, 별도 "User subscriptions"
@@ -66,8 +69,8 @@ admin.site.unregister(User)
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     inlines = (UserPreferenceInline, UserSubscriptionInline)
-    list_display = UserAdmin.list_display + ('phone_number', 'member_grade', 'is_premium')
-    list_filter = UserAdmin.list_filter + ('preference__grade', 'subscription__is_active_premium')
+    list_display = UserAdmin.list_display + ('phone_number', 'member_grade', 'is_premium', 'news_subscription', 'auto_posting')
+    list_filter = UserAdmin.list_filter + ('preference__grade', 'subscription__is_active_premium', 'preference__news_subscription', 'preference__auto_posting_enabled')
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('preference', 'preference__grade', 'subscription')
@@ -80,6 +83,14 @@ class CustomUserAdmin(UserAdmin):
     def member_grade(self, obj):
         grade = getattr(obj.preference, 'grade', None) if hasattr(obj, 'preference') else None
         return grade if grade else '-'
+
+    @admin.display(description='구독 카테고리')
+    def news_subscription(self, obj):
+        return obj.preference.get_news_subscription_display() if hasattr(obj, 'preference') else '-'
+
+    @admin.display(description='자동 포스팅', boolean=True)
+    def auto_posting(self, obj):
+        return getattr(obj.preference, 'auto_posting_enabled', False) if hasattr(obj, 'preference') else False
 
     @admin.display(description='프리미엄', boolean=True)
     def is_premium(self, obj):
