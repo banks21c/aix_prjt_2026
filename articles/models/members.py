@@ -129,7 +129,23 @@ class UserPreference(models.Model):
     email_verification_token = models.CharField(max_length=64, blank=True, verbose_name="이메일 인증 토큰")
     email_verification_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="인증 메일 발송 시각")
 
-    news_subscription = models.BooleanField(default=False, verbose_name="뉴스 구독 여부")
+    # 비밀번호 찾기로 임시 비밀번호가 발급되면 True — 로그인 시 비밀번호 변경을 권유하는
+    # 배너를 띄우는 용도일 뿐, 변경을 강제하지는 않는다(마이페이지에서 직접 변경하면 해제됨).
+    temp_password_active = models.BooleanField(default=False, verbose_name="임시 비밀번호 사용 중")
+
+    # 원래는 단순 on/off BooleanField였으나(실제로는 어디서도 안 읽던 죽은 필드), 회원이
+    # 구독할 콘텐츠 카테고리를 고르는 라디오 버튼(경제/건강·의학/음식·영양, 단일 선택)으로 바꿨다.
+    # AnalyzedArticle.content_category와 값이 같은 상수를 쓰며, blog_posting.select_candidates가
+    # 이 값과 일치하는 카테고리의 기사만 발행 후보로 삼는다 — 즉 카테고리를 바꾸면 자동 포스팅
+    # 대상도 그 카테고리로 완전히 바뀐다(여러 카테고리 동시 구독 아님).
+    NEWS_CATEGORY_CHOICES = [
+        ('ECONOMY', '경제'),
+        ('HEALTH', '건강/의학'),
+        ('FOOD', '음식/영양'),
+    ]
+    news_subscription = models.CharField(
+        max_length=10, choices=NEWS_CATEGORY_CHOICES, default='ECONOMY', verbose_name="구독 카테고리",
+    )
     interested_keywords = models.CharField(max_length=255, blank=True, verbose_name="관심 키워드(콤마로 구분)")
     # 체크 시 관심 키워드 필터를 무시하고 모든 미발행 기사를 발행 대상으로 삼음
     post_all_articles = models.BooleanField(default=False, verbose_name="전체 기사 발행(관심 키워드 무시)")
@@ -187,6 +203,12 @@ class BlogPostingAccount(models.Model):
             return bool(self.site_url and self.account_id and self.credential)
         return False
 
+    def is_usable(self):
+        """뉴스 게시판/자유 포스팅 등 발행 대상 계정 목록에 노출할지 여부. 자격 정보가
+        연동돼 있어도(is_connected) 마이페이지에서 이 플랫폼 스위치를 꺼뒀다면(is_enabled=False)
+        노출하지 않는다 — 꺼두면 자동 포스팅뿐 아니라 수동 발행 선택지에서도 빠져야 한다."""
+        return self.is_enabled and self.is_connected()
+
 
 # ==========================================
 # 7. 로그인 로그 / 메뉴 접속 로그 테이블
@@ -236,6 +258,33 @@ class MenuAccessLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.menu_name} ({self.accessed_at})"
+
+
+class SystemErrorLog(models.Model):
+    """Django의 mail_admins(ADMINS로 이메일 발송) 대신 서버 에러(500, 잘못된 Host 헤더 등
+    django.* ERROR/WARNING 로그)를 여기 저장한다. 봇이 www.nextfinup.com 아닌 임의의 Host
+    헤더로 스캔할 때마다("Invalid HTTP_HOST header") 관리자 메일함이 스팸으로 도배되던 문제가
+    있어(실제 신고 사례) 이메일 대신 DB에 쌓고 관리자 화면에서 조회하는 방식으로 바꿨다. 기록은
+    config/settings.py의 LOGGING에 연결된 articles.logging_handlers.DBErrorLogHandler가 남긴다."""
+    level = models.CharField(max_length=10, default='ERROR', verbose_name="심각도")
+    logger_name = models.CharField(max_length=100, verbose_name="로거 이름")
+    message = models.TextField(verbose_name="메시지")
+    traceback = models.TextField(blank=True, verbose_name="트레이스백")
+    request_path = models.CharField(max_length=500, blank=True, verbose_name="요청 경로")
+    request_method = models.CharField(max_length=10, blank=True, verbose_name="요청 메서드")
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="상태 코드")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="발생 시각")
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+        ]
+        verbose_name = "시스템 에러 로그"
+        verbose_name_plural = "시스템 에러 로그"
+
+    def __str__(self):
+        return f"[{self.level}] {self.logger_name}: {self.message[:80]}"
 
 
 # ==========================================

@@ -1,3 +1,4 @@
+{% load static %}
 {% load static humanize %}
 <!DOCTYPE html>
 <html lang="ko">
@@ -6,17 +7,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #212529; margin-bottom: 1rem; }
-        .up-value { color: #c62828; font-weight: bold; }
-        .down-value { color: #1565c0; font-weight: bold; }
-        .flat-value { color: #616161; font-weight: bold; }
-        .signal-BUY { background-color: #ffebee; color: #c62828; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-SELL { background-color: #e3f2fd; color: #1565c0; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); margin-bottom: 1rem; }
+        .up-value { color: var(--color-danger, #c62828); font-weight: bold; }
+        .down-value { color: var(--brand-accent, #1565c0); font-weight: bold; }
+        .flat-value { color: var(--text-gray, #616161); font-weight: bold; }
+        .signal-BUY { background-color: var(--bg-danger-soft-2, #ffebee); color: var(--color-danger, #c62828); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-SELL { background-color: var(--bg-info-soft, #e3f2fd); color: var(--brand-accent, #1565c0); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">

@@ -11,13 +11,15 @@ from django.contrib import messages
 from django.contrib.admin.sites import site as admin_site
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from ..models import FinancialConsultSheet
+from ..models import FinancialConsultSheet, ThemeColor
 from .performance import build_ai_performance_context
+
+HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$')
 
 KST = dt_timezone(timedelta(hours=9))
 
@@ -397,6 +399,74 @@ def server_health_view(request):
         'cert_days_left': cert_days_left,
     }
     return render(request, 'articles/server_health.html', context)
+
+
+def _expand_hex_for_color_input(value):
+    """<input type=color>는 #rrggbb 6자리만 받아들이므로(3자리 축약형/알파 채널 불가), 미리보기용
+    value 속성만 6자리로 맞춰준다 — 실제 저장/제출되는 값은 옆의 텍스트 입력칸(color.value) 그대로."""
+    v = value.lstrip('#')
+    if len(v) == 3:
+        v = ''.join(c * 2 for c in v)
+    elif len(v) == 4:
+        v = ''.join(c * 2 for c in v[:3])
+    elif len(v) == 8:
+        v = v[:6]
+    return '#' + v[:6].ljust(6, '0')
+
+
+@staff_member_required
+def theme_settings_view(request):
+    """사이트 색상(articles/static/articles/theme.css로 시작했던 CSS 변수)을 화면에서 바꾸는
+    관리자 전용 화면. 저장하면 ThemeColor 테이블만 바뀌고, theme_css_view가 다음 요청부터
+    바로 새 값으로 CSS를 내려주므로 재배포/재시작이 필요 없다."""
+    colors = list(ThemeColor.objects.all())
+
+    if request.method == 'POST':
+        errors = []
+        for color in colors:
+            new_value = request.POST.get(f'color_{color.pk}', '').strip()
+            if not new_value or not HEX_COLOR_RE.match(new_value):
+                errors.append(f"{color.name}: 유효하지 않은 색상값 '{new_value}' (예: #0d47a1)")
+                continue
+            if new_value != color.value:
+                color.value = new_value
+                color.save(update_fields=['value', 'updated_at'])
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            messages.success(request, "테마 색상이 저장되었습니다. 새로고침하면 바로 반영됩니다.")
+        return redirect('theme_settings')
+
+    for color in colors:
+        color.value_6 = _expand_hex_for_color_input(color.value)
+
+    groups = []
+    for group_code, group_label in ThemeColor.GROUP_CHOICES:
+        group_colors = [c for c in colors if c.group == group_code]
+        if group_colors:
+            groups.append((group_label, group_colors))
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '🎨 테마 색상 설정',
+        'groups': groups,
+    }
+    return render(request, 'articles/theme_settings.html', context)
+
+
+def theme_css_view(request):
+    """ThemeColor 테이블 값을 :root { --이름: 값; } CSS로 렌더링한다. 로그인 여부와 무관하게
+    모든 페이지의 <head>에서 스타일시트로 로드하므로 인증을 요구하지 않는다.
+    Cloudflare가 .css 확장자를 기준으로 origin의 Cache-Control과 무관하게 엣지에서 캐시해버려
+    관리자가 색을 바꿔도 최대 4시간 동안 예전 색이 보이는 문제가 있었다 — no-store로 명시해
+    (Cloudflare가 존중하는 한) 저장 즉시 반영되게 한다."""
+    colors = ThemeColor.objects.all()
+    lines = [f"    {c.name}: {c.value};" for c in colors]
+    css = ":root {\n" + "\n".join(lines) + "\n}\n"
+    response = HttpResponse(css, content_type='text/css')
+    response['Cache-Control'] = 'no-store, must-revalidate'
+    return response
 
 
 def _describe_cron_schedule(minute, hour, day, month, weekday):

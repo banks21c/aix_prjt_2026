@@ -6,16 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+        .section-title { font-weight: 800; color: var(--brand-primary, #0d47a1); border-left: 5px solid var(--brand-primary, #0d47a1); padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
         /* Toast UI Editor는 엔터를 새 <p>로 처리하고 기본 10px 위아래 여백을 준다 —
            문단 사이가 두 줄처럼 벌어져 보이지 않도록 여백을 줄인다(구조는 <p> 그대로 유지). */
         .toastui-editor-contents p { margin: 0 !important; }
+        /* 에디터를 제목 필드처럼 라벨 우측에 배치하면서 부모 flex 아이템이 카드 폭을
+           벗어나지 않도록, 에디터 자체 기본 min-width(320px)를 무시하고 부모 폭에 맞춘다. */
+        #contentEditor .toastui-editor-defaultUI { min-width: 0; width: 100%; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -34,13 +38,10 @@
         {% endif %}
 
         <div class="card card-custom bg-white p-4 mt-3">
-            <h3 class="fw-bold mb-2">✍️ 자유 포스팅</h3>
-            <p class="text-muted small mb-4">
-                원문 링크 없이 제목과 본문을 직접 입력해 기사를 등록합니다. 'AI 요약'을 누르면
-                입력한 내용으로 AI 3줄 요약·관점 분석·블로그 초안을 생성하고 상세 화면으로
-                이동합니다. 검토가 이미 끝난 원고라면 'AI 요약' 없이 입력한 내용 그대로 바로
-                포스팅할 수도 있습니다.
-            </p>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h3 class="fw-bold mb-0">✍️ 자유 포스팅</h3>
+                <a href="{% url 'news_scrape' %}" class="btn btn-outline-primary btn-sm flex-shrink-0">🔗 뉴스 수집</a>
+            </div>
 
             <p class="mb-4 d-flex flex-wrap gap-2">
                 {% if summarize_stats.remaining is None %}
@@ -70,26 +71,6 @@
             <form method="post" enctype="multipart/form-data" novalidate id="writeForm">
                 {% csrf_token %}
 
-                {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.name == 'content' %}
-                    <div id="contentEditor" class="mt-2"></div>
-                    {% endif %}
-                    {% if field.errors %}
-                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-
-                <div class="mb-3">
-                    <label for="thumbnailUploadInput" class="form-label fw-semibold">썸네일 업로드</label>
-                    <input type="file" name="thumbnail_upload" accept="image/*" class="form-control form-control-sm" id="thumbnailUploadInput">
-                    <div class="form-text">포스팅시 기본 썸네일 이미지가 생성됩니다. 다른 썸네일 이미지를 원하시면 업로드해주세요.</div>
-                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="업로드한 썸네일 미리보기">
-                </div>
-
                 {% if user_blog_accounts %}
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded">
                     <label class="fw-semibold small mb-0">포스팅 계정</label>
@@ -104,19 +85,68 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                    <span class="text-muted small ms-auto">'바로 포스팅'은 체크한 계정에만 발행됩니다.</span>
+                    <div class="d-flex gap-2 ms-auto">
+                        {% if user_blog_accounts %}
+                        <button type="submit" name="action" value="post_now" class="btn btn-outline-primary btn-sm" id="writePostBtnTop">
+                            바로 포스팅
+                        </button>
+                        {% endif %}
+                        <button type="submit" name="action" value="ai_summarize" class="btn btn-primary btn-sm" id="writeSubmitBtnTop" {% if summarize_stats.remaining == 0 %}disabled{% endif %}>
+                            AI 요약
+                        </button>
+                    </div>
                 </div>
                 {% endif %}
 
-                <div class="d-flex justify-content-end gap-2 mt-4">
-                    {% if user_blog_accounts %}
-                    <button type="submit" name="action" value="post_now" class="btn btn-outline-primary" id="writePostBtn">
-                        바로 포스팅
-                    </button>
+                {% for field in form %}
+                {% if field.name == 'title' %}
+                <div class="mb-3 d-flex align-items-center gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0 flex-shrink-0">{{ field.label }}</label>
+                    <div class="flex-grow-1">
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% elif field.name == 'content' %}
+                <div class="mb-3 d-flex align-items-start gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0 flex-shrink-0">{{ field.label }}</label>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        {{ field }}
+                        <div id="contentEditor" style="max-width: 100%;"></div>
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
                     {% endif %}
-                    <button type="submit" name="action" value="ai_summarize" class="btn btn-primary" id="writeSubmitBtn" {% if summarize_stats.remaining == 0 %}disabled{% endif %}>
-                        AI 요약
-                    </button>
+                </div>
+                {% endif %}
+                {% endfor %}
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="thumbnailUploadInput" class="form-label fw-semibold mb-0 flex-shrink-0">썸네일 업로드</label>
+                        <span id="thumbnailFileName" class="form-control form-control-sm text-muted text-truncate flex-grow-1">선택된 파일 없음</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="thumbnailChooseBtn">파일 선택</button>
+                        <input type="file" name="thumbnail_upload" accept="image/*" class="d-none" id="thumbnailUploadInput">
+                    </div>
+                    <div class="form-text">※ 포스팅시 기본 썸네일 이미지가 생성됩니다. 다른 썸네일 이미지를 원하시면 업로드해주세요.</div>
+                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="업로드한 썸네일 미리보기">
+
+                    <p class="text-muted small mt-3 mb-0">
+                        ※ 원문 링크 없이 제목과 본문을 직접 입력해 기사를 등록합니다. 'AI 요약'을 누르면
+                        입력한 내용으로 AI 3줄 요약·관점 분석·블로그 초안을 생성하고 상세 화면으로
+                        이동합니다. 검토가 이미 끝난 원고라면 'AI 요약' 없이 입력한 내용 그대로 바로
+                        포스팅할 수도 있습니다.
+                    </p>
                 </div>
             </form>
         </div>
@@ -137,7 +167,7 @@
 
             const editor = new toastui.Editor({
                 el: mount,
-                height: '360px',
+                height: '310px',
                 initialEditType: 'wysiwyg',
                 previewStyle: 'vertical',
                 initialValue: textarea.value,
@@ -154,19 +184,21 @@
 
         (function () {
             const form = document.getElementById('writeForm');
-            const submitBtn = document.getElementById('writeSubmitBtn');
-            const postBtn = document.getElementById('writePostBtn');
+            const actionButtons = form.querySelectorAll('button[name="action"]');
 
             // AI 호출/발행 API 호출 모두 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
+            // 상단/하단에 각각 복제된 버튼이 있으므로 name="action" 버튼 전체를 대상으로 처리한다.
             form.addEventListener('submit', function (e) {
-                const submitter = e.submitter;
-                if (submitter === postBtn) {
-                    postBtn.textContent = '⏳ 포스팅 중...';
-                    setTimeout(function () { postBtn.disabled = true; if (submitBtn) submitBtn.disabled = true; }, 0);
-                } else {
-                    submitBtn.textContent = '⏳ AI 요약 중... (최대 30초 소요)';
-                    setTimeout(function () { submitBtn.disabled = true; if (postBtn) postBtn.disabled = true; }, 0);
-                }
+                const submitterValue = e.submitter ? e.submitter.value : 'ai_summarize';
+                const loadingText = submitterValue === 'post_now'
+                    ? '⏳ 포스팅 중...'
+                    : '⏳ AI 요약 중... (최대 30초 소요)';
+                setTimeout(function () {
+                    actionButtons.forEach(function (btn) {
+                        if (btn.value === submitterValue) btn.textContent = loadingText;
+                        btn.disabled = true;
+                    });
+                }, 0);
             });
         })();
 
@@ -175,15 +207,23 @@
             // multipart/form-data로 thumbnail_upload 그대로 전달된다.
             const fileInput = document.getElementById('thumbnailUploadInput');
             const preview = document.getElementById('thumbnailPreview');
+            const chooseBtn = document.getElementById('thumbnailChooseBtn');
+            const fileName = document.getElementById('thumbnailFileName');
             if (!fileInput || !preview) return;
+
+            if (chooseBtn) {
+                chooseBtn.addEventListener('click', function () { fileInput.click(); });
+            }
 
             fileInput.addEventListener('change', function () {
                 const file = fileInput.files[0];
                 if (!file) {
+                    if (fileName) fileName.textContent = '선택된 파일 없음';
                     preview.classList.add('d-none');
                     preview.removeAttribute('src');
                     return;
                 }
+                if (fileName) fileName.textContent = file.name;
                 preview.src = URL.createObjectURL(file);
                 preview.classList.remove('d-none');
             });

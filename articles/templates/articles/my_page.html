@@ -6,20 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #212529; }
-        .platform-box { border: 1px solid #e9ecef; border-radius: 10px; padding: 16px; }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); }
+        .platform-box { border: 1px solid var(--border-light, #e9ecef); border-radius: 10px; padding: 16px; }
         .platform-box + .platform-box { margin-top: 14px; }
-        .form-check-input:checked { background-color: #0d47a1; border-color: #0d47a1; }
+        .form-check-input:checked { background-color: var(--brand-primary, #0d47a1); border-color: var(--brand-primary, #0d47a1); }
         .keyword-chip {
             display: inline-flex;
             align-items: center;
             padding: 6px 14px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             border-radius: 999px;
             font-size: 13px;
             cursor: pointer;
@@ -28,9 +29,9 @@
         }
         .keyword-chip input { display: none; }
         .keyword-chip:has(input:checked) {
-            background: #e9ecef;
-            border-color: #adb5bd;
-            color: #495057;
+            background: var(--border-light, #e9ecef);
+            border-color: var(--text-disabled, #adb5bd);
+            color: var(--text-secondary, #495057);
         }
         .keyword-chip:has(input:checked) span::before { content: "✓ "; }
     </style>
@@ -64,6 +65,13 @@
             {% for message in messages %}
             <div class="alert alert-{{ message.tags|default:'info' }} py-2">{{ message }}</div>
             {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if temp_password_active %}
+        <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+            <span>🔑 임시 비밀번호로 로그인 중입니다. 계속 사용하셔도 되지만, 보안을 위해 아래에서 비밀번호를 바꾸시는 것을 권장드려요.</span>
+            <a href="#password-change" class="btn btn-sm btn-warning flex-shrink-0">비밀번호 변경하기</a>
         </div>
         {% endif %}
 
@@ -106,12 +114,18 @@
             <!-- 2. 뉴스 구독 -->
             <div class="card card-custom bg-white p-4 mb-4">
                 <h5 class="section-title mb-3">2. 뉴스 구독</h5>
-                <div class="form-check form-switch mb-0">
-                    {{ pref_form.news_subscription }}
-                    <label class="form-check-label" for="{{ pref_form.news_subscription.id_for_label }}">
-                        관심 종목/키워드 관련 뉴스 구독
-                    </label>
+                <p class="text-muted small mb-2">구독 카테고리를 하나 선택하세요. 자동 포스팅(4번)도 이 카테고리의 콘텐츠만 발행됩니다.</p>
+                <div class="d-flex flex-wrap gap-3">
+                    {% for radio in pref_form.news_subscription %}
+                    <div class="form-check">
+                        {{ radio.tag }}
+                        <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                    </div>
+                    {% endfor %}
                 </div>
+                <p class="text-muted small mt-2 mb-0">
+                    "건강/의학"을 선택하면 <a href="{% url 'health_content_calendar' %}" target="_blank" rel="noopener noreferrer">건강정보 포스팅 예시 보기</a>, "음식/영양"을 선택하면 <a href="{% url 'food_content_calendar' %}" target="_blank" rel="noopener noreferrer">음식/영양 포스팅 예시 보기</a> — 요일마다 정해진 카테고리 안에서 매일 오전·오후 AI가 자동으로 작성한 글이 발행 대상이 됩니다.
+                </p>
             </div>
 
             <!-- 3. 관심 키워드 -->
@@ -192,22 +206,16 @@
                         </a>
                         {% endif %}
                         {% if account_form.instance.credential %}
-                        <form method="post" action="{% url 'blog_account_disconnect' platform_code %}" class="d-inline"
-                              onsubmit="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">연결 해제</button>
-                        </form>
+                        <button type="submit" form="disconnect-form-{{ platform_code }}" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">연결 해제</button>
                         {% endif %}
                     </div>
                     {% else %}
                     <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
                         {% if account_form.instance.credential %}
                             <span class="badge bg-success">연결됨</span>
-                            <form method="post" action="{% url 'blog_account_disconnect' platform_code %}" class="d-inline"
-                                  onsubmit="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger">연결 해제</button>
-                            </form>
+                            <button type="submit" form="disconnect-form-{{ platform_code }}" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('{{ platform_label }} 연결을 해제할까요? 저장된 계정 정보가 삭제됩니다.');">연결 해제</button>
                         {% else %}
                             <span class="badge bg-secondary">연결 안 됨</span>
                         {% endif %}
@@ -256,6 +264,44 @@
 
             <button type="submit" class="btn btn-primary px-4">저장</button>
         </form>
+
+        {% comment %}
+        "연결 해제" 버튼들의 실제 제출 대상. 위 설정 폼 안에 form을 중첩해서 넣으면(HTML은 폼
+        중첩을 허용하지 않음) 브라우저가 파싱 중 바깥쪽 설정 폼을 조기 종료시켜 그 아래 있던
+        "저장" 버튼이 어떤 폼에도 속하지 못하고 클릭해도 아무 일도 안 일어나는 문제가 있었다
+        (html5lib로 실측 확인). 그래서 연결 해제용 form은 설정 폼 밖에 따로 두고, 버튼은 원래
+        위치에 남긴 채 form 속성(HTML5 form= attribute)으로만 연결한다.
+        {% endcomment %}
+        {% for platform_code, platform_label, account_form in platform_forms %}
+        {% if account_form.instance.credential %}
+        <form method="post" action="{% url 'blog_account_disconnect' platform_code %}" id="disconnect-form-{{ platform_code }}" class="d-none">
+            {% csrf_token %}
+        </form>
+        {% endif %}
+        {% endfor %}
+
+        <!-- 5. 비밀번호 변경 (임시 비밀번호로 로그인했을 때 위 배너의 링크가 여기로 스크롤) -->
+        <div id="password-change" class="card card-custom bg-white p-4 mb-4">
+            <h5 class="section-title mb-3">5. 비밀번호 변경</h5>
+            <form method="post" action="{% url 'change_password' %}">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted" for="id_old_password">현재 비밀번호</label>
+                        <input type="password" name="old_password" id="id_old_password" class="form-control" autocomplete="current-password" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted" for="id_new_password1">새 비밀번호</label>
+                        <input type="password" name="new_password1" id="id_new_password1" class="form-control" autocomplete="new-password" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted" for="id_new_password2">새 비밀번호 확인</label>
+                        <input type="password" name="new_password2" id="id_new_password2" class="form-control" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm mt-3">비밀번호 변경</button>
+            </form>
+        </div>
 
         <div class="text-end mt-3">
             <form method="post" action="{% url 'delete_account' %}"

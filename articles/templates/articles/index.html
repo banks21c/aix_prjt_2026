@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -15,8 +16,8 @@
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background-color: #f4f6f9;
-            color: #212529;
+            background-color: var(--bg-page, #f4f6f9);
+            color: var(--text-primary, #212529);
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         a { text-decoration: none; }
@@ -33,10 +34,10 @@
             border: 1px solid transparent;
             cursor: pointer;
         }
-        .btn-outline { border-color: #ced4da; color: #495057; background: #fff; }
-        .btn-outline:hover { background: #f1f3f5; }
-        .btn-primary { background: #0d47a1; color: #fff; }
-        .btn-primary:hover { background: #0b3c8a; }
+        .btn-outline { border-color: var(--border-input, #ced4da); color: var(--text-secondary, #495057); background: var(--color-white, #fff); }
+        .btn-outline:hover { background: var(--bg-hover, #f1f3f5); }
+        .btn-primary { background: var(--brand-primary, #0d47a1); color: var(--color-white, #fff); }
+        .btn-primary:hover { background: var(--brand-primary-hover, #0b3c8a); }
 
         .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
         .site-messages li {
@@ -45,13 +46,13 @@
             font-size: 14px;
             font-weight: 600;
         }
-        .site-messages .success { background: #e6f4ea; color: #1e7e34; }
-        .site-messages .error { background: #fdecea; color: #c62828; }
+        .site-messages .success { background: var(--bg-success-soft, #e6f4ea); color: var(--color-success, #1e7e34); }
+        .site-messages .error { background: var(--bg-danger-soft, #fdecea); color: var(--color-danger, #c62828); }
 
         /* 히어로 섹션 */
         .hero {
-            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 60%, #1e88e5 100%);
-            color: #fff;
+            background: linear-gradient(135deg, var(--brand-primary, #0d47a1) 0%, var(--brand-accent, #1565c0) 60%, #1e88e5 100%);
+            color: var(--color-white, #fff);
             padding: 96px 0 80px;
         }
         .hero h1 {
@@ -63,14 +64,14 @@
         .hero p {
             font-size: 17px;
             line-height: 1.7;
-            color: #dce8fb;
+            color: var(--brand-hero-text, #dce8fb);
             max-width: 640px;
             margin: 0 0 32px;
         }
         .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-        .hero .btn-primary { background: #ffffff; color: #0d47a1; }
+        .hero .btn-primary { background: var(--color-white, #fff); color: var(--brand-primary, #0d47a1); }
         .hero .btn-primary:hover { background: #eef3fb; }
-        .hero .btn-outline { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
+        .hero .btn-outline { background: transparent; color: var(--color-white, #fff); border-color: rgba(255,255,255,0.6); }
         .hero .btn-outline:hover { background: rgba(255,255,255,0.12); }
         .hero-stat {
             margin-top: 48px;
@@ -82,7 +83,7 @@
             border-radius: 12px;
         }
         .hero-stat strong { font-size: 26px; font-weight: 800; }
-        .hero-stat span { font-size: 14px; color: #dce8fb; }
+        .hero-stat span { font-size: 14px; color: var(--brand-hero-text, #dce8fb); }
 
         .hero-grid { display: block; }
         /* slick.js가 원본 슬라이드 엘리먼트에 직접 .slick-slide 클래스를 붙이는데(별도 래퍼 없이),
@@ -135,7 +136,7 @@
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.04em;
-            color: #dce8fb;
+            color: var(--brand-hero-text, #dce8fb);
             margin-bottom: 4px;
         }
         .hero-chart-label .dot {
@@ -162,7 +163,7 @@
             margin-top: 6px;
         }
         .hero-chart-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
-        .hero-chart-unit { font-size: 12px; color: #dce8fb; }
+        .hero-chart-unit { font-size: 12px; color: var(--brand-hero-text, #dce8fb); }
 
         /* 슬라이드1 — AI 예측 파이프라인 다이어그램. 5개 레이어(데이터→피처→RF/LightGBM→
            앙상블→예측가) 카드가 세로로 쌓이고, 위에서 아래로 순차적으로 밝아지며 활성화되는
@@ -192,15 +193,15 @@
         .mlp-layer1 { opacity: 1; filter: none; transform: none; animation: none; border-color: rgba(255,255,255,0.2); }
         .mlp-card-title {
             display: flex; align-items: center; gap: 5px;
-            font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 3px;
+            font-size: 10px; font-weight: 700; color: var(--color-white, #fff); margin-bottom: 3px;
         }
-        .mlp-card-title-sm { font-size: 9px; font-weight: 700; color: #fff; text-align: center; margin-top: 3px; }
+        .mlp-card-title-sm { font-size: 9px; font-weight: 700; color: var(--color-white, #fff); text-align: center; margin-top: 3px; }
         .mlp-card-sub { font-size: 7.5px; color: #aebfdc; margin-top: 3px; }
-        .mlp-icon { width: 14px; height: 14px; flex: none; color: #fff; }
+        .mlp-icon { width: 14px; height: 14px; flex: none; color: var(--color-white, #fff); }
         .mlp-candles { display: block; width: 100%; height: 28px; }
         .mlp-pills { display: flex; flex-wrap: wrap; gap: 3px; }
         .mlp-pill {
-            font-size: 7px; font-weight: 600; color: #dce8fb;
+            font-size: 7px; font-weight: 600; color: var(--brand-hero-text, #dce8fb);
             background: rgba(0,194,168,0.16); border: 1px solid rgba(0,194,168,0.4);
             border-radius: 999px; padding: 2px 5px;
             opacity: 0; transform: translateY(3px);
@@ -256,8 +257,8 @@
         }
         @keyframes mlpArrow {
             0% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
-            6% { opacity: 1; background: linear-gradient(#00c2a8, #facc15); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
-            92% { opacity: 1; background: linear-gradient(#00c2a8, #facc15); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            6% { opacity: 1; background: linear-gradient(#00c2a8, var(--color-gold, #facc15)); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            92% { opacity: 1; background: linear-gradient(#00c2a8, var(--color-gold, #facc15)); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
             97%, 100% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
         }
         .mlp-sparkline { display: block; width: 100%; height: 22px; margin-top: 2px; }
@@ -276,7 +277,7 @@
         .mlp-bar-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
         .mlp-bar-label { font-size: 6.5px; color: #aebfdc; width: 34px; flex: none; }
         .mlp-bar { flex: 1 1 auto; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
-        .mlp-bar-value { font-size: 6.5px; color: #dce8fb; width: 26px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+        .mlp-bar-value { font-size: 6.5px; color: var(--brand-hero-text, #dce8fb); width: 26px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
         .mlp-bar-fill { height: 100%; border-radius: 3px; }
         .mlp-bar-base .mlp-bar-fill {
             width: 0%; background: #64748b;
@@ -289,7 +290,7 @@
             97%, 100% { width: 0%; }
         }
         .mlp-bar-fill-improved {
-            width: 0%; background: linear-gradient(90deg, #facc15, #22c55e);
+            width: 0%; background: linear-gradient(90deg, var(--color-gold, #facc15), var(--color-success-alt, #22c55e));
             animation: mlpBarImproved 9s ease-in-out infinite;
         }
         @keyframes mlpBarImproved {
@@ -300,7 +301,7 @@
         }
         .mlp-badge {
             margin-top: 5px; text-align: center; font-size: 7.5px; font-weight: 700;
-            color: #22c55e; background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4);
+            color: var(--color-success-alt, #22c55e); background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4);
             border-radius: 999px; padding: 2px 6px;
             opacity: 0; transform: scale(0.7);
             animation: mlpBadgePop 9s ease-in-out infinite;
@@ -344,14 +345,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            color: var(--color-white, #fff);
             animation: flowGlow 4.5s ease-in-out infinite;
         }
         .hero-flow-icon svg { width: 20px; height: 20px; }
         .hero-flow-node:nth-child(1) .hero-flow-icon { animation-delay: 0s; }
         .hero-flow-node:nth-child(3) .hero-flow-icon { animation-delay: -1.5s; }
         .hero-flow-node:nth-child(5) .hero-flow-icon { animation-delay: -3s; }
-        .hero-flow-label { font-size: 11px; font-weight: 700; color: #dce8fb; text-align: center; line-height: 1.35; }
+        .hero-flow-label { font-size: 11px; font-weight: 700; color: var(--brand-hero-text, #dce8fb); text-align: center; line-height: 1.35; }
         .hero-flow-arrow { position: relative; flex: 1 1 auto; height: 2px; background: rgba(255,255,255,0.2); margin: 0 -4px 20px; border-radius: 2px; overflow: visible; }
         .hero-flow-arrow::after {
             content: '';
@@ -412,15 +413,15 @@
         .hero-slick .slick-dots li button { width: 9px; height: 9px; padding: 0; }
         .hero-slick .slick-dots li button:before {
             content: ''; width: 9px; height: 9px; left: 0; top: 0; border-radius: 50%;
-            background: #fff; opacity: 0.4;
+            background: var(--color-white, #fff); opacity: 0.4;
         }
         .hero-slick .slick-dots li.slick-active button:before { opacity: 1; }
 
         /* 섹션 공통 */
         section { padding: 72px 0; }
         .section-title { text-align: center; margin-bottom: 48px; }
-        .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; color: #212529; }
-        .section-title p { font-size: 15px; color: #6c757d; margin: 0; }
+        .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; color: var(--text-primary, #212529); }
+        .section-title p { font-size: 15px; color: var(--text-muted, #6c757d); margin: 0; }
 
         /* 기능 카드 */
         .feature-grid {
@@ -429,7 +430,7 @@
             gap: 24px;
         }
         .feature-card {
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 12px;
             padding: 32px 28px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -437,12 +438,12 @@
         }
         .feature-card:hover { transform: translateY(-4px); }
         .feature-card .icon { font-size: 30px; margin-bottom: 16px; }
-        .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: #0d47a1; }
-        .feature-card p { font-size: 14px; line-height: 1.65; color: #6c757d; margin: 0; }
+        .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: var(--brand-primary, #0d47a1); }
+        .feature-card p { font-size: 14px; line-height: 1.65; color: var(--text-muted, #6c757d); margin: 0; }
 
         /* 진행 절차 */
         .flow {
-            background: #fff;
+            background: var(--color-white, #fff);
         }
         .flow-grid {
             display: grid;
@@ -458,14 +459,14 @@
             height: 36px;
             line-height: 36px;
             border-radius: 50%;
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             font-weight: 700;
             margin: 0 auto 14px;
             font-size: 14px;
         }
-        .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; color: #212529; }
-        .flow-step p { font-size: 13px; color: #6c757d; margin: 0; line-height: 1.6; }
+        .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary, #212529); }
+        .flow-step p { font-size: 13px; color: var(--text-muted, #6c757d); margin: 0; line-height: 1.6; }
 
         /* 최신 뉴스 */
         .news-list { display: flex; flex-direction: column; gap: 8px; }
@@ -473,28 +474,28 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 10px;
             padding: 12px 22px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             color: inherit;
             overflow: hidden;
         }
-        .news-item .stock { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: #0d47a1; white-space: nowrap; }
+        .news-item .stock { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--brand-primary, #0d47a1); white-space: nowrap; }
         .news-item .title {
             flex: 1 1 auto;
             min-width: 0;
-            font-size: 14px; font-weight: 600; color: #212529;
+            font-size: 14px; font-weight: 600; color: var(--text-primary, #212529);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .news-item .date { flex: 0 0 auto; font-size: 12px; color: #adb5bd; white-space: nowrap; }
-        .news-item .badge-nolink { flex: 0 0 auto; font-size: 11px; font-weight: 500; color: #adb5bd; border: 1px solid #dee2e6; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
-        .news-empty { text-align: center; color: #adb5bd; font-size: 14px; padding: 32px 0; }
+        .news-item .date { flex: 0 0 auto; font-size: 12px; color: var(--text-disabled, #adb5bd); white-space: nowrap; }
+        .news-item .badge-nolink { flex: 0 0 auto; font-size: 11px; font-weight: 500; color: var(--text-disabled, #adb5bd); border: 1px solid var(--border-subtle, #dee2e6); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+        .news-empty { text-align: center; color: var(--text-disabled, #adb5bd); font-size: 14px; padding: 32px 0; }
 
         /* 뉴스레터 */
-        .newsletter { background: #fff; border-top: 1px solid #e9ecef; text-align: center; }
+        .newsletter { background: var(--color-white, #fff); border-top: 1px solid var(--border-light, #e9ecef); text-align: center; }
         .newsletter h2 { font-size: 22px; font-weight: 800; margin: 0 0 10px; }
-        .newsletter p { font-size: 14px; color: #6c757d; margin: 0 0 24px; }
+        .newsletter p { font-size: 14px; color: var(--text-muted, #6c757d); margin: 0 0 24px; }
         .newsletter-form {
             display: flex;
             gap: 10px;
@@ -505,16 +506,16 @@
             flex: 1;
             padding: 12px 16px;
             border-radius: 8px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             font-size: 14px;
         }
-        .newsletter-form input[type="email"]:focus { outline: none; border-color: #0d47a1; }
+        .newsletter-form input[type="email"]:focus { outline: none; border-color: var(--brand-primary, #0d47a1); }
         .newsletter-form .btn-primary { white-space: nowrap; }
         .newsletter-consent {
             margin: 0 auto 20px;
             font-size: 11.5px;
             line-height: 1.7;
-            color: #adb5bd;
+            color: var(--text-disabled, #adb5bd);
         }
         @media (max-width: 480px) {
             .newsletter-form { flex-direction: column; }
@@ -538,8 +539,8 @@
             width: 56px;
             height: 56px;
             border-radius: 50%;
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             border: none;
             box-shadow: 0 6px 16px rgba(13,71,161,0.35);
             cursor: pointer;
@@ -548,12 +549,12 @@
             align-items: center;
             justify-content: center;
         }
-        .chatbot-toggle:hover { background: #0b3c8a; }
+        .chatbot-toggle:hover { background: var(--brand-primary-hover, #0b3c8a); }
         .chatbot-bubble-icon {
             position: relative;
             width: 30px;
             height: 20px;
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 7px;
             display: flex;
             align-items: center;
@@ -569,13 +570,13 @@
             height: 0;
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
-            border-top: 6px solid #fff;
+            border-top: 6px solid var(--color-white, #fff);
         }
         .chatbot-bubble-dot {
             width: 4px;
             height: 4px;
             border-radius: 50%;
-            background: #0d47a1;
+            background: var(--brand-primary, #0d47a1);
             animation: chatbotBubbleDot 1.2s infinite ease-in-out;
         }
         .chatbot-bubble-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -593,7 +594,7 @@
             max-width: calc(100vw - 32px);
             height: 460px;
             max-height: calc(100vh - 140px);
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 14px;
             box-shadow: 0 12px 32px rgba(0,0,0,0.18);
             display: none;
@@ -603,8 +604,8 @@
         }
         .chatbot-panel.open { display: flex; }
         .chatbot-header {
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             padding: 14px 16px;
             font-size: 14px;
             font-weight: 700;
@@ -612,8 +613,8 @@
             justify-content: space-between;
             align-items: center;
         }
-        .chatbot-header small { display: block; font-weight: 400; font-size: 11px; color: #dce8fb; margin-top: 2px; }
-        .chatbot-close { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+        .chatbot-header small { display: block; font-weight: 400; font-size: 11px; color: var(--brand-hero-text, #dce8fb); margin-top: 2px; }
+        .chatbot-close { background: none; border: none; color: var(--color-white, #fff); font-size: 18px; cursor: pointer; line-height: 1; }
         .chatbot-messages {
             flex: 1;
             overflow-y: auto;
@@ -621,25 +622,25 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            background: #f4f6f9;
+            background: var(--bg-page, #f4f6f9);
         }
         .chatbot-msg { max-width: 85%; padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
-        .chatbot-msg.user { align-self: flex-end; background: #0d47a1; color: #fff; border-bottom-right-radius: 2px; }
-        .chatbot-msg.bot { align-self: flex-start; background: #fff; color: #212529; border: 1px solid #e9ecef; border-bottom-left-radius: 2px; }
-        .chatbot-msg.bot.pending { color: #adb5bd; }
-        .chatbot-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e9ecef; }
+        .chatbot-msg.user { align-self: flex-end; background: var(--brand-primary, #0d47a1); color: var(--color-white, #fff); border-bottom-right-radius: 2px; }
+        .chatbot-msg.bot { align-self: flex-start; background: var(--color-white, #fff); color: var(--text-primary, #212529); border: 1px solid var(--border-light, #e9ecef); border-bottom-left-radius: 2px; }
+        .chatbot-msg.bot.pending { color: var(--text-disabled, #adb5bd); }
+        .chatbot-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border-light, #e9ecef); }
         .chatbot-input-row input {
             flex: 1;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             border-radius: 8px;
             padding: 9px 12px;
             font-size: 13px;
             outline: none;
         }
-        .chatbot-input-row input:focus { border-color: #0d47a1; }
+        .chatbot-input-row input:focus { border-color: var(--brand-primary, #0d47a1); }
         .chatbot-input-row button {
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             border: none;
             border-radius: 8px;
             padding: 0 16px;
@@ -647,7 +648,7 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .chatbot-input-row button:disabled { background: #adb5bd; cursor: not-allowed; }
+        .chatbot-input-row button:disabled { background: var(--text-disabled, #adb5bd); cursor: not-allowed; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -905,13 +906,13 @@
                 {% if article.original_content %}
                 <a href="{% url 'news_detail' article.pk %}" class="news-item">
                     <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
-                    <span class="title">{{ article.title }}</span>
+                    <span class="title">{{ article.display_title }}</span>
                     <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
                 </a>
                 {% else %}
                 <div class="news-item">
                     <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
-                    <span class="title">{{ article.title }}</span>
+                    <span class="title">{{ article.display_title }}</span>
                     <span class="badge-nolink">본문없음</span>
                     <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
                 </div>

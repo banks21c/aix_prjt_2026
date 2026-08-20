@@ -142,3 +142,71 @@ class FinancialConsultSheet(models.Model):
 
     def __str__(self):
         return f"{self.customer_name or '(무기명)'} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+# ==========================================
+# 12. FAQ (자주 묻는 질문) 게시판
+# ==========================================
+class Faq(models.Model):
+    """관리자가 등록/수정하는 FAQ 목록. 회원이 직접 글을 쓰는 게시판이 아니라 Menu처럼
+    /admin/에서만 관리되고, 공개 페이지(faq_board_view)는 조회/검색/카테고리 필터만 제공한다."""
+    CATEGORY_CHOICES = [
+        ('ACCOUNT', '회원/계정'),
+        ('SUBSCRIPTION', '구독/이용권'),
+        ('PREDICTION', 'AI 예측'),
+        ('BLOG', '블로그 자동 발행'),
+        ('NEWSLETTER', '뉴스레터'),
+        ('ETC', '기타'),
+    ]
+
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='ETC', verbose_name="분류")
+    question = models.CharField(max_length=200, verbose_name="질문")
+    answer = models.TextField(verbose_name="답변")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    is_active = models.BooleanField(default=True, verbose_name="게시 여부")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록일")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일")
+
+    class Meta:
+        ordering = ['category', 'order', 'id']
+        verbose_name = "FAQ"
+        verbose_name_plural = "FAQ 관리 (Faq)"
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.question}"
+
+
+# ==========================================
+# 13. 사이트 색상 테마 (CSS 변수 하나당 한 행)
+# ==========================================
+class ThemeColor(models.Model):
+    """articles/static/articles/theme.css에 하드코딩되어 있던 CSS 변수(:root { --이름: 값; })를
+    DB로 옮긴 것 — theme_css_view가 이 테이블을 읽어 실시간으로 CSS를 렌더링하고, 각 템플릿은
+    {% static %}이 아니라 {% url 'theme_css' %}로 그 결과를 불러온다. theme_settings_view(관리자
+    전용 화면)에서 값을 바꾸면 재배포/재시작 없이 사이트 전체 색이 즉시 바뀐다. 템플릿의
+    var(--이름, #원래값) 두 번째 인자(fallback)는 이 테이블/뷰와 무관하게 그대로 남아있어,
+    이 메커니즘이 어떤 이유로든 응답하지 않아도 기존 색으로 안전하게 보인다."""
+    GROUP_CHOICES = [
+        ('BRAND', '브랜드 블루'),
+        ('BG', '배경'),
+        ('TEXT', '텍스트'),
+        ('BORDER', '테두리'),
+        ('DANGER', '위험/오류'),
+        ('SUCCESS', '성공'),
+        ('OTHER', '경고/기타'),
+    ]
+
+    name = models.CharField(max_length=50, unique=True, verbose_name="CSS 변수명 (예: --brand-primary)")
+    value = models.CharField(max_length=20, verbose_name="색상값 (예: #0d47a1)")
+    label = models.CharField(max_length=50, blank=True, verbose_name="설명")
+    group = models.CharField(max_length=10, choices=GROUP_CHOICES, default='OTHER', verbose_name="분류")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
+
+    class Meta:
+        ordering = ['group', 'order', 'name']
+        verbose_name = "테마 색상 (ThemeColor)"
+        verbose_name_plural = "테마 색상 관리 (ThemeColor)"
+
+    def __str__(self):
+        return f"{self.name} = {self.value}"

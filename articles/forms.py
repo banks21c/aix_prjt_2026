@@ -15,10 +15,11 @@ PHONE_NUMBER_RE = re.compile(r'^0\d{1,2}-?\d{3,4}-?\d{4}$')
 
 
 class SignUpForm(forms.Form):
-    username = forms.CharField(max_length=150, label="아이디")
-    email = forms.EmailField(label="이메일")
-    password1 = forms.CharField(widget=forms.PasswordInput, label="비밀번호")
-    password2 = forms.CharField(widget=forms.PasswordInput, label="비밀번호 확인")
+    # 브라우저 자동완성/저장된 다른 계정 정보가 잘못 채워지는 걸 막기 위해 전 필드 autocomplete을 끈다.
+    username = forms.CharField(max_length=150, label="아이디", widget=forms.TextInput(attrs={'autocomplete': 'off'}))
+    email = forms.EmailField(label="이메일", widget=forms.EmailInput(attrs={'autocomplete': 'off'}))
+    password1 = forms.CharField(widget=forms.PasswordInput(attrs={'autocomplete': 'off'}), label="비밀번호")
+    password2 = forms.CharField(widget=forms.PasswordInput(attrs={'autocomplete': 'off'}), label="비밀번호 확인")
 
     def clean_username(self):
         username = self.cleaned_data['username']
@@ -48,6 +49,20 @@ class SignUpForm(forms.Form):
 
 
 class LoginForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 브라우저 자동완성/저장된 비밀번호 자동입력으로 다른 계정의 아이디·비밀번호가
+        # 잘못 채워지는 사고를 막기 위해 이 로그인 폼만 autocomplete을 끈다.
+        self.fields['username'].widget.attrs['autocomplete'] = 'off'
+        self.fields['password'].widget.attrs['autocomplete'] = 'off'
+
+    def clean_password(self):
+        # AuthenticationForm의 기본 password 필드는 strip=False라 앞뒤 공백을 그대로 살려
+        # authenticate()에 넘긴다 — 임시 비밀번호(find_password_view 발급분)를 이메일에서
+        # 복사할 때 줄바꿈/공백이 같이 딸려 들어와 로그인에 실패하는 사례가 있어, 여기서만
+        # 앞뒤 공백을 제거해 실제 비밀번호에 공백이 포함된 경우가 아니면 문제없이 통과시킨다.
+        return self.cleaned_data.get('password', '').strip()
+
     # 이메일 인증 전(is_active=False)에는 로그인을 막고, 원인을 알 수 있게 한국어 메시지로 안내
     def confirm_login_allowed(self, user):
         if not user.is_active:
@@ -55,6 +70,16 @@ class LoginForm(AuthenticationForm):
                 "이메일 인증이 완료되지 않은 계정입니다. 가입 시 받은 메일에서 인증을 완료해주세요.",
                 code='inactive',
             )
+
+
+class FindPasswordForm(forms.Form):
+    email = forms.EmailField(label="이메일")
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if not User.objects.filter(email=email, is_active=True).exists():
+            raise forms.ValidationError("가입된 계정을 찾을 수 없습니다.")
+        return email
 
 
 class UserContactForm(forms.ModelForm):
@@ -91,12 +116,12 @@ class UserPreferenceForm(forms.ModelForm):
         fields = ['phone_number', 'news_subscription', 'post_all_articles', 'auto_posting_enabled']
         labels = {
             'phone_number': '전화번호',
-            'news_subscription': '뉴스 구독',
+            'news_subscription': '구독 카테고리',
             'post_all_articles': '전체 발행(관심 키워드 무시하고 모든 기사 발행)',
             'auto_posting_enabled': '자동 포스팅 사용',
         }
         widgets = {
-            'news_subscription': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'news_subscription': forms.RadioSelect(attrs={'class': 'form-check-input'}),
             'post_all_articles': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'auto_posting_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '010-1234-5678'}),
@@ -218,7 +243,7 @@ class NewsWriteForm(forms.Form):
         label="내용",
         widget=forms.Textarea(attrs={
             'class': 'form-control',
-            'rows': 14,
+            'rows': 12,
             'placeholder': '본문을 붙여넣으세요',
         }),
     )
@@ -235,11 +260,12 @@ class NewsArticleEditForm(forms.ModelForm):
     class Meta:
         model = AnalyzedArticle
         fields = [
-            'title', 'source_media', 'ai_summary', 'ai_analysis', 'blog_content',
+            'title', 'ai_title', 'source_media', 'ai_summary', 'ai_analysis', 'blog_content',
             'applied_template', 'is_premium',
         ]
         labels = {
             'title': '원본 제목',
+            'ai_title': 'AI 가공 제목',
             'source_media': '언론사',
             'ai_summary': 'AI 3줄 요약',
             'ai_analysis': 'AI 관점 분석',
@@ -249,6 +275,7 @@ class NewsArticleEditForm(forms.ModelForm):
         }
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'ai_title': forms.TextInput(attrs={'class': 'form-control'}),
             'source_media': forms.TextInput(attrs={'class': 'form-control'}),
             'ai_summary': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'ai_analysis': forms.Textarea(attrs={'class': 'form-control', 'rows': 6}),

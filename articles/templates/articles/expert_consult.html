@@ -7,22 +7,23 @@
     <title>{{ site_title }}</title>
     <meta name="description" content="국민연금부터 부동산까지, 자산 전체를 함께 점검해드립니다. 전문가에게 무료로 상담을 신청하세요.">
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f4f6f9;
-            color: #212529;
+            background-color: var(--bg-page, #f4f6f9);
+            color: var(--text-primary, #212529);
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         /* 히어로를 화면 전체를 가로지르는 띠가 아니라 카드와 같은 폭의 박스로 만든다.
            바깥(.ec-hero)은 .ec-body와 max-width/padding을 똑같이 맞춰 어떤 화면폭에서도
            카드와 좌우 선이 정확히 일치하게 하고, 파란 박스는 안쪽(.ec-hero-box)에만 그린다. */
         .ec-hero { max-width: 952px; margin: 0 auto; padding: 28px 20px 0; }
-        /* 딥 네이비. 카드 안 강조색(#0d47a1)과 같은 파란 계열이라 따로 놀지 않으면서
+        /* 딥 네이비. 카드 안 강조색(var(--brand-primary, #0d47a1))과 같은 파란 계열이라 따로 놀지 않으면서
            충분히 어두워, 흰 제목 15.2:1 / 본문 7.4:1로 WCAG AA를 여유 있게 넘긴다. */
         .ec-hero-box {
-            background: linear-gradient(135deg, #0a2647, #144272);
-            color: #fff;
+            background: linear-gradient(135deg, var(--brand-navy-start, #0a2647), var(--brand-navy-end, #144272));
+            color: var(--color-white, #fff);
             border-radius: 14px;
             box-shadow: 0 6px 18px rgba(10,38,71,0.22);
             padding: 34px 30px 38px;
@@ -34,7 +35,7 @@
             font-size: 32px; font-weight: 800; margin: 0 auto 14px;
             max-width: 700px; line-height: 1.45; word-break: keep-all;
         }
-        .ec-hero p { font-size: 16px; color: #dce8fb; margin: 0 auto; max-width: 560px; line-height: 1.7; }
+        .ec-hero p { font-size: 16px; color: var(--brand-hero-text, #dce8fb); margin: 0 auto; max-width: 560px; line-height: 1.7; }
         /* 카드 세 장을 모두 92px씩 넓히기 위해 컨테이너 폭을 860 → 952로 올린다.
            카드마다 음수 마진을 주면 컨테이너 밖으로 삐져나와 좁은 화면에서 가로 스크롤이
            생기지만, max-width는 화면이 좁아지면 알아서 줄어들어 그럴 일이 없다. */
@@ -42,7 +43,7 @@
            같은 폭의 박스라 겹치면 어색하다. 카드끼리의 간격(28px)과 똑같이 띄운다. */
         .ec-body { max-width: 952px; margin: 28px auto 80px; padding: 0 20px; }
         .ec-card {
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 14px;
             box-shadow: 0 6px 18px rgba(0,0,0,0.06);
             padding: 36px 40px;
@@ -54,10 +55,10 @@
         .ec-profile-card {
             box-shadow: 0 14px 34px rgba(13,71,161,0.16), 0 3px 8px rgba(13,71,161,0.08);
         }
-        .ec-card h2 { font-size: 19px; font-weight: 800; color: #0d47a1; margin: 0 0 20px; }
+        .ec-card h2 { font-size: 19px; font-weight: 800; color: var(--brand-primary, #0d47a1); margin: 0 0 20px; }
         .ec-photo {
             width: 150px; height: 150px; border-radius: 50%;
-            background: #e3ecfa; color: #0d47a1;
+            background: #e3ecfa; color: var(--brand-primary, #0d47a1);
             display: flex; align-items: center; justify-content: center;
             font-size: 46px; font-weight: 800; flex: 0 0 auto;
             /* 원본이 세로로 긴 증명사진이라 object-fit:cover 기본(중앙 정렬)이면 위쪽
@@ -81,10 +82,10 @@
            별도 블록으로 감싼다. 사진 ↔ 이름은 12px, 이름 ↔ 직함은 4px가 된다. */
         .ec-identity-text { text-align: center; word-break: keep-all; }
         .ec-profile-name { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
-        .ec-profile-title { font-size: 14px; color: #6c757d; margin: 0; }
+        .ec-profile-title { font-size: 14px; color: var(--text-muted, #6c757d); margin: 0; }
         .ec-profile dl { margin: 0; }
-        .ec-profile dt { font-size: 13px; font-weight: 700; color: #0d47a1; margin-top: 14px; }
-        .ec-profile dd { font-size: 14px; color: #343a40; margin: 4px 0 0; line-height: 1.7; }
+        .ec-profile dt { font-size: 13px; font-weight: 700; color: var(--brand-primary, #0d47a1); margin-top: 14px; }
+        .ec-profile dd { font-size: 14px; color: var(--text-body-alt, #343a40); margin: 4px 0 0; line-height: 1.7; }
         /* 경력·자격을 좌우 2단 박스로 나눈다. 카드 안의 카드라 테두리는 아주 옅게만 준다.
            아래 두 규칙은 위의 .ec-profile dt/dl 기본값을 덮어야 하므로 반드시 뒤에 온다. */
         .ec-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -98,36 +99,21 @@
         .ec-fact-list { list-style: none; margin: 0; padding: 0; }
         .ec-fact-list li { padding: 3px 0; line-height: 1.6; }
         /* 항목명 옆에 붙는 보조 텍스트 — .ec-year는 연도, .ec-note는 수상 내역처럼 연도가 아닌 것. */
-        .ec-year, .ec-note { color: #6c757d; font-size: 13px; white-space: nowrap; margin-left: 8px; }
+        .ec-year, .ec-note { color: var(--text-muted, #6c757d); font-size: 13px; white-space: nowrap; margin-left: 8px; }
         .ec-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
         .ec-tag {
-            background: #eef3fb; color: #0d47a1; border-radius: 999px;
+            background: #eef3fb; color: var(--brand-primary, #0d47a1); border-radius: 999px;
             padding: 4px 12px; font-size: 12px; font-weight: 700;
         }
         /* 운영자가 채워야 하는 자리표시자를 눈에 띄게 표시한다 — 이 배경색이 화면에 보이면
            아직 실제 문구가 들어오지 않은 것이므로 운영 배포해서는 안 된다. */
-        .ec-todo { background: #fff3cd; color: #664d03; padding: 0 4px; border-radius: 3px; }
+        .ec-todo { background: var(--bg-warning-soft, #fff3cd); color: #664d03; padding: 0 4px; border-radius: 3px; }
         /* 번호가 의미를 갖는 목록이라 ol을 쓰고, 01~12 번호는 CSS 카운터로 그린다.
            list-style:none을 준 목록은 Safari가 접근성 트리에서 목록 시맨틱을 버리므로
            마크업 쪽에 role="list"를 함께 달아둔다. */
-        /* 12가지 카드에만 AI 어드바이저 이미지를 배경으로 깐다. 원본이 짙은 남색이라
-           글자는 흰색으로 간다. 이미지는 ::before 레이어에 넣는데, 카드에 직접 배경을 주면
-           나중에 투명도나 필터를 걸 때 본문 글씨까지 같이 영향을 받기 때문이다. */
-        .ec-vows-card { position: relative; overflow: hidden; }
-        /* .ec-card h2와 특정도가 같아 이 규칙이 뒤에 와야 이긴다. */
-        .ec-vows-card h2 { color: #fff; }
-        .ec-vows-card::before {
-            content: ""; position: absolute; inset: 0;
-            /* 세로로 긴 원본을 가로가 넓은 카드에 cover로 채우면 위아래가 잘린다.
-               center로 두면 인물의 머리가 날아가므로 위쪽을 기준으로 붙인다. */
-            background: url("{% static 'articles/expert-vows-bg.webp' %}") center top / cover no-repeat;
-            filter: saturate(1.25);
-            pointer-events: none;
-            z-index: 0;
-        }
-        /* ::before는 위치 지정 요소라 그냥 두면 위치 지정이 없는 본문을 덮어버린다.
-           본문에도 position/z-index를 줘서 이미지 위로 올린다. */
-        .ec-vows-card > * { position: relative; z-index: 1; }
+        /* 배경 이미지 제거 — 글자색은 프로필 카드의 자격증 목록(.ec-fact-list li)과 같은
+           본문 다크그레이(var(--text-body-alt, #343a40))로 통일한다. */
+        .ec-vows-card h2 { color: var(--text-body-alt, #343a40); }
         .ec-vows {
             list-style: none; counter-reset: vow; margin: 0; padding: 0;
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 30px;
@@ -136,17 +122,17 @@
         .ec-vows li::before {
             content: counter(vow, decimal-leading-zero);
             display: inline; font-size: 14px; font-weight: 800;
-            color: #fff; letter-spacing: 0.04em; margin-right: 7px;
+            color: var(--text-body-alt, #343a40); letter-spacing: 0.04em; margin-right: 7px;
         }
         /* 번호와 제목을 한 줄에 흘려보내기 위해 제목을 inline으로 둔다. inline 요소는
            세로 margin을 무시하므로, 제목 아래 간격은 본문의 margin-top으로 준다. */
-        .ec-vow-title { display: inline; font-size: 16px; font-weight: 700; color: #fff; }
+        .ec-vow-title { display: inline; font-size: 16px; font-weight: 700; color: var(--text-body-alt, #343a40); }
         /* 설명 문장만 본문 기본 서체(Pretendard 계열)와 다른 맑은 고딕으로 간다.
            맑은 고딕은 윈도우 기본 탑재 폰트라 맥·안드로이드에서는 없다. 웹폰트로 싣지 않는
            이상 그쪽에서는 뒤의 대체 서체로 떨어지므로, 한글이 있는 순서대로 fallback을 둔다. */
         .ec-vow-desc {
             font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-            font-size: 15px; color: #fff; margin: 5px 0 0; line-height: 1.75;
+            font-size: 15px; color: var(--text-body-alt, #343a40); margin: 5px 0 0; line-height: 1.75;
         }
         /* 상단 sticky 네비게이션(약 64px)에 앵커 이동한 제목이 가려지지 않도록 여유를 둔다. */
         #consult { scroll-margin-top: 76px; }
@@ -154,13 +140,13 @@
            분리했고, 여기서는 그 페이지로 보내는 짧은 배너만 보여준다. */
         .ec-section-label {
             font-size: 15px; letter-spacing: .08em; text-transform: uppercase;
-            color: #868e96; font-weight: 600; margin: 0 0 16px;
+            color: var(--text-faint, #868e96); font-weight: 600; margin: 0 0 16px;
         }
         .ec-consult-cta {
             display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
         }
         .ec-consult-cta h2 { margin: 0 0 6px; }
-        .ec-consult-cta p { margin: 0; font-size: 14px; color: #6c757d; max-width: 52ch; }
+        .ec-consult-cta p { margin: 0; font-size: 14px; color: var(--text-muted, #6c757d); max-width: 52ch; }
         /* asset-management 정적 페이지들의 .consult-cta-btn과 같은 크기로 맞춘다(버튼이
            Bootstrap btn-lg라 그쪽보다 훨씬 커 보였다). 다만 이 카드는 배경이 흰색(.ec-card)이라
            흰 배경/파란 글자였던 그쪽 배색을 그대로 쓰면 안 보이므로, 배경색은 이 페이지 고유의
@@ -168,11 +154,11 @@
         .ec-consult-cta-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             border: none; border-radius: 7px; font-weight: 700; font-size: 14px; cursor: pointer;
-            padding: 12px 22px; background: linear-gradient(135deg, #0a2647, #144272); color: #fff;
+            padding: 12px 22px; background: linear-gradient(135deg, var(--brand-navy-start, #0a2647), var(--brand-navy-end, #144272)); color: var(--color-white, #fff);
             text-decoration: none; white-space: nowrap; transition: background .15s ease;
         }
         .ec-consult-cta-btn:hover, .ec-consult-cta-btn:focus-visible {
-            background: linear-gradient(135deg, #081d38, #0f3359);
+            background: linear-gradient(135deg, var(--brand-navy-hover-start, #081d38), var(--brand-navy-hover-end, #0f3359));
         }
         @media (max-width: 576px) {
             .ec-hero h1 { font-size: 25px; }
@@ -185,7 +171,7 @@
         footer { padding: 40px 24px 56px; }
         .footer-inner {
             max-width: 912px; margin: 0 auto;
-            background: linear-gradient(135deg, #0a2647, #144272); color: #fff;
+            background: linear-gradient(135deg, var(--brand-navy-start, #0a2647), var(--brand-navy-end, #144272)); color: var(--color-white, #fff);
             border-radius: 14px; box-shadow: 0 6px 18px rgba(10,38,71,0.22);
             padding: 34px 30px 38px;
         }

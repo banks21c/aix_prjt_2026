@@ -7,9 +7,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+<link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
 <style>
     .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .stat-total { font-size: 22px; font-weight: 800; color: #0d47a1; }
+    .stat-total { font-size: 22px; font-weight: 800; color: var(--brand-primary, #0d47a1); }
 </style>
 {% endblock %}
 

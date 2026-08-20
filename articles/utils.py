@@ -316,6 +316,39 @@ def detect_reuse_restriction(text):
     return bool(re.search(pattern, text, re.IGNORECASE))
 
 
+def _extract_fusion_article(html):
+    """Arc Publishing 'Fusion' CMS(조선일보 등 다수 언론사가 사용)는 기사 본문을 서버 HTML에
+    렌더링하지 않는다(`<div id="fusion-app">` 안이 사실상 비어있고 `data-fusion-message=
+    "Could not render component [layouts:article]"`만 박혀 있음, 실측 확인) — 대신
+    `<script id="fusion-metadata">`에 심어둔 `Fusion.globalContent` JSON을 클라이언트 JS가
+    읽어서 그린다. trafilatura는 정적 HTML의 텍스트 노드만 보므로 이런 페이지에서는 본문을
+    전혀 못 찾는다(다운로드 자체는 성공하는데 extract()가 None, 실측 확인). content_elements
+    배열의 type=='text' 조각을 이어 붙이면 본문이 나온다. raw_decode로 중괄호 짝을 직접 맞춰
+    파싱한다 — 본문 안에 우연히 '};'가 섞여도 정규식 매칭보다 안전하다."""
+    import json
+
+    idx = html.find('Fusion.globalContent=')
+    if idx == -1:
+        return None
+    start = html.find('{', idx)
+    if start == -1:
+        return None
+    try:
+        data, _ = json.JSONDecoder().raw_decode(html, start)
+    except ValueError:
+        return None
+
+    paragraphs = [
+        el.get('content', '').strip()
+        for el in (data.get('content_elements') or [])
+        if el.get('type') == 'text' and el.get('content')
+    ]
+    if not paragraphs:
+        return None
+    title = ((data.get('headlines') or {}).get('basic') or '').strip()
+    return {'title': title, 'content': '\n\n'.join(paragraphs)}
+
+
 def fetch_article_content(url):
     """뉴스 원문 URL에서 기사 본문 텍스트를 스크래핑하고, 한경 프리미엄9 유료 잠금 기사인지도
     함께 판별한다. {'content': 추출된 본문(실패 시 ''), 'is_premium': bool}을 반환.
@@ -333,6 +366,10 @@ def fetch_article_content(url):
             return {'content': '', 'is_premium': False}
         is_premium = 'class="paywall type-layer' in downloaded
         text = trafilatura.extract(downloaded)
+        if not text:
+            fusion = _extract_fusion_article(downloaded)
+            if fusion:
+                return {'content': fusion['content'], 'is_premium': is_premium}
         return {'content': (text or '').strip(), 'is_premium': is_premium}
     except Exception:
         return {'content': '', 'is_premium': False}
@@ -369,12 +406,24 @@ def fetch_article_metadata(url):
 
         raw = trafilatura.extract(downloaded, with_metadata=True, output_format='json')
         if not raw:
+            fusion = _extract_fusion_article(downloaded)
+            if fusion:
+                return {
+                    'title': fusion['title'],
+                    'content': fusion['content'],
+                    'source_media': _media_name_fallback(url),
+                }
             return {'title': '', 'content': '', 'source_media': _media_name_fallback(url)}
 
         data = json.loads(raw)
+        title, content = (data.get('title') or '').strip(), (data.get('text') or '').strip()
+        if not content:
+            fusion = _extract_fusion_article(downloaded)
+            if fusion:
+                title, content = title or fusion['title'], fusion['content']
         return {
-            'title': (data.get('title') or '').strip(),
-            'content': (data.get('text') or '').strip(),
+            'title': title,
+            'content': content,
             'source_media': (data.get('sitename') or '').strip() or _media_name_fallback(url),
         }
     except Exception:

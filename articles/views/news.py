@@ -30,6 +30,20 @@ def news_board_view(request):
     content_filter = request.GET.get('content_filter', 'all')
     if content_filter not in ('all', 'has', 'none'):
         content_filter = 'all'
+    post_filter = request.GET.get('post_filter', 'all')
+    if post_filter not in ('all', 'target', 'done'):
+        post_filter = 'all'
+
+    # user_blog_accounts는 post_filter(포스팅대상/포스팅완료)를 기사 목록 필터링에 쓰려면
+    # 페이지네이션 전에 미리 알아야 해서, 기존에 아래쪽(페이지네이션 이후)에 있던 계산을
+    # 여기로 끌어올렸다.
+    user_blog_accounts = []
+    posting_stats = None
+    summarize_stats = None
+    if request.user.is_authenticated:
+        summarize_stats = ai_summarize_stats(request.user)
+        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_usable()]
+        posting_stats = blog_posting.posting_stats(request.user)
 
     # 원문이 없는 기사(KIS 시황_공시 API 수집분, 스크래핑 실패 RSS)는 AI 요약/포스팅은 못 하지만,
     # 게시판은 전체 수집 현황을 보여주는 곳이라 숨기지 않고 "본문없음" 배지로 표시한다
@@ -54,6 +68,18 @@ def news_board_view(request):
         articles = articles.exclude(original_content='')
     elif content_filter == 'none':
         articles = articles.filter(original_content='')
+    if post_filter in ('target', 'done') and user_blog_accounts:
+        # "포스팅완료" = 연결된 계정 전부에 발행됨(아래 posted_article_ids 배지와 같은 기준),
+        # "포스팅대상" = 아직 하나 이상의 연결 계정에 발행 안 됨.
+        articles = articles.annotate(
+            posted_account_count=Count(
+                'postings__blog_account', filter=Q(postings__blog_account__in=user_blog_accounts), distinct=True
+            )
+        )
+        if post_filter == 'done':
+            articles = articles.filter(posted_account_count__gte=len(user_blog_accounts))
+        else:
+            articles = articles.filter(posted_account_count__lt=len(user_blog_accounts))
 
     paginator = Paginator(articles, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -67,30 +93,23 @@ def news_board_view(request):
     prev_block_page = page_block_start - 1 if page_block_start > 1 else None
     next_block_page = page_block_end + 1 if page_block_end < paginator.num_pages else None
 
-    user_blog_accounts = []
     posted_article_ids = set()
-    posting_stats = None
-    summarize_stats = None
-    if request.user.is_authenticated:
-        summarize_stats = ai_summarize_stats(request.user)
-        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
-        posting_stats = blog_posting.posting_stats(request.user)
-        if user_blog_accounts:
-            # 계정 체크박스는 포스팅 폼 안에 직접 있어(적용 버튼 없이) 제출 시점의 체크 상태를
-            # 그대로 읽어 루프를 돈다 — 그래서 페이지 렌더링 시점엔 "어떤 계정이 체크될지" 알 수
-            # 없으므로, 배지는 "연결된 계정 전부에 발행됐는가"로 고정한다. 이미 발행된 계정×기사
-            # 조합은 publish_article이 알아서 건너뛰므로, 일부 계정만 체크하고 다시 눌러도 안전하다.
-            page_article_ids = [a.pk for a in page_obj.object_list]
-            posted_counts = (
-                PostedArticle.objects
-                .filter(blog_account__in=user_blog_accounts, article_id__in=page_article_ids)
-                .values('article_id')
-                .annotate(account_count=Count('blog_account', distinct=True))
-            )
-            posted_article_ids = {
-                row['article_id'] for row in posted_counts
-                if row['account_count'] == len(user_blog_accounts)
-            }
+    if user_blog_accounts:
+        # 계정 체크박스는 포스팅 폼 안에 직접 있어(적용 버튼 없이) 제출 시점의 체크 상태를
+        # 그대로 읽어 루프를 돈다 — 그래서 페이지 렌더링 시점엔 "어떤 계정이 체크될지" 알 수
+        # 없으므로, 배지는 "연결된 계정 전부에 발행됐는가"로 고정한다. 이미 발행된 계정×기사
+        # 조합은 publish_article이 알아서 건너뛰므로, 일부 계정만 체크하고 다시 눌러도 안전하다.
+        page_article_ids = [a.pk for a in page_obj.object_list]
+        posted_counts = (
+            PostedArticle.objects
+            .filter(blog_account__in=user_blog_accounts, article_id__in=page_article_ids)
+            .values('article_id')
+            .annotate(account_count=Count('blog_account', distinct=True))
+        )
+        posted_article_ids = {
+            row['article_id'] for row in posted_counts
+            if row['account_count'] == len(user_blog_accounts)
+        }
 
     next_params = request.GET.copy()
     next_url = f"{request.path}?{next_params.urlencode()}" if next_params else request.path
@@ -104,6 +123,7 @@ def news_board_view(request):
         'query': query,
         'ai_filter': ai_filter,
         'content_filter': content_filter,
+        'post_filter': post_filter,
         'user_blog_accounts': user_blog_accounts,
         'posted_article_ids': posted_article_ids,
         'next_url': next_url,
@@ -125,8 +145,8 @@ def post_articles_view(request):
         messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
         return redirect(request.POST.get('next') or 'news_board')
 
-    connected_accounts = [a for a in accounts if a.is_connected()]
-    not_connected = [a for a in accounts if not a.is_connected()]
+    connected_accounts = [a for a in accounts if a.is_usable()]
+    not_connected = [a for a in accounts if not a.is_usable()]
     for account in not_connected:
         messages.error(request, f"{account.get_platform_display()} 계정이 아직 연동되지 않아 건너뛰었습니다. 마이페이지에서 먼저 연동해주세요.")
     if not connected_accounts:
@@ -204,7 +224,7 @@ def news_detail_view(request, pk):
     summarize_stats = None
     if request.user.is_authenticated:
         summarize_stats = ai_summarize_stats(request.user)
-        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+        user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_usable()]
         posting_stats = blog_posting.posting_stats(request.user)
         if user_blog_accounts:
             # 뉴스 게시판(news_board_view)과 같은 규칙 — 계정을 여러 개 체크박스로 고를 수 있어
@@ -215,7 +235,7 @@ def news_detail_view(request, pk):
             has_any_posted = posted_count > 0
 
     context = {
-        'site_title': f'NextFinUp - {article.title}',
+        'site_title': f'NextFinUp - {article.display_title}',
         'article': article,
         'user_blog_accounts': user_blog_accounts,
         'is_posted': is_posted,
@@ -235,7 +255,7 @@ def republish_article_view(request, pk):
     기존 콘텐츠를 고치는 작업이라 posting_stats(하루 발행 한도)를 소모하지 않는다."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
     account_ids = request.POST.getlist('account_ids')
-    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_connected()]
+    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_usable()]
 
     if not accounts:
         messages.warning(request, "재발행할 계정을 하나 이상 선택해주세요.")
@@ -263,7 +283,7 @@ def repost_article_view(request, pk):
     posting_stats(daily_post_limit)를 소모한다."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
     account_ids = request.POST.getlist('account_ids')
-    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_connected()]
+    accounts = [a for a in request.user.posting_accounts.all() if str(a.pk) in account_ids and a.is_usable()]
 
     if not accounts:
         messages.warning(request, "다시 포스팅할 계정을 하나 이상 선택해주세요.")
@@ -297,7 +317,7 @@ def news_article_preview_view(request, pk):
     보여주기 위한 AJAX 엔드포인트."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
     return JsonResponse({
-        'title': article.title,
+        'title': article.display_title,
         'source_media': article.source_media,
         'scraped_at': article.scraped_at.strftime('%Y-%m-%d %H:%M'),
         'original_content': article.original_content,
@@ -362,6 +382,7 @@ def news_ai_summarize_view(request, pk):
             messages.error(request, "AI 요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
             return _go('news_edit', pk=article.pk)
 
+        article.ai_title = draft['ai_title']
         article.ai_summary = draft['ai_summary']
         article.ai_analysis = draft['ai_analysis']
         article.blog_content = draft['blog_content'] + build_mentioned_stocks_table(article.original_content)
@@ -369,10 +390,10 @@ def news_ai_summarize_view(request, pk):
         article.ai_summarized_by = request.user
         article.ai_summarized_at = timezone.now()
         article.thumbnail = thumbnail.build_thumbnail_file(
-            article.title, resolve_thumbnail_stock(article), article.matched_keyword, ai_summary=draft['ai_summary'],
+            article.display_title, resolve_thumbnail_stock(article), article.matched_keyword, ai_summary=draft['ai_summary'],
         )
         article.save(update_fields=[
-            'ai_summary', 'ai_analysis', 'blog_content',
+            'ai_title', 'ai_summary', 'ai_analysis', 'blog_content',
             'ai_generated', 'ai_summarized_by', 'ai_summarized_at', 'thumbnail',
         ])
         messages.success(request, "AI 요약이 완료됐습니다. 내용을 검토하고 필요하면 수정한 뒤 저장해주세요.")
@@ -486,7 +507,7 @@ def news_write_view(request):
     form = NewsWriteForm(request.POST or None)
     summarize_stats = ai_summarize_stats(request.user)
     posting_stats_val = blog_posting.posting_stats(request.user)
-    user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_connected()]
+    user_blog_accounts = [a for a in request.user.posting_accounts.all() if a.is_usable()]
     action = request.POST.get('action', 'ai_summarize')
 
     if request.method == 'POST' and form.is_valid() and action == 'ai_summarize':
@@ -516,10 +537,13 @@ def news_write_view(request):
                 else:
                     article = _create_manual_article(
                         request, title, content,
+                        ai_title=draft['ai_title'],
                         ai_summary=draft['ai_summary'],
                         ai_analysis=draft['ai_analysis'],
                         blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
-                        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=draft['ai_summary']),
+                        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(
+                            draft['ai_title'] or title, ai_summary=draft['ai_summary'],
+                        ),
                         ai_generated=True,
                         ai_summarized_by=request.user,
                         ai_summarized_at=timezone.now(),
@@ -596,7 +620,7 @@ def news_edit_view(request, pk):
         form = NewsArticleEditForm(instance=article, is_staff=request.user.is_staff)
 
     context = {
-        'site_title': f'NextFinUp - {article.title} 수정',
+        'site_title': f'NextFinUp - {article.display_title} 수정',
         'article': article,
         'form': form,
     }

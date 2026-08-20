@@ -4,15 +4,15 @@ from .public import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     newsletter_sample_view,
     privacy_policy_view, terms_of_service_view, email_collection_refusal_view, insurance_compare_view,
-    blog_connect_guide_view, adsense_guide_view,
-    consult_request_view, header_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
-    subscribe_view, subscribe_apply_view,
+    blog_connect_guide_view, adsense_guide_view, health_content_calendar_view, food_content_calendar_view,
+    consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
+    subscribe_view, subscribe_apply_view, faq_board_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
     financial_consult_sheet_search_view,
     integration_status_view, pipeline_status_view, pipeline_trigger_view, server_health_view,
-    operations_overview_view, ai_performance_admin_view,
+    operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
@@ -26,13 +26,13 @@ from .stocks import (
 from .chatbot import chatbot_ask_view
 from .performance import ai_performance_view
 from .auth import (
-    signup_view, login_view, logout_view, delete_account_view, verify_email_view,
+    signup_view, login_view, logout_view, delete_account_view, verify_email_view, find_password_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
 )
 from .mypage import (
-    my_page_view, my_posted_articles_view, blog_account_disconnect_view,
+    my_page_view, my_posted_articles_view, blog_account_disconnect_view, change_password_view,
     blogger_connect_view, blogger_callback_view,
     tumblr_connect_view, tumblr_callback_view,
 )
@@ -41,11 +41,12 @@ __all__ = [
     'landing_page_view', 'main_dashboard_view', 'newsletter_subscribe_view',
     'newsletter_unsubscribe_view', 'newsletter_sample_view', 'cron_status_view', 'privacy_policy_view',
     'terms_of_service_view', 'insurance_compare_view', 'consult_request_view',
-    'header_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
+    'header_fragment_view', 'cookie_banner_fragment_view', 'ticker_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
+    'faq_board_view',
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
-    'operations_overview_view', 'ai_performance_admin_view',
+    'operations_overview_view', 'ai_performance_admin_view', 'theme_settings_view', 'theme_css_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
@@ -59,4 +60,5 @@ __all__ = [
     'blogger_connect_view', 'blogger_callback_view',
     'tumblr_connect_view', 'tumblr_callback_view',
     'my_page_view', 'my_posted_articles_view', 'blog_account_disconnect_view', 'verify_email_view',
+    'find_password_view', 'change_password_view',
 ]

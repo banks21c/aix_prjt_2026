@@ -6,14 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .news-meta { font-size: 13px; color: #868e96; }
-        .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
-        .content-block { white-space: pre-line; line-height: 1.8; color: #343a40; }
+        .news-meta { font-size: 13px; color: var(--text-faint, #868e96); }
+        .section-title { font-weight: 800; color: var(--brand-primary, #0d47a1); border-left: 5px solid var(--brand-primary, #0d47a1); padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+        .content-block { white-space: pre-line; line-height: 1.8; color: var(--text-body-alt, #343a40); }
         /* blog_content는 에디터에서 만든 <p> 태그가 그대로 들어있다 — 브라우저 기본 <p> 여백(1em)을
            없애 에디터에서 보던 것과 동일하게, 줄바꿈처럼 자연스러운 간격으로 보이게 한다. 대신 소제목
            (<h3>) 위쪽에만 여백을 줘서 앞 문단과 구분되게 한다. */
@@ -33,6 +34,7 @@
         <div class="d-flex justify-content-end align-items-center gap-2">
             <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary">목록</a>
             {% if user.is_authenticated %}
+            <a href="{% url 'news_scrape' %}" class="btn btn-sm btn-outline-primary">📰 뉴스 수집</a>
             <a href="{% url 'news_write' %}" class="btn btn-sm btn-outline-primary">✍️ 자유 포스팅</a>
             {% endif %}
             {% if article.source_type == 'RSS' %}
@@ -52,7 +54,10 @@
         {% endif %}
 
         <div class="card card-custom bg-white p-4 mt-3">
-            <h3 class="fw-bold">{{ article.title }}{% if not article.original_content %} <span class="badge bg-light text-muted border" style="font-size: 11px;">본문없음</span>{% endif %}</h3>
+            <h3 class="fw-bold">{{ article.display_title }}{% if not article.original_content %} <span class="badge bg-light text-muted border" style="font-size: 11px;">본문없음</span>{% endif %}</h3>
+            {% if article.ai_title and article.ai_title != article.title %}
+            <p class="text-muted small mb-2">원본 제목: {{ article.title }}</p>
+            {% endif %}
             <div class="news-meta mb-3">
                 {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}({{ article.stock.ticker }})</a>{% endif %}
@@ -62,7 +67,7 @@
             </div>
 
             {% if article.thumbnail %}
-            <img src="{{ article.thumbnail.url }}" alt="{{ article.title }}" class="img-fluid rounded mb-3">
+            <img src="{{ article.thumbnail.url }}" alt="{{ article.display_title }}" class="img-fluid rounded mb-3">
             {% endif %}
 
             <!-- AI 요약 버튼을 아래 '📄 원문 전문' 제목 옆으로 옮기면서, 그 버튼이 시각적으로
@@ -159,7 +164,7 @@
     <!-- AI 요약/포스팅 버튼은 실제 서버 처리(OpenAI 호출 등)가 몇 초 걸리는 일반 폼 submit이라,
          클릭 후 아무 반응이 없어 보이는 동안 회원이 다시 누르지 않도록 전체 화면을 잠그는 오버레이
          (news_board.html과 동일한 패턴) -->
-    <div id="formLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; flex-direction:column; color:#fff; font-family:'Pretendard', sans-serif; text-align:center; padding:20px;">
+    <div id="formLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; flex-direction:column; color:var(--color-white, #fff); font-family:'Pretendard', sans-serif; text-align:center; padding:20px;">
         <div class="spinner-border text-light mb-3" role="status" style="width:3rem; height:3rem;"></div>
         <div id="formLoadingText" style="font-size:15px; font-weight:600;">처리 중입니다...</div>
         <div style="font-size:12px; color:#cbd5e1; margin-top:4px;">잠시만 기다려주세요. 화면을 벗어나지 마세요.</div>

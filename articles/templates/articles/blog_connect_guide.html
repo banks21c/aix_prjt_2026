@@ -6,53 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background-color: #f4f6f9;
-            color: #212529;
+            background-color: var(--bg-page, #f4f6f9);
+            color: var(--text-primary, #212529);
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.7;
         }
-        a { color: #0d47a1; }
+        a { color: var(--brand-primary, #0d47a1); }
         .doc-body {
             max-width: 760px;
             margin: 0 auto;
             padding: 32px 20px 80px;
         }
         .card {
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             padding: 32px 36px;
         }
-        .card h1 { font-size: 22px; font-weight: 800; color: #0d47a1; margin: 0 0 6px; }
-        .card .page-subtitle { color: #6c757d; font-size: 13px; margin: 0 0 24px; }
+        .card h1 { font-size: 22px; font-weight: 800; color: var(--brand-primary, #0d47a1); margin: 0 0 6px; }
+        .card .page-subtitle { color: var(--text-muted, #6c757d); font-size: 13px; margin: 0 0 24px; }
         .prereq {
-            background: #f4f6f9;
-            border: 1px solid #e9ecef;
+            background: var(--bg-page, #f4f6f9);
+            border: 1px solid var(--border-light, #e9ecef);
             border-radius: 10px;
             padding: 14px 18px;
             font-size: 13.5px;
-            color: #495057;
+            color: var(--text-secondary, #495057);
             margin-bottom: 8px;
         }
-        .prereq code { background: #e9ecef; border-radius: 4px; padding: 1px 6px; font-size: 12.5px; }
+        .prereq code { background: var(--border-light, #e9ecef); border-radius: 4px; padding: 1px 6px; font-size: 12.5px; }
 
         .platform { margin-top: 40px; }
         .platform:first-of-type { margin-top: 28px; }
         .platform-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
-        .platform-head h2 { margin: 0; font-size: 19px; font-weight: 800; color: #212529; }
+        .platform-head h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--text-primary, #212529); }
         .platform-badge { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
-        .platform.blogger .platform-badge { background: #fef2e2; color: #f57c00; }
-        .platform.wordpress .platform-badge { background: #e3f2f7; color: #00749c; }
+        .platform.blogger .platform-badge { background: #fef2e2; color: var(--color-warning-alt, #f57c00); }
+        .platform.wordpress .platform-badge { background: #e3f2f7; color: var(--color-info, #00749c); }
         .platform.tumblr .platform-badge { background: #e6ebf1; color: #001935; }
-        .platform-sub { color: #6c757d; font-size: 13.5px; margin: 0 0 20px; }
+        .platform-sub { color: var(--text-muted, #6c757d); font-size: 13.5px; margin: 0 0 20px; }
 
-        ol.steps { list-style: none; margin: 0; padding: 0 0 0 30px; border-left: 2px solid #e9ecef; }
+        ol.steps { list-style: none; margin: 0; padding: 0 0 0 30px; border-left: 2px solid var(--border-light, #e9ecef); }
         .platform.blogger ol.steps { border-left-color: #fde3c2; }
         .platform.wordpress ol.steps { border-left-color: #bfe4ef; }
         .platform.tumblr ol.steps { border-left-color: #ccd6e0; }
@@ -62,35 +63,35 @@
             content: attr(data-n);
             position: absolute; left: -46px; top: 0;
             width: 30px; height: 30px; border-radius: 50%;
-            background: #fff; border: 2px solid #e9ecef;
+            background: var(--color-white, #fff); border: 2px solid var(--border-light, #e9ecef);
             display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: 700; color: #6c757d;
+            font-size: 13px; font-weight: 700; color: var(--text-muted, #6c757d);
         }
-        .platform.blogger ol.steps li::before { border-color: #f57c00; color: #f57c00; }
-        .platform.wordpress ol.steps li::before { border-color: #00749c; color: #00749c; }
+        .platform.blogger ol.steps li::before { border-color: var(--color-warning-alt, #f57c00); color: var(--color-warning-alt, #f57c00); }
+        .platform.wordpress ol.steps li::before { border-color: var(--color-info, #00749c); color: var(--color-info, #00749c); }
         .platform.tumblr ol.steps li::before { border-color: #001935; color: #001935; }
 
-        .step-title { font-weight: 700; font-size: 15px; margin: 0 0 6px; color: #212529; }
-        .step-body { font-size: 14px; color: #343a40; margin: 0; }
+        .step-title { font-weight: 700; font-size: 15px; margin: 0 0 6px; color: var(--text-primary, #212529); }
+        .step-body { font-size: 14px; color: var(--text-body-alt, #343a40); margin: 0; }
         .step-body + .step-body { margin-top: 6px; }
-        .path { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; background: #f4f6f9; border: 1px solid #e9ecef; border-radius: 5px; padding: 1px 6px; }
+        .path { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; background: var(--bg-page, #f4f6f9); border: 1px solid var(--border-light, #e9ecef); border-radius: 5px; padding: 1px 6px; }
 
-        .field-box { margin-top: 10px; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden; }
+        .field-box { margin-top: 10px; border: 1px solid var(--border-light, #e9ecef); border-radius: 8px; overflow: hidden; }
         .field-row { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 8px 12px; font-size: 13px; }
-        .field-row + .field-row { border-top: 1px solid #e9ecef; }
-        .field-label { color: #6c757d; font-weight: 600; }
-        .field-value { font-family: ui-monospace, Menlo, Consolas, monospace; color: #212529; word-break: break-all; }
+        .field-row + .field-row { border-top: 1px solid var(--border-light, #e9ecef); }
+        .field-label { color: var(--text-muted, #6c757d); font-weight: 600; }
+        .field-value { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text-primary, #212529); word-break: break-all; }
 
         .callout { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; display: flex; gap: 8px; }
         .callout.warn { background: #fbeae9; border: 1px solid #f3c8c5; }
         .callout.warn b { color: #b3261e; }
-        .callout.note { background: #f4f6f9; border: 1px solid #e9ecef; color: #6c757d; }
+        .callout.note { background: var(--bg-page, #f4f6f9); border: 1px solid var(--border-light, #e9ecef); color: var(--text-muted, #6c757d); }
 
-        h2.trouble-title { font-size: 16px; font-weight: 800; color: #0d47a1; margin: 40px 0 14px; }
+        h2.trouble-title { font-size: 16px; font-weight: 800; color: var(--brand-primary, #0d47a1); margin: 40px 0 14px; }
         .qa { display: flex; flex-direction: column; gap: 12px; }
-        .qa-item { background: #f9fafb; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 14px; }
+        .qa-item { background: #f9fafb; border: 1px solid var(--border-light, #e9ecef); border-radius: 8px; padding: 12px 14px; }
         .qa-item .q { font-weight: 700; font-size: 13.5px; margin: 0 0 4px; }
-        .qa-item .a { font-size: 13px; color: #6c757d; margin: 0; }
+        .qa-item .a { font-size: 13px; color: var(--text-muted, #6c757d); margin: 0; }
 
         .back-link { display: inline-block; margin-top: 24px; font-size: 13px; }
     </style>
@@ -163,7 +164,17 @@
                     <li data-n="2">
                         <p class="step-title">NextFinUp에서 텀블러 연결</p>
                         <p class="step-body">마이페이지 → "4. 자동 포스팅" → 텀블러 박스의 <b>"이 플랫폼으로 자동 포스팅 사용"</b> 체크 → <b>"텀블러로 연결하기"</b> 클릭.</p>
-                        <p class="step-body">"NextFinUp이 계정 접근 허용 요청" 화면에서 <b>읽기 권한 / 쓰기 권한</b>을 요청하는데, <b>"수락"</b>을 누르면 자동으로 마이페이지로 돌아오고 <b>연결됨</b> 배지와 함께 블로그 주소가 표시됩니다.</p>
+                        <p class="step-body">그러면 텀블러 사이트에서 아래와 같은 접근 허용 요청 화면이 새 창(또는 같은 창)으로 뜹니다.</p>
+                        <div class="field-box" style="margin-top:8px;">
+                            <div style="padding:14px 16px;">
+                                <p style="margin:0 0 10px;font-weight:700;font-size:13.5px;">nextfinup이 계정 접근 허용 요청:</p>
+                                <p style="margin:0 0 4px;font-size:13px;">☑ 읽기 권한</p>
+                                <p style="margin:0 0 10px;font-size:13px;">☑ 쓰기 권한</p>
+                                <p style="margin:0 0 10px;font-size:12.5px;color:var(--text-muted,#6c757d);">이 앱이 회원님의 데이터 일부에 접근하여 위의 권한을 사용하도록 하실래요? 현재 회원님은 본인의 텀블러 아이디로 로그인하셨어요.</p>
+                                <p style="margin:0;font-weight:600;font-size:13px;">nextfinup<br><span style="font-weight:400;color:var(--text-muted,#6c757d);font-size:12px;">nextfinup.com</span></p>
+                            </div>
+                        </div>
+                        <p class="step-body" style="margin-top:8px;">화면 하단의 <b>"수락"</b> 버튼을 누르면 자동으로 마이페이지로 돌아오고 <b>연결됨</b> 배지와 함께 블로그 주소가 표시됩니다. (옆의 <b>"수락 안 함"</b> 버튼을 누르면 마이페이지로 돌아오되 연결 안 됨 상태 그대로입니다.)</p>
                         <div class="callout note">
                             <span>ℹ️</span>
                             <span>블로그를 여러 개 가지고 있다면, 텀블러가 알려주는 목록 중 <b>첫 번째(기본) 블로그가 자동으로 연결</b>됩니다(직접 선택 불가).</span>
@@ -229,6 +240,10 @@
                 <div class="qa-item">
                     <p class="q">"텀블러로 연결하기"를 눌렀는데 다시 연결 안 됨 상태로 돌아와요 (텀블러)</p>
                     <p class="a">텀블러 동의 화면에서 취소했거나, <a href="https://www.tumblr.com" target="_blank" rel="noopener noreferrer" class="path">tumblr.com</a>에 만들어둔 블로그가 없는 경우입니다. 1단계(블로그 만들기)부터 다시 확인해주세요.</p>
+                </div>
+                <div class="qa-item">
+                    <p class="q">"텀블러로 연결하기"를 눌렀더니 텀블러 화면에서 "502 Bad Gateway" 오류가 떠요</p>
+                    <p class="a">NextFinUp 쪽 문제가 아니라 tumblr.com 자체에서 일시적으로 난 오류입니다. 특히 텀블러 개발자 앱을 새로 등록한 직후에는 반영에 약간 시간이 걸릴 수 있어 종종 발생합니다. 브라우저에서 새로고침하면 대부분 바로 정상적인 동의 화면으로 넘어갑니다.</p>
                 </div>
                 <div class="qa-item">
                     <p class="q">애플리케이션 비밀번호를 잃어버렸어요</p>

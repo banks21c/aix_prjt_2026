@@ -24,27 +24,28 @@ from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     newsletter_sample_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, insurance_compare_view, consult_request_view, header_fragment_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, health_content_calendar_view, food_content_calendar_view, insurance_compare_view, consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     expert_consult_apply_view,
+    faq_board_view,
     subscribe_view,
     subscribe_apply_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
     integration_status_view,
     pipeline_status_view, pipeline_trigger_view, server_health_view,
-    operations_overview_view, ai_performance_admin_view,
+    operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
     ai_performance_view,
-    signup_view, login_view, logout_view, delete_account_view,
+    signup_view, login_view, logout_view, delete_account_view, find_password_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
     tumblr_connect_view, tumblr_callback_view,
-    my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view,
+    my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view, change_password_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
 sitemaps = {
@@ -68,6 +69,13 @@ urlpatterns = [
     path('admin-tools/health/', server_health_view, name='server_health'),
     path('admin-tools/overview/', operations_overview_view, name='operations_overview'),
     path('admin-tools/performance/', ai_performance_admin_view, name='ai_performance_admin'),
+    path('admin-tools/theme/', theme_settings_view, name='theme_settings'),
+    # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
+    # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
+    # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가
+    # 색을 바꿔도 몇 시간은 예전 색이 그대로 보였다 — 템플릿 쪽은 캐시 무효화용 ?v=(theme_version
+    # 컨텍스트 프로세서) 쿼리스트링도 같이 붙여 이중으로 방어한다.
+    path('theme-style', theme_css_view, name='theme_css'),
     path('admin-tools/consult-sheet/', financial_consult_sheet_view, name='financial_consult_sheet'),
     path('admin-tools/consult-sheet/save/', financial_consult_sheet_save_view, name='financial_consult_sheet_save'),
     path('admin-tools/consult-sheet/search/', financial_consult_sheet_search_view, name='financial_consult_sheet_search'),
@@ -76,12 +84,17 @@ urlpatterns = [
     path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
     path('guide/blog-connect/', blog_connect_guide_view, name='blog_connect_guide'),
     path('guide/adsense/', adsense_guide_view, name='adsense_guide'),
+    path('health-calendar/', health_content_calendar_view, name='health_content_calendar'),
+    path('food-calendar/', food_content_calendar_view, name='food_content_calendar'),
+    path('faq/', faq_board_view, name='faq_board'),
     path('experts/', expert_consult_view, name='expert_consult'),
     path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
     path('subscribe/', subscribe_view, name='subscribe'),
     path('subscribe/apply/', subscribe_apply_view, name='subscribe_apply'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
     path('partials/header/', header_fragment_view, name='header_fragment'),
+    path('partials/cookie-banner/', cookie_banner_fragment_view, name='cookie_banner_fragment'),
+    path('partials/ticker/', ticker_fragment_view, name='ticker_fragment'),
     path('api/ticker/', ticker_data_view, name='ticker_data'),  # ◀ 첫 번째(시세) 티커가 폴링하는 JSON
     path('api/ticker/stocks/', ticker_stocks_view, name='ticker_stocks'),  # ◀ 두 번째(개별 종목) 티커가 폴링하는 JSON
     path('api/consult/', consult_request_view, name='consult_request'),
@@ -110,9 +123,11 @@ urlpatterns = [
     path('signup/', signup_view, name='signup'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
+    path('find-password/', find_password_view, name='find_password'),  # ◀ 임시 비밀번호 발급(이메일 발송)
     path('accounts/delete/', delete_account_view, name='delete_account'),
     path('mypage/', my_page_view, name='my_page'),  # ◀ 내 정보 관리(뉴스구독/자동포스팅 설정)
     path('mypage/posted/', my_posted_articles_view, name='my_posted_articles'),  # ◀ 내가 발행한 글 이력
+    path('mypage/password/', change_password_view, name='change_password'),  # ◀ 비밀번호 변경
     path('mypage/blog/<str:platform>/disconnect/', blog_account_disconnect_view, name='blog_account_disconnect'),
     path('verify-email/<uidb64>/<token>/', verify_email_view, name='verify_email'),  # ◀ 이메일 인증 링크
 

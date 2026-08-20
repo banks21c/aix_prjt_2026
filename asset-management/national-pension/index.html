@@ -248,6 +248,20 @@
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav class="app-navbar">
     <div class="container">
       <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>

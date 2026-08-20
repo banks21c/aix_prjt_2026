@@ -15,26 +15,26 @@
             {% endif %}
         </p>
         <p style="margin-top: 14px;">
-            <a href="{% url 'privacy_policy' %}" style="color:#fff;">개인정보처리방침</a>
-            <span style="color:#fff;"> · </span>
-            <a href="{% url 'terms_of_service' %}" style="color:#fff;">이용약관</a>
-            <span style="color:#fff;"> · </span>
-            <a href="{% url 'email_collection_refusal' %}" target="_blank" rel="noopener" style="color:#fff;">전자우편 무단수집거부</a>
+            <a href="{% url 'privacy_policy' %}" style="color:var(--color-white, #fff);">개인정보처리방침</a>
+            <span style="color:var(--color-white, #fff);"> · </span>
+            <a href="{% url 'terms_of_service' %}" style="color:var(--color-white, #fff);">이용약관</a>
+            <span style="color:var(--color-white, #fff);"> · </span>
+            <a href="{% url 'email_collection_refusal' %}" target="_blank" rel="noopener" style="color:var(--color-white, #fff);">전자우편 무단수집거부</a>
         </p>
-        <p style="margin-top: 14px; color:#fff; font-size: 13px;">
+        <p style="margin-top: 14px; color:var(--color-white, #fff); font-size: 13px;">
             &copy; {% now "Y" %} NextFinUp. All rights reserved.
         </p>
     </div>
 </footer>
 <style>
     .app-footer {
-        background: #0d47a1;
-        color: #fff;
+        background: var(--brand-primary, #0d47a1);
+        color: var(--color-white, #fff);
         padding: 32px 0;
         font-size: 13px;
         text-align: center;
     }
     .app-footer .container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
-    .app-footer strong { color: #fff; }
-    .app-footer .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: #fff; }
+    .app-footer strong { color: var(--color-white, #fff); }
+    .app-footer .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: var(--color-white, #fff); }
 </style>

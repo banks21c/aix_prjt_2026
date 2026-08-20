@@ -59,13 +59,22 @@ def posting_stats(user):
     }
 
 
-def enabled_accounts(platform):
-    """해당 플랫폼에서 '자동 포스팅 사용' + '이 플랫폼 사용'을 모두 켠 회원 계정 목록."""
-    return (
+def enabled_accounts(platform, category=None):
+    """해당 플랫폼에서 '자동 포스팅 사용' + '이 플랫폼 사용'을 모두 켠 회원 계정 목록.
+
+    category(선택)를 넘기면 그 카테고리(UserPreference.news_subscription)를 구독한 회원의
+    계정만 추린다 — 경제 브리핑 cron 시간대에 건강 구독자 계정까지 함께 돌면서 그 계정의
+    다른 카테고리 백로그가 얹혀 발행 빈도가 의도치 않게 늘어나는 걸 막기 위해서다(반대도
+    마찬가지). select_candidates 자체도 카테고리로 걸러주지만, 이건 애초에 그 시간대 cron이
+    처리할 '계정 범위'를 좁히는 것이라 두 필터의 목적이 다르다."""
+    qs = (
         BlogPostingAccount.objects
         .filter(platform=platform, is_enabled=True, user__preference__auto_posting_enabled=True)
         .select_related('user', 'user__preference')
     )
+    if category is not None:
+        qs = qs.filter(user__preference__news_subscription=category)
+    return qs
 
 
 def _match_keywords(article, keywords):
@@ -75,6 +84,11 @@ def _match_keywords(article, keywords):
     return any(kw and kw in haystack for kw in keywords)
 
 
+# 종목/증시 관심 키워드 개념이 없는, 캘린더(health_calendar.py/food_calendar.py) 기반 자동 생성
+# 카테고리 — select_candidates에서 키워드 필터링을 건너뛰는 기준으로 쓴다.
+_CALENDAR_DRIVEN_CATEGORIES = (AnalyzedArticle.CATEGORY_HEALTH, AnalyzedArticle.CATEGORY_FOOD)
+
+
 def select_candidates(account, preference, limit=None):
     """이 계정에 아직 발행되지 않은 기사 중, 관심 키워드(또는 전체 발행 설정)에 맞는 기사 목록.
     ai_generated=False(RSS/KIS 자동 수집 직후의 placeholder 요약)는 제외한다 — 회원의 실제
@@ -82,13 +96,17 @@ def select_candidates(account, preference, limit=None):
     버튼으로 직접 요약을 생성했거나, 특징주 통합 브리핑처럼 이미 실제 AI 요약이 있는 기사만 대상."""
     candidates = (
         AnalyzedArticle.objects
-        .filter(ai_generated=True)
+        .filter(ai_generated=True, content_category=preference.news_subscription)
         .select_related('stock', 'matched_keyword')
         .exclude(postings__blog_account=account)
         .order_by('-scraped_at')
     )
 
-    if preference.post_all_articles:
+    if preference.news_subscription in _CALENDAR_DRIVEN_CATEGORIES:
+        # 건강/의학·음식/영양처럼 종목/증시 관심 키워드 개념이 없는 캘린더 기반 발행은, 카테고리를
+        # 고른 것 자체를 "이 카테고리는 전부 받는다"는 의사표시로 취급한다(전체 발행 토글과 무관).
+        candidates = list(candidates)
+    elif preference.post_all_articles:
         candidates = list(candidates)
     else:
         keywords = [kw.strip() for kw in preference.interested_keywords.split(',') if kw.strip()]
@@ -244,7 +262,7 @@ def _render_t3(article, safe_summary, blog_content_body, pred_html, resolved_sto
     """템플릿 3 (카드뉴스 대본형): 제목/3줄 요약/투자 시사점을 카드뉴스 슬라이드처럼 짧고
     굵은 카드 단위로 나열한 뒤, 실전 가이드 본문을 이어 붙인다."""
     investment_related = _is_investment_related(article)
-    cards = [("HOOK", article.title)]
+    cards = [("HOOK", article.display_title)]
     if article.ai_summary:
         cards += [(f"CARD {i}", line) for i, line in enumerate(
             (line.strip() for line in article.ai_summary.split('\n') if line.strip()), start=1
@@ -306,18 +324,19 @@ def build_post_content(article):
         # (article.thumbnail.url은 MEDIA_URL 기준 상대경로).
         thumbnail_url = f"{settings.SITE_URL}{article.thumbnail.url}"
         thumbnail_html = (
-            f'<p><img src="{thumbnail_url}" alt="{article.title}" '
+            f'<p><img src="{thumbnail_url}" alt="{article.display_title}" '
             'style="max-width:100%; height:auto; border-radius:10px; margin-bottom:20px;"></p>'
         )
         full_html_content = thumbnail_html + full_html_content
 
     subject_label = _subject_label(article, resolved_stock)
-    # 게시판에 뜨는 원본 기사 제목(article.title)을 그대로 살려서, 회원이 블로그 관리자 화면에서
-    # 봤을 때 게시판의 어느 기사가 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이
-    # 만든 콘텐츠"라는 걸 밝히지 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의
-    # 블로그 글처럼 보여야 하기 때문. 투자와 무관한 글(문학/에세이 등 '직접작성하기'로 쓴 글
-    # 포함)까지 "투자 인사이트"를 붙이면 어색해서, 그런 경우엔 접두사를 붙이지 않는다.
-    blog_title = f"[투자 인사이트] {article.title}" if _is_investment_related(article) else article.title
+    # 게시판에 뜨는 표시 제목(article.display_title — AI 가공 제목이 있으면 그걸, 없으면 원본
+    # 제목으로 폴백)을 그대로 살려서, 회원이 블로그 관리자 화면에서 봤을 때 게시판의 어느 기사가
+    # 발행된 건지 바로 알아볼 수 있게 한다. 접두사는 "NextFinUp이 만든 콘텐츠"라는 걸 밝히지
+    # 않도록 중립적인 표현만 붙인다 — 애드센스를 붙일 회원 본인의 블로그 글처럼 보여야 하기
+    # 때문. 투자와 무관한 글(문학/에세이 등 '직접작성하기'로 쓴 글 포함)까지 "투자 인사이트"를
+    # 붙이면 어색해서, 그런 경우엔 접두사를 붙이지 않는다.
+    blog_title = f"[투자 인사이트] {article.display_title}" if _is_investment_related(article) else article.display_title
 
     return blog_title, full_html_content, subject_label
 

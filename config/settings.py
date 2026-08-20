@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'articles.middleware.KSTMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -74,6 +75,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'articles.context_processors.menu_items',
+                'articles.context_processors.theme_version',
             ],
         },
     },
@@ -243,10 +245,40 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'NextFinUp <{EMAIL_HOST_USER}>'
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# DEBUG=False일 때 Django 기본 로깅 설정(django.request 로거의 mail_admins 핸들러)이 처리 안 된
-# 500 에러 발생 시 여기로 이메일을 보낸다. deploy/run_job.sh(articles.management.commands.
-# notify_failure)도 cron 파이프라인이 조용히 실패했을 때(OOM kill 등) 같은 주소로 알린다.
+# deploy/run_job.sh(articles.management.commands.notify_failure)는 cron 파이프라인이 조용히
+# 실패했을 때(OOM kill 등) 여기로 이메일을 보낸다 — 이건 그대로 유지.
 ADMINS = [('NextFinUp Admin', 'banks@naver.com')]
+
+# DEBUG=False일 때 Django 기본 로깅 설정은 django 로거(500 에러, 잘못된 Host 헤더로 인한
+# DisallowedHost 등)를 ADMINS로 메일 발송한다(mail_admins 핸들러) — 그런데 봇이 임의의 Host
+# 헤더로 스캔할 때마다("Invalid HTTP_HOST header: 'testserver'" 같은) 관리자 메일함이 스팸으로
+# 도배되는 문제가 실제로 있어(2026-08-18), mail_admins를 DBErrorLogHandler로 바꿔 이메일 대신
+# SystemErrorLog 테이블에 쌓고 /admin/에서 조회하도록 했다. disable_existing_loggers=False로
+# 둬서 django.server(runserver 로그) 등 여기서 언급 안 한 다른 로거는 Django 기본값 그대로 둔다.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_true': {'()': 'django.utils.log.RequireDebugTrue'},
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+        },
+        'db_error': {
+            'level': 'ERROR',
+            'class': 'articles.logging_handlers.DBErrorLogHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'db_error'],
+            'level': 'INFO',
+        },
+    },
+}
 
 # 앞단 프록시(Cloudflare 등)가 X-Forwarded-Proto 헤더로 원 요청의 스킴을 전달해준다는 전제 하에,
 # request.build_absolute_uri() 등이 https로 올바르게 URL을 생성하도록 함

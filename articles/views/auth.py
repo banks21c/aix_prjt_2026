@@ -1,4 +1,5 @@
 import secrets
+import string
 from datetime import timedelta
 
 import requests
@@ -7,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -15,9 +17,17 @@ from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_de
 from django.views.decorators.http import require_POST
 
 from ..email_utils import TOKEN_VALID_HOURS, send_verification_email
-from ..forms import LoginForm, SignUpForm
+from ..forms import FindPasswordForm, LoginForm, SignUpForm
 from ..models import LoginLog, MemberGrade, SocialAccount, UserPreference, UserSubscription
 from ..utils import get_client_ip
+
+# 임시 비밀번호에 헷갈리기 쉬운 문자(0/O, 1/l/I 등)는 빼서, 메일로 받아 손으로 옮겨 칠 때
+# 오타로 로그인 실패할 가능성을 줄인다.
+TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+
+
+def _generate_temp_password(length=10):
+    return ''.join(secrets.choice(TEMP_PASSWORD_ALPHABET) for _ in range(length))
 
 
 def _create_subscription_if_missing(user):
@@ -110,11 +120,60 @@ def login_view(request):
     _stash_next(request)
     form = LoginForm(request, data=request.POST or None)
     if request.method == 'POST' and form.is_valid():
-        login(request, form.get_user())
-        _log_login(request, form.get_user(), 'GENERAL')
+        user = form.get_user()
+        login(request, user)
+        _log_login(request, user, 'GENERAL')
+        if UserPreference.objects.filter(user=user, temp_password_active=True).exists():
+            messages.info(
+                request,
+                "임시 비밀번호로 로그인하셨습니다. 계속 사용하셔도 되지만, "
+                "마이페이지에서 원하시는 비밀번호로 바꾸시는 것을 권장드립니다."
+            )
         return _pop_next_redirect(request)
 
     return render(request, 'articles/login.html', {'form': form, 'site_title': 'NextFinUp - 로그인'})
+
+
+def find_password_view(request):
+    """비밀번호를 잊은 회원에게 새 임시 비밀번호를 발급해 이메일로 보낸다. 임시 비밀번호로
+    로그인한 뒤에는 login_view가 마이페이지에서 비밀번호를 바꾸도록 안내하지만, 바꾸지
+    않아도 임시 비밀번호로 계속 로그인할 수 있다(강제 변경 없음)."""
+    if request.user.is_authenticated:
+        return redirect('landing_page')
+
+    form = FindPasswordForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        email = form.cleaned_data['email']
+        user = User.objects.get(email=email, is_active=True)
+        temp_password = _generate_temp_password()
+        user.set_password(temp_password)
+        user.save(update_fields=['password'])
+
+        preference, _ = UserPreference.objects.get_or_create(
+            user=user, defaults={'grade': MemberGrade.default_grade()}
+        )
+        preference.temp_password_active = True
+        preference.save(update_fields=['temp_password_active'])
+
+        send_mail(
+            subject="[NextFinUp] 임시 비밀번호 발급 안내",
+            message=(
+                f"{user.username}님, 요청하신 임시 비밀번호가 발급되었습니다.\n\n"
+                f"임시 비밀번호: {temp_password}\n\n"
+                "위 비밀번호로 로그인하신 뒤 이용하실 수 있습니다.\n"
+                "마이페이지에서 원하시는 비밀번호로 바꾸실 것을 권장드리지만, "
+                "바꾸지 않아도 이 임시 비밀번호로 계속 로그인하실 수 있습니다.\n\n"
+                "본인이 요청하지 않으셨다면 이 메일을 무시하시고, "
+                "계정이 걱정되신다면 로그인 후 비밀번호를 변경해주세요."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        messages.success(request, f"{email}로 임시 비밀번호를 보내드렸습니다. 메일함을 확인해주세요.")
+        return redirect('login')
+
+    return render(request, 'articles/find_password.html', {'form': form, 'site_title': 'NextFinUp - 비밀번호 찾기'})
 
 
 def logout_view(request):

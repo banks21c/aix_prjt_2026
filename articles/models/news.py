@@ -70,6 +70,11 @@ class AnalyzedArticle(models.Model):
 
     # 원본 뉴스 메타 데이터
     title = models.CharField(max_length=255, verbose_name="원본 제목")
+    # article_ai.generate_draft가 ai_summary 등과 함께 만드는, 원문 제목을 다듬은 버전
+    # (낚시성 표현 정리, 매체 특유 말투 제거 등). AI 요약을 아직 안 돌린 기사는 비어있다 —
+    # display_title에서 title로 폴백한다. 원본 title은 스크래핑 시점 그대로 보존한다
+    # (편집 화면에서 "원본 제목"으로 계속 노출/비교할 수 있도록).
+    ai_title = models.CharField(max_length=255, blank=True, default='', verbose_name="AI 가공 제목")
     original_url = models.URLField(unique=True, verbose_name="원본 기사 링크")
     source_media = models.CharField(max_length=50, verbose_name="언론사")
     scraped_at = models.DateTimeField(auto_now_add=True, verbose_name="수집 일시")
@@ -91,6 +96,22 @@ class AnalyzedArticle(models.Model):
     ]
     source_type = models.CharField(
         max_length=20, choices=SOURCE_CHOICES, default=SOURCE_RSS, verbose_name="수집 소스",
+    )
+
+    # 마이페이지 "뉴스 구독"에서 회원이 고른 카테고리(UserPreference.news_subscription)와
+    # 매칭해 blog_posting.select_candidates가 발행 후보를 거르는 데 쓴다. 기존 기사는 전부
+    # 경제/증시 콘텐츠였으므로 default=ECONOMY로 소급 적용해도 의미가 맞는다 — 건강 콘텐츠는
+    # generate_health_briefing이 HEALTH로 명시해서 생성한다.
+    CATEGORY_ECONOMY = 'ECONOMY'
+    CATEGORY_HEALTH = 'HEALTH'
+    CATEGORY_FOOD = 'FOOD'
+    CATEGORY_CHOICES = [
+        (CATEGORY_ECONOMY, '경제'),
+        (CATEGORY_HEALTH, '건강/의학'),
+        (CATEGORY_FOOD, '음식/영양'),
+    ]
+    content_category = models.CharField(
+        max_length=10, choices=CATEGORY_CHOICES, default=CATEGORY_ECONOMY, verbose_name="콘텐츠 카테고리",
     )
 
     # AI 에이전트 텍스트 분석 및 블로그 원고 데이터. 자동 수집(KIS/RSS)은 실제 AI를 호출하지
@@ -145,6 +166,12 @@ class AnalyzedArticle(models.Model):
 
     def __str__(self):
         return f"[{self.source_media}] {self.title}"
+
+    @property
+    def display_title(self):
+        """게시판/발행/썸네일 등 실제로 노출하는 제목. AI 가공 제목이 있으면 그걸 쓰고,
+        아직 AI 요약 전이면 원본 제목(title)으로 폴백한다."""
+        return self.ai_title or self.title
 
 
 class PostedArticle(models.Model):

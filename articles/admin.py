@@ -10,10 +10,10 @@ from django.utils.html import format_html
 from .models import (
     StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
-    LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
+    LoginLog, MenuAccessLog, SystemErrorLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
-    ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot,
+    ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot, Faq,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -231,10 +231,10 @@ class StockPredictionAdmin(admin.ModelAdmin):
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'ai_generated', 'scraped_by', 'scraped_at')
+    list_display = ('id', 'content_category', 'source_media', 'title', 'ai_title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'ai_generated', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
-    list_filter = ('ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template')
-    search_fields = ('title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
+    list_filter = ('content_category', 'ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template')
+    search_fields = ('title', 'ai_title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
     ordering = ('-scraped_at',)
 
 # 4-1. 마이페이지 - 뉴스구독/자동포스팅 환경설정 관리
@@ -265,7 +265,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
 
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
+    list_display = ('user', 'user_email', 'user_first_name', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
     list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
     search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
     list_select_related = ('user',)
@@ -274,6 +274,14 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
     # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
     exclude = ('credential',)
     readonly_fields = ('has_credential',)
+
+    @admin.display(description='이메일')
+    def user_email(self, obj):
+        return obj.user.email
+
+    @admin.display(description='이름')
+    def user_first_name(self, obj):
+        return obj.user.first_name
 
     @admin.display(description='연동 상태')
     def connection_status(self, obj):
@@ -371,6 +379,23 @@ class MenuAccessLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # 메뉴 접속 미들웨어를 통해서만 생성됨
+
+# 8-1. 시스템 에러 로그 관리 (읽기 전용 조회 용도) — 예전엔 ADMINS로 매번 메일이 갔지만
+# (config/settings.py의 LOGGING 참고), 봇의 잘못된 Host 헤더 스캔 등으로 메일함이 스팸으로
+# 도배돼서 여기 쌓아두고 조회하는 방식으로 바꿨다.
+@admin.register(SystemErrorLog)
+class SystemErrorLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'level', 'logger_name', 'short_message', 'status_code', 'request_path', 'created_at')
+    list_filter = ('level', 'logger_name')
+    search_fields = ('message', 'traceback', 'request_path')
+    ordering = ('-created_at',)
+
+    @admin.display(description='메시지')
+    def short_message(self, obj):
+        return obj.message[:100]
+
+    def has_add_permission(self, request):
+        return False  # DBErrorLogHandler(로깅)를 통해서만 생성됨
 
 # 9. 홈페이지 뉴스레터 구독자 관리
 @admin.register(NewsletterSubscriber)
@@ -559,6 +584,16 @@ class FinancialConsultSheetAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">{}</a>', url, obj.customer_name or '(이름 없음)')
 
 
+# 13-1. FAQ (자주 묻는 질문) 게시판 — Menu처럼 관리자만 작성/수정, 공개 페이지는 조회 전용
+@admin.register(Faq)
+class FaqAdmin(admin.ModelAdmin):
+    list_display = ('question', 'category', 'order', 'is_active', 'updated_at')
+    list_editable = ('order', 'is_active')
+    list_filter = ('category', 'is_active')
+    search_fields = ('question', 'answer')
+    ordering = ('category', 'order')
+
+
 # 14. Django Admin 목록을 하나의 "NextFinUp 관리" 통짜 목록 대신 5개 카테고리로 재구성한다
 # (신고: "장고 admin 메뉴가 카테고리화되지 않아 불편하다"). 실제 Django 앱은 여전히 auth/articles
 # 둘뿐이라 진짜 앱을 쪼갤 순 없지만, admin index 템플릿은 get_app_list가 돌려주는 dict 리스트를
@@ -586,9 +621,12 @@ _MODEL_CATEGORY = {
     'User': '회원', 'Group': '회원', 'MemberGrade': '회원', 'UserPreference': '회원',
     'BlogPostingAccount': '회원', 'UserSubscription': '회원', 'SocialAccount': '회원',
     'LoginLog': '회원', 'MenuAccessLog': '회원', 'ChatMessage': '회원',
+    # 운영 도구
+    'SystemErrorLog': '운영 도구',
     # 콘텐츠·상담 (articles/models/content.py)
     'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
     'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
+    'Faq': '콘텐츠·상담',
 }
 
 # (표시명, url name) — admin-tools 뷰들. 재무상담 시트는 목록(FinancialConsultSheetAdmin,
@@ -601,6 +639,7 @@ _TOOL_LINKS = [
     ('운영 현황', 'operations_overview'),
     ('AI 예측 성과', 'ai_performance_admin'),
     ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
+    ('테마 색상 설정', 'theme_settings'),
 ]
 
 

@@ -13,11 +13,15 @@ class Command(BaseCommand):
             '--limit', type=int, default=None,
             help='계정 1개당 한 번에 발행할 최대 건수 (생략 시 미발행 기사 전체)',
         )
+        parser.add_argument(
+            '--category', choices=['ECONOMY', 'HEALTH', 'FOOD'], default=None,
+            help='이 구독 카테고리를 고른 회원 계정만 대상으로 실행 (생략 시 전체 계정)',
+        )
 
     def handle(self, *args, **options):
         limit = options.get('limit')
 
-        accounts = enabled_accounts('WORDPRESS')
+        accounts = enabled_accounts('WORDPRESS', category=options.get('category'))
         if not accounts.exists():
             self.stdout.write(self.style.WARNING("[-] 워드프레스 자동 포스팅을 활성화한 회원이 없습니다."))
             return

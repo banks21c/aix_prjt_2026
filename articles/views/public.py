@@ -8,7 +8,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.mail import send_mail
-from django.db.models import Count, Max
+from django.core.paginator import Paginator
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -19,7 +20,7 @@ from django.views.decorators.http import require_POST
 from .. import kis_client
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
-    AnalyzedArticle, ConsultRequest, GlobalMarketQuote, MarketIndex, NewsletterIssue, NewsletterSubscriber,
+    AnalyzedArticle, ConsultRequest, Faq, GlobalMarketQuote, MarketIndex, NewsletterIssue, NewsletterSubscriber,
     RankedMover, StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder,
     UserSubscription, Watchlist,
 )
@@ -110,6 +111,88 @@ def adsense_guide_view(request):
     return render(request, 'articles/adsense_guide.html', {'site_title': 'NextFinUp - 구글 애드센스 신청 가이드'})
 
 
+def _content_calendar_view(request, build_sample, site_title, emoji, heading, intro):
+    """마이페이지 "뉴스 구독"에서 캘린더 기반 카테고리(건강/의학, 음식/영양)를 고려 중인 회원에게
+    "이런 식으로 발행됩니다"를 보여주는 공개 안내 페이지. 실제 364일 전체 스케줄(build_one_cycle)은
+    노출하지 않는다 — 통째로 공개하면 그대로 퍼가서 베낄 수 있다는 우려가 있어(회원 지적사항),
+    요일(카테고리)별 예시 1개씩(build_sample, 7건)만 보여준다. health_content_calendar_view/
+    food_content_calendar_view가 이 헬퍼를 공유한다."""
+    return render(request, 'articles/content_calendar.html', {
+        'site_title': site_title,
+        'emoji': emoji,
+        'heading': heading,
+        'intro': intro,
+        'samples': build_sample(),
+    })
+
+
+def health_content_calendar_view(request):
+    from articles.health_calendar import build_sample
+
+    return _content_calendar_view(
+        request, build_sample,
+        site_title='NextFinUp - 건강정보 포스팅 예시', emoji='🩺', heading='건강정보 자동 발행 예시',
+        intro=(
+            '마이페이지에서 "건강/의학"을 구독하면, 요일마다 정해진 주제 카테고리 안에서 AI가 매일 '
+            '오전·오후 두 편씩 자동으로 글을 작성해 연결된 블로그에 발행합니다. 아래는 요일별 카테고리와 '
+            '실제 발행되는 글 제목의 예시입니다(전체 1년 스케줄은 공개하지 않습니다). 각 글 하단에는 '
+            '"일반적인 정보 제공 목적이며 진단·치료를 대신하지 않는다"는 안내 문구가 고정으로 붙습니다.'
+        ),
+    )
+
+
+def food_content_calendar_view(request):
+    from articles.food_calendar import build_sample
+
+    return _content_calendar_view(
+        request, build_sample,
+        site_title='NextFinUp - 음식/영양 포스팅 예시', emoji='🍚', heading='음식/영양 자동 발행 예시',
+        intro=(
+            '마이페이지에서 "음식/영양"을 구독하면, 요일마다 정해진 주제 카테고리 안에서 AI가 매일 '
+            '오전·오후 두 편씩 자동으로 글을 작성해 연결된 블로그에 발행합니다. 아래는 요일별 카테고리와 '
+            '실제 발행되는 글 제목의 예시입니다(전체 1년 스케줄은 공개하지 않습니다).'
+        ),
+    )
+
+
+def faq_board_view(request):
+    query = request.GET.get('q', '').strip()
+    category = request.GET.get('category', 'all')
+    valid_categories = [c[0] for c in Faq.CATEGORY_CHOICES]
+    if category not in valid_categories:
+        category = 'all'
+
+    faqs = Faq.objects.filter(is_active=True)
+    if category != 'all':
+        faqs = faqs.filter(category=category)
+    if query:
+        faqs = faqs.filter(Q(question__icontains=query) | Q(answer__icontains=query))
+
+    paginator = Paginator(faqs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    # 다른 게시판(news_board 등)과 동일한 10개 단위 페이지 블록 방식
+    page_block_size = 10
+    current_block = (page_obj.number - 1) // page_block_size
+    page_block_start = current_block * page_block_size + 1
+    page_block_end = min(page_block_start + page_block_size - 1, paginator.num_pages)
+    page_range = range(page_block_start, page_block_end + 1)
+    prev_block_page = page_block_start - 1 if page_block_start > 1 else None
+    next_block_page = page_block_end + 1 if page_block_end < paginator.num_pages else None
+
+    context = {
+        'site_title': 'NextFinUp - 자주 묻는 질문',
+        'page_obj': page_obj,
+        'page_range': page_range,
+        'prev_block_page': prev_block_page,
+        'next_block_page': next_block_page,
+        'query': query,
+        'category': category,
+        'categories': Faq.CATEGORY_CHOICES,
+    }
+    return render(request, 'articles/faq_board.html', context)
+
+
 def expert_consult_view(request):
     return render(request, 'articles/expert_consult.html', {'site_title': 'NextFinUp - 전문가 상담'})
 
@@ -197,6 +280,21 @@ def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
     return render(request, 'articles/_header.html')
+
+
+def cookie_banner_fragment_view(request):
+    """header_fragment_view와 같은 패턴 — nginx가 직접 서빙하는 정적 페이지(예:
+    /asset-management/)가 fetch로 불러와 쓰는 공통 쿠키 배너 조각. 정적 페이지마다 배너
+    HTML/문구를 따로 박아두면 Django 쪽 _cookie_banner.html이 바뀔 때 정적 페이지가
+    누락되어 서로 다른 버전이 보이는 문제가 생기므로, 이 엔드포인트로 단일 소스를 공유한다."""
+    return render(request, 'articles/_cookie_banner.html')
+
+
+def ticker_fragment_view(request):
+    """header_fragment_view/cookie_banner_fragment_view와 같은 패턴 — nginx가 직접 서빙하는
+    정적 페이지(/asset-management/ 등)가 fetch로 불러와 쓰는 공통 실시간 시세 티커 조각.
+    _header.html도 같은 _ticker.html을 include해서 쓰므로 단일 소스다."""
+    return render(request, 'articles/_ticker.html')
 
 
 def ticker_data_view(request):

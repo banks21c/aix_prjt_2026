@@ -1,0 +1,113 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .category-tabs { flex-wrap: wrap; }
+        .category-tabs .btn { font-size: 13px; }
+        .faq-item { border-bottom: 1px solid var(--bg-subtle-2, #eee); }
+        .faq-item:last-child { border-bottom: none; }
+        .faq-question {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 16px 4px; cursor: pointer; background: none; border: none; width: 100%; text-align: left;
+        }
+        .faq-question .q-text { font-weight: 700; color: var(--text-primary, #212529); }
+        .faq-question .q-mark { color: var(--brand-primary, #0d47a1); font-weight: 800; margin-right: 8px; }
+        .faq-question .toggle-icon { color: var(--text-disabled, #adb5bd); transition: transform 0.2s ease; flex-shrink: 0; }
+        .faq-item.open .toggle-icon { transform: rotate(180deg); }
+        .faq-answer { display: none; padding: 0 4px 18px 30px; color: var(--text-secondary, #495057); font-size: 14px; line-height: 1.7; white-space: pre-line; }
+        .faq-item.open .faq-answer { display: block; }
+        .faq-category-badge { font-size: 11px; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    <!-- 상단 네비게이션 바 -->
+    {% include "articles/_header.html" %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">❓ 자주 묻는 질문</h2>
+                <p class="text-muted">NextFinUp 이용 중 궁금한 점을 모았습니다. 원하는 답을 못 찾으셨다면 <a href="{% url 'expert_consult' %}">전문가 상담</a>을 이용해주세요.</p>
+            </div>
+        </div>
+
+        <form method="get" class="card card-custom bg-white p-3 mb-3">
+            <div class="input-group mb-2">
+                <input type="text" name="q" class="form-control" placeholder="질문/답변 내용으로 검색" value="{{ query }}">
+                {% if category != 'all' %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+                <button type="submit" class="btn btn-primary">검색</button>
+                {% if query or category != 'all' %}
+                <a href="{% url 'faq_board' %}" class="btn btn-outline-secondary">초기화</a>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2 category-tabs">
+                <a href="?category=all{% if query %}&q={{ query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-primary{% if category == 'all' %} active{% endif %}">전체</a>
+                {% for code, label in categories %}
+                <a href="?category={{ code }}{% if query %}&q={{ query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-primary{% if category == code %} active{% endif %}">{{ label }}</a>
+                {% endfor %}
+            </div>
+        </form>
+
+        <div class="card card-custom bg-white p-4">
+            {% if page_obj.object_list %}
+                {% for faq in page_obj %}
+                <div class="faq-item">
+                    <button type="button" class="faq-question" onclick="this.closest('.faq-item').classList.toggle('open')">
+                        <span>
+                            <span class="badge bg-light text-dark border faq-category-badge me-2">{{ faq.get_category_display }}</span>
+                            <span class="q-mark">Q.</span><span class="q-text">{{ faq.question }}</span>
+                        </span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">{{ faq.answer }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted text-center my-4">
+                    {% if query %}"{{ query }}"에 대한 검색 결과가 없습니다.{% else %}등록된 FAQ가 없습니다.{% endif %}
+                </p>
+            {% endif %}
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if category != 'all' %}&category={{ category }}{% endif %}">&laquo;</a>
+                </li>
+                <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if category != 'all' %}&category={{ category }}{% endif %}">&lsaquo;</a>
+                </li>
+                {% for n in page_range %}
+                <li class="page-item{% if n == page_obj.number %} active{% endif %}">
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if category != 'all' %}&category={{ category }}{% endif %}">{{ n }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item{% if not next_block_page %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if category != 'all' %}&category={{ category }}{% endif %}">&rsaquo;</a>
+                </li>
+                <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if category != 'all' %}&category={{ category }}{% endif %}">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

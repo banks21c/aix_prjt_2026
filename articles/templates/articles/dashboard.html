@@ -1,3 +1,4 @@
+{% load static %}
 {% load static humanize %}
 <!DOCTYPE html>
 <html lang="ko">
@@ -6,28 +7,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #212529; margin-bottom: 1rem; }
-        .up-value { color: #c62828; font-weight: bold; }
-        .down-value { color: #1565c0; font-weight: bold; }
-        .flat-value { color: #616161; font-weight: bold; }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); margin-bottom: 1rem; }
+        .up-value { color: var(--color-danger, #c62828); font-weight: bold; }
+        .down-value { color: var(--brand-accent, #1565c0); font-weight: bold; }
+        .flat-value { color: var(--text-gray, #616161); font-weight: bold; }
         /* Bootstrap 5의 .table > :not(caption) > * > * 셀렉터가 td 글자색을 정하는데, 단일 클래스
            선택자(.up-value 등)보다 명시도가 높아 표 안에서는 위 색상 규칙이 그냥 씹힌다(신고:
            "색깔이 다 까만색이야") — td.up-value 형태로 명시도를 올려서 표 안에서도 이기게 한다. */
-        td.up-value { color: #c62828; }
-        td.down-value { color: #1565c0; }
-        td.flat-value { color: #616161; }
-        .signal-BUY { background-color: #ffebee; color: #c62828; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-SELL { background-color: #e3f2fd; color: #1565c0; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-HOLD { background-color: #f5f5f5; color: #616161; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .news-item + .news-item { border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
-        .mover-item + .mover-item { border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
+        td.up-value { color: var(--color-danger, #c62828); }
+        td.down-value { color: var(--brand-accent, #1565c0); }
+        td.flat-value { color: var(--text-gray, #616161); }
+        .signal-BUY { background-color: var(--bg-danger-soft-2, #ffebee); color: var(--color-danger, #c62828); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-SELL { background-color: var(--bg-info-soft, #e3f2fd); color: var(--brand-accent, #1565c0); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-HOLD { background-color: #f5f5f5; color: var(--text-gray, #616161); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .news-item + .news-item { border-top: 1px solid var(--bg-subtle-2, #eee); padding-top: 10px; margin-top: 10px; }
+        .mover-item + .mover-item { border-top: 1px solid var(--bg-subtle-2, #eee); padding-top: 10px; margin-top: 10px; }
         .chart-wrap { position: relative; height: 220px; }
         .chart-wrap-sm { position: relative; height: 260px; }
     </style>

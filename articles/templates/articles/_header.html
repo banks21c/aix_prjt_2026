@@ -3,9 +3,10 @@
      Bootstrap 유무와 무관하게 항상 같은 모양으로 보이도록 아래 <style>이 필요한 CSS를 전부 자체적으로 갖고 있다.
      is_index_page가 True로 전달되면(랜딩 페이지) index_menus + 랜딩 전용 링크를, 아니면 header_menus + 내부 앱 전용 링크를 보여준다.
      FontAwesome <link>은 head에서 로드해야 하므로 이 컴포넌트를 쓰는 각 템플릿의 <head>에 있다(이 파일에는 없음). -->
+{% include "articles/_ticker.html" %}
 <nav class="app-navbar">
     <div class="container">
-        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: #6c757d;">AI종합자산관리 허브</span></a>
+        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: var(--text-muted, #6c757d);">AI종합자산관리 허브</span></a>
         <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
                 onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
         <div class="app-nav-menu" id="appNavMenu">
@@ -21,8 +22,8 @@
                 {% with provider=user.social_accounts.first.provider %}
                 <a href="{% url 'my_page' %}" class="btn btn-outline-secondary">
                     {% if provider == 'KAKAO' %}<span class="provider-badge" style="background:#FEE500;color:#191919;">💬</span>
-                    {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
-                    {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:#fff;">N</span>
+                    {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:var(--color-white, #fff);color:#3c4043;border:1px solid #dadce0;">G</span>
+                    {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:var(--color-white, #fff);">N</span>
                     {% endif %}
                     {{ user.first_name|default:user.username }}님
                 </a>
@@ -35,145 +36,14 @@
         </div>
     </div>
 </nav>
-{% if is_index_page %}
-<div class="ticker-bar" id="indexTicker" aria-hidden="true">
-    <div class="ticker-track" id="indexTickerTrack"></div>
-</div>
-<div class="ticker-bar ticker-bar-alt" id="stockTicker" aria-hidden="true">
-    <div class="ticker-track" id="stockTickerTrack"></div>
-</div>
-<div class="ticker-popup" id="tickerPopup" role="dialog" aria-hidden="true">
-    <button type="button" class="ticker-popup-close" id="tickerPopupClose" aria-label="닫기">&times;</button>
-    <div class="ticker-popup-name" id="tickerPopupName"></div>
-    <div class="ticker-popup-row"><span>현재가</span><strong id="tickerPopupPrice"></strong></div>
-    <div class="ticker-popup-row"><span>전일대비</span><strong id="tickerPopupAmount"></strong></div>
-    <div class="ticker-popup-row"><span>등락률</span><strong id="tickerPopupChange"></strong></div>
-    <a href="#" class="ticker-popup-link" id="tickerPopupLink">종목 상세보기 →</a>
-</div>
-<div class="ticker-popup" id="indexFlowPopup" role="dialog" aria-hidden="true">
-    <button type="button" class="ticker-popup-close" id="indexFlowPopupClose" aria-label="닫기">&times;</button>
-    <div class="ticker-popup-name" id="indexFlowPopupName"></div>
-    <div class="ticker-popup-row"><span>현재지수</span><strong id="indexFlowPopupPrice"></strong></div>
-    <div class="ticker-popup-row"><span>전일대비</span><strong id="indexFlowPopupChangeAmount"></strong></div>
-    <div class="ticker-popup-row"><span>등락률</span><strong id="indexFlowPopupChangePct"></strong></div>
-    <hr style="border:0;border-top:1px solid #e9ecef;margin:6px 0;">
-    <div class="ticker-popup-row"><span>개인</span><strong id="indexFlowPopupRetail"></strong></div>
-    <div class="ticker-popup-row"><span>외국인</span><strong id="indexFlowPopupForeign"></strong></div>
-    <div class="ticker-popup-row"><span>기관</span><strong id="indexFlowPopupInstitution"></strong></div>
-</div>
-{% endif %}
 <style>
     .app-navbar {
-        background: #fff;
-        border-bottom: 1px solid #e9ecef;
+        background: var(--color-white, #fff);
+        border-bottom: 1px solid var(--border-light, #e9ecef);
         position: sticky;
         top: 0;
         z-index: 1020;
     }
-    /* 실시간 시세 티커: KOSPI/KOSDAQ 지수 + 등락률 상위/하위 종목이 오른쪽에서 왼쪽으로 흘러감.
-       내용을 두 번 반복해 붙이고 -50% 지점까지만 이동시키면 이음매 없이 무한 반복되는 것처럼
-       보인다(한국투자증권 홈페이지 지수 티커와 동일한 기법). */
-    .ticker-bar {
-        background: #0d1b2a;
-        overflow: hidden;
-        white-space: nowrap;
-    }
-    .ticker-bar.ticker-bar-alt {
-        background: #142a3d; /* 위 지수 티커보다 살짝 밝은 톤으로 구분 */
-    }
-    .ticker-track {
-        display: inline-flex;
-        align-items: center;
-        animation: ticker-scroll 40s linear infinite;
-        will-change: transform;
-    }
-    /* 개별 종목 티커는 방향을 반대로(왼쪽→오른쪽) + 속도/시작 시점도 따로 둬서, 위 지수 티커와
-       같은 타이밍으로 묶여 움직이는 것처럼 보이지 않게 한다(각 트랙에 JS가 서로 다른
-       animationDuration/animationDelay를 부여함 — 아래 fitAnimationSpeed 참고). */
-    .ticker-bar-alt .ticker-track {
-        animation-name: ticker-scroll-reverse;
-    }
-    .ticker-bar:hover .ticker-track { animation-play-state: paused; }
-    @keyframes ticker-scroll {
-        from { transform: translateX(0); }
-        to { transform: translateX(-50%); }
-    }
-    @keyframes ticker-scroll-reverse {
-        from { transform: translateX(-50%); }
-        to { transform: translateX(0); }
-    }
-    .ticker-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 20px;
-        font-size: 13px;
-        white-space: nowrap;
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .ticker-item .ticker-name { font-weight: 700; color: #fff; }
-    .ticker-item .ticker-price, .ticker-item .ticker-change {
-        color: #cfd8e3;
-        font-variant-numeric: tabular-nums;
-    }
-    .ticker-item .ticker-change.up { color: #ff5252; }
-    .ticker-item .ticker-change.down { color: #4fa8ff; }
-    .ticker-item .ticker-change.zero { color: #9aa5b1; }
-    /* 개별 종목 티커(ticker-bar-alt)는 data-ticker가 있는 항목만, 지수 티커는 코스피/코스닥처럼
-       data-flows(수급 주체별 순매수)가 있는 항목만 클릭 가능 — 해외지수/환율/금리는 클릭 대상 아님 */
-    .ticker-bar-alt .ticker-item[data-ticker] { cursor: pointer; }
-    .ticker-bar-alt .ticker-item[data-ticker]:hover { background: rgba(255, 255, 255, 0.08); }
-    #indexTicker .ticker-item[data-flows] { cursor: pointer; }
-    #indexTicker .ticker-item[data-flows]:hover { background: rgba(255, 255, 255, 0.08); }
-
-    /* 종목 클릭 시 뜨는 레이어 팝업 */
-    .ticker-popup {
-        display: none;
-        position: fixed;
-        z-index: 1030;
-        background: #fff;
-        color: #212529;
-        border-radius: 10px;
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-        padding: 14px 16px;
-        min-width: 200px;
-    }
-    .ticker-popup.open { display: block; }
-    .ticker-popup-close {
-        position: absolute;
-        top: 6px;
-        right: 8px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        line-height: 1;
-        color: #adb5bd;
-        cursor: pointer;
-        padding: 4px;
-    }
-    .ticker-popup-close:hover { color: #495057; }
-    .ticker-popup-name { font-weight: 800; font-size: 14px; margin: 0 20px 8px 0; }
-    .ticker-popup-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        font-size: 13px;
-        color: #6c757d;
-        padding: 3px 0;
-    }
-    .ticker-popup-row strong { color: #212529; font-variant-numeric: tabular-nums; }
-    .ticker-popup-row strong.up { color: #e03131; }
-    .ticker-popup-row strong.down { color: #1971c2; }
-    .ticker-popup-row strong.zero { color: #495057; }
-    .ticker-popup-link {
-        display: block;
-        margin-top: 10px;
-        font-size: 12px;
-        font-weight: 700;
-        color: #0d47a1;
-        text-decoration: none;
-    }
-    .ticker-popup-link:hover { text-decoration: underline; }
     .app-navbar .container {
         max-width: 1140px;
         margin: 0 auto;
@@ -190,7 +60,7 @@
         gap: 6px;
         font-weight: 800;
         letter-spacing: -0.5px;
-        color: #0d47a1;
+        color: var(--brand-primary, #0d47a1);
         font-size: 20px;
         text-decoration: none;
     }
@@ -211,9 +81,9 @@
         padding: 0 14px;
         font-size: 13px;
         font-weight: 700;
-        color: #868e96;
-        background: #f1f3f5;
-        border: 1px solid #dee2e6;
+        color: var(--text-faint, #868e96);
+        background: var(--bg-hover, #f1f3f5);
+        border: 1px solid var(--border-subtle, #dee2e6);
         border-radius: 0 8px 0 0;
         text-decoration: none;
         white-space: nowrap;
@@ -227,9 +97,9 @@
         margin-left: 0;
     }
     .nav-tab:hover, .nav-tab:focus, .nav-tab.active {
-        background: #fff;
-        color: #0d47a1;
-        border-color: #0d47a1;
+        background: var(--color-white, #fff);
+        color: var(--brand-primary, #0d47a1);
+        border-color: var(--brand-primary, #0d47a1);
         position: relative;
         z-index: 1;
         text-decoration: none;
@@ -247,8 +117,8 @@
         z-index: 1000;
     }
     .nav-dropdown-menu-inner {
-        background: #fff;
-        border: 1px solid #dee2e6;
+        background: var(--color-white, #fff);
+        border: 1px solid var(--border-subtle, #dee2e6);
         border-radius: 8px;
         box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         padding: 6px;
@@ -263,7 +133,7 @@
         border-radius: 6px;
         white-space: nowrap;
     }
-    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    .nav-dropdown-menu a:hover { background: var(--bg-hover, #f1f3f5); }
     @media (max-width: 768px) {
         .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
         .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
@@ -285,32 +155,32 @@
         text-decoration: none;
     }
     .app-navbar .btn-outline-secondary {
-        border-color: #ced4da;
-        color: #495057;
-        background: #fff;
+        border-color: var(--border-input, #ced4da);
+        color: var(--text-secondary, #495057);
+        background: var(--color-white, #fff);
     }
     .app-navbar .btn-outline-secondary:hover {
-        background: #f1f3f5;
-        color: #495057;
-        border-color: #ced4da;
+        background: var(--bg-hover, #f1f3f5);
+        color: var(--text-secondary, #495057);
+        border-color: var(--border-input, #ced4da);
     }
     .app-navbar .btn-primary {
-        background: #0d47a1;
-        border-color: #0d47a1;
-        color: #fff;
+        background: var(--brand-primary, #0d47a1);
+        border-color: var(--brand-primary, #0d47a1);
+        color: var(--color-white, #fff);
     }
     .app-navbar .btn-primary:hover {
-        background: #0b3c8a;
-        border-color: #0b3c8a;
+        background: var(--brand-primary-hover, #0b3c8a);
+        border-color: var(--brand-primary-hover, #0b3c8a);
     }
     .app-navbar .btn-outline-danger {
-        border-color: #dc3545;
-        color: #dc3545;
-        background: #fff;
+        border-color: var(--color-danger-alt, #dc3545);
+        color: var(--color-danger-alt, #dc3545);
+        background: var(--color-white, #fff);
     }
     .app-navbar .btn-outline-danger:hover {
-        background: #dc3545;
-        color: #fff;
+        background: var(--color-danger-alt, #dc3545);
+        color: var(--color-white, #fff);
     }
 
     .provider-badge {
@@ -327,7 +197,7 @@
     .app-navbar-toggler {
         display: none;
         background: none;
-        border: 1px solid #ced4da;
+        border: 1px solid var(--border-input, #ced4da);
         border-radius: 6px;
         font-size: 18px;
         line-height: 1;
@@ -343,8 +213,8 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: #fff;
-            border-bottom: 1px solid #dee2e6;
+            background: var(--color-white, #fff);
+            border-bottom: 1px solid var(--border-subtle, #dee2e6);
             flex-direction: column !important;
             align-items: stretch !important;
             padding: 12px 16px 16px;
@@ -359,260 +229,3 @@
         .nav-tab { width: 100%; justify-content: center; border-radius: 8px; }
     }
 </style>
-<script>
-(function () {
-    function escapeHtml(str) {
-        return String(str).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
-
-    function renderItemsHtml(items) {
-        return items.map(function (it) {
-            var pct = it.change_pct || 0;
-            var dir = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'zero');
-            var arrow = dir === 'up' ? '▲' : (dir === 'down' ? '▼' : '－');
-            var priceStr = Number(it.price).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-            var pctStr = Math.abs(pct).toFixed(2);
-            // data-* 속성에 원본 값을 실어두면, 클릭 시 다시 API를 안 불러도 팝업에 바로 쓸 수 있다.
-            // data-ticker는 개별 종목(RankedMover)에만 있고 지수/환율/금리 항목엔 없다 — CSS의
-            // .ticker-item[data-ticker] 커서 표시와 클릭 핸들러가 이 값의 유무로 클릭 가능 여부를 가른다.
-            var tickerAttr = it.ticker ? ' data-ticker="' + escapeHtml(it.ticker) + '"' : '';
-            // has_detail=false면 이 티커가 StockItem 마스터에 없는 상품(ETN 등)이라
-            // /stocks/<ticker>/가 404를 낸다 — 팝업의 "종목 상세보기" 링크를 네이버 증권으로
-            // 대신 보내야 하므로 표시해둔다.
-            var hasDetailAttr = (it.ticker && it.has_detail === false) ? ' data-no-detail="1"' : '';
-            // change_amount(전일대비 금액, 부호 포함)는 개별 종목(ticker_stocks_view)에만 있다.
-            var amountAttr = '';
-            if (typeof it.change_amount === 'number') {
-                // 등락률(arrow)과 같은 표기로 통일 — +/- 대신 ▲/▼.
-                var amountArrow = it.change_amount > 0 ? '▲' : (it.change_amount < 0 ? '▼' : '－');
-                var amountStr = Math.abs(it.change_amount).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-                amountAttr = ' data-amount="' + amountArrow + ' ' + amountStr + '원"';
-            }
-            // flows(개인/외국인/기관 순매수 금액, 억원)는 코스피/코스닥(ticker_data_view)에만 있다.
-            // change(전일대비, 포인트 단위)도 코스피/코스닥 팝업이 지수 자체 정보도 같이 보여줄 수
-            // 있도록 함께 싣는다 — 종목의 change_amount(원)와 단위가 달라 별도 속성으로 둔다.
-            var flowsAttr = '';
-            if (it.flows) {
-                // 종목 티커의 전일대비(▲/▼)와 같은 표기로 통일.
-                var idxChangeArrow = it.change > 0 ? '▲' : (it.change < 0 ? '▼' : '－');
-                var idxChangeStr = Math.abs(it.change || 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-                flowsAttr =
-                    ' data-flows="1"' +
-                    ' data-retail="' + it.flows.retail + '"' +
-                    ' data-foreign="' + it.flows.foreign + '"' +
-                    ' data-institution="' + it.flows.institution + '"' +
-                    ' data-index-change="' + idxChangeArrow + ' ' + idxChangeStr + '"';
-            }
-            return '<span class="ticker-item"' + tickerAttr + hasDetailAttr + amountAttr + flowsAttr +
-                ' data-name="' + escapeHtml(it.name) + '"' +
-                ' data-price="' + priceStr + '"' +
-                ' data-change="' + arrow + ' ' + pctStr + '%"' +
-                ' data-dir="' + dir + '">' +
-                '<span class="ticker-name">' + escapeHtml(it.name) + '</span>' +
-                '<span class="ticker-price">' + priceStr + '</span>' +
-                '<span class="ticker-change ' + dir + '">' + arrow + ' ' + pctStr + '%</span>' +
-                '</span>';
-        }).join('');
-    }
-
-    function fitAnimationSpeed(track, pxPerSecond, delaySeconds) {
-        // 항목 개수에 관계없이 체감 속도가 일정하도록, 실제 폭에 맞춰 애니메이션 길이를 다시 계산한다.
-        // pxPerSecond/delaySeconds를 티커마다 다르게 줘서 두 티커가 같은 타이밍으로 묶여 보이지
-        // 않게 한다(속도도 다르고, 음수 delay로 시작 지점도 어긋나게).
-        var singleLoopWidth = track.scrollWidth / 2; // 내용을 두 번 반복했으므로 절반이 한 바퀴
-        var duration = Math.max(singleLoopWidth / pxPerSecond, 15);
-        track.style.animationDuration = duration + 's';
-        track.style.animationDelay = (-delaySeconds) + 's';
-    }
-
-    // 1번째 티커: 국내지수(+ 추후 해외지수/환율/금리/유가/금시세/원자재)
-    function loadIndexTicker() {
-        var track = document.getElementById('indexTickerTrack');
-        if (!track) return;
-        fetch('/api/ticker/')
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                var items = data.items || [];
-                if (!items.length) return;
-                var html = renderItemsHtml(items);
-                track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
-                fitAnimationSpeed(track, 70, 0);
-            })
-            .catch(function () { /* 다음 폴링에서 재시도 */ });
-    }
-
-    // 2번째 티커: 등락률 상위/하위 개별 종목(RankedMover)
-    function loadStockTicker() {
-        var track = document.getElementById('stockTickerTrack');
-        if (!track) return;
-        fetch('/api/ticker/stocks/')
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                var items = data.items || [];
-                if (!items.length) return;
-                var html = renderItemsHtml(items);
-                track.innerHTML = html + html; // 이음매 없는 순환을 위해 두 번 반복
-                fitAnimationSpeed(track, 38, 6);
-            })
-            .catch(function () { /* 다음 폴링에서 재시도 */ });
-    }
-
-    loadIndexTicker();
-    setInterval(loadIndexTicker, 60000);
-    loadStockTicker();
-    setInterval(loadStockTicker, 60000);
-
-    // 종목 티커 클릭 → 레이어 팝업으로 현재가/등락률을 살짝 보여줌. 트랙 내용은 60초마다
-    // 통째로 다시 그려지므로, 항목이 아니라 안 바뀌는 바깥 컨테이너(#stockTicker)에
-    // 이벤트를 위임해서 매번 리스너를 다시 붙일 필요가 없게 한다.
-    var stockTickerEl = document.getElementById('stockTicker');
-    var popup = document.getElementById('tickerPopup');
-    if (stockTickerEl && popup) {
-        var popupName = document.getElementById('tickerPopupName');
-        var popupPrice = document.getElementById('tickerPopupPrice');
-        var popupAmount = document.getElementById('tickerPopupAmount');
-        var popupChange = document.getElementById('tickerPopupChange');
-        var popupLink = document.getElementById('tickerPopupLink');
-        var popupClose = document.getElementById('tickerPopupClose');
-
-        function closePopup() {
-            popup.classList.remove('open');
-            popup.setAttribute('aria-hidden', 'true');
-        }
-
-        function openPopupFor(itemEl) {
-            var ticker = itemEl.getAttribute('data-ticker');
-            if (!ticker) return; // 지수/환율/금리 항목은 클릭 대상 아님
-
-            var dir = itemEl.getAttribute('data-dir');
-            popupName.textContent = itemEl.getAttribute('data-name');
-            popupPrice.textContent = itemEl.getAttribute('data-price') + '원';
-            popupAmount.textContent = itemEl.getAttribute('data-amount') || '-';
-            popupAmount.className = dir; // 등(상승)=빨간색, 락(하락)=파란색 — 등락률과 동일한 색 규칙
-            popupChange.textContent = itemEl.getAttribute('data-change');
-            popupChange.className = dir;
-            if (itemEl.hasAttribute('data-no-detail')) {
-                // StockItem 마스터에 없는 티커(ETN 등) — 내부 상세 페이지가 404라 네이버 증권으로 대신 보낸다.
-                // ETN 코드는 KIS에서 "Q" 접두사가 붙어 오지만(예: Q760027), 네이버 증권은 접두사
-                // 없는 코드(760027)라야 종목 상세로 가고 붙이면 증권 메인으로 튕긴다 — 실측 확인.
-                var naverCode = ticker.charAt(0) === 'Q' ? ticker.slice(1) : ticker;
-                popupLink.href = 'https://stock.naver.com/domestic/stock/' + encodeURIComponent(naverCode) + '/price';
-                popupLink.target = '_blank';
-                popupLink.rel = 'noopener noreferrer';
-                popupLink.textContent = '네이버 증권에서 보기 →';
-            } else {
-                popupLink.href = '/stocks/' + encodeURIComponent(ticker) + '/';
-                popupLink.removeAttribute('target');
-                popupLink.removeAttribute('rel');
-                popupLink.textContent = '종목 상세보기 →';
-            }
-
-            // 클릭한 항목 바로 아래에 뜨도록 위치 계산(화면 밖으로 안 나가게 좌우 보정).
-            var rect = itemEl.getBoundingClientRect();
-            popup.classList.add('open'); // 너비 계산을 위해 먼저 보여준 뒤 위치 보정
-            var popupWidth = popup.offsetWidth;
-            var left = Math.min(Math.max(rect.left, 8), window.innerWidth - popupWidth - 8);
-            popup.style.top = (rect.bottom + 8) + 'px';
-            popup.style.left = left + 'px';
-            popup.setAttribute('aria-hidden', 'false');
-        }
-
-        stockTickerEl.addEventListener('click', function (e) {
-            var itemEl = e.target.closest('.ticker-item');
-            if (!itemEl) return;
-            openPopupFor(itemEl);
-        });
-
-        popupClose.addEventListener('click', closePopup);
-        document.addEventListener('click', function (e) {
-            if (popup.classList.contains('open') && !popup.contains(e.target) && !e.target.closest('.ticker-item')) {
-                closePopup();
-            }
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closePopup();
-        });
-    }
-
-    // 지수 티커 클릭 → 코스피/코스닥(data-flows 있는 항목)만 개인/외국인/기관 순매수 금액
-    // 레이어 팝업으로 보여줌. 해외지수/환율/금리는 data-flows가 없어 클릭 대상에서 자동 제외.
-    var indexTickerEl = document.getElementById('indexTicker');
-    var flowPopup = document.getElementById('indexFlowPopup');
-    if (indexTickerEl && flowPopup) {
-        var flowPopupName = document.getElementById('indexFlowPopupName');
-        var flowPopupPrice = document.getElementById('indexFlowPopupPrice');
-        var flowPopupChangeAmount = document.getElementById('indexFlowPopupChangeAmount');
-        var flowPopupChangePct = document.getElementById('indexFlowPopupChangePct');
-        var flowPopupRetail = document.getElementById('indexFlowPopupRetail');
-        var flowPopupForeign = document.getElementById('indexFlowPopupForeign');
-        var flowPopupInstitution = document.getElementById('indexFlowPopupInstitution');
-        var flowPopupClose = document.getElementById('indexFlowPopupClose');
-
-        function closeFlowPopup() {
-            flowPopup.classList.remove('open');
-            flowPopup.setAttribute('aria-hidden', 'true');
-        }
-
-        function formatFlowAmount(value) {
-            var num = Number(value) || 0;
-            var sign = num > 0 ? '+' : (num < 0 ? '-' : '');
-            return sign + Math.abs(num).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억';
-        }
-
-        function flowDir(value) {
-            var num = Number(value) || 0;
-            return num > 0 ? 'up' : (num < 0 ? 'down' : 'zero');
-        }
-
-        function openFlowPopupFor(itemEl) {
-            if (!itemEl.hasAttribute('data-flows')) return; // 해외지수/환율/금리는 클릭 대상 아님
-
-            var dir = itemEl.getAttribute('data-dir');
-            flowPopupName.textContent = itemEl.getAttribute('data-name');
-            flowPopupPrice.textContent = itemEl.getAttribute('data-price');
-            flowPopupChangeAmount.textContent = itemEl.getAttribute('data-index-change');
-            flowPopupChangeAmount.className = dir;
-            flowPopupChangePct.textContent = itemEl.getAttribute('data-change');
-            flowPopupChangePct.className = dir;
-
-            var retail = itemEl.getAttribute('data-retail');
-            flowPopupRetail.textContent = formatFlowAmount(retail);
-            flowPopupRetail.className = flowDir(retail);
-
-            var foreign = itemEl.getAttribute('data-foreign');
-            flowPopupForeign.textContent = formatFlowAmount(foreign);
-            flowPopupForeign.className = flowDir(foreign);
-
-            var institution = itemEl.getAttribute('data-institution');
-            flowPopupInstitution.textContent = formatFlowAmount(institution);
-            flowPopupInstitution.className = flowDir(institution);
-
-            var rect = itemEl.getBoundingClientRect();
-            flowPopup.classList.add('open');
-            var popupWidth = flowPopup.offsetWidth;
-            var left = Math.min(Math.max(rect.left, 8), window.innerWidth - popupWidth - 8);
-            flowPopup.style.top = (rect.bottom + 8) + 'px';
-            flowPopup.style.left = left + 'px';
-            flowPopup.setAttribute('aria-hidden', 'false');
-        }
-
-        indexTickerEl.addEventListener('click', function (e) {
-            var itemEl = e.target.closest('.ticker-item');
-            if (!itemEl) return;
-            openFlowPopupFor(itemEl);
-        });
-
-        flowPopupClose.addEventListener('click', closeFlowPopup);
-        document.addEventListener('click', function (e) {
-            if (flowPopup.classList.contains('open') && !flowPopup.contains(e.target) && !e.target.closest('.ticker-item')) {
-                closeFlowPopup();
-            }
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeFlowPopup();
-        });
-    }
-})();
-</script>

@@ -1,3 +1,4 @@
+{% load static %}
 {% load static humanize %}
 <!DOCTYPE html>
 <html lang="ko">
@@ -6,21 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #212529; margin-bottom: 1rem; }
-        .up-value { color: #c62828; font-weight: bold; }
-        .down-value { color: #1565c0; font-weight: bold; }
-        .flat-value { color: #616161; font-weight: bold; }
-        .signal-BUY { background-color: #ffebee; color: #c62828; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-SELL { background-color: #e3f2fd; color: #1565c0; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-HOLD { background-color: #f5f5f5; color: #616161; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); margin-bottom: 1rem; }
+        .up-value { color: var(--color-danger, #c62828); font-weight: bold; }
+        .down-value { color: var(--brand-accent, #1565c0); font-weight: bold; }
+        .flat-value { color: var(--text-gray, #616161); font-weight: bold; }
+        .signal-BUY { background-color: var(--bg-danger-soft-2, #ffebee); color: var(--color-danger, #c62828); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-SELL { background-color: var(--bg-info-soft, #e3f2fd); color: var(--brand-accent, #1565c0); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-HOLD { background-color: #f5f5f5; color: var(--text-gray, #616161); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
         .chart-wrap { position: relative; height: 320px; }
-        .news-item + .news-item { border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
+        .news-item + .news-item { border-top: 1px solid var(--bg-subtle-2, #eee); padding-top: 10px; margin-top: 10px; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -214,23 +216,33 @@
 
         <!-- 관련 뉴스 -->
         <div class="card card-custom bg-white p-4">
-            <h5 class="section-title">📰 관련 뉴스</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="section-title mb-0">📰 관련 뉴스</h5>
+                {% if news %}
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-primary" id="btnNewsAll" onclick="filterNews('all')">전체</button>
+                    <button type="button" class="btn btn-outline-primary" id="btnNewsHasBody" onclick="filterNews('has-body')">본문있음</button>
+                    <button type="button" class="btn btn-outline-primary" id="btnNewsNoBody" onclick="filterNews('no-body')">본문없음</button>
+                </div>
+                {% endif %}
+            </div>
             {% if news %}
                 {% for article in news %}
-                <div class="news-item">
+                <div class="news-item" data-has-body="{% if article.original_content %}1{% else %}0{% endif %}">
                     {% if article.original_content %}
                     <a href="{% url 'news_detail' article.pk %}" class="fw-semibold text-decoration-none text-dark d-block" style="font-size: 14px;">
-                        {{ article.title }}
+                        {{ article.display_title }}
                     </a>
                     {% else %}
                     <span class="fw-semibold text-dark d-block" style="font-size: 14px;">
-                        {{ article.title }}
+                        {{ article.display_title }}
                         <span class="badge bg-light text-muted border ms-1" style="font-size: 11px;">본문없음</span>
                     </span>
                     {% endif %}
                     <div class="text-muted" style="font-size: 12px;">{{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}</div>
                 </div>
                 {% endfor %}
+                <p class="text-muted small mb-0" id="newsEmptyFiltered" style="display:none;">해당 조건의 뉴스가 없습니다.</p>
             {% else %}
                 <p class="text-muted small mb-0">관련 뉴스가 없습니다.</p>
             {% endif %}
@@ -243,6 +255,26 @@
         function getCookie(name) {
             const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
             return match ? decodeURIComponent(match.pop()) : '';
+        }
+
+        function filterNews(type) {
+            const items = document.querySelectorAll('.news-item');
+            let visibleCount = 0;
+            items.forEach(function (item) {
+                const hasBody = item.getAttribute('data-has-body') === '1';
+                const show = type === 'all' || (type === 'has-body' && hasBody) || (type === 'no-body' && !hasBody);
+                item.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            const emptyMsg = document.getElementById('newsEmptyFiltered');
+            if (emptyMsg) emptyMsg.style.display = visibleCount ? 'none' : '';
+
+            document.getElementById('btnNewsAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('btnNewsAll').classList.toggle('btn-outline-primary', type !== 'all');
+            document.getElementById('btnNewsHasBody').classList.toggle('btn-primary', type === 'has-body');
+            document.getElementById('btnNewsHasBody').classList.toggle('btn-outline-primary', type !== 'has-body');
+            document.getElementById('btnNewsNoBody').classList.toggle('btn-primary', type === 'no-body');
+            document.getElementById('btnNewsNoBody').classList.toggle('btn-outline-primary', type !== 'no-body');
         }
 
         function toggleWatchlist() {
