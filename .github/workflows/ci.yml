@@ -43,6 +43,14 @@ jobs:
       - name: Install system dependencies for mysqlclient
         run: sudo apt-get update && sudo apt-get install -y default-libmysqlclient-dev pkg-config
 
+      # mysql:8.0 이미지는 IANA 타임존 데이터(mysql.time_zone_name 등)가 비어있는 채로 뜬다.
+      # KSTMiddleware가 요청마다 timezone.activate(KST)를 하기 때문에, USE_TZ=True에서
+      # Django가 만드는 __date 필터(scraped_at__date=... 등)가 내부적으로 CONVERT_TZ(...,
+      # 'UTC', 'Asia/Seoul')를 쓰는데 이 데이터가 없으면 CONVERT_TZ가 NULL을 반환해서
+      # 항상 매치 실패한다 — 등급별 일일 한도 테스트(GradeLimitTests)가 그래서 실패했었다.
+      - name: Load MySQL timezone data
+        run: mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -h 127.0.0.1 -uroot -proot mysql
+
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 

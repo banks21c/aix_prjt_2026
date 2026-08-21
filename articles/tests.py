@@ -135,9 +135,12 @@ class PublicViewSmokeTests(TestCase):
 
 
 class GradeLimitTests(TestCase):
-    """MemberGrade의 daily_scrape_limit/daily_post_limit이 NULL이면 무제한, 관리자/프리미엄은
-    등급과 무관하게 항상 무제한이라는 규칙(articles.utils.scraping_stats,
-    articles.blog_posting.posting_stats)을 지킨다 — 프레임워크가 대신 검증해주지 않는 로직."""
+    """MemberGrade의 daily_scrape_limit/daily_post_limit이 NULL이면 무제한, 관리자는 등급과
+    무관하게 항상 무제한이라는 규칙(articles.utils.scraping_stats,
+    articles.blog_posting.posting_stats)을 지킨다 — 프레임워크가 대신 검증해주지 않는 로직.
+    프리미엄은 스크랩 자체엔 한도가 없지만(daily_scrape_limit), AI 요약이 들어가는 발행은
+    비용 때문에 등급과 무관하게 UserSubscription.PREMIUM_DAILY_POST_LIMIT(10건/일)로 고정된다
+    (c065f32) — 완전 무제한이 아니다."""
 
     def test_scraping_stats_respects_grade_limit(self):
         grade = MemberGrade.objects.create(name='일반', level=TEST_GRADE_LEVEL_START + 1, daily_scrape_limit=3)
@@ -172,7 +175,7 @@ class GradeLimitTests(TestCase):
         self.assertTrue(stats['is_admin'])
         self.assertIsNone(stats['remaining'])
 
-    def test_posting_stats_premium_is_unlimited_regardless_of_grade(self):
+    def test_posting_stats_premium_uses_fixed_limit_regardless_of_grade(self):
         grade = MemberGrade.objects.create(name='제한등급', level=TEST_GRADE_LEVEL_START + 4, daily_post_limit=1)
         user = User.objects.create_user(username='premiumuser', password='x')
         UserPreference.objects.create(user=user, grade=grade)
@@ -181,6 +184,18 @@ class GradeLimitTests(TestCase):
         stats = blog_posting.posting_stats(user)
 
         self.assertTrue(stats['is_premium'])
+        # 등급의 daily_post_limit(1)이 아니라 UserSubscription.PREMIUM_DAILY_POST_LIMIT(10)을 써야 한다.
+        self.assertEqual(stats['limit'], UserSubscription.PREMIUM_DAILY_POST_LIMIT)
+        self.assertEqual(stats['remaining'], UserSubscription.PREMIUM_DAILY_POST_LIMIT)
+
+    def test_posting_stats_admin_always_unlimited(self):
+        grade = MemberGrade.objects.create(name='제한등급2', level=TEST_GRADE_LEVEL_START + 6, daily_post_limit=1)
+        user = User.objects.create_user(username='adminposter', password='x', is_staff=True)
+        UserPreference.objects.create(user=user, grade=grade)
+
+        stats = blog_posting.posting_stats(user)
+
+        self.assertTrue(stats['is_admin'])
         self.assertIsNone(stats['remaining'])
 
 
@@ -262,11 +277,18 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'articles/expert_consult.html')
 
-    def test_expert_consult_page_contains_consult_form(self):
+    def test_expert_consult_page_links_to_apply_form(self):
+        # /experts/(프로필+12가지 약속)는 신청 폼 자체를 갖고 있지 않고, CTA로
+        # /experts/apply/(신청 폼 단독 페이지)를 가리키기만 한다.
         response = self.client.get(reverse('expert_consult'))
 
-        # 히어로 CTA가 가리키는 앵커와 폼 필드가 실제로 렌더링되는지
         self.assertContains(response, 'id="consult"')
+        self.assertContains(response, reverse('expert_consult_apply'))
+
+    def test_expert_consult_apply_page_contains_consult_form(self):
+        response = self.client.get(reverse('expert_consult_apply'))
+
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="ecName"')
         self.assertContains(response, 'id="ecPhone"')
         self.assertContains(response, 'id="ecWebsite"')  # 허니팟
