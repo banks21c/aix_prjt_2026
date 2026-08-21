@@ -23,6 +23,7 @@
         padding-bottom: 8px;
         line-height: 1.5;
     }
+    .spinner-border-sm { width: 1rem; height: 1rem; border-width: 0.15em; }
 </style>
 {% endblock %}
 
@@ -54,7 +55,7 @@
 <div class="row">
     <div class="col-lg-5">
         <div class="card card-custom bg-white p-4 mb-4">
-            <form method="post">
+            <form method="post" id="image-gen-form">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label fw-bold">프롬프트</label>
@@ -85,7 +86,8 @@
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary px-4">이미지 생성</button>
+                <button type="submit" class="btn btn-primary px-4" id="image-gen-submit">이미지 생성</button>
+                <span class="text-muted ms-2 d-none" id="image-gen-hint">보통 10~30초 정도 걸립니다.</span>
             </form>
         </div>
     </div>
@@ -106,6 +108,9 @@
                 </div>
                 <div class="mt-1">URL: <a href="{{ result.url }}" target="_blank">{{ result.url }}</a></div>
                 <div class="mt-1">프롬프트: {{ result.prompt }}</div>
+                <div class="mt-2">
+                    <a href="{{ result.url }}" download class="btn btn-outline-primary btn-sm">⬇ 이미지 다운로드</a>
+                </div>
             </div>
         </div>
         {% else %}
@@ -116,12 +121,15 @@
 
         {% if recent_generations %}
         <div class="card card-custom bg-white p-4">
-            <h6 class="fw-bold mb-3">최근 생성 내역</h6>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">최근 생성 내역</h6>
+                <a href="{% url 'generated_image_list' %}" class="small">전체 목록 보기 →</a>
+            </div>
             <div class="table-responsive">
                 <table class="table table-sm history-table mb-0">
                     <thead>
                         <tr>
-                            <th>일시</th><th>모델</th><th>해상도</th><th>품질</th><th>비용</th><th>프롬프트</th>
+                            <th>일시</th><th>모델</th><th>해상도</th><th>품질</th><th>비용</th><th>프롬프트</th><th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -133,6 +141,7 @@
                             <td>{{ g.quality }}</td>
                             <td>{% if g.cost_usd is not None %}${{ g.cost_usd|floatformat:4 }}{% else %}미상{% endif %}</td>
                             <td class="prompt-cell" title="{{ g.prompt }}">{{ g.prompt }}</td>
+                            <td><a href="{{ media_url }}{{ g.file_path }}" download class="text-nowrap">⬇</a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -142,4 +151,17 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+    document.getElementById('image-gen-form').addEventListener('submit', function (e) {
+        var btn = document.getElementById('image-gen-submit');
+        if (btn.disabled) {
+            e.preventDefault();
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>생성 중...';
+        document.getElementById('image-gen-hint').classList.remove('d-none');
+    });
+</script>
 {% endblock %}

@@ -701,6 +701,7 @@ _TOOL_LINKS = [
     ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
     ('테마 색상 설정', 'theme_settings'),
     ('AI 이미지 생성', 'image_generator'),
+    ('AI 이미지 생성 목록', 'generated_image_list'),
 ]
 
 

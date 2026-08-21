@@ -13,7 +13,7 @@ from .admin_tools import (
     financial_consult_sheet_search_view,
     integration_status_view, pipeline_status_view, pipeline_trigger_view, server_health_view,
     operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
-    image_generator_view,
+    image_generator_view, generated_image_list_view,
 )
 from .news import (
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
@@ -48,7 +48,7 @@ __all__ = [
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',
     'operations_overview_view', 'ai_performance_admin_view', 'theme_settings_view', 'theme_css_view',
-    'image_generator_view',
+    'image_generator_view', 'generated_image_list_view',
     'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
     'news_edit_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',

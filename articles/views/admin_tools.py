@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.sites import site as admin_site
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -772,6 +773,7 @@ def image_generator_view(request):
         'total_count': totals['total_count'],
         'total_cost_krw': (total_cost_usd * usd_krw) if usd_krw else None,
         'recent_generations': GeneratedImage.objects.all()[:10],
+        'media_url': settings.MEDIA_URL,
         'form_values': {
             'prompt': request.POST.get('prompt', ''),
             'model': request.POST.get('model', IMAGE_GEN_MODELS[0]),
@@ -780,6 +782,31 @@ def image_generator_view(request):
         },
     }
     return render(request, 'articles/image_generator.html', context)
+
+
+IMAGE_GEN_LIST_PAGE_SIZE = 24
+
+
+@staff_member_required
+def generated_image_list_view(request):
+    """image_generator_view는 폼 옆에 최근 10건만 미리보기로 보여주는데(한 화면에 다 넣기엔
+    과함), 지금까지 생성한 전체 이미지를 훑어보고 다운로드하려면 여기 별도 갤러리 목록에서
+    페이지를 넘겨가며 봐야 한다. 생성 자체는 이 화면에서 하지 않고 image_generator로 보낸다."""
+    qs = GeneratedImage.objects.select_related('created_by').all()
+    paginator = Paginator(qs, IMAGE_GEN_LIST_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    totals = GeneratedImage.objects.aggregate(total_cost=Sum('cost_usd'), total_count=Count('id'))
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '🖼 AI 이미지 생성 목록',
+        'page_obj': page_obj,
+        'total_cost_usd': totals['total_cost'] or 0,
+        'total_count': totals['total_count'],
+        'media_url': settings.MEDIA_URL,
+    }
+    return render(request, 'articles/generated_image_list.html', context)
 
 
 OVERVIEW_DAYS = 60  # 회원가입/뉴스/발행/상담 4개 차트가 공유하는 조회 기간
