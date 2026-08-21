@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -5,18 +6,20 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.sites import site as admin_site
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from openai import BadRequestError, OpenAI
 
-from ..models import FinancialConsultSheet, ThemeColor
+from ..models import FinancialConsultSheet, GeneratedImage, ThemeColor
 from .performance import build_ai_performance_context
 
 HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$')
@@ -617,6 +620,166 @@ def integration_status_view(request):
         'groups': groups,
     }
     return render(request, 'articles/integration_status.html', context)
+
+
+# article_ai.generate_thumbnail_image_bytes는 기사 썸네일용으로 모델/사이즈/품질이
+# gpt-image-2·1536x1024·low로 고정돼 있다. 여기 화면은 그 3가지를 직접 골라가며 자유
+# 프롬프트로 이미지를 생성해보는 별도 도구다 — OpenAI가 gpt-image 계열에서 실제 지원하는
+# 값만 선택지로 제한해, 잘못된 조합으로 API를 호출해 요금만 나가는 걸 막는다.
+IMAGE_GEN_MODELS = ['gpt-image-2', 'gpt-image-1']
+IMAGE_GEN_SIZES = ['auto', '1024x1024', '1024x1536', '1536x1024']
+IMAGE_GEN_QUALITIES = ['auto', 'low', 'medium', 'high']
+IMAGE_GEN_SUBDIR = 'generated_images'  # MEDIA_ROOT 아래 저장 위치
+
+# gpt-image 계열이 실제로 받는 size는 위 IMAGE_GEN_SIZES 4개뿐이라 16:9/9:16을 API에 직접
+# 넘길 수 없다 — 가장 가까운 비율(1536x1024=3:2, 1024x1536=2:3)로 생성한 뒤 목표 비율에 맞게
+# 가운데를 잘라내고(중앙 기준 크롭), 유튜브 썸네일/쇼츠에서 흔히 쓰는 해상도로 리사이즈한다.
+ASPECT_PRESETS = {
+    'ratio_16_9': {'label': '16:9 (유튜브)', 'api_size': '1536x1024', 'output': (1280, 720)},
+    'ratio_9_16': {'label': '9:16 (쇼츠)', 'api_size': '1024x1536', 'output': (720, 1280)},
+}
+IMAGE_GEN_SIZE_CHOICES = IMAGE_GEN_SIZES + list(ASPECT_PRESETS.keys())
+
+# OpenAI 공식 가격표(2026-08 기준, $ per 1M tokens) — quality/size 조합별 고정 단가표 대신
+# 매 호출의 실제 응답(response.usage)에 있는 입출력 토큰 수를 이 단가로 환산한다. auto로
+# 호출하면 실제 해상도/품질을 호출 전엔 알 수 없어 고정表로는 추정이 부정확한데, usage 기반이면
+# auto든 뭐든 결과와 무관하게 항상 정확하다(청구서와 반올림 수준 차이만 있을 수 있는 추정치).
+IMAGE_MODEL_PRICING = {
+    'gpt-image-1': {'text_input': 5.00, 'image_input': 10.00, 'output': 40.00},
+    'gpt-image-2': {'text_input': 5.00, 'image_input': 8.00, 'output': 30.00},
+}
+
+
+def _compute_image_cost_usd(model, usage):
+    """response.usage(입력 텍스트/이미지 토큰 + 출력 토큰)를 모델별 단가로 환산해 USD 비용을
+    계산한다. usage가 없거나 모델 단가를 모르면 None(비용 미상)을 반환 — 이 경우 호출부가
+    저장은 하되 화면에는 "비용 미상"으로 표시한다."""
+    prices = IMAGE_MODEL_PRICING.get(model)
+    if not prices or usage is None:
+        return None
+    d = usage.input_tokens_details
+    cost = (
+        (d.text_tokens / 1_000_000) * prices['text_input']
+        + (d.image_tokens / 1_000_000) * prices['image_input']
+        + (usage.output_tokens / 1_000_000) * prices['output']
+    )
+    return round(cost, 6)
+
+
+def _crop_to_aspect_and_resize(image_bytes, output_size):
+    """이미지를 output_size와 같은 비율로 가운데를 잘라낸 뒤 정확히 그 해상도로 리사이즈."""
+    from io import BytesIO
+    from PIL import Image
+
+    target_w, target_h = output_size
+    with Image.open(BytesIO(image_bytes)) as img:
+        img = img.convert('RGB')
+        src_w, src_h = img.size
+        target_ratio = target_w / target_h
+        src_ratio = src_w / src_h
+
+        if src_ratio > target_ratio:
+            new_w = round(src_h * target_ratio)
+            left = (src_w - new_w) // 2
+            box = (left, 0, left + new_w, src_h)
+        else:
+            new_h = round(src_w / target_ratio)
+            top = (src_h - new_h) // 2
+            box = (0, top, src_w, top + new_h)
+
+        cropped = img.crop(box).resize(output_size, Image.LANCZOS)
+        buf = BytesIO()
+        cropped.save(buf, format='PNG')
+        return buf.getvalue()
+
+
+@staff_member_required
+def image_generator_view(request):
+    """관리자가 모델(gpt-image-1/2)·해상도·품질을 직접 골라 프롬프트로 이미지를 생성해보는
+    화면. 매번 실제 과금되는 API 호출이라 폼 재제출을 막기 위한 세션 보관 등은 하지 않고,
+    결과를 그 요청의 응답에만 담아 보여준다(새로고침하면 결과가 사라지고 다시 눌러야 함 —
+    의도된 동작). 생성된 PNG는 MEDIA_ROOT/generated_images/에 그대로 남아 URL로 재사용 가능.
+    16:9/9:16(유튜브·쇼츠용)은 ASPECT_PRESETS로 API 생성 후 크롭/리사이즈해서 만든다."""
+    result = None
+
+    if request.method == 'POST':
+        prompt = (request.POST.get('prompt') or '').strip()
+        model = request.POST.get('model') or IMAGE_GEN_MODELS[0]
+        size = request.POST.get('size') or 'auto'
+        quality = request.POST.get('quality') or 'auto'
+        aspect_preset = ASPECT_PRESETS.get(size)
+
+        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+            messages.error(request, "OPENAI_API_KEY가 설정되어 있지 않습니다 (.env 확인).")
+        elif not prompt:
+            messages.error(request, "프롬프트를 입력하세요.")
+        elif model not in IMAGE_GEN_MODELS or size not in IMAGE_GEN_SIZE_CHOICES or quality not in IMAGE_GEN_QUALITIES:
+            messages.error(request, "지원하지 않는 모델/해상도/품질 조합입니다.")
+        else:
+            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            api_size = aspect_preset['api_size'] if aspect_preset else size
+            try:
+                response = client.images.generate(model=model, prompt=prompt, size=api_size, quality=quality)
+                image_bytes = base64.b64decode(response.data[0].b64_json)
+                if aspect_preset:
+                    image_bytes = _crop_to_aspect_and_resize(image_bytes, aspect_preset['output'])
+
+                images_dir = Path(settings.MEDIA_ROOT) / IMAGE_GEN_SUBDIR
+                images_dir.mkdir(parents=True, exist_ok=True)
+                filename = f"{datetime.now(KST).strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}.png"
+                (images_dir / filename).write_bytes(image_bytes)
+
+                cost_usd = _compute_image_cost_usd(model, response.usage)
+                relative_path = f"{IMAGE_GEN_SUBDIR}/{filename}"
+                GeneratedImage.objects.create(
+                    created_by=request.user, model_name=model,
+                    size=aspect_preset['label'] if aspect_preset else size, quality=quality,
+                    prompt=prompt, file_path=relative_path, cost_usd=cost_usd,
+                )
+
+                result = {
+                    'url': f"{settings.MEDIA_URL}{relative_path}",
+                    'prompt': prompt, 'model': model,
+                    'size': aspect_preset['label'] if aspect_preset else size,
+                    'quality': quality,
+                    'cost_usd': cost_usd,
+                }
+                cost_msg = f" (약 ${cost_usd:.4f})" if cost_usd is not None else ""
+                messages.success(request, f"이미지를 생성했습니다.{cost_msg}")
+            except BadRequestError as e:
+                messages.error(request, f"요청이 거부되었습니다 (모더레이션 등): {e}")
+            except Exception as e:
+                messages.error(request, f"이미지 생성 실패: {e}")
+
+    size_options = [(s, s) for s in IMAGE_GEN_SIZES] + [(k, v['label']) for k, v in ASPECT_PRESETS.items()]
+
+    from ..models import ExchangeRateSnapshot
+
+    totals = GeneratedImage.objects.aggregate(total_cost=Sum('cost_usd'), total_count=Count('id'))
+    total_cost_usd = totals['total_cost'] or 0
+    usd_krw = (
+        ExchangeRateSnapshot.objects.filter(currency_code='USD').order_by('-date').values_list('deal_bas_r', flat=True).first()
+    )
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '🖼 AI 이미지 생성',
+        'models': IMAGE_GEN_MODELS,
+        'size_options': size_options,
+        'qualities': IMAGE_GEN_QUALITIES,
+        'result': result,
+        'total_cost_usd': total_cost_usd,
+        'total_count': totals['total_count'],
+        'total_cost_krw': (total_cost_usd * usd_krw) if usd_krw else None,
+        'recent_generations': GeneratedImage.objects.all()[:10],
+        'form_values': {
+            'prompt': request.POST.get('prompt', ''),
+            'model': request.POST.get('model', IMAGE_GEN_MODELS[0]),
+            'size': request.POST.get('size', 'auto'),
+            'quality': request.POST.get('quality', 'auto'),
+        },
+    }
+    return render(request, 'articles/image_generator.html', context)
 
 
 OVERVIEW_DAYS = 60  # 회원가입/뉴스/발행/상담 4개 차트가 공유하는 조회 기간

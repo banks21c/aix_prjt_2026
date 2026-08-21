@@ -228,13 +228,68 @@ class StockPredictionAdmin(admin.ModelAdmin):
     show_full_result_count = False
     list_per_page = 100
 
+# /news/(news_board_view)의 AI요약/본문/포스팅 필터와 같은 기준을 admin 목록에도 제공.
+# ai_generated이 아니라 ai_summary로 걸러야 하는 이유는 news_board_view와 동일 —
+# ai_generated은 "포스팅 준비완료"에 가까운 필드라 AI 미호출 '바로 포스팅' 글까지 섞인다.
+class AiSummaryFilter(admin.SimpleListFilter):
+    title = 'AI 요약'
+    parameter_name = 'ai_summary_status'
+
+    def lookups(self, request, model_admin):
+        return (('done', 'AI요약완료'), ('pending', 'AI요약전'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'done':
+            return queryset.exclude(ai_summary='')
+        if self.value() == 'pending':
+            return queryset.filter(ai_summary='')
+        return queryset
+
+class OriginalContentFilter(admin.SimpleListFilter):
+    title = '본문'
+    parameter_name = 'content_status'
+
+    def lookups(self, request, model_admin):
+        return (('has', '본문있음'), ('none', '본문없음'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'has':
+            return queryset.exclude(original_content='')
+        if self.value() == 'none':
+            return queryset.filter(original_content='')
+        return queryset
+
+class PostedFilter(admin.SimpleListFilter):
+    """news_board_view의 포스팅대상/포스팅완료는 '로그인한 회원 본인의 연결 계정 전부에
+    발행됐는가'가 기준이라 회원마다 답이 다르다. admin은 특정 회원 관점이 아니라 전체 발행
+    현황을 보는 화면이므로, 여기선 단순히 '어느 계정에든 한 번이라도 발행됐는가'로 본다."""
+    title = '포스팅'
+    parameter_name = 'post_status'
+
+    def lookups(self, request, model_admin):
+        return (('done', '포스팅완료'), ('target', '포스팅대상'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'done':
+            return queryset.filter(postings__isnull=False).distinct()
+        if self.value() == 'target':
+            return queryset.filter(postings__isnull=True)
+        return queryset
+
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
     list_display = ('id', 'content_category', 'source_media', 'title', 'ai_title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'ai_generated', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
-    list_filter = ('content_category', 'ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template')
+    list_filter = (
+        'content_category', AiSummaryFilter, OriginalContentFilter, PostedFilter,
+        'ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template',
+    )
     search_fields = ('title', 'ai_title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
+    list_per_page = 10
+
+    class Media:
+        css = {'all': ('articles/admin_analyzedarticle_v5.css',)}
     ordering = ('-scraped_at',)
 
 # 4-1. 마이페이지 - 뉴스구독/자동포스팅 환경설정 관리
@@ -302,13 +357,18 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
 # 4-3. 회원별 발행 이력 조회용 (읽기 전용)
 @admin.register(PostedArticle)
 class PostedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'blog_account', 'article', 'external_url', 'posted_at')
+    list_display = ('id', 'blog_account', 'article_link', 'external_url', 'posted_at')
     list_filter = ('blog_account__platform',)
     search_fields = ('blog_account__user__username', 'article__title')
     ordering = ('-posted_at',)
 
     def has_add_permission(self, request):
         return False  # 발행 커맨드(post_to_wordpress 등)를 통해서만 생성됨
+
+    @admin.display(description='기사(수집 원문)')
+    def article_link(self, obj):
+        url = reverse('admin:articles_analyzedarticle_change', args=[obj.article_id])
+        return format_html('<a href="{}">{}</a>', url, obj.article.title)
 
 # 4. 유저 프리미엄 구독 정보 관리
 @admin.register(UserSubscription)
@@ -640,6 +700,7 @@ _TOOL_LINKS = [
     ('AI 예측 성과', 'ai_performance_admin'),
     ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
     ('테마 색상 설정', 'theme_settings'),
+    ('AI 이미지 생성', 'image_generator'),
 ]
 
 

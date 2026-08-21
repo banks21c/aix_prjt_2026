@@ -210,3 +210,29 @@ class ThemeColor(models.Model):
 
     def __str__(self):
         return f"{self.name} = {self.value}"
+
+
+# ==========================================
+# 14. AI 이미지 생성 기록 (image_generator_view, 비용 누적 합계용)
+# ==========================================
+class GeneratedImage(models.Model):
+    """관리자 AI 이미지 생성 도구(image_generator_view)에서 gpt-image 계열로 생성할 때마다
+    한 행씩 남긴다. cost_usd는 OpenAI 응답의 usage(입력/출력 토큰)를 그 시점 모델 단가로
+    환산해 계산한 값 — 실제 청구 금액과 반올림 등으로 미세하게 다를 수 있는 추정치다. 화면의
+    누적 합계는 이 테이블의 cost_usd를 그냥 SUM해서 보여준다."""
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성 일시")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="생성한 관리자")
+    model_name = models.CharField(max_length=30, verbose_name="모델")
+    size = models.CharField(max_length=30, verbose_name="해상도")
+    quality = models.CharField(max_length=20, verbose_name="품질")
+    prompt = models.TextField(verbose_name="프롬프트")
+    file_path = models.CharField(max_length=255, verbose_name="저장 경로 (media 기준 상대경로)")
+    cost_usd = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, verbose_name="추정 비용(USD)")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "AI 이미지 생성 기록 (GeneratedImage)"
+        verbose_name_plural = "AI 이미지 생성 기록 (GeneratedImage)"
+
+    def __str__(self):
+        return f"{self.model_name} {self.size}/{self.quality} ({self.created_at:%Y-%m-%d %H:%M})"
