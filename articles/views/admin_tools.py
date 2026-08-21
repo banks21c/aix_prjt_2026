@@ -15,7 +15,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from openai import BadRequestError, OpenAI
@@ -807,6 +807,27 @@ def generated_image_list_view(request):
         'media_url': settings.MEDIA_URL,
     }
     return render(request, 'articles/generated_image_list.html', context)
+
+
+@staff_member_required
+@require_POST
+def generated_image_delete_view(request, pk):
+    """목록 화면에서 이미지 1건을 지운다 — 비용 기록(GeneratedImage 행)과 실제 파일
+    (MEDIA_ROOT/generated_images/*.png) 둘 다 지운다. 파일이 이미 없어도(수동으로 지워졌거나
+    등) 에러 없이 DB 행만 정리한다. 누적 비용 합계는 지운 행만큼 자동으로 줄어든다 — 과거에
+    쓴 돈 자체가 사라지는 건 아니지만, "지금 남아있는 이미지 기준" 합계로 보는 게 이 화면의
+    목적에 맞는다고 판단."""
+    image = get_object_or_404(GeneratedImage, pk=pk)
+    file_path = Path(settings.MEDIA_ROOT) / image.file_path
+    file_path.unlink(missing_ok=True)
+    image.delete()
+    messages.success(request, "이미지를 삭제했습니다.")
+
+    page = request.POST.get('page')
+    url = reverse('generated_image_list')
+    if page:
+        url = f"{url}?page={page}"
+    return redirect(url)
 
 
 OVERVIEW_DAYS = 60  # 회원가입/뉴스/발행/상담 4개 차트가 공유하는 조회 기간

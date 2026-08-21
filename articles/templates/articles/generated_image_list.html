@@ -50,8 +50,14 @@
             {% if g.cost_usd is not None %} · ${{ g.cost_usd|floatformat:4 }}{% endif %}
         </div>
         <div class="prompt px-3" title="{{ g.prompt }}">{{ g.prompt }}</div>
-        <div class="actions mt-2">
-            <a href="{{ media_url }}{{ g.file_path }}" download class="btn btn-outline-primary btn-sm w-100">⬇ 다운로드</a>
+        <div class="actions mt-2 d-flex gap-2">
+            <a href="{{ media_url }}{{ g.file_path }}" download class="btn btn-outline-primary btn-sm flex-fill">⬇ 다운로드</a>
+            <form method="post" action="{% url 'generated_image_delete' g.pk %}" class="delete-form"
+                  onsubmit="return confirm('이 이미지를 삭제할까요? 되돌릴 수 없습니다.');">
+                {% csrf_token %}
+                <input type="hidden" name="page" value="{{ page_obj.number }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm">🗑</button>
+            </form>
         </div>
     </div>
     {% endfor %}
