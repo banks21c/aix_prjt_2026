@@ -8,7 +8,7 @@ from .public import (
     consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
     subscribe_view, subscribe_apply_view, faq_board_view, tools_hub_view, char_counter_view,
     currency_converter_view, severance_calculator_view, unemployment_benefit_calculator_view,
-    net_pay_calculator_view, annual_leave_calculator_view,
+    net_pay_calculator_view, annual_leave_calculator_view, json_formatter_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
@@ -47,7 +47,7 @@ __all__ = [
     'header_fragment_view', 'cookie_banner_fragment_view', 'ticker_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
     'faq_board_view', 'tools_hub_view', 'char_counter_view', 'currency_converter_view',
     'severance_calculator_view', 'unemployment_benefit_calculator_view', 'net_pay_calculator_view',
-    'annual_leave_calculator_view',
+    'annual_leave_calculator_view', 'json_formatter_view',
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',
     'integration_status_view', 'pipeline_status_view', 'pipeline_trigger_view', 'server_health_view',

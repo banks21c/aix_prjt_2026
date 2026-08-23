@@ -10,5 +10,6 @@
         <a href="{% url 'unemployment_benefit_calculator' %}" class="tools-tab{% if active_tool == 'unemployment_benefit_calculator' %} is-active{% endif %}">실업급여 계산기</a>
         <a href="{% url 'net_pay_calculator' %}" class="tools-tab{% if active_tool == 'net_pay_calculator' %} is-active{% endif %}">급여 실수령액 계산기</a>
         <a href="{% url 'annual_leave_calculator' %}" class="tools-tab{% if active_tool == 'annual_leave_calculator' %} is-active{% endif %}">연차수당 계산기</a>
+        <a href="{% url 'json_formatter' %}" class="tools-tab{% if active_tool == 'json_formatter' %} is-active{% endif %}">JSON 포맷터</a>
     </div>
 </div>

@@ -362,6 +362,13 @@ def annual_leave_calculator_view(request):
     })
 
 
+def json_formatter_view(request):
+    # JSON 예쁘게 출력/압축/검증 도구. 개발용 텍스트(API 응답, 설정값 등)가 서버로 전송/저장되지
+    # 않도록 다른 유틸과 마찬가지로 파싱·포맷팅 전부 브라우저(JS 내장 JSON.parse/stringify)에서만
+    # 처리한다.
+    return render(request, 'articles/json_formatter.html', {'site_title': 'NextFinUp - JSON 포맷터'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""

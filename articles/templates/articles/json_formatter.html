@@ -1,0 +1,203 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .jf-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .jf-toolbar select { max-width: 130px; }
+
+        #jf-input {
+            width: 100%; min-height: 220px; resize: vertical; border: 1px solid var(--bg-subtle-2, #dee2e6);
+            border-radius: 10px; padding: 14px; font-size: 13.5px; line-height: 1.6; color: var(--text-primary, #212529);
+            background: #fff; font-family: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace;
+        }
+        #jf-input:focus { outline: none; border-color: var(--brand-primary, #0d47a1); box-shadow: 0 0 0 0.2rem rgba(13,71,161,0.12); }
+
+        .jf-status { font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 8px; margin: 12px 0; display: none; }
+        .jf-status.ok { display: block; background: #e6f4ea; color: #1e7d3c; }
+        .jf-status.error { display: block; background: #fdecea; color: #c0392b; }
+
+        #jf-output-wrap { position: relative; }
+        #jf-output {
+            width: 100%; max-height: 480px; overflow: auto; margin: 0; border: 1px solid var(--bg-subtle-2, #dee2e6);
+            border-radius: 10px; padding: 14px; background: #1e1e2e; color: #cdd6f4;
+            font-family: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace; font-size: 13px; line-height: 1.6;
+            white-space: pre; tab-size: 2;
+        }
+        #jf-copy-btn { position: absolute; top: 10px; right: 10px; }
+        .jf-key { color: #89b4fa; }
+        .jf-string { color: #a6e3a1; }
+        .jf-number { color: #fab387; }
+        .jf-boolean { color: #f38ba8; }
+        .jf-null { color: #f38ba8; }
+
+        .jf-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='json_formatter' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">JSON 포맷터</h2>
+                <p class="text-muted mb-0">JSON 텍스트를 보기 좋게 정렬하거나 한 줄로 압축하고, 문법 오류를 바로 확인할 수 있어요. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <textarea id="jf-input" placeholder='여기에 JSON을 붙여넣으세요. 예: {"name":"홍길동","age":30,"tags":["a","b"]}'></textarea>
+
+            <div class="jf-toolbar mt-3">
+                <select id="jf-indent" class="form-select form-select-sm">
+                    <option value="2">들여쓰기 2칸</option>
+                    <option value="4">들여쓰기 4칸</option>
+                    <option value="tab">탭</option>
+                </select>
+                <button type="button" id="jf-format-btn" class="btn btn-sm btn-primary"><i class="fa-solid fa-align-left"></i> 포맷팅</button>
+                <button type="button" id="jf-minify-btn" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-compress"></i> 압축</button>
+                <button type="button" id="jf-sample-btn" class="btn btn-sm btn-outline-secondary">예제 불러오기</button>
+                <button type="button" id="jf-clear-btn" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-trash"></i> 지우기</button>
+            </div>
+
+            <div id="jf-status" class="jf-status"></div>
+
+            <div id="jf-output-wrap" style="display:none;">
+                <button type="button" id="jf-copy-btn" class="btn btn-sm btn-light"><i class="fa-solid fa-copy"></i> 복사</button>
+                <pre id="jf-output"></pre>
+            </div>
+        </div>
+
+        <p class="jf-note">API 응답, 설정 파일, 로그에 붙어있는 JSON을 빠르게 확인할 때 쓰세요. 입력 크기 제한은 없지만 아주 큰 JSON(수 MB 이상)은 브라우저가 느려질 수 있습니다.</p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var inputEl = document.getElementById('jf-input');
+    var indentEl = document.getElementById('jf-indent');
+    var statusEl = document.getElementById('jf-status');
+    var outputWrap = document.getElementById('jf-output-wrap');
+    var outputEl = document.getElementById('jf-output');
+    var copyBtn = document.getElementById('jf-copy-btn');
+
+    function indentValue() {
+        var v = indentEl.value;
+        return v === 'tab' ? '\t' : parseInt(v, 10);
+    }
+
+    function collectStats(value) {
+        var keyCount = 0, maxDepth = 0;
+        function walk(v, depth) {
+            maxDepth = Math.max(maxDepth, depth);
+            if (Array.isArray(v)) {
+                v.forEach(function (item) { walk(item, depth + 1); });
+            } else if (v && typeof v === 'object') {
+                Object.keys(v).forEach(function (k) {
+                    keyCount++;
+                    walk(v[k], depth + 1);
+                });
+            }
+        }
+        walk(value, 1);
+        var rootType = Array.isArray(value) ? '배열' : (value && typeof value === 'object') ? '오브젝트' : typeof value;
+        return { rootType: rootType, keyCount: keyCount, maxDepth: maxDepth };
+    }
+
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(
+            /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+            function (match) {
+                var cls = 'jf-number';
+                if (/^"/.test(match)) {
+                    cls = /:$/.test(match) ? 'jf-key' : 'jf-string';
+                } else if (/true|false/.test(match)) {
+                    cls = 'jf-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'jf-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            }
+        );
+    }
+
+    function showError(message) {
+        statusEl.className = 'jf-status error';
+        statusEl.textContent = '구문 오류: ' + message;
+        outputWrap.style.display = 'none';
+    }
+
+    function showOutput(text, parsed) {
+        var stats = collectStats(parsed);
+        statusEl.className = 'jf-status ok';
+        statusEl.textContent = '유효한 JSON입니다 · ' + stats.rootType + ' · 키 ' + stats.keyCount + '개 · 최대 깊이 ' + stats.maxDepth + '단계';
+        outputEl.innerHTML = syntaxHighlight(text);
+        outputWrap.style.display = 'block';
+    }
+
+    function run(mode) {
+        var raw = inputEl.value.trim();
+        if (!raw) {
+            statusEl.className = '';
+            statusEl.textContent = '';
+            outputWrap.style.display = 'none';
+            return;
+        }
+        try {
+            var parsed = JSON.parse(raw);
+            var text = mode === 'minify' ? JSON.stringify(parsed) : JSON.stringify(parsed, null, indentValue());
+            showOutput(text, parsed);
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    document.getElementById('jf-format-btn').addEventListener('click', function () { run('format'); });
+    document.getElementById('jf-minify-btn').addEventListener('click', function () { run('minify'); });
+    document.getElementById('jf-clear-btn').addEventListener('click', function () {
+        inputEl.value = '';
+        statusEl.className = '';
+        statusEl.textContent = '';
+        outputWrap.style.display = 'none';
+        inputEl.focus();
+    });
+    document.getElementById('jf-sample-btn').addEventListener('click', function () {
+        inputEl.value = '{"name":"홍길동","age":30,"active":true,"tags":["금융","AI"],"address":{"city":"서울","zip":null}}';
+        run('format');
+    });
+    copyBtn.addEventListener('click', function () {
+        navigator.clipboard.writeText(outputEl.textContent).then(function () {
+            var original = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> 복사됨';
+            setTimeout(function () { copyBtn.innerHTML = original; }, 1200);
+        });
+    });
+    indentEl.addEventListener('change', function () {
+        if (outputWrap.style.display !== 'none') run('format');
+    });
+})();
+</script>
+</body>
+</html>
