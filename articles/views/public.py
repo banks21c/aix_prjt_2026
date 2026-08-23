@@ -351,6 +351,17 @@ def net_pay_calculator_view(request):
     })
 
 
+def annual_leave_calculator_view(request):
+    # 근로기준법 제60조 기준 연차수당 계산기. 입사 1년 미만은 개근 월 1일씩(최대 11일), 1년
+    # 이상은 15일 + 2년마다 1일 가산(최대 25일)으로 발생 연차일수를 자동 계산해 보여주되, 회사마다
+    # 회계연도 기준 등 운영 방식이 달라 사용자가 값을 직접 수정할 수 있게 한다. 1일 통상임금은
+    # 월 통상임금 ÷ 월 소정근로시간(기본 209시간) × 8시간으로 계산한다. 다른 유틸과 마찬가지로
+    # 급여 정보가 서버로 전송되지 않도록 계산은 클라이언트에서 한다.
+    return render(request, 'articles/annual_leave_calculator.html', {
+        'site_title': 'NextFinUp - 연차수당 계산기',
+    })
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
