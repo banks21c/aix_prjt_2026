@@ -87,14 +87,11 @@
                 </div>
             </div>
             <div class="ir-ratio-btns btn-group btn-group-sm" role="group">
-                <button type="button" class="btn btn-outline-secondary" data-scale="0.25">-75%</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="0.5">-50%</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="0.75">-25%</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="1">100%(원본)</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="1.25">+25%</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="1.5">+50%</button>
-                <button type="button" class="btn btn-outline-secondary" data-scale="1.75">+75%</button>
+                <button type="button" class="btn btn-outline-secondary ir-step-btn" data-scale="0.75">-25%</button>
+                <button type="button" class="btn btn-outline-secondary" id="ir-reset-btn">100%(원본)</button>
+                <button type="button" class="btn btn-outline-secondary ir-step-btn" data-scale="1.25">+25%</button>
             </div>
+            <div class="form-text text-muted mt-1">-25%/+25% 버튼은 누를 때마다 현재 크기 기준으로 계속 줄이거나 늘립니다</div>
 
             <div class="ir-section-title mt-4">확장자 · 화질</div>
             <div class="row g-3">
@@ -235,12 +232,18 @@
         }
     });
 
-    document.querySelectorAll('.ir-ratio-btns [data-scale]').forEach(function (btn) {
+    document.querySelectorAll('.ir-step-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var scale = parseFloat(btn.dataset.scale);
-            widthEl.value = Math.round(naturalWidth * scale);
-            heightEl.value = Math.round(naturalHeight * scale);
+            var factor = parseFloat(btn.dataset.scale);
+            var curW = parseFloat(widthEl.value) || naturalWidth;
+            var curH = parseFloat(heightEl.value) || naturalHeight;
+            widthEl.value = Math.max(1, Math.round(curW * factor));
+            heightEl.value = Math.max(1, Math.round(curH * factor));
         });
+    });
+    document.getElementById('ir-reset-btn').addEventListener('click', function () {
+        widthEl.value = naturalWidth;
+        heightEl.value = naturalHeight;
     });
 
     formatEl.addEventListener('change', updateFormatUI);
