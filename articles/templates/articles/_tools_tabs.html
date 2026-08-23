@@ -1,0 +1,11 @@
+<!-- /tools/ 계열 페이지 공통 상단 탭. asset-management/index.html의 .am-tabs(종합/국민연금/…)와
+     같은 역할 — 부모 템플릿이 active_tool(예: 'hub', 'char_counter')을 넘겨 현재 탭을 표시한다.
+     새 유틸을 추가할 때는 이 파일에 <a class="tools-tab"> 한 줄만 늘리면 된다. -->
+<div class="tools-tabs">
+    <div class="tools-tabs-inner">
+        <a href="{% url 'tools_hub' %}" class="tools-tab{% if active_tool == 'hub' %} is-active{% endif %}">유틸 Main</a>
+        <a href="{% url 'char_counter' %}" class="tools-tab{% if active_tool == 'char_counter' %} is-active{% endif %}">글자수세기</a>
+        <a href="{% url 'currency_converter' %}" class="tools-tab{% if active_tool == 'currency_converter' %} is-active{% endif %}">환율 계산기</a>
+        <a href="{% url 'severance_calculator' %}" class="tools-tab{% if active_tool == 'severance_calculator' %} is-active{% endif %}">퇴직금 계산기</a>
+    </div>
+</div>

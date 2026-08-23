@@ -18,11 +18,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .. import kis_client
+from ..exim_client import FX_CONVERTER_ITEMS
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
-    AnalyzedArticle, ConsultRequest, Faq, GlobalMarketQuote, MarketIndex, NewsletterIssue, NewsletterSubscriber,
-    RankedMover, StockDisclosure, StockItem, StockPrediction, StockRealtimePrice, SubscriptionOrder,
-    UserSubscription, Watchlist,
+    AnalyzedArticle, ConsultRequest, ExchangeRateSnapshot, Faq, GlobalMarketQuote, MarketIndex, NewsletterIssue,
+    NewsletterSubscriber, RankedMover, StockDisclosure, StockItem, StockPrediction, StockRealtimePrice,
+    SubscriptionOrder, UserSubscription, Watchlist,
 )
 from ..utils import format_trading_value, format_volume, get_client_ip
 
@@ -276,11 +277,57 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
+def tools_hub_view(request):
+    # /asset-management/의 "종합" 탭과 같은 역할 — 유틸 메뉴를 눌렀을 때 처음 보이는 허브
+    # 페이지. 각 유틸 도구는 asset-management의 am-tabs처럼 상단 탭(_tools_tabs.html)으로
+    # 전환하며, 지금은 카드/탭 둘 다 글자수세기 하나뿐이지만 이후 유틸을 추가할 때 이 카드
+    # 그리드에 한 장씩 늘리면 된다.
+    return render(request, 'articles/tools_hub.html', {'site_title': 'NextFinUp - 유틸'})
+
+
 def char_counter_view(request):
     # 사람인/알바몬 글자수 세기 도구와 동일한 컨셉의 유틸리티 페이지. 입력 텍스트가 서버로
     # 전송되지 않고 브라우저에서만 계산되도록 순수 클라이언트 사이드 JS로 구현한다(자기소개서 등
     # 민감한 텍스트를 붙여넣는 용도라 서버 전송/저장이 없어야 함).
     return render(request, 'articles/char_counter.html', {'site_title': 'NextFinUp - 글자수 세기'})
+
+
+def currency_converter_view(request):
+    # 여행/송금/직구 수요가 큰 11개국(exim_client.FX_CONVERTER_ITEMS) 환율 계산기. 매매기준율은
+    # collect_exchange_rate_fixing(30분 주기)이 쌓아둔 ExchangeRateSnapshot 최신값을 그대로
+    # 쓴다 — 은행 실시간 시세가 아니라 하루 단위로 고시되는 값이라 서버에서 통화별 최신 1건만
+    # 뽑아 JS에 넘기고, 실제 금액 환산(입력→결과)은 글자수세기와 같은 이유로 클라이언트에서 한다.
+    rates = []
+    latest_date = None
+    for code, label in FX_CONVERTER_ITEMS.items():
+        snapshot = (
+            ExchangeRateSnapshot.objects.filter(currency_code=code).order_by('-date').first()
+        )
+        if not snapshot:
+            continue
+        unit = 100 if '(100)' in code else 1
+        rate_per_unit = float(snapshot.deal_bas_r) / unit
+        rates.append({
+            'code': code.split('(')[0],
+            'name': label,
+            'rate_per_unit': rate_per_unit,
+        })
+        if latest_date is None or snapshot.date > latest_date:
+            latest_date = snapshot.date
+
+    return render(request, 'articles/currency_converter.html', {
+        'site_title': 'NextFinUp - 환율 계산기',
+        'rates': rates,
+        'rates_json': json.dumps(rates),
+        'latest_date': latest_date,
+    })
+
+
+def severance_calculator_view(request):
+    # 근로기준법 제34조 기준 퇴직금 계산기(1일 평균임금 × 30일 × 재직일수/365). 입력값(급여 등
+    # 민감 정보)이 서버로 전송되지 않도록 다른 유틸과 마찬가지로 계산 자체는 클라이언트에서 하고,
+    # 이 뷰는 빈 화면만 렌더링한다.
+    return render(request, 'articles/severance_calculator.html', {'site_title': 'NextFinUp - 퇴직금 계산기'})
 
 
 def header_fragment_view(request):

@@ -18,6 +18,22 @@ FX_FIXING_ITEMS = {
     'CNH': '중국 CNH',
 }
 
+# /tools/currency-converter/ 환율 계산기용 통화 목록(여행/송금/직구 수요가 큰 11개국, 2026-08-23
+# 실제 API 응답으로 cur_unit 확인 — 이 중 JPY(100)만 100엔당 고시라 계산기에서 100으로 나눠야
+# 한다). FX_FIXING_ITEMS(헤더 티커, 4개)보다 범위가 넓지만 같은 API 호출 한 번으로 다 들어있어
+# collect_exchange_rate_fixing이 이 목록 전체를 ExchangeRateSnapshot에 저장한다 — 다만
+# GlobalMarketQuote(헤더 티커)는 FX_FIXING_ITEMS 4개만 그대로 유지해 티커 항목 수가 안 늘어난다.
+FX_CONVERTER_ITEMS = {
+    **FX_FIXING_ITEMS,
+    'GBP': '영국 파운드',
+    'AUD': '호주 달러',
+    'CAD': '캐나다 달러',
+    'HKD': '홍콩 달러',
+    'CHF': '스위스 프랑',
+    'SGD': '싱가포르 달러',
+    'THB': '태국 바트',
+}
+
 
 def get_exchange_rates(search_date=None):
     """현재환율 API(AP01)로 환율 목록을 조회합니다. search_date는 'YYYYMMDD' 문자열(생략 시

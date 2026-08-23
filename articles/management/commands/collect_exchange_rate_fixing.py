@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 
-from articles.exim_client import FX_FIXING_ITEMS, get_exchange_rates
+from articles.exim_client import FX_CONVERTER_ITEMS, FX_FIXING_ITEMS, get_exchange_rates
 from articles.models import ExchangeRateSnapshot, GlobalMarketQuote
 
 # 고시가 없는 날(주말/공휴일)을 만나면 이만큼 과거로 거슬러 올라가며 가장 최근 영업일을 찾는다.
@@ -18,9 +18,11 @@ FETCH_RETRY_BACKOFF_SECONDS = 3
 
 class Command(BaseCommand):
     help = (
-        '한국수출입은행 OpenAPI(환전 고시 환율)로 미국/일본/유럽연합/중국 매매기준율을 조회하여 '
-        'ExchangeRateSnapshot에 날짜별로 쌓고, 직전 영업일 대비 등락률을 계산해 '
-        'GlobalMarketQuote(category=FX_FIXING)로 올립니다(헤더 지수 티커용).'
+        '한국수출입은행 OpenAPI(환전 고시 환율)로 FX_CONVERTER_ITEMS(11개국) 매매기준율을 조회하여 '
+        'ExchangeRateSnapshot에 날짜별로 쌓습니다(/tools/currency-converter/ 계산기용). 그중 '
+        'FX_FIXING_ITEMS(미국/일본/유럽연합/중국 4개)만 직전 영업일 대비 등락률을 계산해 '
+        'GlobalMarketQuote(category=FX_FIXING)로도 올립니다(헤더 지수 티커용 — 티커 항목 수를 '
+        '늘리지 않기 위해 나머지 7개국은 여기 반영하지 않음).'
     )
 
     def _fetch_with_retry(self, date_str):
@@ -62,7 +64,7 @@ class Command(BaseCommand):
 
         by_unit = {r['cur_unit']: r for r in rows}
         saved = 0
-        for i, (cur_unit, label) in enumerate(FX_FIXING_ITEMS.items(), start=1):
+        for i, (cur_unit, label) in enumerate(FX_CONVERTER_ITEMS.items(), start=1):
             row = by_unit.get(cur_unit)
             if not row:
                 self.stdout.write(self.style.WARNING(f"    ↳ {label}({cur_unit}) 이번 응답에 없음 - 건너뜀"))
@@ -72,6 +74,10 @@ class Command(BaseCommand):
                 currency_code=cur_unit, date=quote_date,
                 defaults=dict(currency_name=row['cur_nm'], deal_bas_r=row['deal_bas_r']),
             )
+            saved += 1
+
+            if cur_unit not in FX_FIXING_ITEMS:
+                continue  # 헤더 티커용이 아닌 추가 통화는 여기서 끝 — GlobalMarketQuote는 안 만든다.
 
             prev = (
                 ExchangeRateSnapshot.objects
@@ -87,7 +93,6 @@ class Command(BaseCommand):
                 category='FX_FIXING', code=cur_unit,
                 defaults=dict(name=label, price=row['deal_bas_r'], change_pct=round(change_pct, 2), order=i),
             )
-            saved += 1
             self.stdout.write(f"    ↳ {label}: {row['deal_bas_r']} ({change_pct:+.2f}%)")
 
         self.stdout.write(self.style.SUCCESS(f"🎉 환전 고시 환율 수집 완료 ({quote_date} 기준, {saved}건)."))
