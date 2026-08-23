@@ -1,0 +1,282 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .ir-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .ir-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .ir-field .form-text { font-size: 12px; }
+
+        .ir-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .ir-dropzone:hover, .ir-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .ir-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .ir-preview-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .ir-preview-box { text-align: center; }
+        .ir-preview-box img { max-width: 220px; max-height: 220px; border-radius: 8px; border: 1px solid var(--bg-subtle-2, #eee); background: repeating-conic-gradient(#f1f3f5 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+        .ir-preview-meta { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 8px; line-height: 1.7; }
+        .ir-preview-meta strong { color: var(--text-primary, #212529); }
+        .ir-arrow { align-self: center; font-size: 20px; color: var(--text-secondary, #adb5bd); }
+
+        .ir-ratio-btns .btn { min-width: 56px; }
+        .ir-quality-row { display: none; }
+        .ir-bg-row { display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='image_resizer' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">이미지 리사이저 · 확장자 변환기</h2>
+                <p class="text-muted mb-0">이미지 크기를 조정하고 PNG·JPEG·WEBP로 확장자도 함께 바꿀 수 있어요. 업로드한 이미지는 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="ir-section-title">이미지 업로드</div>
+            <div class="ir-dropzone" id="ir-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                클릭하거나 이미지를 여기로 끌어다 놓으세요 (JPG · PNG · WEBP · GIF 등)
+                <input type="file" id="ir-file" accept="image/*" class="d-none">
+            </div>
+            <div id="ir-original-info" class="ir-preview-meta mt-2" style="display:none;"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3" id="ir-settings" style="display:none;">
+            <div class="ir-section-title">크기 조정</div>
+            <div class="row g-3 align-items-end mb-2">
+                <div class="col-md-4 ir-field">
+                    <label for="ir-width">가로 (px)</label>
+                    <input type="number" id="ir-width" class="form-control" min="1">
+                </div>
+                <div class="col-md-4 ir-field">
+                    <label for="ir-height">세로 (px)</label>
+                    <input type="number" id="ir-height" class="form-control" min="1">
+                </div>
+                <div class="col-md-4 ir-field">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="ir-lock-ratio" checked>
+                        <label class="form-check-label" for="ir-lock-ratio" style="font-size:13px;">가로세로 비율 유지</label>
+                    </div>
+                </div>
+            </div>
+            <div class="ir-ratio-btns btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.25">25%</button>
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.5">50%</button>
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.75">75%</button>
+                <button type="button" class="btn btn-outline-secondary" data-scale="1">100%(원본)</button>
+            </div>
+
+            <div class="ir-section-title mt-4">확장자 · 화질</div>
+            <div class="row g-3">
+                <div class="col-md-4 ir-field">
+                    <label for="ir-format">출력 형식</label>
+                    <select id="ir-format" class="form-select">
+                        <option value="image/png">PNG</option>
+                        <option value="image/jpeg">JPEG</option>
+                        <option value="image/webp">WEBP</option>
+                    </select>
+                </div>
+                <div class="col-md-4 ir-field ir-quality-row">
+                    <label for="ir-quality">화질 (<span id="ir-quality-value">90</span>%)</label>
+                    <input type="range" id="ir-quality" class="form-range" min="10" max="100" value="90">
+                </div>
+                <div class="col-md-4 ir-field ir-bg-row">
+                    <label for="ir-bgcolor">배경색 (투명 영역 채움)</label>
+                    <input type="color" id="ir-bgcolor" class="form-control form-control-color" value="#ffffff">
+                </div>
+            </div>
+
+            <button type="button" id="ir-convert-btn" class="btn btn-primary mt-3"><i class="fa-solid fa-wand-magic-sparkles"></i> 변환하기</button>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4" id="ir-result-card" style="display:none;">
+            <div class="ir-section-title">결과</div>
+            <div class="ir-preview-row">
+                <div class="ir-preview-box">
+                    <img id="ir-original-img" alt="원본">
+                    <div class="ir-preview-meta">원본</div>
+                </div>
+                <div class="ir-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                <div class="ir-preview-box">
+                    <img id="ir-result-img" alt="변환 결과">
+                    <div class="ir-preview-meta" id="ir-result-info"></div>
+                </div>
+            </div>
+            <a id="ir-download-btn" class="btn btn-primary mt-3" download><i class="fa-solid fa-download"></i> 다운로드</a>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var fileInput = document.getElementById('ir-file');
+    var dropzone = document.getElementById('ir-dropzone');
+    var originalInfoEl = document.getElementById('ir-original-info');
+    var settingsCard = document.getElementById('ir-settings');
+    var widthEl = document.getElementById('ir-width');
+    var heightEl = document.getElementById('ir-height');
+    var lockRatioEl = document.getElementById('ir-lock-ratio');
+    var formatEl = document.getElementById('ir-format');
+    var qualityRow = document.querySelector('.ir-quality-row');
+    var qualityEl = document.getElementById('ir-quality');
+    var qualityValueEl = document.getElementById('ir-quality-value');
+    var bgRow = document.querySelector('.ir-bg-row');
+    var bgColorEl = document.getElementById('ir-bgcolor');
+    var convertBtn = document.getElementById('ir-convert-btn');
+    var resultCard = document.getElementById('ir-result-card');
+    var originalImgEl = document.getElementById('ir-original-img');
+    var resultImgEl = document.getElementById('ir-result-img');
+    var resultInfoEl = document.getElementById('ir-result-info');
+    var downloadBtn = document.getElementById('ir-download-btn');
+
+    var loadedImage = null;
+    var originalFile = null;
+    var naturalWidth = 0, naturalHeight = 0;
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function extFor(mime) {
+        if (mime === 'image/jpeg') return 'jpg';
+        if (mime === 'image/webp') return 'webp';
+        return 'png';
+    }
+
+    function baseName(name) {
+        var idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    function updateFormatUI() {
+        var isPng = formatEl.value === 'image/png';
+        qualityRow.style.display = isPng ? 'none' : 'block';
+        bgRow.style.display = formatEl.value === 'image/jpeg' ? 'block' : 'none';
+    }
+
+    function handleFile(file) {
+        if (!file || file.type.indexOf('image/') !== 0) return;
+        originalFile = file;
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+            loadedImage = img;
+            naturalWidth = img.naturalWidth;
+            naturalHeight = img.naturalHeight;
+            widthEl.value = naturalWidth;
+            heightEl.value = naturalHeight;
+            originalImgEl.src = url;
+
+            originalInfoEl.style.display = 'block';
+            originalInfoEl.innerHTML = '<strong>' + file.name + '</strong> · ' + naturalWidth + ' × ' + naturalHeight + 'px · ' + fmtBytes(file.size) + ' · ' + (file.type || '알 수 없는 형식');
+
+            if (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png') {
+                formatEl.value = file.type;
+            }
+            updateFormatUI();
+
+            settingsCard.style.display = 'block';
+            resultCard.style.display = 'none';
+        };
+        img.src = url;
+    }
+
+    fileInput.addEventListener('change', function () { handleFile(fileInput.files[0]); });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    widthEl.addEventListener('input', function () {
+        if (lockRatioEl.checked && naturalWidth) {
+            heightEl.value = Math.round((parseFloat(widthEl.value) || 0) * naturalHeight / naturalWidth);
+        }
+    });
+    heightEl.addEventListener('input', function () {
+        if (lockRatioEl.checked && naturalHeight) {
+            widthEl.value = Math.round((parseFloat(heightEl.value) || 0) * naturalWidth / naturalHeight);
+        }
+    });
+
+    document.querySelectorAll('.ir-ratio-btns [data-scale]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var scale = parseFloat(btn.dataset.scale);
+            widthEl.value = Math.round(naturalWidth * scale);
+            heightEl.value = Math.round(naturalHeight * scale);
+        });
+    });
+
+    formatEl.addEventListener('change', updateFormatUI);
+    qualityEl.addEventListener('input', function () { qualityValueEl.textContent = qualityEl.value; });
+
+    convertBtn.addEventListener('click', function () {
+        if (!loadedImage) return;
+        var targetW = Math.max(1, parseInt(widthEl.value, 10) || naturalWidth);
+        var targetH = Math.max(1, parseInt(heightEl.value, 10) || naturalHeight);
+        var mime = formatEl.value;
+        var quality = parseInt(qualityEl.value, 10) / 100;
+
+        var canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        var ctx = canvas.getContext('2d');
+
+        if (mime === 'image/jpeg') {
+            ctx.fillStyle = bgColorEl.value;
+            ctx.fillRect(0, 0, targetW, targetH);
+        }
+        ctx.drawImage(loadedImage, 0, 0, targetW, targetH);
+
+        canvas.toBlob(function (blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            resultImgEl.src = url;
+            resultInfoEl.innerHTML = targetW + ' × ' + targetH + 'px · <strong>' + fmtBytes(blob.size) + '</strong> · ' + mime;
+
+            var filename = baseName(originalFile.name) + '_resized.' + extFor(mime);
+            downloadBtn.href = url;
+            downloadBtn.download = filename;
+
+            resultCard.style.display = 'block';
+            resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, mime, mime === 'image/png' ? undefined : quality);
+    });
+
+    updateFormatUI();
+})();
+</script>
+</body>
+</html>

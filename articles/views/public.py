@@ -369,6 +369,13 @@ def json_formatter_view(request):
     return render(request, 'articles/json_formatter.html', {'site_title': 'NextFinUp - JSON 포맷터'})
 
 
+def image_resizer_view(request):
+    # 이미지 리사이즈 + 확장자 변환(PNG/JPEG/WEBP) 도구. 업로드한 이미지가 서버로 전송되지 않도록
+    # <canvas>.toBlob으로 리사이즈/포맷 변환을 전부 브라우저에서 처리하고, 결과물도 브라우저가
+    # 바로 다운로드시킨다(서버 저장 없음).
+    return render(request, 'articles/image_resizer.html', {'site_title': 'NextFinUp - 이미지 리사이저'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
