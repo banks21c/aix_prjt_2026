@@ -340,6 +340,17 @@ def unemployment_benefit_calculator_view(request):
     })
 
 
+def net_pay_calculator_view(request):
+    # 연봉(세전) → 4대보험료 공제 후 실수령액 계산기. 소득세는 국세청 근로소득 간이세액표 자체를
+    # (수만 행짜리 표라) 그대로 담는 대신, 그 표가 산정되는 원리인 근로소득공제→인적공제→
+    # 종합소득세 누진세율표→근로소득세액공제 절차를 그대로 구현해 근사한다(자녀세액공제 등은
+    # 미반영 — 화면에 안내 문구로 명시). 4대보험료율/세율표 상수는 매년 소폭 조정되는 고시값이라
+    # 실업급여 계산기와 같은 방식으로 화면에서 기본값을 보여주되 수정 가능한 입력 필드로 둔다.
+    return render(request, 'articles/net_pay_calculator.html', {
+        'site_title': 'NextFinUp - 급여 실수령액 계산기',
+    })
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
