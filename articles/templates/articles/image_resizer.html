@@ -37,6 +37,7 @@
         .ir-preview-meta strong { color: var(--text-primary, #212529); }
         .ir-arrow { align-self: center; font-size: 20px; color: var(--text-secondary, #adb5bd); }
 
+        .ir-ratio-btns { flex-wrap: wrap; }
         .ir-ratio-btns .btn { min-width: 56px; }
         .ir-quality-row { display: none; }
         .ir-bg-row { display: none; }
@@ -86,6 +87,9 @@
                 </div>
             </div>
             <div class="ir-ratio-btns btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.25">-75%</button>
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.5">-50%</button>
+                <button type="button" class="btn btn-outline-secondary" data-scale="0.75">-25%</button>
                 <button type="button" class="btn btn-outline-secondary" data-scale="1">100%(원본)</button>
                 <button type="button" class="btn btn-outline-secondary" data-scale="1.25">+25%</button>
                 <button type="button" class="btn btn-outline-secondary" data-scale="1.5">+50%</button>
