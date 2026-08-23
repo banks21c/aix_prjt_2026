@@ -276,6 +276,13 @@ def insurance_compare_view(request):
     return render(request, 'articles/insurance_compare.html', {'site_title': 'NextFinUp - 보험 비교(데모)'})
 
 
+def char_counter_view(request):
+    # 사람인/알바몬 글자수 세기 도구와 동일한 컨셉의 유틸리티 페이지. 입력 텍스트가 서버로
+    # 전송되지 않고 브라우저에서만 계산되도록 순수 클라이언트 사이드 JS로 구현한다(자기소개서 등
+    # 민감한 텍스트를 붙여넣는 용도라 서버 전송/저장이 없어야 함).
+    return render(request, 'articles/char_counter.html', {'site_title': 'NextFinUp - 글자수 세기'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""

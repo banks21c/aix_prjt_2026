@@ -1,3 +1,4 @@
+from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render
 
 from ..models import MarketIndex, PredictionAccuracySnapshot, StockDailyPrice, StockPrediction
@@ -105,7 +106,9 @@ def build_ai_performance_context():
     }
 
 
+@staff_member_required
 def ai_performance_view(request):
-    """AI 예측 성과 공개 트랙레코드 페이지 (로그인 불필요 — 대외 공개용)."""
+    """AI 예측 성과 공개 트랙레코드 페이지 (관리자 전용으로 전환 — 2026-08-23 요청, 이전에는
+    대외 공개용으로 로그인 불필요였다)."""
     context = {'site_title': 'NextFinUp - AI 예측 성과', **build_ai_performance_context()}
     return render(request, 'articles/ai_performance.html', context)
