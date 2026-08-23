@@ -376,6 +376,12 @@ def image_resizer_view(request):
     return render(request, 'articles/image_resizer.html', {'site_title': 'NextFinUp - 이미지 리사이저'})
 
 
+def qrcode_generator_view(request):
+    # 텍스트/URL → QR코드 생성기. 입력값이 서버로 전송되지 않도록(연락처, 와이파이 비번 등 민감할
+    # 수 있음) qrcode.js(CDN)로 브라우저에서 바로 <canvas>에 렌더링하고 PNG로 다운로드시킨다.
+    return render(request, 'articles/qrcode_generator.html', {'site_title': 'NextFinUp - QR코드 생성기'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
