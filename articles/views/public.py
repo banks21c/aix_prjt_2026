@@ -330,6 +330,16 @@ def severance_calculator_view(request):
     return render(request, 'articles/severance_calculator.html', {'site_title': 'NextFinUp - 퇴직금 계산기'})
 
 
+def unemployment_benefit_calculator_view(request):
+    # 고용보험법 기준 구직급여(실업급여) 계산기(이직 전 1일 평균임금의 60% × 소정급여일수).
+    # 상한액/하한액은 최저임금 등 정부 고시로 매년 바뀌는 값이라 템플릿에 하드코딩하지 않고,
+    # 화면에서 기본값을 보여주되 사용자가 직접 수정할 수 있는 입력 필드로 둔다. 다른 유틸과
+    # 마찬가지로 급여 정보가 서버로 전송되지 않도록 계산은 클라이언트에서 한다.
+    return render(request, 'articles/unemployment_benefit_calculator.html', {
+        'site_title': 'NextFinUp - 실업급여 계산기',
+    })
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
