@@ -389,6 +389,12 @@ def background_remover_view(request):
     return render(request, 'articles/background_remover.html', {'site_title': 'NextFinUp - 배경 제거'})
 
 
+def unit_converter_view(request):
+    # 길이/무게/넓이(평 포함)/부피/속도/온도 단위 변환기. 다른 유틸과 마찬가지로 서버 전송 없이
+    # 브라우저에서만 계산한다.
+    return render(request, 'articles/unit_converter.html', {'site_title': 'NextFinUp - 단위 변환기'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
