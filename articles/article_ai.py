@@ -774,3 +774,53 @@ def generate_thumbnail_image_bytes(title, ai_summary):
     except Exception:
         logger.exception("gpt-image-2 썸네일 재시도(고유명사 제거) 실패 (title=%r)", title)
         return None
+
+
+# ==========================================
+# /tools/spell-checker/ — 맞춤법 검사기. 다른 유틸(글자수세기, 환율 계산기 등)과 달리 진짜
+# 한국어 맞춤법 교정은 브라우저만으로 할 수 없어(형태소 분석·사전이 필요) 이 기능만 텍스트가
+# 서버(OpenAI)로 전송된다 — 화면에 그 사실을 분명히 안내해야 한다(views.spell_checker_view 참고).
+# ==========================================
+
+SIMULATION_SPELL_CHECK = (
+    "맞춤법 검사 기능은 현재 준비 중입니다. 관리자가 AI 요약용 API 키를 설정하면 "
+    "실시간 맞춤법 검사가 제공됩니다. (현재 시뮬레이션 모드)"
+)
+ERROR_SPELL_CHECK = "일시적인 오류로 맞춤법 검사를 완료하지 못했습니다. 잠시 후 다시 시도해주세요."
+
+SPELL_CHECK_SYSTEM_PROMPT = """당신은 한국어 맞춤법·띄어쓰기 교정 전문가입니다. 주어진 텍스트의
+맞춤법, 띄어쓰기, 표준어 오류만 교정하세요 — 문체, 어조, 존댓말/반말 여부는 절대 바꾸지 마세요.
+오류가 없으면 corrections를 빈 배열로 반환하고 corrected_text는 원문과 동일하게 반환하세요.
+반드시 아래 JSON 형식으로만 답하세요:
+{
+  "corrected_text": "전체 교정된 텍스트 (원문의 줄바꿈 구조 유지)",
+  "corrections": [
+    {"original": "원래 표현", "suggestion": "교정된 표현", "reason": "간단한 설명(한 문장)"}
+  ]
+}
+"""
+
+SPELL_CHECK_MAX_CHARS = 2000
+
+
+def check_spelling(text):
+    """맞춤법 검사 결과를 {'corrected_text', 'corrections', 'simulated'} 형태로 반환한다.
+    입력이 비었거나 API 키가 없으면(시뮬레이션 모드) corrected_text에 원문을 그대로 돌려줘
+    호출부 화면이 항상 뭔가는 보여줄 수 있게 한다."""
+    text = (text or '').strip()
+    if not text:
+        return {'corrected_text': '', 'corrections': [], 'simulated': False}
+
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+        return {'corrected_text': text, 'corrections': [], 'simulated': True, 'message': SIMULATION_SPELL_CHECK}
+
+    try:
+        data = _call_openai_json(SPELL_CHECK_SYSTEM_PROMPT, text[:SPELL_CHECK_MAX_CHARS], max_tokens=3000)
+        return {
+            'corrected_text': (data.get('corrected_text') or text).strip(),
+            'corrections': data.get('corrections') or [],
+            'simulated': False,
+        }
+    except Exception:
+        logger.exception("맞춤법 검사 실패 (len=%d)", len(text))
+        return {'corrected_text': text, 'corrections': [], 'simulated': False, 'error': ERROR_SPELL_CHECK}

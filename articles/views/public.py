@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .. import kis_client
+from ..article_ai import check_spelling
 from ..exim_client import FX_CONVERTER_ITEMS
 from ..forms import NewsletterForm, SubscriptionOrderForm
 from ..models import (
@@ -393,6 +394,31 @@ def unit_converter_view(request):
     # 길이/무게/넓이(평 포함)/부피/속도/온도 단위 변환기. 다른 유틸과 마찬가지로 서버 전송 없이
     # 브라우저에서만 계산한다.
     return render(request, 'articles/unit_converter.html', {'site_title': 'NextFinUp - 단위 변환기'})
+
+
+def spell_checker_view(request):
+    # 맞춤법 검사기 화면. 실제 검사(POST)는 spell_check_api_view가 처리 — 이 뷰는 페이지만
+    # 렌더링한다. 다른 유틸과 달리 입력 텍스트가 OpenAI로 전송되므로(브라우저만으로는 한국어
+    # 맞춤법 교정이 불가능) 템플릿에 그 사실을 분명히 안내하는 문구가 있다.
+    return render(request, 'articles/spell_checker.html', {'site_title': 'NextFinUp - 맞춤법 검사기'})
+
+
+@require_POST
+def spell_check_api_view(request):
+    """챗봇(chatbot_ask_view)과 동일한 패턴 — 로그인 불필요, 길이 제한만 두고 공개 API로 둔다."""
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+
+    text = (payload.get('text') or '').strip()
+    if not text:
+        return JsonResponse({'error': '검사할 텍스트를 입력해주세요.'}, status=400)
+    if len(text) > 2000:
+        return JsonResponse({'error': '텍스트는 2,000자 이내로 입력해주세요.'}, status=400)
+
+    result = check_spelling(text)
+    return JsonResponse(result)
 
 
 def header_fragment_view(request):
