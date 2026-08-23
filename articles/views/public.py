@@ -382,6 +382,13 @@ def qrcode_generator_view(request):
     return render(request, 'articles/qrcode_generator.html', {'site_title': 'NextFinUp - QR코드 생성기'})
 
 
+def background_remover_view(request):
+    # 이미지 배경 제거(누끼) 도구. @imgly/background-removal(CDN, ONNX 모델을 브라우저에서
+    # WASM으로 직접 실행)을 써서 이미지가 서버로 전송되지 않는다 — 첫 사용 시 AI 모델(수십MB)을
+    # 내려받아 시간이 좀 걸리지만, 이후에는 브라우저 캐시로 빨라진다.
+    return render(request, 'articles/background_remover.html', {'site_title': 'NextFinUp - 배경 제거'})
+
+
 def header_fragment_view(request):
     """nginx가 alias로 직접 서빙하는 정적 페이지(/insurance-guide/ 등)가 fetch로 불러와
     최상단에 붙이는 공통 헤더 조각. _header.html 자체를 그대로 렌더링해 반환한다."""
