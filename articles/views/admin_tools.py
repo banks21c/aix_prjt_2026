@@ -1,5 +1,6 @@
 import base64
 import json
+import mimetypes
 import os
 import re
 import shutil
@@ -14,13 +15,14 @@ from django.contrib.admin.sites import site as admin_site
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_POST
 from openai import BadRequestError, OpenAI
 
-from ..models import FinancialConsultSheet, GeneratedImage, ThemeColor
+from ..models import AdminUpload, FinancialConsultSheet, GeneratedImage, ThemeColor
 from .performance import build_ai_performance_context
 
 HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$')
@@ -1024,3 +1026,94 @@ def financial_consult_sheet_save_view(request):
         sheet = FinancialConsultSheet.objects.create(created_by=request.user, **fields)
 
     return JsonResponse({'ok': True, 'id': sheet.id})
+
+
+# nginx의 client_max_body_size(현재 20MB)와 맞춰둔다 — 이보다 큰 요청은 Django까지 오지도
+# 못하고 nginx가 413으로 끊어버리므로, 앱 쪽 한도를 그보다 크게 잡아봐야 의미가 없다. 더 큰
+# 파일이 필요해지면 nginx 설정도 같이 올려야 한다.
+ADMIN_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
+
+
+@staff_member_required
+def file_upload_view(request):
+    """FTP 계정 없이 브라우저에서 서버로 파일을 옮기기 위한 관리자 전용 도구. 저장 위치는
+    STATIC_ROOT/MEDIA_ROOT와 분리된 settings.ADMIN_UPLOAD_ROOT — nginx가 그 경로를 직접
+    서빙하도록 설정돼 있지 않아, 올린 파일은 공개 URL 없이 file_upload_download_view를 통해서만
+    (스태프 로그인 상태로) 내려받을 수 있다. 여러 파일을 한 번에 올릴 수 있고, 파일명은
+    충돌·경로 조작을 막기 위해 서버에 저장할 때 uuid를 붙여 새로 만든다."""
+    upload_root = Path(settings.ADMIN_UPLOAD_ROOT)
+    upload_root.mkdir(parents=True, exist_ok=True)
+
+    if request.method == 'POST':
+        files = request.FILES.getlist('files')
+        note = (request.POST.get('note') or '').strip()
+        if not files:
+            messages.error(request, "업로드할 파일을 선택해주세요.")
+        else:
+            saved, skipped = 0, []
+            for f in files:
+                if f.size > ADMIN_UPLOAD_MAX_BYTES:
+                    skipped.append(f"{f.name} (파일당 최대 {ADMIN_UPLOAD_MAX_BYTES // (1024*1024)}MB, {f.size / (1024*1024):.1f}MB)")
+                    continue
+                # get_valid_filename이 경로 구분자·위험 문자를 제거해주지만(경로 조작 방지),
+                # 그래도 원본 파일명을 그대로 저장 파일명으로 쓰지 않는다 — 동시에 같은
+                # 이름으로 여러 번 올려도 서로 덮어쓰지 않도록 uuid 접두를 붙인 별도 이름으로
+                # 저장하고, 원본 파일명은 DB에만 보관해 화면 표시/다운로드 시 복원한다.
+                # stored_filename의 max_length(255)를 넘지 않도록 uuid 접두 뒤 남는 길이만큼만
+                # 자른다 — 원본 파일명이 아주 길면 DB INSERT가 그냥 에러로 죽을 수 있어서다.
+                safe_name = get_valid_filename(f.name) or 'file'
+                prefix = f"{uuid4().hex}_"
+                safe_name = safe_name[-(255 - len(prefix)):]
+                stored_name = prefix + safe_name
+                dest = upload_root / stored_name
+                with dest.open('wb') as out:
+                    for chunk in f.chunks():
+                        out.write(chunk)
+                AdminUpload.objects.create(
+                    uploaded_by=request.user, original_filename=f.name[:255],
+                    stored_filename=stored_name, size_bytes=f.size, note=note,
+                )
+                saved += 1
+
+            if saved:
+                messages.success(request, f"{saved}개 파일을 업로드했습니다.")
+            for reason in skipped:
+                messages.error(request, f"건너뜀: {reason}")
+        return redirect('file_upload')
+
+    uploads = AdminUpload.objects.select_related('uploaded_by').all()
+    total_bytes = uploads.aggregate(total=Sum('size_bytes'))['total'] or 0
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '📁 파일 업로드',
+        'uploads': uploads,
+        'total_bytes': total_bytes,
+        'max_mb': ADMIN_UPLOAD_MAX_BYTES // (1024 * 1024),
+    }
+    return render(request, 'articles/file_upload.html', context)
+
+
+@staff_member_required
+def file_upload_download_view(request, pk):
+    """업로드된 파일을 스태프 로그인 상태에서만 내려받게 한다. Content-Disposition을
+    attachment로 강제해(브라우저가 inline으로 렌더링하지 않게) 업로드된 HTML/SVG 등이
+    관리자 세션에서 그대로 실행되는 저장형 XSS 경로를 막는다."""
+    upload = get_object_or_404(AdminUpload, pk=pk)
+    file_path = Path(settings.ADMIN_UPLOAD_ROOT) / upload.stored_filename
+    if not file_path.exists():
+        raise Http404("파일을 찾을 수 없습니다 (서버에서 삭제되었을 수 있습니다).")
+
+    content_type = mimetypes.guess_type(upload.original_filename)[0] or 'application/octet-stream'
+    response = FileResponse(file_path.open('rb'), content_type=content_type, as_attachment=True, filename=upload.original_filename)
+    return response
+
+
+@staff_member_required
+@require_POST
+def file_upload_delete_view(request, pk):
+    upload = get_object_or_404(AdminUpload, pk=pk)
+    (Path(settings.ADMIN_UPLOAD_ROOT) / upload.stored_filename).unlink(missing_ok=True)
+    upload.delete()
+    messages.success(request, "파일을 삭제했습니다.")
+    return redirect('file_upload')

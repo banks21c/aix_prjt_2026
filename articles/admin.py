@@ -702,6 +702,7 @@ _TOOL_LINKS = [
     ('테마 색상 설정', 'theme_settings'),
     ('AI 이미지 생성', 'image_generator'),
     ('AI 이미지 생성 목록', 'generated_image_list'),
+    ('파일 업로드', 'file_upload'),
 ]
 
 

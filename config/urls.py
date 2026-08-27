@@ -40,6 +40,7 @@ from articles.views import (
     pipeline_status_view, pipeline_trigger_view, server_health_view,
     operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
     image_generator_view, generated_image_list_view, generated_image_delete_view,
+    file_upload_view, file_upload_download_view, file_upload_delete_view,
     news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
@@ -78,6 +79,9 @@ urlpatterns = [
     path('admin-tools/image-generator/', image_generator_view, name='image_generator'),
     path('admin-tools/image-generator/list/', generated_image_list_view, name='generated_image_list'),
     path('admin-tools/image-generator/<int:pk>/delete/', generated_image_delete_view, name='generated_image_delete'),
+    path('admin-tools/uploads/', file_upload_view, name='file_upload'),
+    path('admin-tools/uploads/<int:pk>/download/', file_upload_download_view, name='file_upload_download'),
+    path('admin-tools/uploads/<int:pk>/delete/', file_upload_delete_view, name='file_upload_delete'),
     # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
     # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
     # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가

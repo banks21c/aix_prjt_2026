@@ -236,3 +236,28 @@ class GeneratedImage(models.Model):
 
     def __str__(self):
         return f"{self.model_name} {self.size}/{self.quality} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+# ==========================================
+# 15. 관리자 파일 업로드 (file_upload_view) — FTP 접속 없이 서버로 파일을 옮기기 위한 용도
+# ==========================================
+class AdminUpload(models.Model):
+    """관리자 화면(/admin-tools/uploads/)에서 올린 파일 한 건. STATIC_ROOT/MEDIA_ROOT와 분리된
+    비공개 디렉터리(BASE_DIR/admin_uploads/, settings.ADMIN_UPLOAD_ROOT)에 저장하고 nginx가
+    직접 서빙하지 않으므로, 반드시 file_upload_download_view(스태프 전용)를 통해서만 내려받을
+    수 있다. stored_filename은 원본 파일명 충돌·경로 조작을 막기 위해 업로드 시 uuid를 붙여
+    새로 만든 이름이고, original_filename은 화면 표시/다운로드 시 파일명 복원용이다."""
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="업로드 일시")
+    uploaded_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="업로드한 관리자")
+    original_filename = models.CharField(max_length=255, verbose_name="원본 파일명")
+    stored_filename = models.CharField(max_length=255, unique=True, verbose_name="저장 파일명")
+    size_bytes = models.PositiveBigIntegerField(verbose_name="파일 크기(바이트)")
+    note = models.CharField(max_length=255, blank=True, verbose_name="메모")
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = "관리자 업로드 파일 (AdminUpload)"
+        verbose_name_plural = "관리자 업로드 파일 (AdminUpload)"
+
+    def __str__(self):
+        return self.original_filename

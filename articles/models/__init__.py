@@ -14,7 +14,7 @@ from .members import (
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import (
     NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet, Faq, ThemeColor,
-    GeneratedImage,
+    GeneratedImage, AdminUpload,
 )
 
 __all__ = [
@@ -25,5 +25,5 @@ __all__ = [
     'LoginLog', 'MenuAccessLog', 'SystemErrorLog', 'ChatMessage', 'SocialAccount', 'Watchlist',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
-    'FinancialConsultSheet', 'Faq', 'ThemeColor', 'GeneratedImage',
+    'FinancialConsultSheet', 'Faq', 'ThemeColor', 'GeneratedImage', 'AdminUpload',
 ]

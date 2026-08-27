@@ -160,6 +160,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic 결과물 (nginx가 이 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# 관리자 파일 업로드 도구(articles/views/admin_tools.py file_upload_view)가 쓰는 저장 경로 —
+# STATIC_ROOT/MEDIA_ROOT와 달리 nginx가 이 경로를 서빙하도록 설정돼 있지 않다(의도적).
+# FTP 없이 서버에 파일을 옮기는 용도라 공개 URL이 없어야 하므로, 반드시 스태프 전용
+# file_upload_download_view를 거쳐서만 내려받을 수 있게 별도 디렉터리로 둔다.
+ADMIN_UPLOAD_ROOT = BASE_DIR / 'admin_uploads'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
