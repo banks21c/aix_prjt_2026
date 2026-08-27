@@ -107,6 +107,7 @@
                         {% if field.errors %}
                         <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
                         {% endif %}
+                        <div class="text-danger small mt-1 d-none" id="titleClientError">제목을 입력해주세요.</div>
                     </div>
                 </div>
                 {% elif field.name == 'content' %}
@@ -118,6 +119,7 @@
                         {% if field.errors %}
                         <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
                         {% endif %}
+                        <div class="text-danger small mt-1 d-none" id="contentClientError">내용을 입력해주세요.</div>
                     </div>
                 </div>
                 {% else %}
@@ -158,6 +160,7 @@
         // content(본문)를 Toast UI Editor로 대체한다(news_edit.html의 blog_content와 동일한
         // 패턴). 원본 textarea는 화면에서 숨기고 값 저장소로만 쓴다 — 에디터 'change' 시마다
         // textarea.value를 계속 동기화해, 폼 제출 시 최신 HTML이 그대로 넘어가게 한다.
+        let syncContentTextarea = function () {};
         (function () {
             const textarea = document.getElementById('{{ form.content.id_for_label }}');
             const mount = document.getElementById('contentEditor');
@@ -175,20 +178,51 @@
                 usageStatistics: false,
             });
 
-            function syncTextarea() {
+            syncContentTextarea = function () {
                 textarea.value = editor.getHTML();
-            }
-            editor.on('change', syncTextarea);
-            textarea.form.addEventListener('submit', syncTextarea);
+            };
+            editor.on('change', syncContentTextarea);
         })();
 
         (function () {
             const form = document.getElementById('writeForm');
             const actionButtons = form.querySelectorAll('button[name="action"]');
+            const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+            const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+            const titleError = document.getElementById('titleClientError');
+            const contentError = document.getElementById('contentClientError');
 
-            // AI 호출/발행 API 호출 모두 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
-            // 상단/하단에 각각 복제된 버튼이 있으므로 name="action" 버튼 전체를 대상으로 처리한다.
+            // 제목/본문이 비어 있으면 서버 왕복(폼 재렌더링) 없이 여기서 바로 막는다 — 폼에
+            // novalidate가 붙어 있어(숨겨진 Toast UI 원본 textarea가 required라 기본 HTML5
+            // 검증을 쓰면 안내 없이 조용히 제출이 막히는 문제 때문) 브라우저 기본 검증이 꺼져
+            // 있으므로, 직접 검증해 영어 기본 에러("This field is required")나 왕복에 따른
+            // 입력 손실 체감 없이 바로 안내한다.
+            function isContentEmpty() {
+                return contentTextarea.value.replace(/<[^>]*>/g, '').trim() === '';
+            }
+
             form.addEventListener('submit', function (e) {
+                syncContentTextarea();
+
+                const titleEmpty = titleInput.value.trim() === '';
+                const contentEmpty = isContentEmpty();
+                titleError.classList.toggle('d-none', !titleEmpty);
+                contentError.classList.toggle('d-none', !contentEmpty);
+                titleInput.classList.toggle('is-invalid', titleEmpty);
+
+                if (titleEmpty || contentEmpty) {
+                    e.preventDefault();
+                    // contentTextarea는 화면에 숨겨져 있어(display:none) scrollIntoView가
+                    // 동작하지 않으므로, 실제로 보이는 에디터 마운트 요소를 기준으로 스크롤한다.
+                    const target = titleEmpty ? titleInput : document.getElementById('contentEditor');
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (titleEmpty) titleInput.focus();
+                    return;
+                }
+
+                // AI 호출/발행 API 호출 모두 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를
+                // 알려준다. 상단/하단에 각각 복제된 버튼이 있으므로 name="action" 버튼 전체를
+                // 대상으로 처리한다.
                 const submitterValue = e.submitter ? e.submitter.value : 'ai_summarize';
                 const loadingText = submitterValue === 'post_now'
                     ? '⏳ 포스팅 중...'
@@ -200,6 +234,15 @@
                     });
                 }, 0);
             });
+
+            if (titleInput) {
+                titleInput.addEventListener('input', function () {
+                    if (titleInput.value.trim() !== '') {
+                        titleError.classList.add('d-none');
+                        titleInput.classList.remove('is-invalid');
+                    }
+                });
+            }
         })();
 
         (function () {
