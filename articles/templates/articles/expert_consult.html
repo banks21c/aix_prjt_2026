@@ -197,10 +197,12 @@
         <div class="ec-profile">
             <div class="ec-identity">
                 <h2 style="text-align:center">상담 전문가</h2>
-                {# Cloudflare가 정적 파일을 URL 기준으로 최대 4시간 엣지 캐시한다(theme_css_view와
-                   같은 문제) — collectstatic만으로는 이미 캐시된 엣지가 새 파일을 안 가져오므로,
-                   사진을 새로 교체할 때마다 ?v= 뒤 숫자를 올려서 URL 자체를 바꿔야 한다. #}
-                <img class="ec-photo" src="{% static 'articles/expert1.png' %}?v=2" alt="장창근">
+                {% comment %}
+                Cloudflare가 정적 파일을 URL 기준으로 최대 4시간 엣지 캐시한다(theme_css_view와
+                같은 문제) — collectstatic만으로는 이미 캐시된 엣지가 새 파일을 안 가져오므로,
+                사진을 새로 교체할 때마다 ?v= 뒤 숫자를 올려서 URL 자체를 바꿔야 한다.
+                {% endcomment %}
+                <img class="ec-photo" src="{% static 'articles/expert1.png' %}?v=3" alt="장창근">
                 <div class="ec-identity-text">
                     <p class="ec-profile-name">장창근</p>
                     <p class="ec-profile-title">종합자산관리 FP</p>
