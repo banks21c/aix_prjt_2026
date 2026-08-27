@@ -71,8 +71,8 @@
             <form method="post" enctype="multipart/form-data" novalidate id="writeForm">
                 {% csrf_token %}
 
-                {% if user_blog_accounts %}
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded">
+                    {% if user_blog_accounts %}
                     <label class="fw-semibold small mb-0">포스팅 계정</label>
                     {% for account in user_blog_accounts %}
                     <div class="form-check form-check-inline mb-0">
@@ -85,7 +85,11 @@
                         {% endif %}
                     </div>
                     {% endfor %}
+                    {% endif %}
                     <div class="d-flex gap-2 ms-auto">
+                        <button type="submit" name="action" value="save_draft" class="btn btn-outline-secondary btn-sm" id="writeSaveBtnTop" title="지금 발행하지 않고 기사만 저장합니다. 뉴스 게시판에서 나중에 발행할 수 있어요.">
+                            💾 저장
+                        </button>
                         {% if user_blog_accounts %}
                         <button type="submit" name="action" value="post_now" class="btn btn-outline-primary btn-sm" id="writePostBtnTop">
                             바로 포스팅
@@ -96,7 +100,6 @@
                         </button>
                     </div>
                 </div>
-                {% endif %}
 
                 {% for field in form %}
                 {% if field.name == 'title' %}
@@ -147,7 +150,8 @@
                         ※ 원문 링크 없이 제목과 본문을 직접 입력해 기사를 등록합니다. 'AI 요약'을 누르면
                         입력한 내용으로 AI 3줄 요약·관점 분석·블로그 초안을 생성하고 상세 화면으로
                         이동합니다. 검토가 이미 끝난 원고라면 'AI 요약' 없이 입력한 내용 그대로 바로
-                        포스팅할 수도 있습니다.
+                        포스팅할 수도 있습니다. 지금 바로 발행하지 않고 나중에 포스팅하려면 '저장'을
+                        누르세요 — 기사만 저장되고, 이후 뉴스 게시판에서 원하는 때에 발행할 수 있습니다.
                     </p>
                 </div>
             </form>
@@ -226,6 +230,8 @@
                 const submitterValue = e.submitter ? e.submitter.value : 'ai_summarize';
                 const loadingText = submitterValue === 'post_now'
                     ? '⏳ 포스팅 중...'
+                    : submitterValue === 'save_draft'
+                    ? '⏳ 저장 중...'
                     : '⏳ AI 요약 중... (최대 30초 소요)';
                 setTimeout(function () {
                     actionButtons.forEach(function (btn) {

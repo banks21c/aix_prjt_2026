@@ -478,6 +478,28 @@ def _create_manual_article(request, title, content, **extra_fields):
     )
 
 
+def _create_written_article(request, form):
+    """news_write_view의 '바로 포스팅'/'저장'이 공유하는 기사 생성 로직 — AI를 호출하지 않고
+    에디터에 입력한 HTML을 blog_content로 그대로 써서 기사를 만든다. 실패 시(썸네일 처리
+    오류) messages.error를 채우고 None을 반환한다."""
+    title = form.cleaned_data['title']
+    # blog_content(실제 발행 본문)는 에디터의 HTML 그대로 써서 문단 서식을 살리고,
+    # original_content(원문 전문 표시용 평문 필드)/썸네일 미리보기 텍스트는 평문으로
+    # 따로 변환한다 — 이 필드는 news_detail.html이 이스케이프해서 그대로 보여준다.
+    content_html = form.cleaned_data['content']
+    content = html_to_plain_text(content_html)
+    uploaded_thumb, upload_error = _get_compressed_upload_thumbnail(request)
+    if upload_error:
+        messages.error(request, upload_error)
+        return None
+    return _create_manual_article(
+        request, title, content,
+        blog_content=content_html,
+        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
+        ai_generated=True,
+    )
+
+
 def _get_compressed_upload_thumbnail(request):
     """news_write_view의 두 발행 경로(AI 요약/바로 포스팅)가 공유하는 업로드 썸네일 처리.
     (파일, 에러메시지) 튜플을 돌려준다 — 업로드가 없으면 (None, None), 있는데 이미지가 아니면
@@ -498,12 +520,14 @@ def _get_compressed_upload_thumbnail(request):
 def news_write_view(request):
     """스크래핑할 URL이 없는(원문 링크가 없는 사내 기고문 등) 기사를 회원이 제목+본문을 직접
     입력해 등록하는 화면. news_scrape_view와 달리 원문을 그대로 보여줄 필요가 없고(본인이 직접
-    쓴 내용이라 검토가 이미 끝난 상태) 등록 직후 곧바로 이어지는 행동을 버튼 두 개로 고를 수
+    쓴 내용이라 검토가 이미 끝난 상태) 등록 직후 곧바로 이어지는 행동을 버튼 세 개로 고를 수
     있다 — 'AI 요약'(article_ai로 3줄요약/분석/블로그초안 생성 후 상세 화면 이동, AI 호출이
-    비용이라 daily_scrape_limit가 아니라 ai_summarize_stats로 한도를 건다) 또는 '바로 포스팅'
+    비용이라 daily_scrape_limit가 아니라 ai_summarize_stats로 한도를 건다), '바로 포스팅'
     (AI를 아예 호출하지 않고 입력한 본문을 그대로 blog_content로 써서, 그 자리에서 선택한
     포스팅 계정에 즉시 발행 — post_articles_view와 같은 blog_posting.publish_article을 재사용
-    하고 posting_stats(daily_post_limit)로 한도를 건다)."""
+    하고 posting_stats(daily_post_limit)로 한도를 건다), '저장'(포스팅 계정 선택/발행 없이
+    기사만 만들어두고 상세 화면으로 이동 — 나중에 뉴스 게시판에서 원할 때 발행하는 용도).
+    '저장'과 '바로 포스팅'은 기사 생성 로직 자체가 같아 _create_written_article로 공유한다."""
     form = NewsWriteForm(request.POST or None)
     summarize_stats = ai_summarize_stats(request.user)
     posting_stats_val = blog_posting.posting_stats(request.user)
@@ -560,23 +584,8 @@ def news_write_view(request):
         if not accounts:
             messages.warning(request, "포스팅할 계정을 하나 이상 선택해주세요.")
         else:
-            title = form.cleaned_data['title']
-            # blog_content(실제 발행 본문)는 에디터의 HTML 그대로 써서 문단 서식을 살리고,
-            # original_content(원문 전문 표시용 평문 필드)/썸네일 미리보기 텍스트는 평문으로
-            # 따로 변환한다 — 이 필드는 news_detail.html이 이스케이프해서 그대로 보여준다.
-            content_html = form.cleaned_data['content']
-            content = html_to_plain_text(content_html)
-            uploaded_thumb, upload_error = _get_compressed_upload_thumbnail(request)
-            if upload_error:
-                messages.error(request, upload_error)
-            else:
-                article = _create_manual_article(
-                    request, title, content,
-                    blog_content=content_html,
-                    thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
-                    ai_generated=True,
-                )
-
+            article = _create_written_article(request, form)
+            if article is not None:
                 success_count = 0
                 for account in accounts:
                     ok, result = blog_posting.publish_article(account, article)
@@ -588,6 +597,17 @@ def news_write_view(request):
                 if success_count:
                     messages.success(request, f"AI 요약 없이 {success_count}개 계정에 바로 포스팅했습니다.")
                 return redirect('news_detail', pk=article.pk)
+
+    elif request.method == 'POST' and form.is_valid() and action == 'save_draft':
+        # 지금 당장 포스팅하지 않고, 나중에 뉴스 게시판(news_board)에서 원할 때 발행할 수
+        # 있도록 기사만 저장한다. ai_generated=True로 만들어두는 이유는 post_now와 동일 —
+        # select_candidates/post_articles_view 둘 다 ai_generated=True인 기사만 발행 대상으로
+        # 취급하기 때문에(실제 AI 요약 여부와 무관하게), 이렇게 해둬야 나중에 뉴스 게시판에서
+        # 이 글이 발행 후보로 잡힌다.
+        article = _create_written_article(request, form)
+        if article is not None:
+            messages.success(request, "저장했습니다. 뉴스 게시판에서 원하는 때에 발행할 수 있습니다.")
+            return redirect('news_detail', pk=article.pk)
 
     context = {
         'site_title': 'NextFinUp - 자유 포스팅',
