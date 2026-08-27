@@ -260,13 +260,14 @@ class NewsArticleEditForm(forms.ModelForm):
     class Meta:
         model = AnalyzedArticle
         fields = [
-            'title', 'ai_title', 'source_media', 'ai_summary', 'ai_analysis', 'blog_content',
-            'applied_template', 'is_premium',
+            'title', 'ai_title', 'source_media', 'original_content', 'ai_summary', 'ai_analysis',
+            'blog_content', 'applied_template', 'is_premium',
         ]
         labels = {
             'title': '원본 제목',
             'ai_title': 'AI 가공 제목',
             'source_media': '언론사',
+            'original_content': '원본 기사',
             'ai_summary': 'AI 3줄 요약',
             'ai_analysis': 'AI 관점 분석',
             'blog_content': 'AI 요약 원고',
@@ -277,6 +278,7 @@ class NewsArticleEditForm(forms.ModelForm):
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'ai_title': forms.TextInput(attrs={'class': 'form-control'}),
             'source_media': forms.TextInput(attrs={'class': 'form-control'}),
+            'original_content': forms.Textarea(attrs={'class': 'form-control', 'rows': 8}),
             'ai_summary': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'ai_analysis': forms.Textarea(attrs={'class': 'form-control', 'rows': 6}),
             'blog_content': forms.Textarea(attrs={'class': 'form-control', 'rows': 10}),
