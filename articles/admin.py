@@ -703,6 +703,8 @@ _TOOL_LINKS = [
     ('AI 이미지 생성', 'image_generator'),
     ('AI 이미지 생성 목록', 'generated_image_list'),
     ('파일 업로드', 'file_upload'),
+    ('건강/의학 발행 캘린더 (전체)', 'health_content_calendar_admin'),
+    ('음식/영양 발행 캘린더 (전체)', 'food_content_calendar_admin'),
 ]
 
 

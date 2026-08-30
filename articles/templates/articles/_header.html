@@ -15,8 +15,10 @@
             {% else %}
                 {% with menus=header_menus %}{% include "articles/_nav_menu_loop.html" %}{% endwith %}
             {% endif %}
-            {% if user.is_staff %}
+            {% if user.is_superuser %}
                 <a href="/admin/" class="btn btn-outline-secondary" target="_blank">관리자</a>
+            {% elif user.is_staff %}
+                <a href="/staff/" class="btn btn-outline-secondary" target="_blank">업무관리</a>
             {% endif %}
             {% if user.is_authenticated %}
                 {% with provider=user.social_accounts.first.provider %}

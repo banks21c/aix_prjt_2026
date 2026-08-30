@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone as dt_timezone
+from importlib import import_module
 from pathlib import Path
 from uuid import uuid4
 
@@ -405,6 +406,34 @@ def server_health_view(request):
         'cert_days_left': cert_days_left,
     }
     return render(request, 'articles/server_health.html', context)
+
+
+# health_calendar.py/food_calendar.py의 build_one_cycle()이 "generate_*_briefing/관리자 화면
+# 등 내부용"이라고 이미 문서화해뒀던 화면 — 공개 페이지(health_content_calendar_view 등)는
+# 회원이 그대로 퍼갈 수 있다는 우려로 요일별 예시 1개씩만 보여주지만(build_sample), 관리자는
+# 실제 364일 전체가 언제 무엇으로 나갈지 알아야 하므로 여기서는 전체를 노출한다.
+_CONTENT_CALENDAR_KINDS = {
+    'health': {'module': 'articles.health_calendar', 'title': '🩺 건강/의학 발행 캘린더 (전체 1년)'},
+    'food': {'module': 'articles.food_calendar', 'title': '🍚 음식/영양 발행 캘린더 (전체 1년)'},
+}
+
+
+@staff_member_required
+def content_calendar_admin_view(request, kind):
+    conf = _CONTENT_CALENDAR_KINDS.get(kind)
+    if conf is None:
+        raise Http404
+
+    from django.utils import timezone
+
+    calendar_module = import_module(conf['module'])
+    context = {
+        **admin_site.each_context(request),
+        'title': conf['title'],
+        'rows': calendar_module.build_one_cycle(),
+        'today': timezone.localdate(),
+    }
+    return render(request, 'articles/content_calendar_admin.html', context)
 
 
 def _expand_hex_for_color_input(value):

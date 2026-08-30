@@ -13,9 +13,11 @@
 
 {% block content %}
 <div id="content-main">
-  {# "운영 도구" 카테고리(articles/admin.py의 get_app_list 오버라이드)가 크론/재무상담 시트를
-     포함해 admin-tools 화면 6개를 전부 포함하므로, 예전에 여기 하드코딩했던 2개짜리
-     미니 표는 중복이라 제거했다. #}
+  {% comment %}
+  "운영 도구" 카테고리(articles/admin.py의 get_app_list 오버라이드)가 크론/재무상담 시트를
+  포함해 admin-tools 화면 6개를 전부 포함하므로, 예전에 여기 하드코딩했던 2개짜리
+  미니 표는 중복이라 제거했다.
+  {% endcomment %}
   {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
 {% endblock %}
