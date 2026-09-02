@@ -495,7 +495,7 @@ def _create_written_article(request, form):
     return _create_manual_article(
         request, title, content,
         blog_content=content_html,
-        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400]),
+        thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(title, ai_summary=content[:400], show_meta=False),
         ai_generated=True,
     )
 
@@ -566,7 +566,7 @@ def news_write_view(request):
                         ai_analysis=draft['ai_analysis'],
                         blog_content=draft['blog_content'] + build_mentioned_stocks_table(content),
                         thumbnail=uploaded_thumb or thumbnail.build_thumbnail_file(
-                            draft['ai_title'] or title, ai_summary=draft['ai_summary'],
+                            draft['ai_title'] or title, ai_summary=draft['ai_summary'], show_meta=False,
                         ),
                         ai_generated=True,
                         ai_summarized_by=request.user,
@@ -621,12 +621,11 @@ def news_write_view(request):
 
 @login_required
 def news_edit_view(request, pk):
-    """staff는 모든 기사를, 일반 회원은 본인이 news_scrape_view로 직접 등록한 기사를 편집할 수
-    있다. scraped_by가 없는 기사(RSS/KIS 자동 수집분, 특징주 브리핑)는 특정 회원 소유가 아니라
-    누구나 포스팅 전에 검토·수정할 수 있는 공용 콘텐츠라 로그인한 회원이면 누구나 편집 가능하다."""
+    """staff는 모든 기사를, 일반 회원은 본인이 news_scrape_view로 직접 등록한 기사만 편집할 수
+    있다. scraped_by가 없는 기사(RSS/KIS 자동 수집분, 특징주 브리핑)는 특정 회원 소유가 아닌
+    공용 콘텐츠라 일반 회원은 편집할 수 없고 staff만 검토·수정한다."""
     article = get_object_or_404(AnalyzedArticle, pk=pk)
-    is_shared_article = article.scraped_by_id is None
-    if not (request.user.is_staff or article.scraped_by_id == request.user.id or is_shared_article):
+    if not (request.user.is_staff or article.scraped_by_id == request.user.id):
         messages.error(request, "본인이 등록한 기사만 수정할 수 있습니다.")
         return redirect('news_board')
 
@@ -645,3 +644,28 @@ def news_edit_view(request, pk):
         'form': form,
     }
     return render(request, 'articles/news_edit.html', context)
+
+
+@login_required
+@require_POST
+def news_regenerate_thumbnail_view(request, pk):
+    """news_edit 화면에서 현재 제목/AI 요약 기준으로 썸네일 이미지를 다시 생성하는 버튼 —
+    gemini-3.1-flash-image(Nano Banana 2) 결과가 마음에 안 들거나(안전 필터 걸림 등) 수정 후
+    제목이 바뀌었을 때 새로 그린다. 뉴스 게시판에 노출되는 공용 자산이라 news_edit_view와 달리
+    본인이 등록한 기사여도 staff만 재생성할 수 있다."""
+    if not request.user.is_staff:
+        messages.error(request, "이미지 재생성은 관리자만 가능합니다.")
+        return redirect('news_board')
+
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+    # 자유 포스팅(회원 직접 작성)은 원래 생성 시점부터 날짜/카테고리 태그 없이 그린다 —
+    # news_write_view의 build_thumbnail_file(show_meta=False) 호출과 동일하게 맞춘다.
+    show_meta = article.source_type != AnalyzedArticle.SOURCE_MANUAL
+    article.thumbnail = thumbnail.build_thumbnail_file(
+        article.display_title, resolve_thumbnail_stock(article), article.matched_keyword,
+        ai_summary=article.ai_summary or article.original_content[:400],
+        show_meta=show_meta,
+    )
+    article.save(update_fields=['thumbnail'])
+    messages.success(request, "썸네일 이미지를 다시 생성했습니다.")
+    return redirect('news_edit', pk=article.pk)

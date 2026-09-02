@@ -105,10 +105,12 @@ class AnalyzedArticle(models.Model):
     CATEGORY_ECONOMY = 'ECONOMY'
     CATEGORY_HEALTH = 'HEALTH'
     CATEGORY_FOOD = 'FOOD'
+    CATEGORY_TRAVEL = 'TRAVEL'
     CATEGORY_CHOICES = [
         (CATEGORY_ECONOMY, '경제'),
         (CATEGORY_HEALTH, '건강/의학'),
         (CATEGORY_FOOD, '음식/영양'),
+        (CATEGORY_TRAVEL, '여행/관광'),
     ]
     content_category = models.CharField(
         max_length=10, choices=CATEGORY_CHOICES, default=CATEGORY_ECONOMY, verbose_name="콘텐츠 카테고리",

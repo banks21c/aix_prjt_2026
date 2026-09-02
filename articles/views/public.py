@@ -113,26 +113,27 @@ def adsense_guide_view(request):
     return render(request, 'articles/adsense_guide.html', {'site_title': 'NextFinUp - 구글 애드센스 신청 가이드'})
 
 
-def _content_calendar_view(request, build_sample, site_title, emoji, heading, intro):
-    """마이페이지 "뉴스 구독"에서 캘린더 기반 카테고리(건강/의학, 음식/영양)를 고려 중인 회원에게
-    "이런 식으로 발행됩니다"를 보여주는 공개 안내 페이지. 실제 364일 전체 스케줄(build_one_cycle)은
-    노출하지 않는다 — 통째로 공개하면 그대로 퍼가서 베낄 수 있다는 우려가 있어(회원 지적사항),
-    요일(카테고리)별 예시 1개씩(build_sample, 7건)만 보여준다. health_content_calendar_view/
-    food_content_calendar_view가 이 헬퍼를 공유한다."""
+def _content_calendar_view(request, category, site_title, emoji, heading, intro):
+    """마이페이지 "뉴스 구독"에서 캘린더 기반 카테고리(건강/의학, 음식/영양, 여행/관광)를 고려 중인
+    회원에게 "이런 식으로 발행됩니다"를 보여주는 공개 안내 페이지. 실제 364일 전체 스케줄
+    (content_calendar.build_one_cycle)은 노출하지 않는다 — 통째로 공개하면 그대로 퍼가서 베낄 수
+    있다는 우려가 있어(회원 지적사항), 요일(카테고리)별 예시 1개씩(build_sample, 7건)만 보여준다.
+    health_content_calendar_view/food_content_calendar_view/travel_content_calendar_view가
+    이 헬퍼를 공유한다."""
+    from articles import content_calendar
+
     return render(request, 'articles/content_calendar.html', {
         'site_title': site_title,
         'emoji': emoji,
         'heading': heading,
         'intro': intro,
-        'samples': build_sample(),
+        'samples': content_calendar.build_sample(category),
     })
 
 
 def health_content_calendar_view(request):
-    from articles.health_calendar import build_sample
-
     return _content_calendar_view(
-        request, build_sample,
+        request, 'HEALTH',
         site_title='NextFinUp - 건강정보 포스팅 예시', emoji='🩺', heading='건강정보 자동 발행 예시',
         intro=(
             '마이페이지에서 "건강/의학"을 구독하면, 요일마다 정해진 주제 카테고리 안에서 AI가 매일 '
@@ -144,15 +145,26 @@ def health_content_calendar_view(request):
 
 
 def food_content_calendar_view(request):
-    from articles.food_calendar import build_sample
-
     return _content_calendar_view(
-        request, build_sample,
+        request, 'FOOD',
         site_title='NextFinUp - 음식/영양 포스팅 예시', emoji='🍚', heading='음식/영양 자동 발행 예시',
         intro=(
             '마이페이지에서 "음식/영양"을 구독하면, 요일마다 정해진 주제 카테고리 안에서 AI가 매일 '
             '오전·오후 두 편씩 자동으로 글을 작성해 연결된 블로그에 발행합니다. 아래는 요일별 카테고리와 '
             '실제 발행되는 글 제목의 예시입니다(전체 1년 스케줄은 공개하지 않습니다).'
+        ),
+    )
+
+
+def travel_content_calendar_view(request):
+    return _content_calendar_view(
+        request, 'TRAVEL',
+        site_title='NextFinUp - 여행/관광 포스팅 예시', emoji='✈️', heading='여행/관광 자동 발행 예시',
+        intro=(
+            '마이페이지에서 "여행/관광"을 구독하면, 요일마다 정해진 주제 카테고리 안에서 AI가 매일 '
+            '오전·오후 두 편씩 자동으로 글을 작성해 연결된 블로그에 발행합니다. 아래는 요일별 카테고리와 '
+            '실제 발행되는 글 제목의 예시입니다(전체 1년 스케줄은 공개하지 않습니다). 항공권 가격/비자 '
+            '요건 등 시점에 따라 바뀌는 정보는 공식 채널 확인을 안내하는 문구가 고정으로 붙습니다.'
         ),
     )
 

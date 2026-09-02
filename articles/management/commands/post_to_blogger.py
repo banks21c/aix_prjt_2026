@@ -14,7 +14,7 @@ class Command(BaseCommand):
             help='계정 1개당 한 번에 발행할 최대 건수 (생략 시 미발행 기사 전체)',
         )
         parser.add_argument(
-            '--category', choices=['ECONOMY', 'HEALTH', 'FOOD'], default=None,
+            '--category', choices=['ECONOMY', 'HEALTH', 'FOOD', 'TRAVEL'], default=None,
             help='이 구독 카테고리를 고른 회원 계정만 대상으로 실행 (생략 시 전체 계정)',
         )
 

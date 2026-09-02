@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone as dt_timezone
-from importlib import import_module
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,7 +22,11 @@ from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_POST
 from openai import BadRequestError, OpenAI
 
-from ..models import AdminUpload, FinancialConsultSheet, GeneratedImage, ThemeColor
+from django.contrib.auth.models import User
+
+from .. import blog_posting
+from ..models import AdminUpload, AnalyzedArticle, BlogPostingAccount, FinancialConsultSheet, GeneratedImage, PostedArticle, ThemeColor
+from ..utils import limit_label
 from .performance import build_ai_performance_context
 
 HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$')
@@ -408,13 +411,14 @@ def server_health_view(request):
     return render(request, 'articles/server_health.html', context)
 
 
-# health_calendar.py/food_calendar.py의 build_one_cycle()이 "generate_*_briefing/관리자 화면
-# 등 내부용"이라고 이미 문서화해뒀던 화면 — 공개 페이지(health_content_calendar_view 등)는
+# articles/content_calendar.py의 build_one_cycle()이 "generate_*_briefing/관리자 화면 등
+# 내부용"이라고 이미 문서화해뒀던 화면 — 공개 페이지(health_content_calendar_view 등)는
 # 회원이 그대로 퍼갈 수 있다는 우려로 요일별 예시 1개씩만 보여주지만(build_sample), 관리자는
 # 실제 364일 전체가 언제 무엇으로 나갈지 알아야 하므로 여기서는 전체를 노출한다.
 _CONTENT_CALENDAR_KINDS = {
-    'health': {'module': 'articles.health_calendar', 'title': '🩺 건강/의학 발행 캘린더 (전체 1년)'},
-    'food': {'module': 'articles.food_calendar', 'title': '🍚 음식/영양 발행 캘린더 (전체 1년)'},
+    'health': {'category': 'HEALTH', 'title': '🩺 건강/의학 발행 캘린더 (전체 1년)'},
+    'food': {'category': 'FOOD', 'title': '🍚 음식/영양 발행 캘린더 (전체 1년)'},
+    'travel': {'category': 'TRAVEL', 'title': '✈️ 여행/관광 발행 캘린더 (전체 1년)'},
 }
 
 
@@ -426,11 +430,12 @@ def content_calendar_admin_view(request, kind):
 
     from django.utils import timezone
 
-    calendar_module = import_module(conf['module'])
+    from articles import content_calendar
+
     context = {
         **admin_site.each_context(request),
         'title': conf['title'],
-        'rows': calendar_module.build_one_cycle(),
+        'rows': content_calendar.build_one_cycle(conf['category']),
         'today': timezone.localdate(),
     }
     return render(request, 'articles/content_calendar_admin.html', context)
@@ -655,7 +660,7 @@ def integration_status_view(request):
 
 
 # article_ai.generate_thumbnail_image_bytes는 기사 썸네일용으로 모델/사이즈/품질이
-# gpt-image-2·1536x1024·low로 고정돼 있다. 여기 화면은 그 3가지를 직접 골라가며 자유
+# gpt-image-2·1536x1024·medium으로 고정돼 있다. 여기 화면은 그 3가지를 직접 골라가며 자유
 # 프롬프트로 이미지를 생성해보는 별도 도구다 — OpenAI가 gpt-image 계열에서 실제 지원하는
 # 값만 선택지로 제한해, 잘못된 조합으로 API를 호출해 요금만 나가는 걸 막는다.
 IMAGE_GEN_MODELS = ['gpt-image-2', 'gpt-image-1']
@@ -1146,3 +1151,120 @@ def file_upload_delete_view(request, pk):
     upload.delete()
     messages.success(request, "파일을 삭제했습니다.")
     return redirect('file_upload')
+
+
+@staff_member_required
+def publish_for_member_view(request):
+    """관리자가 특정 회원을 골라, 그 회원 명의의 블로그 계정에 AI 요약이 끝난 기사를 대신
+    수동 발행한다. 회원이 자동 포스팅을 켜두지 않았거나 직접 발행하기 어려운 상황(문의 대응
+    등)에 관리자가 대신 처리할 수 있게 하는 화면 — 발행 자체는 news_board의 '선택 포스팅'과
+    똑같이 blog_posting.publish_article을 그대로 쓰므로 중복 발행 방지/PostedArticle 기록은
+    거기서 그대로 재사용된다. 발행 한도는 관리자가 아니라 '대상 회원' 기준으로 적용한다 —
+    실제로 그 회원 계정에 쌓이는 발행이기 때문."""
+    target_user = None
+    user_id = request.POST.get('user') or request.GET.get('user')
+    if user_id:
+        target_user = User.objects.filter(pk=user_id).first()
+
+    q = request.GET.get('q', '').strip()
+    user_results = []
+    if q:
+        user_results = list(
+            User.objects.filter(
+                Q(username__icontains=q) | Q(email__icontains=q) | Q(first_name__icontains=q)
+            ).select_related('preference').order_by('username')[:20]
+        )
+
+    if request.method == 'POST':
+        if not target_user:
+            messages.error(request, "발행 대상 회원을 먼저 선택해주세요.")
+            return redirect('publish_for_member')
+
+        redirect_url = f"{reverse('publish_for_member')}?user={target_user.pk}"
+
+        account_ids = request.POST.getlist('account_ids')
+        accounts = list(BlogPostingAccount.objects.filter(pk__in=account_ids, user=target_user))
+        connected_accounts = [a for a in accounts if a.is_connected()]
+        for account in accounts:
+            if not account.is_connected():
+                messages.error(request, f"{account.get_platform_display()} 계정이 아직 연동되지 않아 건너뛰었습니다.")
+
+        article_ids = request.POST.getlist('article_ids')
+        if not connected_accounts or not article_ids:
+            messages.warning(request, "발행할 계정과 기사를 하나 이상 선택해주세요.")
+            return redirect(redirect_url)
+
+        stats = blog_posting.posting_stats(target_user)
+        remaining = stats['remaining']
+        if remaining is not None:
+            if remaining <= 0:
+                messages.error(request, f"{target_user.username} 회원은 {limit_label(stats)} 등급 기준 오늘 발행 가능 건수를 모두 사용했습니다.")
+                return redirect(redirect_url)
+            planned_total = len(article_ids) * len(connected_accounts)
+            if planned_total > remaining:
+                max_articles = max(1, remaining // len(connected_accounts))
+                messages.warning(request, f"{target_user.username} 회원의 남은 발행 가능 건수({remaining}건)에 맞춰 {len(connected_accounts)}개 계정 × {max_articles}건만 발행합니다.")
+                article_ids = article_ids[:max_articles]
+
+        articles = AnalyzedArticle.objects.filter(pk__in=article_ids)
+        not_summarized_count = articles.filter(ai_generated=False).count()
+        if not_summarized_count:
+            messages.warning(request, f"AI 요약이 안 된 기사 {not_summarized_count}건은 건너뛰었습니다.")
+            articles = articles.filter(ai_generated=True)
+
+        success_count = 0
+        for account in connected_accounts:
+            for article in articles:
+                ok, result = blog_posting.publish_article(account, article)
+                if ok:
+                    success_count += 1
+                else:
+                    messages.error(request, f"[{account.get_platform_display()} · {article.title[:30]}] {result}")
+
+        if success_count:
+            messages.success(request, f"{target_user.username} 회원의 블로그에 {success_count}건 발행했습니다.")
+
+        return redirect(redirect_url)
+
+    accounts = []
+    stats = None
+    articles_page = None
+    posted_article_ids = set()
+    article_q = request.GET.get('aq', '').strip()
+    category = request.GET.get('category', '')
+
+    if target_user:
+        accounts = list(BlogPostingAccount.objects.filter(user=target_user).order_by('platform'))
+        stats = blog_posting.posting_stats(target_user)
+
+        article_list = AnalyzedArticle.objects.filter(ai_generated=True).order_by('-scraped_at')
+        if article_q:
+            article_list = article_list.filter(Q(title__icontains=article_q) | Q(ai_title__icontains=article_q))
+        if category:
+            article_list = article_list.filter(content_category=category)
+
+        paginator = Paginator(article_list, 20)
+        articles_page = paginator.get_page(request.GET.get('page'))
+
+        posted_article_ids = set(
+            PostedArticle.objects.filter(
+                blog_account__user=target_user, article__in=list(articles_page)
+            ).values_list('article_id', flat=True)
+        )
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '📤 회원 대신 블로그 발행',
+        'q': q,
+        'user_results': user_results,
+        'target_user': target_user,
+        'accounts': accounts,
+        'stats': stats,
+        'limit_label': limit_label(stats) if stats else '',
+        'articles_page': articles_page,
+        'posted_article_ids': posted_article_ids,
+        'category_choices': AnalyzedArticle.CATEGORY_CHOICES,
+        'article_q': article_q,
+        'category': category,
+    }
+    return render(request, 'articles/publish_for_member.html', context)

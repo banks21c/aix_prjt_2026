@@ -14,6 +14,7 @@ from .models import (
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
     ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot, Faq,
+    ContentCalendarTheme, ContentCalendarTopic,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -313,7 +314,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
         if self.value() not in ('yes', 'no'):
             return queryset
         connected_q = (
-            Q(platform__in=('WORDPRESS', 'BLOGGER', 'TUMBLR')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential='')
+            Q(platform__in=('WORDPRESS', 'BLOGGER')) & ~Q(site_url='') & ~Q(account_id='') & ~Q(credential='')
         )
         return queryset.filter(connected_q) if self.value() == 'yes' else queryset.exclude(connected_q)
 
@@ -654,6 +655,26 @@ class FaqAdmin(admin.ModelAdmin):
     ordering = ('category', 'order')
 
 
+# 13-1. 캘린더 기반 자동 발행(건강/의학·음식/영양·여행/관광) 요일별 테마 — 7행/카테고리.
+# articles/content_calendar.py가 매일 이 테이블을 읽어 오늘의 제목을 만든다.
+@admin.register(ContentCalendarTheme)
+class ContentCalendarThemeAdmin(admin.ModelAdmin):
+    list_display = ('category', 'weekday', 'name', 'am_angle', 'pm_angle', 'am_title_template', 'pm_title_template')
+    list_editable = ('name', 'am_angle', 'pm_angle', 'am_title_template', 'pm_title_template')
+    list_filter = ('category',)
+    ordering = ('category', 'weekday')
+
+# 13-2. 캘린더 기반 자동 발행 주제 — 364행(7요일×52주)/카테고리. staff가 /admin/에서 직접
+# 고쳐가며 1년 주제 목록을 관리할 수 있게, topic을 목록에서 바로 수정 가능하게 한다.
+@admin.register(ContentCalendarTopic)
+class ContentCalendarTopicAdmin(admin.ModelAdmin):
+    list_display = ('category', 'weekday', 'week_number', 'topic')
+    list_editable = ('topic',)
+    list_filter = ('category', 'weekday')
+    search_fields = ('topic',)
+    ordering = ('category', 'weekday', 'week_number')
+
+
 # 14. Django Admin 목록을 하나의 "NextFinUp 관리" 통짜 목록 대신 5개 카테고리로 재구성한다
 # (신고: "장고 admin 메뉴가 카테고리화되지 않아 불편하다"). 실제 Django 앱은 여전히 auth/articles
 # 둘뿐이라 진짜 앱을 쪼갤 순 없지만, admin index 템플릿은 get_app_list가 돌려주는 dict 리스트를
@@ -684,6 +705,7 @@ _MODEL_CATEGORY = {
     # 운영 도구
     'SystemErrorLog': '운영 도구',
     # 콘텐츠·상담 (articles/models/content.py)
+    'ContentCalendarTheme': '콘텐츠·상담', 'ContentCalendarTopic': '콘텐츠·상담',
     'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
     'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
     'Faq': '콘텐츠·상담',
@@ -705,6 +727,8 @@ _TOOL_LINKS = [
     ('파일 업로드', 'file_upload'),
     ('건강/의학 발행 캘린더 (전체)', 'health_content_calendar_admin'),
     ('음식/영양 발행 캘린더 (전체)', 'food_content_calendar_admin'),
+    ('여행/관광 발행 캘린더 (전체)', 'travel_content_calendar_admin'),
+    ('회원 대신 블로그 발행', 'publish_for_member'),
 ]
 
 

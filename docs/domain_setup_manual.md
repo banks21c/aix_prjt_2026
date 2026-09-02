@@ -111,6 +111,27 @@ EasyWP → SSL Certificate → Custom SSL Certificate 섹션:
 - 인증서 정보에서 발급자가 `Google Trust Services`(Cloudflare Universal SSL) 등으로 뜨면 정상
 - `curl -sI https://example.com/` 로 응답 헤더에 `server: cloudflare`가 찍히면 프록시 정상 작동
 
+## 9단계: NextFinUp 자동/수동 포스팅 연결 (선택)
+
+이 사이트를 NextFinUp의 `BlogPostingAccount`로 등록해서 자동/수동 발행에 쓰려면 도메인·HTTPS
+설정과 별개로 워드프레스 쪽 준비가 두 가지 더 필요함. 안 해두면 `nextfinup.com/mypage/`에서
+연결 자체는 되는 것처럼 보여도 실제 포스팅 테스트에서 `워드프레스 API 응답 에러 (200)`으로
+실패하고, 응답 본문이 JSON이 아니라 사이트 홈페이지 HTML이 그대로 찍혀서 나옴(Yoast SEO 주석
+등 홈페이지 `<head>` 내용).
+
+1. **퍼머링크을 "일반(Plain)"에서 다른 걸로 바꾸기** — `/wp-admin` → **설정(Settings) →
+   고유주소(Permalinks)** → "글 이름(Post name)" 등 아무 pretty 옵션 선택 후 **변경사항 저장**.
+   신규 EasyWP 사이트는 기본값이 "일반(Plain)"이라 `/wp-json/...` 재작성 규칙 자체가 안
+   등록돼 있음 — 이 상태에서 REST API로 요청하면 404가 아니라 **200 + 홈페이지 HTML**을 그대로
+   돌려줘서 에러 원인 파악이 헷갈림. (확인법: 홈페이지 소스에 REST API 링크가
+   `index.php?rest_route=/` 형태의 쿼리스트링으로 박혀 있으면 아직 Plain 상태라는 뜻)
+2. **NextFinUp 마이페이지에 등록하는 사이트 주소는 정식(canonical) 도메인으로** — 워드프레스의
+   실제 canonical이 non-www(`https://example.com`)인데 마이페이지엔 www 버전을 넣으면, API
+   요청이 301로 리다이렉트되면서 POST가 깨질 수 있음. 워드프레스 사이트 소스의
+   `<link rel="canonical" ...>` 값과 정확히 맞춰서 등록할 것 (www 여부까지 일치시키기).
+3. 애플리케이션 비밀번호 발급은 위 "워드프레스 연결 발급 위치" 절차(`/wp-admin` → 사용자 →
+   프로필 → Application Passwords) 그대로.
+
 ## 트러블슈팅
 
 **"주의 요함" / "이 사이트는 안전하지 않습니다" 경고가 뜨는데 서버는 이미 정상인 것 같다**

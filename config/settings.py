@@ -210,11 +210,6 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID')
 NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET')
 
-# - 텀블러(마이페이지 자동 포스팅 연동, 로그인용 아님): https://www.tumblr.com/oauth/apps
-#   Consumer Key/Secret 발급 시 Callback URL을 https://www.nextfinup.com/accounts/tumblr/callback/ 로 등록
-TUMBLR_CONSUMER_KEY = os.environ.get('TUMBLR_CONSUMER_KEY')
-TUMBLR_CONSUMER_SECRET = os.environ.get('TUMBLR_CONSUMER_SECRET')
-
 # 챗봇용 OpenAI API 키 (실제 키로 교체 전까지는 시뮬레이션 모드로 동작 - articles/chatbot_client.py 참고)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY_HERE')
 

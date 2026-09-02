@@ -3,9 +3,16 @@ import json
 import logging
 
 from django.conf import settings
+from google import genai
+from google.genai import types as genai_types
 from openai import BadRequestError, OpenAI
 
 logger = logging.getLogger(__name__)
+
+# 기사 썸네일용 AI 배경 일러스트 생성 모델 (Nano Banana 2). 2026-09-02, gpt-image-2 화질
+# 불만으로 전환 — 예전 gpt-image-2 버전은 아래 generate_thumbnail_image_bytes 뒤에 롤백용으로
+# 주석 처리해 남겨뒀다.
+GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
 
 # 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 한때 Gemini(gemini-flash-latest)를
 # 썼으나 무료 티어 일일 한도(gemini-3.6-flash 기준 20건/일)가 실사용 중 반복적으로 소진돼(429
@@ -221,7 +228,7 @@ def _error_health_draft(title):
 
 
 def generate_health_article(category_name, topic, angle_label, title):
-    """건강/의학 정보 캘린더(articles/health_calendar.py)의 (카테고리, 주제, 오전/오후 각도)로
+    """건강/의학 정보 캘린더(articles/content_calendar.py)의 (카테고리, 주제, 오전/오후 각도)로
     독립된 블로그 글 1건을 생성한다. 스크래핑 원문이 없는 순수 AI 생성 콘텐츠라는 점에서
     generate_featured_briefing과 같은 계열이지만, 여러 종목을 뭉치는 대신 주제 하나를 깊이
     다룬다는 점은 _generate_restricted_draft(제목만으로 쓰는 경로)와 더 가깝다.
@@ -283,7 +290,7 @@ def _error_food_draft(title):
 
 
 def generate_food_article(category_name, topic, angle_label, title):
-    """음식/영양 정보 캘린더(articles/food_calendar.py)의 (카테고리, 주제, 오전/오후 각도)로
+    """음식/영양 정보 캘린더(articles/content_calendar.py)의 (카테고리, 주제, 오전/오후 각도)로
     독립된 블로그 글 1건을 생성한다. generate_health_article과 완전히 같은 구조이지만, 음식은
     의료 리스크가 낮아 고정 면책 문구(HEALTH_DISCLAIMER)는 붙이지 않는다 — 대신 프롬프트에서
     질환 치료 효과 단정을 금지해 과장된 건강 정보처럼 읽히지 않게 한다."""
@@ -302,6 +309,71 @@ def generate_food_article(category_name, topic, angle_label, title):
     except Exception:
         logger.exception("음식/영양정보 AI 생성 실패 (title=%r)", title)
         return _error_food_draft(title)
+
+
+TRAVEL_NOTE = (
+    "<p><em>항공권 가격·비자 요건·입국 절차 등은 시점에 따라 바뀔 수 있으니, 실제 여행을 "
+    "준비할 때는 항공사·대사관 등 공식 채널에서 최신 정보를 다시 확인하시기 바랍니다.</em></p>"
+)
+
+TRAVEL_SYSTEM_PROMPT = """당신은 NextFinUp의 여행·관광 정보 에디터입니다. 아래 [카테고리]와 [주제],
+[오늘 다룰 각도]를 바탕으로 블로그에 발행할 여행/관광 정보 원고를 작성합니다.
+- 특정 항공사 요금, 환율, 비자 수수료, 운영 시간처럼 시점에 따라 바뀌는 정확한 수치를 지어내
+  인용하지 마세요. 그런 정보가 필요하면 "시기별로 차이가 있으니 출발 전 확인이 필요하다"처럼
+  안내하고, 일반적인 특징·절차·분위기 위주로 작성하세요.
+- 특정 여행지·숙소·액티비티 업체를 홍보하듯 과장("무조건", "인생 최고") 하지 말고, 장단점을
+  균형 있게 담백하게 설명하세요. 안전 관련 내용(자연재해, 치안, 감염병 등)은 근거 없이
+  공포를 조성하지 말고 일반적으로 알려진 주의사항 수준에서만 언급하세요.
+- [오늘 다룰 각도]에 따라 톤을 맞추세요 — "정보·개요"면 그 주제가 무엇이고 왜 매력적인지(유래,
+  특징, 배경 등)를 이해하기 쉽게 풀어 설명하고, "준비·실천"이면 실제로 따라 할 수 있는 구체적인
+  준비물·절차·코스·팁 위주로 작성하세요. 코스/준비물이라면 <ol>/<li>로 명확히 나열하세요.
+- 과장된 표현 없이 자연스러운 한국어로 작성하세요. 같은 문장을 반복하며 억지로 늘리지 마세요.
+- 반드시 아래 JSON 형식으로만 답하세요. 그 외 설명이나 마크다운 코드블록은 절대 붙이지 마세요.
+{
+  "ai_summary": "핵심 내용을 3줄로 요약한 문자열 (줄바꿈 문자로 구분)",
+  "ai_analysis": "이 주제를 왜 알아두면 좋은지 3~5문장으로 설명한 문자열",
+  "blog_content": "블로그 포스팅용 본문 HTML. <h3>/<p>/<ul><li>/<ol><li> 등 간단한 태그만 사용해 2~4개 소제목 섹션으로 구성하고 공백 포함 한글 1,500~2,200자 분량으로 작성"
+}
+"""
+
+
+def _simulation_travel_draft(title):
+    return {
+        'ai_summary': SIMULATION_SUMMARY,
+        'ai_analysis': SIMULATION_ANALYSIS,
+        'blog_content': f"<p>{title}</p>" + TRAVEL_NOTE,
+    }
+
+
+def _error_travel_draft(title):
+    return {
+        'ai_summary': ERROR_SUMMARY,
+        'ai_analysis': ERROR_ANALYSIS,
+        'blog_content': f"<p>{title}</p>" + TRAVEL_NOTE,
+    }
+
+
+def generate_travel_article(category_name, topic, angle_label, title):
+    """여행/관광 정보 캘린더(articles/content_calendar.py)의 (카테고리, 주제, 오전/오후 각도)로
+    독립된 블로그 글 1건을 생성한다. generate_health_article/generate_food_article과 같은
+    구조이며, 시점에 따라 바뀌는 가격/비자 정보를 단정하지 않도록 TRAVEL_NOTE를 본문 끝에
+    항상 고정으로 붙인다."""
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+        return _simulation_travel_draft(title)
+
+    user_prompt = f"[카테고리]\n{category_name}\n\n[주제]\n{topic}\n\n[오늘 다룰 각도]\n{angle_label}\n\n[제목]\n{title}"
+
+    try:
+        data = _call_openai_json(TRAVEL_SYSTEM_PROMPT, user_prompt, max_tokens=3000)
+        blog_content = (data.get('blog_content') or '').strip() or f"<p>{title}</p>"
+        return {
+            'ai_summary': (data.get('ai_summary') or '').strip() or SIMULATION_SUMMARY,
+            'ai_analysis': (data.get('ai_analysis') or '').strip() or SIMULATION_ANALYSIS,
+            'blog_content': blog_content + TRAVEL_NOTE,
+        }
+    except Exception:
+        logger.exception("여행/관광정보 AI 생성 실패 (title=%r)", title)
+        return _error_travel_draft(title)
 
 
 BRIEFING_SYSTEM_PROMPT = """당신은 NextFinUp의 금융 뉴스 AI 에디터입니다. 아래 [특징주 목록](KIS 등락률
@@ -718,62 +790,194 @@ def _strip_proper_nouns(client, title, ai_summary):
         return ''
 
 
+# gemini-3.1-flash-image(Nano Banana 2) 전용 고정 스타일 접미사 — 기사마다 바뀌는 장면 묘사
+# 뒤에 항상 그대로 붙여서 카드 톤을 통일한다.
+COMMON_STYLE_SCRIPT = (
+    "flat editorial illustration, muted navy/blue color palette, high contrast, "
+    "professional news-site cover art"
+)
+
+
+def _describe_symbolic_scene(client, title, ai_summary):
+    """title/ai_summary(한국어)를 gpt-4o-mini로 영어 '상징적 장면' 묘사 한 문장으로 바꾼다.
+    Nano Banana는 헤드라인/요약 원문을 그대로 프롬프트에 욱여넣는 것보다, 구체적인 사물·행동·
+    조명·구도가 있는 장면 묘사를 줬을 때 결과물 품질이 확실히 좋다(실사용 프롬프트 스크립트에서
+    확인된 패턴). 실존 인물 이름·특정 가능한 초상은 프롬프트 단계에서부터 빼게 해 안전 필터
+    차단 확률도 같이 낮춘다. 실패 시 빈 문자열을 반환해 호출부가 (덜 정교한) 직접 프롬프트로
+    폴백하게 한다."""
+    try:
+        response = client.chat.completions.create(
+            model=DRAFT_MODEL,
+            messages=[
+                {'role': 'system', 'content': (
+                    "다음 한국어 뉴스 제목/요약을 읽고 핵심 주제·정서를 압축해서 보여주는 구체적인 "
+                    "장면 하나를 영어로 묘사하라. '상징적 스틸 라이프'나 '와이드 씬' 형태로, "
+                    "추상적인 개념어를 나열하지 말고 구체적인 사물·인물의 행동·조명·구도를 포함해 "
+                    "한 문장으로 써라. 실존 인물의 이름이나 특정 가능한 초상은 절대 넣지 말고 "
+                    "일반화된 인물 묘사만 써라(예: 'a tired office worker', 'an elderly musician'). "
+                    "글자·숫자·차트·로고·워터마크가 장면에 등장해서는 안 된다. 반드시 아래 JSON "
+                    "형식으로만 답하라.\n"
+                    '{"scene": "영어 장면 묘사 한 문장"}'
+                )},
+                {'role': 'user', 'content': f"제목: {title}\n요약: {(ai_summary or '')[:400]}"},
+            ],
+            max_tokens=200,
+            temperature=0.7,
+            response_format={'type': 'json_object'},
+        )
+        data = json.loads(response.choices[0].message.content)
+        return (data.get('scene') or '').strip()
+    except Exception:
+        logger.exception("상징적 장면 묘사 생성 실패 (title=%r)", title)
+        return ''
+
+
 def generate_thumbnail_image_bytes(title, ai_summary):
-    """경제 뉴스가 아닌 일반 기사(관련 종목·매칭 키워드가 없는 기사)의 썸네일을 gpt-image-2로
-    직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/코스닥 지수처럼 정확한 수치를 보여줘야
-    하는 카드는 여기 쓰지 않는다 — AI 이미지 생성은 숫자를 정확히 보장할 수 없어, 그런 카드는
-    thumbnail.py가 실제 데이터로 직접 그린다(_draw_market_grid/_draw_index_summary_boxes).
-    비용을 낮게 유지하기 위해 quality="low"만 사용한다. OPENAI_API_KEY가 없거나(플레이스홀더
-    포함) 호출이 실패하면 None을 반환해, 호출부(thumbnail.build_thumbnail_file)가 조용히 기존
-    PIL 텍스트 패널 카드로 폴백하게 한다.
-    헤드라인에 실존 인물/캐릭터/작품명 등 고유명사가 있으면 gpt-image-2 자체 출력 모더레이션에
-    걸려 BadRequestError(moderation_blocked)가 날 수 있다 — 이 경우 한 번만, 고유명사를 뺀
-    일반화된 문장으로 재시도한다."""
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+    """경제 뉴스가 아닌 일반 기사(관련 종목·매칭 키워드가 없는 기사)의 썸네일을
+    gemini-3.1-flash-image(Nano Banana 2)로 직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/
+    코스닥 지수처럼 정확한 수치를 보여줘야 하는 카드는 여기 쓰지 않는다 — AI 이미지 생성은 숫자를
+    정확히 보장할 수 없어, 그런 카드는 thumbnail.py가 실제 데이터로 직접 그린다
+    (_draw_market_grid/_draw_index_summary_boxes). GEMINI_API_KEY가 없거나(플레이스홀더 포함)
+    호출이 실패하면 None을 반환해, 호출부(thumbnail.build_thumbnail_file)가 조용히 기존 PIL
+    텍스트 패널 카드로 폴백하게 한다.
+    헤드라인/요약을 그대로 프롬프트에 넣지 않고, 먼저 _describe_symbolic_scene으로 구체적인
+    장면 묘사로 바꾼 뒤 COMMON_STYLE_SCRIPT를 붙여 최종 프롬프트를 만든다 — 같은 모델이라도
+    프롬프트가 추상적이면 결과물 품질이 크게 떨어지기 때문. 하단 1/3은 title 텍스트 오버레이용
+    여백을 비우도록 명시한다(_render_ai_hero_card가 그 자리에 그라데이션+제목을 얹으므로).
+    헤드라인에 실존 인물/캐릭터/작품명 등 고유명사가 있으면 안전 필터에 걸려 응답에 이미지 파트가
+    없을 수 있다 — 이 경우 한 번만, 고유명사를 뺀 일반화된 문장으로 재시도한다(고유명사 제거
+    자체는 기존과 동일하게 gpt-4o-mini를 쓰는 _strip_proper_nouns 사용). 429(RESOURCE_EXHAUSTED,
+    쿼터/레이트리밋)는 안전 필터와 무관한 별개 상황이라 재시도 없이 바로 폴백한다 — 같은 요청을
+    또 보내봤자 즉시 같은 429가 날 뿐이다."""
+    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
         return None
 
-    def build_prompt(headline_text, summary_text):
+    openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    def build_prompt(scene_text):
         return (
-            "Create a clean, modern editorial illustration to use as a Korean news article's cover "
-            "thumbnail. Absolutely no text, letters, numbers, charts, graphs, or logos anywhere in "
-            "the image — illustration only.\n"
-            f"Headline: {headline_text}\n"
-            f"Summary: {summary_text}\n"
-            "Style: flat editorial illustration, muted navy/blue color palette, high contrast, "
-            "professional news-site cover art."
+            f"{scene_text}, {COMMON_STYLE_SCRIPT}, generous empty negative space in the bottom "
+            "third of the frame for a title text overlay, no text no watermark, "
+            "16:9 aspect ratio, 1920x1080"
         )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    try:
-        response = client.images.generate(
-            model="gpt-image-2",
-            prompt=build_prompt(title, (ai_summary or '')[:400]),
-            size="1536x1024",
-            quality="low",
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    config = genai_types.GenerateContentConfig(
+        response_modalities=["IMAGE"],
+        image_config=genai_types.ImageConfig(aspect_ratio="16:9"),
+    )
+
+    def call(prompt_text):
+        response = client.models.generate_content(
+            model=GEMINI_IMAGE_MODEL, contents=prompt_text, config=config,
         )
-        return base64.b64decode(response.data[0].b64_json)
-    except BadRequestError:
+        for candidate in response.candidates or []:
+            for part in candidate.content.parts or []:
+                if part.inline_data and part.inline_data.data:
+                    return part.inline_data.data
+        return None
+
+    scene = _describe_symbolic_scene(openai_client, title, ai_summary) or (
+        f"Headline: {title}\nSummary: {(ai_summary or '')[:400]}"
+    )
+
+    try:
+        image_bytes = call(build_prompt(scene))
+        if image_bytes:
+            return image_bytes
         logger.warning(
-            "gpt-image-2 썸네일 생성이 모더레이션에 걸림 — 고유명사 제거 후 재시도 (title=%r)", title,
+            "%s 썸네일 생성이 안전 필터에 걸림(이미지 없는 응답) — 고유명사 제거 후 재시도 (title=%r)",
+            GEMINI_IMAGE_MODEL, title,
+        )
+    except genai.errors.ClientError as exc:
+        if exc.code == 429:
+            logger.warning(
+                "%s 썸네일 생성이 쿼터/레이트리밋(429)에 걸림 — 재시도 없이 폴백 (title=%r)",
+                GEMINI_IMAGE_MODEL, title,
+            )
+            return None
+        logger.warning(
+            "%s 썸네일 생성이 안전 필터에 걸림 — 고유명사 제거 후 재시도 (title=%r)",
+            GEMINI_IMAGE_MODEL, title,
         )
     except Exception:
-        logger.exception("gpt-image-2 썸네일 생성 실패 (title=%r)", title)
+        logger.exception("%s 썸네일 생성 실패 (title=%r)", GEMINI_IMAGE_MODEL, title)
         return None
 
-    generic_summary = _strip_proper_nouns(client, title, ai_summary)
+    generic_summary = _strip_proper_nouns(openai_client, title, ai_summary)
     if not generic_summary:
         return None
+    generic_scene = _describe_symbolic_scene(openai_client, title, generic_summary) or (
+        f"Summary: {generic_summary}"
+    )
     try:
-        response = client.images.generate(
-            model="gpt-image-2",
-            prompt=build_prompt(generic_summary, ''),
-            size="1536x1024",
-            quality="low",
-        )
-        return base64.b64decode(response.data[0].b64_json)
+        return call(build_prompt(generic_scene))
     except Exception:
-        logger.exception("gpt-image-2 썸네일 재시도(고유명사 제거) 실패 (title=%r)", title)
+        logger.exception("%s 썸네일 재시도(고유명사 제거) 실패 (title=%r)", GEMINI_IMAGE_MODEL, title)
         return None
+
+
+# ==========================================
+# 롤백용 백업 — 위 generate_thumbnail_image_bytes를 gemini-3.1-flash-image로 교체하기 전
+# (2026-09-02) gpt-image-2를 썼던 원본. Gemini 연동에 문제가 생기면 위 함수 이름을 바꾸고
+# 아래 주석을 풀어 되돌릴 수 있다.
+# ==========================================
+# def generate_thumbnail_image_bytes_gpt_image_2(title, ai_summary):
+#     """경제 뉴스가 아닌 일반 기사(관련 종목·매칭 키워드가 없는 기사)의 썸네일을 gpt-image-2로
+#     직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/코스닥 지수처럼 정확한 수치를 보여줘야
+#     하는 카드는 여기 쓰지 않는다 — AI 이미지 생성은 숫자를 정확히 보장할 수 없어, 그런 카드는
+#     thumbnail.py가 실제 데이터로 직접 그린다(_draw_market_grid/_draw_index_summary_boxes).
+#     화질/비용 절충을 위해 quality="medium"을 사용한다. OPENAI_API_KEY가 없거나(플레이스홀더
+#     포함) 호출이 실패하면 None을 반환해, 호출부(thumbnail.build_thumbnail_file)가 조용히 기존
+#     PIL 텍스트 패널 카드로 폴백하게 한다.
+#     헤드라인에 실존 인물/캐릭터/작품명 등 고유명사가 있으면 gpt-image-2 자체 출력 모더레이션에
+#     걸려 BadRequestError(moderation_blocked)가 날 수 있다 — 이 경우 한 번만, 고유명사를 뺀
+#     일반화된 문장으로 재시도한다."""
+#     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
+#         return None
+#
+#     def build_prompt(headline_text, summary_text):
+#         return (
+#             "Create a clean, modern editorial illustration to use as a Korean news article's cover "
+#             "thumbnail. Absolutely no text, letters, numbers, charts, graphs, or logos anywhere in "
+#             "the image — illustration only.\n"
+#             f"Headline: {headline_text}\n"
+#             f"Summary: {summary_text}\n"
+#             "Style: flat editorial illustration, muted navy/blue color palette, high contrast, "
+#             "professional news-site cover art."
+#         )
+#
+#     client = OpenAI(api_key=settings.OPENAI_API_KEY)
+#     try:
+#         response = client.images.generate(
+#             model="gpt-image-2",
+#             prompt=build_prompt(title, (ai_summary or '')[:400]),
+#             size="1536x1024",
+#             quality="medium",
+#         )
+#         return base64.b64decode(response.data[0].b64_json)
+#     except BadRequestError:
+#         logger.warning(
+#             "gpt-image-2 썸네일 생성이 모더레이션에 걸림 — 고유명사 제거 후 재시도 (title=%r)", title,
+#         )
+#     except Exception:
+#         logger.exception("gpt-image-2 썸네일 생성 실패 (title=%r)", title)
+#         return None
+#
+#     generic_summary = _strip_proper_nouns(client, title, ai_summary)
+#     if not generic_summary:
+#         return None
+#     try:
+#         response = client.images.generate(
+#             model="gpt-image-2",
+#             prompt=build_prompt(generic_summary, ''),
+#             size="1536x1024",
+#             quality="medium",
+#         )
+#         return base64.b64decode(response.data[0].b64_json)
+#     except Exception:
+#         logger.exception("gpt-image-2 썸네일 재시도(고유명사 제거) 실패 (title=%r)", title)
+#         return None
 
 
 # ==========================================

@@ -24,7 +24,7 @@ from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     newsletter_sample_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, health_content_calendar_view, food_content_calendar_view, insurance_compare_view, consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, health_content_calendar_view, food_content_calendar_view, travel_content_calendar_view, insurance_compare_view, consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view,
     ticker_data_view, ticker_stocks_view,
     expert_consult_view,
     expert_consult_apply_view,
@@ -41,8 +41,8 @@ from articles.views import (
     operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
     image_generator_view, generated_image_list_view, generated_image_delete_view,
     file_upload_view, file_upload_download_view, file_upload_delete_view,
-    content_calendar_admin_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
+    content_calendar_admin_view, publish_for_member_view,
+    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
     ai_performance_view,
@@ -51,7 +51,6 @@ from articles.views import (
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
-    tumblr_connect_view, tumblr_callback_view,
     my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view, change_password_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
@@ -85,6 +84,8 @@ urlpatterns = [
     path('admin-tools/uploads/<int:pk>/delete/', file_upload_delete_view, name='file_upload_delete'),
     path('admin-tools/content-calendar/health/', content_calendar_admin_view, {'kind': 'health'}, name='health_content_calendar_admin'),
     path('admin-tools/content-calendar/food/', content_calendar_admin_view, {'kind': 'food'}, name='food_content_calendar_admin'),
+    path('admin-tools/content-calendar/travel/', content_calendar_admin_view, {'kind': 'travel'}, name='travel_content_calendar_admin'),
+    path('admin-tools/publish-for-member/', publish_for_member_view, name='publish_for_member'),
     # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
     # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
     # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가
@@ -101,6 +102,7 @@ urlpatterns = [
     path('guide/adsense/', adsense_guide_view, name='adsense_guide'),
     path('health-calendar/', health_content_calendar_view, name='health_content_calendar'),
     path('food-calendar/', food_content_calendar_view, name='food_content_calendar'),
+    path('travel-calendar/', travel_content_calendar_view, name='travel_content_calendar'),
     path('faq/', faq_board_view, name='faq_board'),
     path('experts/', expert_consult_view, name='expert_consult'),
     path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
@@ -139,6 +141,7 @@ urlpatterns = [
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
     path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX
     path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
+    path('news/<int:pk>/regenerate-thumbnail/', news_regenerate_thumbnail_view, name='news_regenerate_thumbnail'),  # ◀ 관리자 전용 썸네일 이미지 재생성
     path('news/<int:pk>/ai-summarize/', news_ai_summarize_view, name='news_ai_summarize'),  # ◀ 포스팅 직전 개별 기사 AI 요약 트리거
     path('news/<int:pk>/republish/', republish_article_view, name='republish_article'),  # ◀ 이미 발행된 계정에 최신 내용으로 재발행(같은 글 업데이트)
     path('news/<int:pk>/repost/', repost_article_view, name='repost_article'),  # ◀ 이미 발행된 계정에도 새 글로 다시 포스팅(포스팅 기능 그대로, 중복 발행 가드만 없음)
@@ -170,8 +173,6 @@ urlpatterns = [
 
     path('accounts/blogger/connect/', blogger_connect_view, name='blogger_connect'),  # ◀ 마이페이지 - 블로거 자동포스팅 연동
     path('accounts/blogger/callback/', blogger_callback_view, name='blogger_callback'),
-    path('accounts/tumblr/connect/', tumblr_connect_view, name='tumblr_connect'),  # ◀ 마이페이지 - 텀블러 자동포스팅 연동
-    path('accounts/tumblr/callback/', tumblr_callback_view, name='tumblr_callback'),
 ]
 
 if settings.DEBUG:

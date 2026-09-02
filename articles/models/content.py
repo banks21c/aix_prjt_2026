@@ -145,6 +145,70 @@ class FinancialConsultSheet(models.Model):
 
 
 # ==========================================
+# 11-1. 캘린더 기반 자동 발행 주제 스케줄 (건강/의학·음식/영양·여행/관광)
+# ==========================================
+# AnalyzedArticle.CATEGORY_CHOICES / UserPreference.NEWS_CATEGORY_CHOICES와 값이 같은 상수를
+# 쓰지만, 그 두 모델을 그대로 import하지 않고 문자열을 중복 정의한다 — UserPreference가 이미
+# 같은 방식으로 하고 있는 기존 관례를 따른 것.
+CONTENT_CALENDAR_CATEGORY_CHOICES = [
+    ('HEALTH', '건강/의학'),
+    ('FOOD', '음식/영양'),
+    ('TRAVEL', '여행/관광'),
+]
+
+
+class ContentCalendarTheme(models.Model):
+    """캘린더 기반 카테고리(건강/의학 등)의 요일별 테마 1건. 한 카테고리당 7행(월~일)만
+    존재한다. 예전에는 articles/health_calendar.py/food_calendar.py에 하드코딩된
+    CATEGORIES 딕셔너리였던 것을 DB로 옮긴 것 — 관리자가 /admin/에서 문구를 직접 수정할
+    수 있게 하기 위함. am_title_template/pm_title_template은 "{t}" 자리에 그날의 주제
+    (ContentCalendarTopic.topic)를 채워 실제 발행 제목을 만든다."""
+    category = models.CharField(max_length=20, choices=CONTENT_CALENDAR_CATEGORY_CHOICES, verbose_name="카테고리")
+    weekday = models.PositiveSmallIntegerField(verbose_name="요일(0=월 ~ 6=일)")
+    key = models.CharField(max_length=50, verbose_name="내부 식별자")
+    name = models.CharField(max_length=100, verbose_name="테마명")
+    am_angle = models.CharField(max_length=200, verbose_name="오전 각도 라벨")
+    pm_angle = models.CharField(max_length=200, verbose_name="오후 각도 라벨")
+    am_title_template = models.CharField(max_length=200, verbose_name="오전 제목 템플릿({t}에 주제 삽입)")
+    pm_title_template = models.CharField(max_length=200, verbose_name="오후 제목 템플릿({t}에 주제 삽입)")
+
+    class Meta:
+        unique_together = ('category', 'weekday')
+        ordering = ['category', 'weekday']
+        verbose_name = "캘린더 요일 테마 (ContentCalendarTheme)"
+        verbose_name_plural = "캘린더 요일 테마 관리 (ContentCalendarTheme)"
+
+    WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
+
+    def get_weekday_display(self):
+        return self.WEEKDAY_KR[self.weekday]
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.get_weekday_display()} {self.name}"
+
+
+class ContentCalendarTopic(models.Model):
+    """캘린더 기반 카테고리의 요일별 52주(1년) 주제 1건. 한 카테고리당 364행(7요일 × 52주)이
+    존재한다. week_number(0~51)는 그 요일이 364일 주기 안에서 몇 번째로 돌아왔는지를 뜻하며,
+    articles/content_calendar.get_topic_for_date가 오늘 날짜로부터 계산해 이 값으로 조회한다.
+    예전에는 health_calendar.py/food_calendar.py의 TOPICS 딕셔너리였다."""
+    category = models.CharField(max_length=20, choices=CONTENT_CALENDAR_CATEGORY_CHOICES, verbose_name="카테고리")
+    weekday = models.PositiveSmallIntegerField(verbose_name="요일(0=월 ~ 6=일)")
+    week_number = models.PositiveSmallIntegerField(verbose_name="주차(0~51)")
+    topic = models.CharField(max_length=255, verbose_name="주제")
+
+    class Meta:
+        unique_together = ('category', 'weekday', 'week_number')
+        ordering = ['category', 'weekday', 'week_number']
+        verbose_name = "캘린더 주제 (ContentCalendarTopic)"
+        verbose_name_plural = "캘린더 주제 관리 (ContentCalendarTopic)"
+
+    def __str__(self):
+        weekday_kr = ContentCalendarTheme.WEEKDAY_KR[self.weekday]
+        return f"[{self.get_category_display()}] {weekday_kr}요일 {self.week_number + 1}주차 - {self.topic}"
+
+
+# ==========================================
 # 12. FAQ (자주 묻는 질문) 게시판
 # ==========================================
 class Faq(models.Model):

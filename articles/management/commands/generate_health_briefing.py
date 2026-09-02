@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from articles import article_ai, thumbnail
-from articles.health_calendar import get_topic_for_date
+from articles.content_calendar import get_topic_for_date
 from articles.models import AnalyzedArticle
 
 SESSION_LABELS = {'am': '오전', 'pm': '오후'}
@@ -13,7 +13,7 @@ KST = ZoneInfo('Asia/Seoul')
 
 class Command(BaseCommand):
     help = (
-        '건강/의학 정보 캘린더(articles/health_calendar.py)에서 오늘 이 세션(오전/오후)에 해당하는 '
+        '건강/의학 정보 캘린더(articles/content_calendar.py, DB 기반)에서 오늘 이 세션(오전/오후)에 해당하는 '
         '주제를 찾아 AI로 글 1건을 생성하고 AnalyzedArticle(content_category=HEALTH)로 저장합니다. '
         'generate_featured_stock_briefing과 같은 계열(스크래핑 원문 없는 순수 AI 생성)이라, 저장된 '
         '글은 기존 post_to_wordpress 등 자동 포스팅 파이프라인을 그대로 타고 발행됩니다.'
@@ -42,7 +42,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"[-] 오늘 {session_label} 건강정보 글이 이미 있습니다."))
             return
 
-        info = get_topic_for_date(today, session)
+        info = get_topic_for_date('HEALTH', today, session)
         self.stdout.write(self.style.SUCCESS(
             f"🚀 {today} {session_label} 건강정보({info['category_name']} · {info['topic']})를 생성합니다."
         ))

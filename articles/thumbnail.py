@@ -300,7 +300,7 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
 
 
 def _compose_ai_image_background(ai_image_bytes):
-    """gpt-image-2가 만든 이미지(비율이 카드와 정확히 안 맞을 수 있음)를 1200x630 캔버스에
+    """gemini-3.1-flash-image(Nano Banana 2)가 만든 이미지(비율이 카드와 정확히 안 맞을 수 있음)를 1200x630 캔버스에
     꽉 차게(cover) 리사이즈한 뒤 남는 부분을 가운데 기준으로 잘라낸다."""
     from io import BytesIO
     src = Image.open(BytesIO(ai_image_bytes)).convert("RGB")
@@ -329,10 +329,12 @@ def _draw_bottom_gradient(img, height=300):
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
-def _render_ai_hero_card(title, category_label, ai_image_bytes):
-    """gpt-image-2로 생성한 일러스트를 배경 전체에 깔고, 그 위에 액센트 바/날짜/카테고리
+def _render_ai_hero_card(title, category_label, ai_image_bytes, show_meta=True):
+    """gemini-3.1-flash-image(Nano Banana 2)로 생성한 일러스트를 배경 전체에 깔고, 그 위에 액센트 바/날짜/카테고리
     태그/제목만 얹는 단순한 레이아웃 — 경제 뉴스가 아닌 일반 기사용. 종목 시세·코스피/코스닥
-    카드와 달리 정확한 수치를 보여줄 게 없으므로 그 자리를 이미지 자체가 대신한다."""
+    카드와 달리 정확한 수치를 보여줄 게 없으므로 그 자리를 이미지 자체가 대신한다.
+    show_meta=False면 날짜/카테고리 태그를 그리지 않는다 — 회원이 직접 쓴 자유 포스팅은
+    '리포트' 성격이 아니라 이 표시가 어색하다."""
     img = _compose_ai_image_background(ai_image_bytes)
     img = _draw_bottom_gradient(img)
     draw = ImageDraw.Draw(img)
@@ -341,20 +343,21 @@ def _render_ai_hero_card(title, category_label, ai_image_bytes):
 
     draw.rectangle([0, 0, CANVAS_SIZE[0], 10], fill=accent)
 
-    date_text = date.today().strftime("%Y.%m.%d")
-    draw.text((CANVAS_SIZE[0] - margin, 46), date_text, font=_font(FONT_REGULAR, 22), fill="#e7ecf5", anchor="rm")
+    if show_meta:
+        date_text = date.today().strftime("%Y.%m.%d")
+        draw.text((CANVAS_SIZE[0] - margin, 46), date_text, font=_font(FONT_REGULAR, 22), fill="#e7ecf5", anchor="rm")
 
-    if category_label:
-        tag_font = _font(FONT_BOLD, 22)
-        tag_w = draw.textlength(category_label, font=tag_font)
-        pad_x, pad_y = 16, 8
-        tag_h = 22 + pad_y * 2
-        x1 = CANVAS_SIZE[0] - margin
-        x0 = x1 - tag_w - pad_x * 2
-        y0 = 68
-        y1 = y0 + tag_h
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=tag_h / 2, fill=(14, 21, 38, 180), outline="white", width=2)
-        draw.text(((x0 + x1) / 2, (y0 + y1) / 2), category_label, font=tag_font, fill="white", anchor="mm")
+        if category_label:
+            tag_font = _font(FONT_BOLD, 22)
+            tag_w = draw.textlength(category_label, font=tag_font)
+            pad_x, pad_y = 16, 8
+            tag_h = 22 + pad_y * 2
+            x1 = CANVAS_SIZE[0] - margin
+            x0 = x1 - tag_w - pad_x * 2
+            y0 = 68
+            y1 = y0 + tag_h
+            draw.rounded_rectangle([x0, y0, x1, y1], radius=tag_h / 2, fill=(14, 21, 38, 180), outline="white", width=2)
+            draw.text(((x0 + x1) / 2, (y0 + y1) / 2), category_label, font=tag_font, fill="white", anchor="mm")
 
     title_font = _font(FONT_BOLD, 44)
     max_text_width = CANVAS_SIZE[0] - margin * 2
@@ -372,7 +375,7 @@ def _render_ai_hero_card(title, category_label, ai_image_bytes):
 
 def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key=None,
                               category_label=None, market_data=None, index_summary=None,
-                              summary_lines=None, ai_background_bytes=None):
+                              summary_lines=None, ai_background_bytes=None, show_meta=True):
     """title: 기사 제목, subject_label: 종목명 또는 키워드(없으면 "AI 요약"),
     ticker: 종목코드(선택), signal_color_key: 'BUY'/'SELL'/'HOLD'/None,
     category_label: 상단 태그(예: "종목 분석 리포트", "특징주 브리핑"),
@@ -383,11 +386,14 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     summary_lines: AI 3줄 요약 줄 목록 — market_data도 index_summary도 없는(=경제 뉴스가
     아닌) 카드에서, 빈 하단 공간에 짧게 줄인 요약을 대신 그릴 때 쓴다(ai_background_bytes가
     없을 때의 폴백).
-    ai_background_bytes: gpt-image-2로 생성한 PNG 바이트 — 있으면 이 함수의 나머지 인자를
-    전부 무시하고 _render_ai_hero_card로 그린다(경제 뉴스가 아닌 기사용 대표 레이아웃).
+    ai_background_bytes: gemini-3.1-flash-image(Nano Banana 2)로 생성한 PNG 바이트 — 있으면
+    이 함수의 나머지 인자를 전부 무시하고 _render_ai_hero_card로 그린다(경제 뉴스가 아닌 기사용
+    대표 레이아웃).
+    show_meta=False면 그 위에 얹는 날짜/카테고리 태그를 생략한다(ai_background_bytes가 있을
+    때만 의미 있음 — 자유 포스팅용).
     반환: PNG 바이트."""
     if ai_background_bytes:
-        return _render_ai_hero_card(title, category_label, ai_background_bytes)
+        return _render_ai_hero_card(title, category_label, ai_background_bytes, show_meta=show_meta)
 
     accent = SIGNAL_COLORS.get(signal_color_key, DEFAULT_SIGNAL_COLOR)
 
@@ -477,7 +483,7 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
 
 
 def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label=None,
-                          ai_summary=None, is_economic_news=None, index_summary=None):
+                          ai_summary=None, is_economic_news=None, index_summary=None, show_meta=True):
     """news_ai_summarize_view/news_scrape_view/generate_featured_stock_briefing에서 AI 요약이
     만들어지는 시점에 호출. stock이 있으면 종목명/티커/최신 매매 시그널·실시간 시세로, 없으면
     매칭 키워드(또는 'AI 요약')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
@@ -488,12 +494,14 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
     NewsKeyword로 회원이 관심사 분류용으로 걸어둔 값일 뿐 그 기사가 실제로 국내 시황을 다룬다는
     뜻이 아니라서(예: "AI" 키워드에 걸린 스페이스X 실적 기사), 그 경우까지 지수 카드를 붙이면
     본문과 무관한 국내 지수가 나가버린다. stock도 없으면(=제목에 국내 종목명이 없으면) 대신
-    gpt-image-2로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
+    gemini-3.1-flash-image(Nano Banana 2)로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
     브리핑처럼 종목이 없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다.
     index_summary를 직접 넘기면(주간 시황 정리처럼 "오늘" 지수가 아니라 이미 계산해둔 값을 쓰는
     경우) 아래의 오늘자 MarketIndex 자동 조회를 건너뛰고 그 값을 그대로 쓴다 — 토요일에 도는
     generate_weekly_market_briefing은 그날 MarketIndex가 없어(휴장) 자동 조회가 항상 비므로
-    이 경로가 필요하다."""
+    이 경로가 필요하다.
+    show_meta=False면 gemini-3.1-flash-image(Nano Banana 2) 배경 위 날짜/카테고리 태그를 생략한다 — 자유 포스팅(회원이
+    직접 쓴 글)은 '리포트'가 아니라서 이 표시가 어색하다."""
     from django.core.files.base import ContentFile
 
     from .models import MarketIndex, StockPrediction, StockRealtimePrice
@@ -555,7 +563,7 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
 
         if not index_summary:
             if not is_economic_news:
-                # 경제 뉴스가 아닌 일반 기사는 코스피/코스닥 대신 gpt-image-2로 그린 일러스트를
+                # 경제 뉴스가 아닌 일반 기사는 코스피/코스닥 대신 gemini-3.1-flash-image(Nano Banana 2)로 그린 일러스트를
                 # 대표 이미지로 쓴다. 실패/미설정 시 None이 돌아와 아래 summary_lines 폴백으로
                 # 자연스럽게 이어진다.
                 from . import article_ai
@@ -570,6 +578,7 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
         index_summary=index_summary,
         summary_lines=summary_lines,
         ai_background_bytes=ai_background_bytes,
+        show_meta=show_meta,
     )
     return ContentFile(image_bytes, name="thumbnail.png")
 

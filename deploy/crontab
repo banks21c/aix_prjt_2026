@@ -62,11 +62,9 @@
 # 13:05 KST — 장중 브리핑 발행
 5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
 5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
-5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1
 # 15:45 KST — 마감후 브리핑 발행
 45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
 45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
-45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1
 # 16:00 KST — 마감후 브리핑을 뉴스레터 초안(READY)으로 생성
 0 7 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
 # 21:00 KST(밤 9시) — 뉴스레터 발송
@@ -83,13 +81,11 @@
 # 08:10 KST — 오전 건강정보 발행
 10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=HEALTH
 10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=HEALTH
-10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1 --category=HEALTH
 # 15:00 KST — 오후 건강정보 생성
 0 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_health_briefing.log venv/bin/python manage.py generate_health_briefing --session=pm
 # 15:10 KST — 오후 건강정보 발행
 10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=HEALTH
 10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=HEALTH
-10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1 --category=HEALTH
 
 # 음식/영양 구독 회원용 캘린더 기반 자동 발행(articles/food_calendar.py) — 위 건강/의학과 완전히
 # 같은 구조. 같은 분(0/10, 6/23시)에 몰리지 않도록 5분 뒤로 살짝 offset만 뒀다(동시에 OpenAI를
@@ -100,13 +96,25 @@
 # 08:15 KST — 오전 음식/영양정보 발행
 15 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=FOOD
 15 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=FOOD
-15 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1 --category=FOOD
 # 15:05 KST — 오후 음식/영양정보 생성
 5 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_food_briefing.log venv/bin/python manage.py generate_food_briefing --session=pm
 # 15:15 KST — 오후 음식/영양정보 발행
 15 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=FOOD
 15 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=FOOD
-15 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1 --category=FOOD
+
+# 여행/관광 구독 회원용 캘린더 기반 자동 발행(articles/content_calendar.py, category=TRAVEL) —
+# 건강/의학·음식/영양과 완전히 같은 구조. 같은 분(0/5/10, 6/23시)에 몰리지 않도록 건강/음식보다
+# 5분 더 뒤로 offset만 뒀다.
+# 08:10 KST — 오전 여행/관광정보 생성
+10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_travel_briefing.log venv/bin/python manage.py generate_travel_briefing --session=am
+# 08:20 KST — 오전 여행/관광정보 발행
+20 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=TRAVEL
+20 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=TRAVEL
+# 15:10 KST — 오후 여행/관광정보 생성
+10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_travel_briefing.log venv/bin/python manage.py generate_travel_briefing --session=pm
+# 15:20 KST — 오후 여행/관광정보 발행
+20 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=TRAVEL
+20 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=TRAVEL
 
 # 토요일 10:00 KST — 주간 시황 정리 생성(지난 5거래일 코스피/코스닥 등락 + 주간 급등락 종목).
 # 평일 마감후 브리핑과 달리 휴장일 체크가 필요 없다(토요일 자체가 항상 휴장이라 늘 실행).
@@ -114,4 +122,3 @@
 # 토요일 10:05 KST — 주간 시황 정리 발행
 5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
 5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
-5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_tumblr.log venv/bin/python manage.py post_to_tumblr --limit 1

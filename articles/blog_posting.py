@@ -4,6 +4,8 @@
 공유하는 "발행 대상 기사 선정", "포스팅용 콘텐츠 빌드", "실제 플랫폼별 발행 API 호출"을
 한 곳에 모아, 자동/수동 두 경로에서 발행 로직이 서로 다르게 갈라지지 않도록 한다.
 """
+import logging
+import os
 import re
 
 import requests
@@ -13,15 +15,27 @@ from django.utils import timezone
 from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPrediction, UserSubscription
 from .utils import resolve_thumbnail_stock
 
+logger = logging.getLogger(__name__)
+
 # blog_content는 두 가지 출처가 섞여 있다: (1) RSS 자동 수집 파이프라인(collect_keyword_news 등)이
 # 만드는 개행(\n) 기반 평문, (2) news_scrape → news_edit에서 Toast UI Editor(WYSIWYG)로 작성/수정한
 # <h3>/<p>/<ul> 등 블록 태그 포함 HTML. 이미 블록 태그가 있으면 에디터가 만든 구조를 그대로 신뢰하고,
 # 없으면 평문으로 간주해 기존처럼 줄바꿈만 <br>로 살린다.
 _BLOCK_HTML_RE = re.compile(r'<(p|h[1-6]|ul|ol|li|div|blockquote|table|img|br)\b', re.IGNORECASE)
 
+# build_post_content가 본문 맨 앞에 붙이는 썸네일 <img>와 정확히 같은 패턴 — 워드프레스는
+# 이제 대표 이미지(featured_media)를 별도로 설정하므로, 이 인라인 이미지까지 본문에 남겨두면
+# 테마가 대표 이미지와 본문 이미지를 각각 그려 같은 사진이 한 글에 두 번 나온다(단일 글
+# 화면에서 확인됨, deepsleepway.com). 블로거는 대표 이미지 개념이 없어 본문 첫 이미지를
+# 목록 썸네일로 자동 추출하므로 이 인라인 이미지가 여전히 필요하다 — 그래서 제거는
+# publish_to_wordpress/update_to_wordpress에서만, featured_media 설정에 성공했을 때만 한다.
+_LEADING_THUMBNAIL_IMG_RE = re.compile(
+    r'^<p><img src="[^"]*" alt="[^"]*" '
+    r'style="max-width:100%; height:auto; border-radius:10px; margin-bottom:20px;"></p>'
+)
+
 WP_POST_STATUS = "publish"  # 검증 완료 후 바로 공개 발행으로 전환.
 BLOGGER_IS_DRAFT = False  # 검증 완료 후 바로 공개 발행으로 전환.
-TUMBLR_POST_STATE = "published"  # 검증 완료 후 바로 공개 발행으로 전환.
 
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
@@ -84,9 +98,11 @@ def _match_keywords(article, keywords):
     return any(kw and kw in haystack for kw in keywords)
 
 
-# 종목/증시 관심 키워드 개념이 없는, 캘린더(health_calendar.py/food_calendar.py) 기반 자동 생성
+# 종목/증시 관심 키워드 개념이 없는, 캘린더(articles/content_calendar.py) 기반 자동 생성
 # 카테고리 — select_candidates에서 키워드 필터링을 건너뛰는 기준으로 쓴다.
-_CALENDAR_DRIVEN_CATEGORIES = (AnalyzedArticle.CATEGORY_HEALTH, AnalyzedArticle.CATEGORY_FOOD)
+_CALENDAR_DRIVEN_CATEGORIES = (
+    AnalyzedArticle.CATEGORY_HEALTH, AnalyzedArticle.CATEGORY_FOOD, AnalyzedArticle.CATEGORY_TRAVEL,
+)
 
 
 def select_candidates(account, preference, limit=None):
@@ -379,13 +395,53 @@ def _get_or_create_wp_category(account):
         return None
 
 
-def publish_to_wordpress(account, blog_title, content):
+def _upload_wp_featured_media(account, article):
+    """article.thumbnail을 워드프레스 미디어 라이브러리에 업로드하고 미디어 ID를 반환한다.
+    Astra 등 대부분의 테마는 블로그 목록/아카이브 그리드에 본문 속 <img>가 아니라 이 '대표
+    이미지(featured_media)'만 인식해서 그려준다(timelessculturelab.com 확인 — featured_media가
+    0이라 그리드에 썸네일이 전혀 안 보이던 문제) — build_post_content가 본문 맨 위에 넣는
+    <img> 태그(단일 글 화면용)와는 별개로, 목록 화면 썸네일을 위해 항상 같이 올려야 한다.
+    thumbnail이 없거나 업로드가 실패해도 None을 반환할 뿐 예외를 던지지 않는다 — 대표 이미지
+    하나 때문에 글 발행 자체가 막히면 안 된다."""
+    if not article.thumbnail:
+        return None
+    try:
+        with article.thumbnail.open('rb') as f:
+            image_bytes = f.read()
+        filename = os.path.basename(article.thumbnail.name) or f"thumbnail-{article.pk}.png"
+        res = requests.post(
+            f"{account.site_url}/wp-json/wp/v2/media",
+            auth=(account.account_id, account.credential),
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'image/png',
+            },
+            data=image_bytes,
+            timeout=20,
+        )
+        if res.status_code == 201:
+            return res.json().get('id')
+        logger.warning(
+            "워드프레스 대표 이미지 업로드 응답 에러 (account=%s, article=%s, status=%s): %s",
+            account.pk, article.pk, res.status_code, res.text[:300],
+        )
+    except Exception:
+        logger.exception("워드프레스 대표 이미지 업로드 실패 (account=%s, article=%s)", account.pk, article.pk)
+    return None
+
+
+def publish_to_wordpress(account, blog_title, content, article=None):
     """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 글 ID는 나중에 republish_article이
     같은 글을 업데이트(새 글 생성이 아니라)하는 데 쓴다."""
     payload = {"title": blog_title, "content": content, "status": WP_POST_STATUS}
     category_id = _get_or_create_wp_category(account)
     if category_id:
         payload["categories"] = [category_id]
+    if article is not None:
+        media_id = _upload_wp_featured_media(account, article)
+        if media_id:
+            payload["featured_media"] = media_id
+            payload["content"] = _LEADING_THUMBNAIL_IMG_RE.sub('', payload["content"], count=1)
 
     try:
         res = requests.post(
@@ -403,13 +459,18 @@ def publish_to_wordpress(account, blog_title, content):
     return False, '', '', f"워드프레스 API 응답 에러 ({res.status_code}): {res.text[:300]}"
 
 
-def update_to_wordpress(account, post_id, blog_title, content):
+def update_to_wordpress(account, post_id, blog_title, content, article=None):
     """반환: (성공 여부, 발행된 글 URL, 실패 사유). 워드프레스 REST API는 기존 글 엔드포인트에
     POST하면 update로 처리된다(PUT 대신 POST여도 동작 — 워드프레스 REST API 관례)."""
     payload = {"title": blog_title, "content": content, "status": WP_POST_STATUS}
     category_id = _get_or_create_wp_category(account)
     if category_id:
         payload["categories"] = [category_id]
+    if article is not None:
+        media_id = _upload_wp_featured_media(account, article)
+        if media_id:
+            payload["featured_media"] = media_id
+            payload["content"] = _LEADING_THUMBNAIL_IMG_RE.sub('', payload["content"], count=1)
 
     try:
         res = requests.post(
@@ -465,8 +526,11 @@ def publish_to_blogger(account, blog_title, content):
     return False, '', '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
 
-def update_to_blogger(account, post_id, blog_title, content):
-    """반환: (성공 여부, 발행된 글 URL, 실패 사유). Blogger API v3 게시물 수정은 PUT."""
+def update_to_blogger(account, post_id, blog_title, content, article=None):
+    """반환: (성공 여부, 발행된 글 URL, 실패 사유). Blogger API v3 게시물 수정은 PUT.
+    article은 UPDATERS 딕셔너리를 워드프레스와 같은 시그니처로 맞추기 위한 파라미터일 뿐,
+    Blogger 쪽은 대표 이미지 개념이 없어(블로거 기본 템플릿이 본문 첫 이미지를 목록 썸네일로
+    자동 추출) 쓰지 않는다."""
     access_token, error = _get_blogger_access_token(account)
     if not access_token:
         return False, '', f"블로거 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 블로거를 다시 연결해야 할 수 있습니다)"
@@ -487,105 +551,14 @@ def update_to_blogger(account, post_id, blog_title, content):
     return False, '', f"블로거 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
 
 
-def _get_tumblr_access_token(account):
-    """계정에 저장된 OAuth 리프레시 토큰으로 새 액세스 토큰을 발급 (블로거와 같은 패턴).
-    api.tumblr.com은 이 서버 IP에서 차단되지 않는다(www.tumblr.com만 차단됨 — mypage.py의
-    텀블러 연동 뷰 주석 참고) — 그래서 리프레시/발행 API 호출은 전부 정상 동작한다.
-
-    블로거(구글)와 달리 텀블러의 리프레시 토큰은 1회용(rotating)이다 — 한 번 쓰면 그 토큰은
-    무효가 되고 응답에 실린 새 refresh_token으로 바로 교체해서 저장해야 다음 호출이 산다
-    (실측 확인: 첫 발행은 성공했는데 바로 다음 재발행 시도가 "Invalid refresh token"으로 죽음).
-    저장을 이 함수 안에서 바로 해버려야, 호출부마다 매번 챙기지 않아도 안전하다."""
-    res = requests.post(
-        "https://api.tumblr.com/v2/oauth2/token",
-        data={
-            'grant_type': 'refresh_token',
-            'client_id': settings.TUMBLR_CONSUMER_KEY,
-            'client_secret': settings.TUMBLR_CONSUMER_SECRET,
-            'refresh_token': account.credential,
-        },
-        timeout=10,
-    ).json()
-    access_token = res.get('access_token')
-    new_refresh_token = res.get('refresh_token')
-    if access_token and new_refresh_token and new_refresh_token != account.credential:
-        account.credential = new_refresh_token
-        account.save(update_fields=['credential', 'updated_at'])
-    return access_token, res.get('error_description') or res.get('error')
-
-
-def _tumblr_post_url(account, post_id, body):
-    """레거시 포스트 생성/수정 응답에 post_url이 있으면 그대로 쓰고, 없으면(일부 응답에서
-    빠짐) 텀블러의 고정 퍼머링크 규칙(슬러그 없이도 정상 리다이렉트됨)으로 직접 구성한다."""
-    post_url = body.get('post_url')
-    if post_url:
-        return post_url
-    if post_id and account.site_url:
-        return f"{account.site_url.rstrip('/')}/post/{post_id}"
-    return ''
-
-
-def publish_to_tumblr(account, blog_title, content):
-    """반환: (성공 여부, 발행된 글 URL, 글 ID, 실패 사유). 레거시 텍스트 포스트 타입(NPF 아님)
-    — title/body(HTML) 그대로 넘기면 되어 워드프레스/블로거와 콘텐츠 조립 로직을 공유할 수 있다."""
-    access_token, error = _get_tumblr_access_token(account)
-    if not access_token:
-        return False, '', '', f"텀블러 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 텀블러를 다시 연결해야 할 수 있습니다)"
-
-    payload = {"type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
-    try:
-        res = requests.post(
-            f"https://api.tumblr.com/v2/blog/{account.account_id}/post",
-            headers={'Authorization': f'Bearer {access_token}'},
-            data=payload,
-            timeout=15,
-        )
-        body = res.json()
-    except Exception as e:
-        return False, '', '', f"네트워크 연동 실패: {e}"
-
-    if res.status_code in (200, 201):
-        resp = body.get('response') or {}
-        post_id = str(resp.get('id') or resp.get('id_string') or '')
-        return True, _tumblr_post_url(account, post_id, resp), post_id, None
-    return False, '', '', f"텀블러 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
-
-
-def update_to_tumblr(account, post_id, blog_title, content):
-    """반환: (성공 여부, 발행된 글 URL, 실패 사유). 레거시 수정 엔드포인트는 글 id를
-    쿼리/바디 파라미터로 받는다(URL 경로가 아니라) — 워드프레스/블로거와 다른 부분."""
-    access_token, error = _get_tumblr_access_token(account)
-    if not access_token:
-        return False, '', f"텀블러 액세스 토큰 갱신 실패: {error or '알 수 없는 오류'} (마이페이지에서 텀블러를 다시 연결해야 할 수 있습니다)"
-
-    payload = {"id": post_id, "type": "text", "state": TUMBLR_POST_STATE, "title": blog_title, "body": content}
-    try:
-        res = requests.post(
-            f"https://api.tumblr.com/v2/blog/{account.account_id}/post/edit",
-            headers={'Authorization': f'Bearer {access_token}'},
-            data=payload,
-            timeout=15,
-        )
-        body = res.json()
-    except Exception as e:
-        return False, '', f"네트워크 연동 실패: {e}"
-
-    if res.status_code == 200:
-        resp = body.get('response') or {}
-        return True, _tumblr_post_url(account, post_id, resp), None
-    return False, '', f"텀블러 API 응답 에러 ({res.status_code}): {str(body)[:300]}"
-
-
 PUBLISHERS = {
-    'WORDPRESS': lambda account, title, content, subject_label: publish_to_wordpress(account, title, content),
-    'BLOGGER': lambda account, title, content, subject_label: publish_to_blogger(account, title, content),
-    'TUMBLR': lambda account, title, content, subject_label: publish_to_tumblr(account, title, content),
+    'WORDPRESS': lambda account, title, content, subject_label, article: publish_to_wordpress(account, title, content, article),
+    'BLOGGER': lambda account, title, content, subject_label, article: publish_to_blogger(account, title, content),
 }
 
 UPDATERS = {
     'WORDPRESS': update_to_wordpress,
     'BLOGGER': update_to_blogger,
-    'TUMBLR': update_to_tumblr,
 }
 
 
@@ -598,7 +571,7 @@ def _do_publish(account, article):
         return False, '', '', "지원하지 않는 플랫폼입니다."
 
     blog_title, content, subject_label = build_post_content(article)
-    return publisher(account, blog_title, content, subject_label)
+    return publisher(account, blog_title, content, subject_label, article)
 
 
 def publish_article(account, article):
@@ -652,7 +625,7 @@ def republish_article(account, article):
         return False, "지원하지 않는 플랫폼입니다."
 
     blog_title, content, subject_label = build_post_content(article)
-    ok, url, error = updater(account, posted.external_post_id, blog_title, content)
+    ok, url, error = updater(account, posted.external_post_id, blog_title, content, article)
     if not ok:
         return False, error or "재발행에 실패했습니다."
 
