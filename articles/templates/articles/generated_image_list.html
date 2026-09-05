@@ -19,6 +19,10 @@
     .gallery-item .meta { padding: 10px 12px; font-size: 12px; color: var(--text-muted, #6c757d); }
     .gallery-item .prompt { font-size: 12.5px; color: #222; max-height: 3.6em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .gallery-item .actions { padding: 0 12px 12px; }
+    /* admin/base_site.html의 a:link/a:visited 색 규칙이 부트스트랩 .btn-primary의 흰 글씨를
+       덮어써서 파란 배경에 파란 글씨가 된다(버튼이 <a>라서 생기는 문제). 다시 흰색으로 못박는다. */
+    a.btn-primary, a.btn-primary:link, a.btn-primary:visited,
+    a.btn-primary:hover, a.btn-primary:focus { color: #fff; }
 </style>
 {% endblock %}
 
@@ -46,12 +50,19 @@
         </a>
         <div class="meta">
             {{ g.created_at|date:"Y-m-d H:i" }}<br>
-            {{ g.model_name }} · {{ g.size }} · {{ g.quality }}
+            {{ g.model_name }} · {{ g.size }}{% if g.source_size and g.source_size != g.size %} (원본 {{ g.source_size }}){% endif %} · {{ g.quality }}
             {% if g.cost_usd is not None %} · ${{ g.cost_usd|floatformat:4 }}{% endif %}
+            {% if g.output_tokens %}<span title="입력 {{ g.input_tokens }} / 출력 {{ g.output_tokens }} 토큰"> · {{ g.output_tokens }}t</span>{% endif %}
         </div>
         <div class="prompt px-3" title="{{ g.prompt }}">{{ g.prompt }}</div>
+        <div class="px-3 mt-1">
+            <a href="{% url 'image_generator' %}?prompt={{ g.prompt|urlencode }}&model={{ g.model_name|urlencode }}"
+               class="small">↺ 이 프롬프트로 생성</a>
+            <a href="#" class="copy-prompt small ms-2" data-prompt="{{ g.prompt }}" title="프롬프트 복사">📋 복사</a>
+        </div>
         <div class="actions mt-2 d-flex gap-2">
-            <a href="{{ media_url }}{{ g.file_path }}" download class="btn btn-outline-primary btn-sm flex-fill">⬇ 다운로드</a>
+            <a href="{{ media_url }}{{ g.file_path }}" download class="btn btn-outline-primary btn-sm flex-fill">⬇ PNG</a>
+            <a href="{% url 'generated_image_jpg' g.pk %}" class="btn btn-outline-secondary btn-sm flex-fill">⬇ JPG</a>
             <form method="post" action="{% url 'generated_image_delete' g.pk %}" class="delete-form"
                   onsubmit="return confirm('이 이미지를 삭제할까요? 되돌릴 수 없습니다.');">
                 {% csrf_token %}
@@ -85,4 +96,19 @@
     아직 생성된 이미지가 없습니다.
 </div>
 {% endif %}
+
+<script>
+    // 생성 화면과 같은 동작 — 📋는 클립보드로만 복사하고, 프롬프트를 실제로 다시 쓰는 건
+    // 옆의 "이 프롬프트로 생성" 링크가 쿼리스트링으로 넘겨 처리한다(이 화면엔 폼이 없다).
+    document.querySelectorAll('.copy-prompt').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            navigator.clipboard.writeText(link.dataset.prompt).then(function () {
+                var original = link.textContent;
+                link.textContent = '✅ 복사됨';
+                setTimeout(function () { link.textContent = original; }, 1200);
+            });
+        });
+    });
+</script>
 {% endblock %}

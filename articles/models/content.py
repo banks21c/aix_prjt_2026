@@ -288,10 +288,26 @@ class GeneratedImage(models.Model):
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="생성한 관리자")
     model_name = models.CharField(max_length=30, verbose_name="모델")
     size = models.CharField(max_length=30, verbose_name="해상도")
+    # 모델이 실제로 반환한 원본 해상도(크롭/리사이즈 전). size는 프리셋 라벨이거나 후처리를
+    # 거친 최종 파일 크기라, 모델이 요청한 비율을 지켜줬는지 판정하려면 이 값이 필요하다
+    # (예: 9:16을 요청했는데 1024x1024가 찍혀 있으면 그 모델은 비율 지정을 무시한 것).
+    # 이 필드가 생기기 전(2026-09-03 이전) 기록은 빈 문자열이다.
+    source_size = models.CharField(max_length=20, blank=True, verbose_name="원본 해상도")
     quality = models.CharField(max_length=20, verbose_name="품질")
     prompt = models.TextField(verbose_name="프롬프트")
     file_path = models.CharField(max_length=255, verbose_name="저장 경로 (media 기준 상대경로)")
     cost_usd = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, verbose_name="추정 비용(USD)")
+    # cost_usd를 계산한 근거가 된 토큰 수. 같은 모델·같은 해상도로 뽑아도 요금이 몇 %씩
+    # 달라지는데, 원인이 프롬프트 길이(입력)인지 모델이 함께 낸 부수 토큰(출력)인지는 이 값이
+    # 있어야 구분된다. 이 필드가 생기기 전(2026-09-03 이전) 기록은 NULL이다.
+    input_tokens = models.PositiveIntegerField(null=True, blank=True, verbose_name="입력 토큰")
+    output_tokens = models.PositiveIntegerField(null=True, blank=True, verbose_name="출력 토큰")
+    # 시리즈 생성(generate_image_series)으로 만든 행끼리 묶는 키. 앞 장을 레퍼런스 이미지로
+    # 물려 연속 생성한 한 묶음이 같은 series_key를 갖고, series_index가 그 안의 순번(1부터)이다.
+    # 화면의 진행률 폴링(image_series_status_view)과 목록의 시리즈 묶어보기가 이 값을 쓴다.
+    # 단일 생성(image_generator_view)으로 만든 행은 series_key가 빈 문자열이다.
+    series_key = models.CharField(max_length=32, blank=True, db_index=True, verbose_name="시리즈 키")
+    series_index = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="시리즈 내 순번")
 
     class Meta:
         ordering = ['-created_at']

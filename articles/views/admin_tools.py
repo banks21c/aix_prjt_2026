@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 from uuid import uuid4
@@ -20,11 +21,17 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_POST
+from google import genai
+from google.genai import types as genai_types
 from openai import BadRequestError, OpenAI
 
 from django.contrib.auth.models import User
 
 from .. import blog_posting
+from ..image_series import (
+    DEFAULT_REF_MODE, MAX_SCENES, REF_MODES, REF_MODE_LABELS,
+    read_progress, series_prompt_path, split_prompts,
+)
 from ..models import AdminUpload, AnalyzedArticle, BlogPostingAccount, FinancialConsultSheet, GeneratedImage, PostedArticle, ThemeColor
 from ..utils import limit_label
 from .performance import build_ai_performance_context
@@ -668,14 +675,85 @@ IMAGE_GEN_SIZES = ['auto', '1024x1024', '1024x1536', '1536x1024']
 IMAGE_GEN_QUALITIES = ['auto', 'low', 'medium', 'high']
 IMAGE_GEN_SUBDIR = 'generated_images'  # MEDIA_ROOT 아래 저장 위치
 
-# gpt-image 계열이 실제로 받는 size는 위 IMAGE_GEN_SIZES 4개뿐이라 16:9/9:16을 API에 직접
-# 넘길 수 없다 — 가장 가까운 비율(1536x1024=3:2, 1024x1536=2:3)로 생성한 뒤 목표 비율에 맞게
-# 가운데를 잘라내고(중앙 기준 크롭), 유튜브 썸네일/쇼츠에서 흔히 쓰는 해상도로 리사이즈한다.
+# 나노바나나(Gemini 이미지 생성) 계열 — 기사 썸네일이 이미 쓰고 있는
+# article_ai.GEMINI_IMAGE_MODEL과 같은 계열이라, 여기서 프롬프트를 시험해보고 그 결과를 그대로
+# 썸네일 쪽에 반영할 수 있다. gpt-image와 호출 규격이 달라(size/quality 대신 aspect_ratio를
+# config로 넘기고 품질 옵션 자체가 없다) _generate_with_nano_banana에서 따로 처리한다.
+NANO_BANANA_MODELS = {
+    'gemini-3.1-flash-image': '나노바나나 2',
+    'gemini-3.1-flash-lite-image': '나노바나나 2 플래시 라이트',
+    'gemini-3-pro-image': '나노바나나 프로',
+    'gemini-2.5-flash-image': '나노바나나 1 (1세대, 비교용)',
+}
+ALL_IMAGE_GEN_MODELS = list(NANO_BANANA_MODELS) + IMAGE_GEN_MODELS
+
+# 콤보박스 기본 선택값 — 기사 썸네일에도 쓰는 나노바나나 2를 기본으로 둔다(gpt-image 계열보다
+# 결과물이 낫다고 판단해 2026-09-02 썸네일을 전환한 것과 같은 이유).
+DEFAULT_IMAGE_GEN_MODEL = 'gemini-3.1-flash-image'
+
+# 유튜브(16:9)/쇼츠(9:16)용 프리셋. 비율과 생성 크기(1K/2K)를 한 항목으로 묶어, 고르는
+# 즉시 결과 픽셀이 확정되게 했다 — 그래서 프리셋을 고르면 '생성 크기' 콤보는 비활성화되고
+# 여기 image_size가 대신 쓰인다.
+#
+# nano_label의 픽셀 값은 나노바나나가 실제로 뱉은 크기다(2026-09-03 실측: 1K 16:9 =
+# 1376x768, 2K는 정확히 그 2배). 정확한 16:9(1365.33x768)가 아니라 0.8% 어긋나는데, 모델이
+# 32픽셀 격자에 맞춰 내주기 때문이다. 9:16은 같은 값을 뒤집은 것.
+#
+# gpt-image 계열은 1K/2K 개념이 없고 픽셀 크기도 다르게 나온다 — API가 받는 size가
+# IMAGE_GEN_SIZES 4개뿐이라 가장 가까운 비율(1536x1024=3:2, 1024x1536=2:3)로 생성한 뒤
+# 가운데를 잘라(중앙 기준 크롭) output(풀HD)으로 리사이즈하는 우회로를 탄다. 그래서 화면에
+# 보여줄 이름을 gpt_label로 따로 두고, 2K 프리셋은 gpt-image를 고르면 아예 감춘다(1K와
+# 결과가 똑같아서). 크롭 후 크기(1536x864 / 864x1536)보다 output이 커 확대가 일어나므로
+# 나노바나나만큼 선명하진 않다. 나노바나나는 이 크롭 경로를 타지 않는다(image_generator_view).
 ASPECT_PRESETS = {
-    'ratio_16_9': {'label': '16:9 (유튜브)', 'api_size': '1536x1024', 'output': (1280, 720)},
-    'ratio_9_16': {'label': '9:16 (쇼츠)', 'api_size': '1024x1536', 'output': (720, 1280)},
+    'ratio_16_9_1k': {
+        'nano_label': '1376x768 (16:9)(1K)', 'gpt_label': '16:9 (유튜브)',
+        'ratio': '16:9', 'image_size': '1K',
+        'api_size': '1536x1024', 'output': (1920, 1080),
+    },
+    'ratio_16_9_2k': {
+        'nano_label': '2752x1536 (16:9)(2K)', 'gpt_label': '16:9 (유튜브)',
+        'ratio': '16:9', 'image_size': '2K',
+        'api_size': '1536x1024', 'output': (1920, 1080),
+    },
+    'ratio_9_16_1k': {
+        'nano_label': '768x1376 (9:16)(1K)', 'gpt_label': '9:16 (쇼츠)',
+        'ratio': '9:16', 'image_size': '1K',
+        'api_size': '1024x1536', 'output': (1080, 1920),
+    },
+    'ratio_9_16_2k': {
+        'nano_label': '1536x2752 (9:16)(2K)', 'gpt_label': '9:16 (쇼츠)',
+        'ratio': '9:16', 'image_size': '2K',
+        'api_size': '1024x1536', 'output': (1080, 1920),
+    },
 }
 IMAGE_GEN_SIZE_CHOICES = IMAGE_GEN_SIZES + list(ASPECT_PRESETS.keys())
+
+# 나노바나나 계열은 픽셀 해상도가 아니라 비율만 지정받으므로(실제 픽셀 크기는 생성 크기가
+# 정한다), gpt-image용 픽셀 해상도 선택지를 그에 대응하는 비율로 옮겨준다. 16:9/9:16은
+# ASPECT_PRESETS가 자기 'ratio'로 직접 들고 있어 여기 없고, 'auto'도 없다(gpt-image 전용
+# 값이라 나노바나나를 고르면 콤보에서 숨겨지고, 서버에서도 1024x1024로 바꿔 받는다).
+GEMINI_ASPECT_RATIOS = {
+    '1024x1024': '1:1',
+    '1024x1536': '2:3',
+    '1536x1024': '3:2',
+}
+
+# 나노바나나 계열의 생성 크기(Gemini image_config.image_size). 비율과 달리 이건 실제 픽셀
+# 크기를 좌우한다 — 1K는 긴 변 1024 안팎, 2K는 그 두 배 수준이라 16:9면 대략 2304x1296이
+# 나온다. 유튜브 썸네일처럼 풀HD가 필요할 때 1K로 만들어 확대하면 뭉개지므로 2K로 뽑아
+# 줄이는 편이 낫다(대신 출력 토큰이 늘어 비용도 함께 오른다 — 아래 단가표로 자동 반영).
+# 모델마다 받는 값이 달라 목록을 따로 둔다: 지원하지 않는 값을 넘기면 API가 거부하므로,
+# 선택값이 목록에 없으면 그 모델이 지원하는 가장 큰 값으로 낮춰 호출하고 화면에 알린다.
+NANO_BANANA_IMAGE_SIZES = {
+    'gemini-3.1-flash-image': ['1K', '2K'],
+    'gemini-3.1-flash-lite-image': ['1K', '2K'],
+    'gemini-3-pro-image': ['1K', '2K', '4K'],
+    'gemini-2.5-flash-image': ['1K'],  # 1세대는 크기 지정 자체가 없다
+}
+IMAGE_GEN_RESOLUTIONS = ['1K', '2K', '4K']
+DEFAULT_IMAGE_GEN_RESOLUTION = '1K'
+
 
 # OpenAI 공식 가격표(2026-08 기준, $ per 1M tokens) — quality/size 조합별 고정 단가표 대신
 # 매 호출의 실제 응답(response.usage)에 있는 입출력 토큰 수를 이 단가로 환산한다. auto로
@@ -686,21 +764,105 @@ IMAGE_MODEL_PRICING = {
     'gpt-image-2': {'text_input': 5.00, 'image_input': 8.00, 'output': 30.00},
 }
 
+# 나노바나나 계열 단가(Gemini API 공식 가격표, 2026-09 기준, $ per 1M tokens). Gemini는
+# 입력 텍스트/이미지 단가가 같고, 이미지 출력은 candidates 토큰으로 계산된다
+# (실측: gemini-3.1-flash-image 16:9 1장 ≈ $0.09).
+GEMINI_IMAGE_PRICING = {
+    'gemini-3.1-flash-image': {'input': 0.50, 'output': 60.00},
+    'gemini-3.1-flash-lite-image': {'input': 0.25, 'output': 30.00},
+    'gemini-3-pro-image': {'input': 2.00, 'output': 120.00},
+    'gemini-2.5-flash-image': {'input': 0.30, 'output': 30.00},
+}
+
+
+def _usage_summary(cost_usd, input_tokens, output_tokens, **extra):
+    """생성 함수들이 공통으로 돌려주는 과금 정보 묶음. 비용만 저장하면 나중에 "왜 이 장이
+    비쌌나"를 되짚을 수 없어 근거가 된 토큰 수까지 함께 들고 다닌다."""
+    return {'cost_usd': cost_usd, 'input_tokens': input_tokens, 'output_tokens': output_tokens, **extra}
+
 
 def _compute_image_cost_usd(model, usage):
-    """response.usage(입력 텍스트/이미지 토큰 + 출력 토큰)를 모델별 단가로 환산해 USD 비용을
-    계산한다. usage가 없거나 모델 단가를 모르면 None(비용 미상)을 반환 — 이 경우 호출부가
-    저장은 하되 화면에는 "비용 미상"으로 표시한다."""
-    prices = IMAGE_MODEL_PRICING.get(model)
-    if not prices or usage is None:
-        return None
+    """response.usage(입력 텍스트/이미지 토큰 + 출력 토큰)를 모델별 단가로 환산해
+    (USD 비용, 입력 토큰, 출력 토큰)을 돌려준다. usage가 없거나 모델 단가를 모르면 비용은
+    None(미상)이 되고, 그래도 토큰 수는 알 수 있으면 함께 반환한다 — 호출부는 저장은 하되
+    화면에 "비용 미상"으로 표시한다."""
+    if usage is None:
+        return None, None, None
     d = usage.input_tokens_details
+    input_tokens = d.text_tokens + d.image_tokens
+    prices = IMAGE_MODEL_PRICING.get(model)
+    if not prices:
+        return None, input_tokens, usage.output_tokens
     cost = (
         (d.text_tokens / 1_000_000) * prices['text_input']
         + (d.image_tokens / 1_000_000) * prices['image_input']
         + (usage.output_tokens / 1_000_000) * prices['output']
     )
-    return round(cost, 6)
+    return round(cost, 6), input_tokens, usage.output_tokens
+
+
+def _compute_gemini_cost_usd(model, usage):
+    """나노바나나 계열 응답의 usage_metadata(입력 토큰 + 출력 이미지 토큰)를 모델별 단가로
+    환산해 (USD 비용, 입력 토큰, 출력 토큰)을 돌려준다. gpt-image 쪽 _compute_image_cost_usd와
+    같은 취지지만, Gemini는 usage 구조가 다르고(입력 텍스트/이미지 단가가 하나로 통일) 필드명도
+    달라 함수를 나눴다. 출력 토큰(candidates)에는 이미지 자체 말고 모델이 함께 낸 부수 토큰도
+    섞여 있어, 같은 해상도라도 장마다 수백 토큰씩 달라진다 — 요금이 매번 조금씩 다른 이유다."""
+    if usage is None:
+        return None, None, None
+    input_tokens = usage.prompt_token_count or 0
+    output_tokens = usage.candidates_token_count or 0
+    prices = GEMINI_IMAGE_PRICING.get(model)
+    if not prices:
+        return None, input_tokens, output_tokens
+    cost = (input_tokens / 1_000_000) * prices['input'] + (output_tokens / 1_000_000) * prices['output']
+    return round(cost, 6), input_tokens, output_tokens
+
+
+def _generate_with_gpt_image(model, prompt, api_size, quality):
+    """gpt-image 계열 호출 → (PNG 바이트, 과금 정보 묶음)."""
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    response = client.images.generate(model=model, prompt=prompt, size=api_size, quality=quality)
+    cost_usd, input_tokens, output_tokens = _compute_image_cost_usd(model, response.usage)
+    return base64.b64decode(response.data[0].b64_json), _usage_summary(cost_usd, input_tokens, output_tokens)
+
+
+def _generate_with_nano_banana(model, prompt, size, image_size):
+    """나노바나나(Gemini) 계열 호출 → (이미지 바이트, 과금 정보 묶음). 묶음에는 비용·토큰 수와
+    함께 실제 적용된 생성 크기(image_size)가 들어간다.
+    품질 파라미터는 이 계열에 없어 화면에서 고른 값과 무관하게 무시된다. 생성 크기는 모델이
+    지원하지 않는 값이면 지원하는 최대값으로 낮춰서 호출하고, 그 값을 세 번째로 돌려줘 호출부가
+    "요청과 다르게 나갔다"고 알릴 수 있게 한다. 안전 필터에 걸리면 예외 없이 이미지 파트가 없는
+    응답이 오므로, 그 경우를 명시적으로 에러로 올려 호출부가 사용자에게 이유를 보여주게 한다."""
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    preset = ASPECT_PRESETS.get(size)
+    aspect_ratio = preset['ratio'] if preset else GEMINI_ASPECT_RATIOS.get(size)
+    supported = NANO_BANANA_IMAGE_SIZES.get(model) or [DEFAULT_IMAGE_GEN_RESOLUTION]
+    effective_image_size = image_size if image_size in supported else supported[-1]
+    config = genai_types.GenerateContentConfig(
+        response_modalities=["IMAGE"],
+        image_config=genai_types.ImageConfig(aspect_ratio=aspect_ratio, image_size=effective_image_size),
+    )
+    response = client.models.generate_content(model=model, contents=prompt, config=config)
+    cost_usd, input_tokens, output_tokens = _compute_gemini_cost_usd(model, response.usage_metadata)
+    usage = _usage_summary(cost_usd, input_tokens, output_tokens, image_size=effective_image_size)
+    for candidate in response.candidates or []:
+        parts = (candidate.content.parts if candidate.content else None) or []
+        for part in parts:
+            if part.inline_data and part.inline_data.data:
+                return part.inline_data.data, usage
+    raise RuntimeError("모델이 이미지를 반환하지 않았습니다 (안전 필터에 걸렸을 수 있습니다).")
+
+
+def _image_dimensions_label(image_bytes):
+    """생성된 이미지의 실제 픽셀 크기를 읽어 "WxH" 문자열로 돌려준다. 화면에서 고른 해상도
+    값으로는 알 수 없는 경우가 많아서다 — 나노바나나 계열은 비율만 지정받고 픽셀 크기는 모델이
+    정하며, gpt-image의 'auto'도 마찬가지다. GeneratedImage.source_size에 이 값을 남겨두면
+    나중에 모델이 요청한 비율을 지켰는지 기록만으로 판정할 수 있다."""
+    from io import BytesIO
+    from PIL import Image
+
+    with Image.open(BytesIO(image_bytes)) as img:
+        return f"{img.width}x{img.height}"
 
 
 def _crop_to_aspect_and_resize(image_bytes, output_size):
@@ -741,24 +903,59 @@ def image_generator_view(request):
 
     if request.method == 'POST':
         prompt = (request.POST.get('prompt') or '').strip()
-        model = request.POST.get('model') or IMAGE_GEN_MODELS[0]
+        model = request.POST.get('model') or DEFAULT_IMAGE_GEN_MODEL
         size = request.POST.get('size') or 'auto'
         quality = request.POST.get('quality') or 'auto'
+        image_size = request.POST.get('image_size') or DEFAULT_IMAGE_GEN_RESOLUTION
         aspect_preset = ASPECT_PRESETS.get(size)
+        is_nano_banana = model in NANO_BANANA_MODELS
+        if aspect_preset:
+            # 프리셋은 비율과 생성 크기를 한 항목으로 묶은 것이라(1376x768(16:9)(1K) 등),
+            # 화면에서 따로 고른 생성 크기보다 프리셋 쪽이 우선한다. 콤보도 프리셋을 고르면
+            # 비활성화돼 값이 전송되지 않지만, 그걸 우회한 요청까지 여기서 맞춰준다.
+            image_size = aspect_preset['image_size']
+        if is_nano_banana and size == 'auto':
+            # 'auto'는 gpt-image 계열에만 있는 값이다(모델이 알아서 해상도를 고름). 나노바나나
+            # 쪽에선 aspect_ratio를 안 넘기는 것과 같아 결국 모델 기본값 1:1이 나오는데, 화면엔
+            # 뭔가 알아서 맞춰줄 것처럼 보여 혼동만 준다 — 실제 동작 그대로 1:1로 못박는다.
+            # (콤보에서도 나노바나나를 고르면 auto가 숨겨지므로, 여긴 그걸 우회한 요청 대비용.)
+            size = '1024x1024'
 
-        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
-            messages.error(request, "OPENAI_API_KEY가 설정되어 있지 않습니다 (.env 확인).")
+        if is_nano_banana:
+            key_missing = not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE"
+            key_error = "GEMINI_API_KEY가 설정되어 있지 않습니다 (.env 확인)."
+        else:
+            key_missing = not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE"
+            key_error = "OPENAI_API_KEY가 설정되어 있지 않습니다 (.env 확인)."
+
+        if key_missing:
+            messages.error(request, key_error)
         elif not prompt:
             messages.error(request, "프롬프트를 입력하세요.")
-        elif model not in IMAGE_GEN_MODELS or size not in IMAGE_GEN_SIZE_CHOICES or quality not in IMAGE_GEN_QUALITIES:
+        elif (model not in ALL_IMAGE_GEN_MODELS or size not in IMAGE_GEN_SIZE_CHOICES
+              or quality not in IMAGE_GEN_QUALITIES or image_size not in IMAGE_GEN_RESOLUTIONS):
             messages.error(request, "지원하지 않는 모델/해상도/품질 조합입니다.")
         else:
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            api_size = aspect_preset['api_size'] if aspect_preset else size
             try:
-                response = client.images.generate(model=model, prompt=prompt, size=api_size, quality=quality)
-                image_bytes = base64.b64decode(response.data[0].b64_json)
-                if aspect_preset:
+                if is_nano_banana:
+                    image_bytes, usage = _generate_with_nano_banana(model, prompt, size, image_size)
+                    if usage['image_size'] != image_size:
+                        messages.warning(
+                            request,
+                            f"{model}은(는) {image_size} 생성을 지원하지 않아 "
+                            f"{usage['image_size']}로 생성했습니다.",
+                        )
+                else:
+                    api_size = aspect_preset['api_size'] if aspect_preset else size
+                    image_bytes, usage = _generate_with_gpt_image(model, prompt, api_size, quality)
+                cost_usd = usage['cost_usd']
+                source_size = _image_dimensions_label(image_bytes)
+                if aspect_preset and not is_nano_banana:
+                    # gpt-image 계열만 이 경로를 탄다 — 16:9/9:16을 API에 직접 넘길 수 없어
+                    # 근사 비율로 생성한 뒤 잘라내야 하기 때문이다. 나노바나나는 aspect_ratio를
+                    # API가 그대로 지켜주므로 후처리가 얻는 게 없고, 오히려 모델이 낸 1K 원본을
+                    # 풀HD로 다시 손대면서 화질만 깎는다(비율을 무시하고 1:1을 낸 모델의
+                    # 경우엔 576x1024로 잘린 뒤 확대까지 돼 눈에 띄게 뭉갠다).
                     image_bytes = _crop_to_aspect_and_resize(image_bytes, aspect_preset['output'])
 
                 images_dir = Path(settings.MEDIA_ROOT) / IMAGE_GEN_SUBDIR
@@ -766,20 +963,31 @@ def image_generator_view(request):
                 filename = f"{datetime.now(KST).strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}.png"
                 (images_dir / filename).write_bytes(image_bytes)
 
-                cost_usd = _compute_image_cost_usd(model, response.usage)
                 relative_path = f"{IMAGE_GEN_SUBDIR}/{filename}"
-                GeneratedImage.objects.create(
+                if is_nano_banana:
+                    size_label = source_size
+                elif aspect_preset:
+                    size_label = aspect_preset['gpt_label']
+                else:
+                    size_label = size
+                quality_label = '-' if is_nano_banana else quality  # 나노바나나엔 품질 옵션이 없음
+                generated = GeneratedImage.objects.create(
                     created_by=request.user, model_name=model,
-                    size=aspect_preset['label'] if aspect_preset else size, quality=quality,
+                    size=size_label, source_size=source_size, quality=quality_label,
                     prompt=prompt, file_path=relative_path, cost_usd=cost_usd,
+                    input_tokens=usage['input_tokens'], output_tokens=usage['output_tokens'],
                 )
 
                 result = {
+                    'pk': generated.pk,
                     'url': f"{settings.MEDIA_URL}{relative_path}",
                     'prompt': prompt, 'model': model,
-                    'size': aspect_preset['label'] if aspect_preset else size,
-                    'quality': quality,
+                    'size': size_label,
+                    'source_size': source_size,
+                    'quality': quality_label,
                     'cost_usd': cost_usd,
+                    'input_tokens': usage['input_tokens'],
+                    'output_tokens': usage['output_tokens'],
                 }
                 cost_msg = f" (약 ${cost_usd:.4f})" if cost_usd is not None else ""
                 messages.success(request, f"이미지를 생성했습니다.{cost_msg}")
@@ -788,7 +996,41 @@ def image_generator_view(request):
             except Exception as e:
                 messages.error(request, f"이미지 생성 실패: {e}")
 
-    size_options = [(s, s) for s in IMAGE_GEN_SIZES] + [(k, v['label']) for k, v in ASPECT_PRESETS.items()]
+    submitted = request.POST if request.method == 'POST' else request.GET
+
+    # 픽셀 해상도만 봐서는 비율이 한눈에 안 들어와서 "1024x1536(2:3)"처럼 같이 적어준다.
+    # 비율 문자열은 GEMINI_ASPECT_RATIOS를 그대로 재사용한다(auto는 매핑이 없어 그대로 표시).
+    # 프리셋은 모델에 따라 결과 픽셀이 달라 라벨 두 벌(나노바나나용/gpt-image용)을 함께 넘기고,
+    # 어느 쪽을 보여줄지는 화면 JS가 고른 모델에 맞춰 바꾼다. is_preset_2k는 gpt-image에서
+    # 2K 항목을 감추는 데 쓴다(1K 항목과 결과가 같아 보여줄 이유가 없다).
+    def plain_size_option(s):
+        return {
+            'value': s,
+            'nano_label': f"{s}({GEMINI_ASPECT_RATIOS[s]})" if s in GEMINI_ASPECT_RATIOS else s,
+            'gpt_label': s,
+            'is_preset_2k': False,
+        }
+
+    # 콤보 순서: auto → 유튜브/쇼츠 프리셋 → 정사각/세로/가로 픽셀 크기. 실제로 거의 항상
+    # 고르는 건 프리셋(16:9/9:16)이라 위로 올리고, 픽셀 크기 3종은 아래로 내렸다.
+    # ('auto'는 gpt-image 전용이라 나노바나나를 고르면 화면에서 숨겨진다.)
+    size_options = (
+        [plain_size_option(s) for s in IMAGE_GEN_SIZES if s == 'auto']
+        + [
+            {
+                'value': k,
+                'nano_label': v['nano_label'],
+                'gpt_label': v['gpt_label'],
+                'is_preset_2k': v['image_size'] == '2K',
+            }
+            for k, v in ASPECT_PRESETS.items()
+        ]
+        + [plain_size_option(s) for s in IMAGE_GEN_SIZES if s != 'auto']
+    )
+    model_options = (
+        [(m, f"{m} ({label})") for m, label in NANO_BANANA_MODELS.items()]
+        + [(m, m) for m in IMAGE_GEN_MODELS]
+    )
 
     from ..models import ExchangeRateSnapshot
 
@@ -801,20 +1043,36 @@ def image_generator_view(request):
     context = {
         **admin_site.each_context(request),
         'title': '🖼 AI 이미지 생성',
-        'models': IMAGE_GEN_MODELS,
+        'model_options': model_options,
+        'nano_banana_models': list(NANO_BANANA_MODELS),
         'size_options': size_options,
         'qualities': IMAGE_GEN_QUALITIES,
+        'resolutions': IMAGE_GEN_RESOLUTIONS,
+        'preset_image_sizes': {k: v['image_size'] for k, v in ASPECT_PRESETS.items()},
+        'nano_banana_image_sizes': NANO_BANANA_IMAGE_SIZES,
         'result': result,
         'total_cost_usd': total_cost_usd,
         'total_count': totals['total_count'],
         'total_cost_krw': (total_cost_usd * usd_krw) if usd_krw else None,
         'recent_generations': GeneratedImage.objects.all()[:10],
         'media_url': settings.MEDIA_URL,
+        # 시리즈 생성 탭. active_series_key가 있으면(방금 시작했거나 URL로 들어왔으면)
+        # 화면이 그 키로 진행률 폴링을 시작한다.
+        'ref_mode_labels': REF_MODE_LABELS,
+        'default_ref_mode': DEFAULT_REF_MODE,
+        'max_scenes': MAX_SCENES,
+        'avg_cost_by_model': _avg_cost_by_model_and_size(),
+        'active_series_key': request.GET.get('series', ''),
+        'series_prompts': submitted.get('series_prompts', ''),
+        # 생성 직후엔 방금 보낸 값을 그대로 다시 채워 넣고(연달아 조금씩 고쳐가며 뽑는 흐름),
+        # GET으로 들어올 땐 쿼리스트링을 읽는다 — 목록 화면의 "이 프롬프트로 생성" 링크가
+        # ?prompt=...&model=... 로 넘겨주기 때문이다.
         'form_values': {
-            'prompt': request.POST.get('prompt', ''),
-            'model': request.POST.get('model', IMAGE_GEN_MODELS[0]),
-            'size': request.POST.get('size', 'auto'),
-            'quality': request.POST.get('quality', 'auto'),
+            'prompt': submitted.get('prompt', ''),
+            'model': submitted.get('model', DEFAULT_IMAGE_GEN_MODEL),
+            'size': submitted.get('size', 'auto'),
+            'quality': submitted.get('quality', 'auto'),
+            'image_size': submitted.get('image_size', DEFAULT_IMAGE_GEN_RESOLUTION),
         },
     }
     return render(request, 'articles/image_generator.html', context)
@@ -845,6 +1103,176 @@ def generated_image_list_view(request):
     return render(request, 'articles/generated_image_list.html', context)
 
 
+# 커맨드가 첫 진행 상황을 쓰기까지 기다려주는 시간. 이 안에 사이드카가 안 생기면 기동 실패로
+# 보고 화면에 '중단됨'을 띄운다(Django 기동 + import에 몇 초 걸릴 수 있어 넉넉히 잡는다).
+STARTUP_GRACE_SECONDS = 60
+
+
+def _avg_cost_by_model_and_size():
+    """지금까지 생성한 기록에서 (모델, 생성 크기)별 장당 평균 비용을 뽑는다.
+
+    시리즈 탭에서 "N장이면 대략 얼마" 를 제출 전에 보여주기 위한 것. 단가표로 계산하지 않고
+    실측 평균을 쓰는 이유는, 비용을 좌우하는 출력 토큰 수가 같은 해상도에서도 장마다 달라
+    단가표만으로는 배 가까이 빗나가기 때문이다(2026-09-05 실측: flash 2K가 장당 $0.117~0.131).
+
+    생성 크기는 행에 따로 저장돼 있지 않아 원본 픽셀(source_size)의 긴 변으로 되짚는다 —
+    단일 생성 행과 시리즈 행이 size 필드를 다르게 채우는 반면 source_size는 양쪽 다 같은
+    "WxH" 형식이라 공통 키로 쓸 수 있다."""
+    buckets = {}
+    rows = (
+        GeneratedImage.objects
+        .filter(cost_usd__isnull=False)
+        .exclude(source_size='')
+        .values_list('model_name', 'source_size', 'cost_usd')
+    )
+    for model_name, source_size, cost in rows:
+        try:
+            long_edge = max(int(n) for n in source_size.lower().split('x'))
+        except (ValueError, TypeError):
+            continue
+        bucket = '1K' if long_edge < 1600 else ('2K' if long_edge < 3200 else '4K')
+        buckets.setdefault(model_name, {}).setdefault(bucket, []).append(float(cost))
+    return {
+        model_name: {b: round(sum(v) / len(v), 4) for b, v in per_size.items()}
+        for model_name, per_size in buckets.items()
+    }
+
+
+@staff_member_required
+@require_POST
+def image_series_start_view(request):
+    """시리즈 생성을 백그라운드로 띄운다 — 요청 안에서 직접 생성하지 않는다.
+
+    5장 2K 한 묶음이 약 94초 걸리는데, 앞단 타임아웃이 Cloudflare 100초(무료 플랜이라 조정
+    불가) / gunicorn 120초 / nginx 130초로 걸려 있어 동기 처리는 장 수를 조금만 늘려도 524로
+    끊긴다. 그래서 pipeline_trigger_view와 똑같이 Popen(start_new_session=True)으로 떼어놓고
+    즉시 리다이렉트한 뒤, 화면이 image_series_status_view를 폴링해 진행률을 그린다."""
+    prompts_text = request.POST.get('series_prompts') or ''
+    model = request.POST.get('model') or DEFAULT_IMAGE_GEN_MODEL
+    size = request.POST.get('size') or '1024x1024'
+    image_size = request.POST.get('image_size') or DEFAULT_IMAGE_GEN_RESOLUTION
+    ref_mode = request.POST.get('ref_mode') or DEFAULT_REF_MODE
+
+    prompts = split_prompts(prompts_text)
+    aspect_preset = ASPECT_PRESETS.get(size)
+    if aspect_preset:
+        # 단일 생성과 같은 규칙 — 프리셋이 비율과 생성 크기를 함께 정하므로 콤보값보다 우선한다.
+        image_size = aspect_preset['image_size']
+    aspect = aspect_preset['ratio'] if aspect_preset else GEMINI_ASPECT_RATIOS.get(size, '1:1')
+
+    error = None
+    if model not in NANO_BANANA_MODELS:
+        # 레퍼런스 이미지를 입력으로 받는 경로가 나노바나나 계열에만 있다. gpt-image로는
+        # 장끼리 인물을 맞출 수단이 없어, 애초에 시리즈를 시작하지 못하게 막는다.
+        error = "시리즈 생성은 나노바나나(Gemini) 계열 모델에서만 가능합니다."
+    elif not prompts:
+        error = "프롬프트에서 '#1' 형식의 장 구분자를 찾지 못했습니다. 각 장을 #1, #2 … 로 시작하세요."
+    elif len(prompts) < 2:
+        error = "시리즈 생성은 2장 이상일 때 의미가 있습니다. 1장이면 위 단일 생성을 쓰세요."
+    elif len(prompts) > MAX_SCENES:
+        error = f"한 번에 생성할 수 있는 장 수는 최대 {MAX_SCENES}장입니다 (입력한 장: {len(prompts)}장)."
+    elif ref_mode not in REF_MODES:
+        error = "지원하지 않는 레퍼런스 방식입니다."
+    elif not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+        error = "GEMINI_API_KEY가 설정되어 있지 않습니다 (.env 확인)."
+
+    if error:
+        messages.error(request, error)
+        return redirect(reverse('image_generator'))
+
+    series_key = uuid4().hex
+    # 프롬프트를 파일로 넘긴다 — 인자로 붙이면 장문 5개가 명령행 길이 제한에 걸리고,
+    # 나중에 "이 시리즈를 무슨 프롬프트로 돌렸나" 되짚을 기록도 남지 않는다.
+    series_prompt_path(series_key).write_text(prompts_text, encoding='utf-8')
+
+    log_path = Path(settings.BASE_DIR) / 'logs' / f'image_series_{series_key}.log'
+    python_bin = Path(settings.BASE_DIR) / 'venv' / 'bin' / 'python'
+    with open(log_path, 'ab') as log_fh:
+        subprocess.Popen(
+            [
+                str(python_bin), 'manage.py', 'generate_image_series',
+                '--file', str(series_prompt_path(series_key)),
+                '--model', model, '--aspect', aspect, '--image-size', image_size,
+                '--ref-mode', ref_mode, '--series-key', series_key,
+            ],
+            cwd=str(settings.BASE_DIR),
+            stdout=log_fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            start_new_session=True,  # gunicorn 요청/워커가 끝나도 백그라운드에서 계속 돌게
+        )
+
+    messages.success(request, f"{len(prompts)}장 시리즈 생성을 시작했습니다. 완성되는 대로 아래에 표시됩니다.")
+    return redirect(f"{reverse('image_generator')}?series={series_key}")
+
+
+@staff_member_required
+def image_series_status_view(request):
+    """진행 중인 시리즈의 상태를 JSON으로 — 화면이 몇 초 간격으로 폴링한다.
+
+    완성된 장은 GeneratedImage 행에서(=실제로 저장까지 끝난 것만) 읽고, 전체 장 수·실패·종료
+    여부는 커맨드가 쓰는 사이드카에서 읽는다. 사이드카가 finished를 못 남기고 프로세스가
+    죽는 경우(OOM 등)를 위해 pid 생존까지 확인해, 화면이 영원히 '생성 중'으로 남지 않게 한다."""
+    series_key = request.GET.get('key') or ''
+    if not re.fullmatch(r'[0-9a-f]{32}', series_key):
+        raise Http404
+
+    # 프롬프트 파일은 Popen 직전에 쓰므로, 없으면 애초에 시작된 적 없는 키다(오래된 북마크 등).
+    # 이걸 구분하지 않으면 화면이 'starting'만 받으며 영원히 폴링한다.
+    prompt_path = series_prompt_path(series_key)
+    if not prompt_path.exists():
+        raise Http404
+
+    progress = read_progress(series_key)
+    if progress is None:
+        # 커맨드가 아직 첫 사이드카를 쓰기 전(기동 직후 1~2초)일 수 있으므로 보통은 정상이다.
+        # 다만 그 상태가 STARTUP_GRACE_SECONDS를 넘겼다면 프로세스 기동 자체가 실패한 것으로 본다.
+        age = time.time() - prompt_path.stat().st_mtime
+        state = 'starting' if age < STARTUP_GRACE_SECONDS else 'aborted'
+        return JsonResponse({'state': state, 'total': 0, 'done': 0, 'images': []})
+
+    images = [
+        {
+            'pk': g.pk,
+            'index': g.series_index,
+            'url': f"{settings.MEDIA_URL}{g.file_path}",
+            'jpg_url': reverse('generated_image_jpg', args=[g.pk]),
+            'source_size': g.source_size,
+            'cost_usd': float(g.cost_usd) if g.cost_usd is not None else None,
+            'prompt': g.prompt,
+        }
+        for g in GeneratedImage.objects.filter(series_key=series_key).order_by('series_index')
+    ]
+
+    finished = bool(progress.get('finished'))
+    state = 'running'
+    if finished:
+        state = 'finished'
+    elif not _pid_alive(progress.get('pid')):
+        # 사이드카는 아직 진행 중이라는데 프로세스가 없다 = 비정상 종료.
+        state = 'aborted'
+
+    return JsonResponse({
+        'state': state,
+        'total': progress.get('total') or 0,
+        'done': len(images),
+        'failed': progress.get('failed') or [],
+        'error': progress.get('error'),
+        'last_error': progress.get('last_error'),
+        'total_cost': progress.get('total_cost'),
+        'images': images,
+    })
+
+
+def _pid_alive(pid):
+    """해당 pid의 프로세스가 아직 살아있는지. 신호를 보내지 않는 확인용 kill(pid, 0)."""
+    if not pid:
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
 @staff_member_required
 @require_POST
 def generated_image_delete_view(request, pk):
@@ -864,6 +1292,42 @@ def generated_image_delete_view(request, pk):
     if page:
         url = f"{url}?page={page}"
     return redirect(url)
+
+
+# JPG 변환 품질 — 90이면 썸네일 용도로 눈에 띄는 손실 없이 PNG의 1/3~1/4 크기가 된다.
+JPG_DOWNLOAD_QUALITY = 90
+
+
+@staff_member_required
+def generated_image_jpg_view(request, pk):
+    """저장된 PNG를 그때그때 JPG로 변환해 내려준다. 2K로 뽑으면 PNG가 3MB 가까이 나오는데
+    유튜브 썸네일 업로드 한도가 2MB라 그대로는 못 올리기 때문이다 — 해상도는 그대로 두고
+    포맷만 바꿔 용량을 줄인다. 변환본을 디스크에 남기지 않는 건 원본 1장당 파일이 2개로
+    늘어나는 걸 피하려는 것이고, 덕분에 이 기능이 생기기 전에 만든 이미지에도 그대로 쓸 수
+    있다. 투명 PNG는 JPG에 알파 채널이 없어 흰 배경 위에 합성한다."""
+    from io import BytesIO
+    from PIL import Image
+
+    image = get_object_or_404(GeneratedImage, pk=pk)
+    source_path = Path(settings.MEDIA_ROOT) / image.file_path
+    if not source_path.exists():
+        raise Http404("원본 이미지 파일이 없습니다.")
+
+    with Image.open(source_path) as img:
+        if img.mode in ('RGBA', 'LA', 'P'):
+            img = img.convert('RGBA')
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[-1])
+            img = background
+        else:
+            img = img.convert('RGB')
+        buf = BytesIO()
+        img.save(buf, format='JPEG', quality=JPG_DOWNLOAD_QUALITY, optimize=True)
+
+    filename = Path(image.file_path).with_suffix('.jpg').name
+    response = HttpResponse(buf.getvalue(), content_type='image/jpeg')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 OVERVIEW_DAYS = 60  # 회원가입/뉴스/발행/상담 4개 차트가 공유하는 조회 기간
