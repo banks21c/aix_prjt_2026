@@ -746,7 +746,7 @@ _MODEL_CATEGORY = {
     'ContentCalendarTheme': '콘텐츠·상담', 'ContentCalendarTopic': '콘텐츠·상담',
     'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
     'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
-    'Faq': '콘텐츠·상담', 'NaverBlogPost': '콘텐츠·상담', 'NaverPostMigration': '콘텐츠·상담',
+    'Faq': '콘텐츠·상담', 'NaverBlogPost': '콘텐츠·상담', 'NaverPostMigration': '콘텐츠·상담', 'LiteraryCandidate': '콘텐츠·상담',
 }
 
 # (표시명, url name) — admin-tools 뷰들. 재무상담 시트는 목록(FinancialConsultSheetAdmin,
