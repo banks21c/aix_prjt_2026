@@ -11,6 +11,9 @@
     table.picker tbody tr.selected { background: #eaf6f0; }
     table.picker tbody tr.selected td { font-weight: 600; color: #14705f; }
     .selected-badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #14705f; color: #fff; }
+    .status-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    .status-badge.produced { background: #f3e6c9; color: #8a5a00; }
+    .status-badge.unproduced { background: #e9ecef; color: #495057; }
     #trigger-box code { font-size: 13px; word-break: break-all; }
     #trigger-box .form-label { font-size: 12px; }
 </style>
@@ -56,6 +59,17 @@
             </select>
         </div>
         <div class="col-auto">
+            <label class="form-label mb-1 d-block">제작 상태</label>
+            <div class="btn-group" role="group" aria-label="제작 상태 필터">
+                <input type="radio" class="btn-check" name="produced-filter" id="filter-produced-all" value="" checked>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-all">전체</label>
+                <input type="radio" class="btn-check" name="produced-filter" id="filter-produced-no" value="false">
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-no">미제작</label>
+                <input type="radio" class="btn-check" name="produced-filter" id="filter-produced-yes" value="true">
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-yes">제작완료</label>
+            </div>
+        </div>
+        <div class="col-auto">
             <button type="button" id="search-btn" class="btn btn-primary btn-sm">검색</button>
             <button type="button" id="reset-filter-btn" class="btn btn-outline-secondary btn-sm">전체보기</button>
         </div>
@@ -74,9 +88,9 @@
             </thead>
             <tbody>
                 {% for c in candidates %}
-                <tr data-author="{{ c.author }}" data-work="{{ c.work }}"{% if c.is_selected %} class="selected"{% endif %}>
+                <tr data-author="{{ c.author }}" data-work="{{ c.work }}" data-produced="{{ c.is_produced|yesno:"true,false" }}"{% if c.is_selected %} class="selected"{% endif %}>
                     <td>{{ c.author }}</td>
-                    <td>『{{ c.work }}』</td>
+                    <td>『{{ c.work }}』{% if c.is_produced %}<span class="status-badge produced">제작완료</span>{% else %}<span class="status-badge unproduced">미제작</span>{% endif %}</td>
                     <td class="text-end">
                         {% if c.is_selected %}
                         <span class="selected-badge">선택됨</span>
@@ -171,10 +185,12 @@ document.getElementById('copy-btn').addEventListener('click', async function () 
     document.getElementById('search-btn').addEventListener('click', function () {
         const author = authorSelect.value;
         const work = workSelect.value;
+        const producedFilter = document.querySelector('input[name="produced-filter"]:checked').value;
         document.querySelectorAll('table.picker tbody tr').forEach(function (tr) {
             const matchAuthor = !author || tr.dataset.author === author;
             const matchWork = !work || tr.dataset.work === work;
-            tr.style.display = (matchAuthor && matchWork) ? '' : 'none';
+            const matchProduced = !producedFilter || tr.dataset.produced === producedFilter;
+            tr.style.display = (matchAuthor && matchWork && matchProduced) ? '' : 'none';
         });
     });
 
@@ -182,6 +198,7 @@ document.getElementById('copy-btn').addEventListener('click', async function () 
         authorSelect.value = '';
         workSelect.innerHTML = '<option value="">--선택--</option>';
         workSelect.disabled = true;
+        document.getElementById('filter-produced-all').checked = true;
         document.querySelectorAll('table.picker tbody tr').forEach(function (tr) { tr.style.display = ''; });
     });
 })();

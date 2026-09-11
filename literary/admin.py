@@ -6,8 +6,8 @@ from .models import LiteraryCandidate
 
 @admin.register(LiteraryCandidate)
 class LiteraryCandidateAdmin(admin.ModelAdmin):
-    list_display = ('author', 'work', 'is_selected', 'source', 'selected_at')
-    list_filter = ('is_selected', 'source')
+    list_display = ('author', 'work', 'is_produced', 'is_selected', 'source', 'selected_at')
+    list_filter = ('is_produced', 'is_selected', 'source')
     search_fields = ('author', 'work')
     ordering = ('-is_selected', 'author', 'work')
     actions = ['mark_as_selected', 'clear_selection']

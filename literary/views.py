@@ -55,7 +55,7 @@ def literary_picker_view(request):
         'title': '작가·작품 후보 선택',
         'candidates': candidates,
         'authors': authors,
-        'candidates_data': [{'id': c.pk, 'author': c.author, 'work': c.work} for c in candidates],
+        'candidates_data': [{'id': c.pk, 'author': c.author, 'work': c.work, 'produced': c.is_produced} for c in candidates],
         'trigger_text': _trigger_text_for(selected.author, selected.work) if selected else '',
     }
     return render(request, 'literary/picker.html', context)

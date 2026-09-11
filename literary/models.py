@@ -10,6 +10,7 @@ class LiteraryCandidate(models.Model):
     work = models.CharField(max_length=200, verbose_name="작품")
     source = models.CharField(max_length=100, blank=True, default="고전문학거장50인",
                                verbose_name="출처")
+    is_produced = models.BooleanField(default=False, verbose_name="제작완료")
     is_selected = models.BooleanField(default=False, verbose_name="다음 작품으로 선택됨")
     selected_at = models.DateTimeField(null=True, blank=True, verbose_name="선택 일시")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록 일시")
