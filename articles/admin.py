@@ -768,6 +768,7 @@ _TOOL_LINKS = [
     ('여행/관광 발행 캘린더 (전체)', 'travel_content_calendar_admin'),
     ('회원 대신 블로그 발행', 'publish_for_member'),
     ('네이버 블로그 이관', 'naver_migration_list'),
+    ('작가·작품 후보 선택', 'literary_picker'),
 ]
 
 

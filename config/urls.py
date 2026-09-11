@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
 from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
+from literary.views import literary_picker_view
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
@@ -94,6 +95,7 @@ urlpatterns = [
     path('admin-tools/publish-for-member/', publish_for_member_view, name='publish_for_member'),
     path('admin-tools/naver-migration/', naver_migration_list_view, name='naver_migration_list'),
     path('admin-tools/naver-migration/<int:pk>/', naver_migration_detail_view, name='naver_migration_detail'),
+    path('admin-tools/literary-picker/', literary_picker_view, name='literary_picker'),
     # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
     # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
     # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가
