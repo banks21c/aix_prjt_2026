@@ -39,6 +39,29 @@
 </div>
 {% endif %}
 
+{{ candidates_data|json_script:"candidates-data" }}
+<div class="card card-custom bg-white p-3 mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-auto">
+            <label class="form-label mb-1">작가</label>
+            <select id="filter-author" class="form-select form-select-sm">
+                <option value="">--선택--</option>
+                {% for a in authors %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1">작품</label>
+            <select id="filter-work" class="form-select form-select-sm" disabled>
+                <option value="">--선택--</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="button" id="search-btn" class="btn btn-primary btn-sm">검색</button>
+            <button type="button" id="reset-filter-btn" class="btn btn-outline-secondary btn-sm">전체보기</button>
+        </div>
+    </div>
+</div>
+
 <div class="card card-custom bg-white p-0 mb-4">
     <div class="table-responsive">
         <table class="picker table table-sm table-hover mb-0">
@@ -51,7 +74,7 @@
             </thead>
             <tbody>
                 {% for c in candidates %}
-                <tr{% if c.is_selected %} class="selected"{% endif %}>
+                <tr data-author="{{ c.author }}" data-work="{{ c.work }}"{% if c.is_selected %} class="selected"{% endif %}>
                     <td>{{ c.author }}</td>
                     <td>『{{ c.work }}』</td>
                     <td class="text-end">
@@ -122,5 +145,45 @@ document.getElementById('copy-btn').addEventListener('click', async function () 
         alert('클립보드 복사에 실패했습니다.');
     }
 });
+</script>
+<script>
+(function () {
+    const CANDIDATES = JSON.parse(document.getElementById('candidates-data').textContent);
+    const authorSelect = document.getElementById('filter-author');
+    const workSelect = document.getElementById('filter-work');
+
+    authorSelect.addEventListener('change', function () {
+        const author = authorSelect.value;
+        workSelect.innerHTML = '<option value="">--선택--</option>';
+        if (author) {
+            CANDIDATES.filter(function (c) { return c.author === author; }).forEach(function (c) {
+                const opt = document.createElement('option');
+                opt.value = c.work;
+                opt.textContent = c.work;
+                workSelect.appendChild(opt);
+            });
+            workSelect.disabled = false;
+        } else {
+            workSelect.disabled = true;
+        }
+    });
+
+    document.getElementById('search-btn').addEventListener('click', function () {
+        const author = authorSelect.value;
+        const work = workSelect.value;
+        document.querySelectorAll('table.picker tbody tr').forEach(function (tr) {
+            const matchAuthor = !author || tr.dataset.author === author;
+            const matchWork = !work || tr.dataset.work === work;
+            tr.style.display = (matchAuthor && matchWork) ? '' : 'none';
+        });
+    });
+
+    document.getElementById('reset-filter-btn').addEventListener('click', function () {
+        authorSelect.value = '';
+        workSelect.innerHTML = '<option value="">--선택--</option>';
+        workSelect.disabled = true;
+        document.querySelectorAll('table.picker tbody tr').forEach(function (tr) { tr.style.display = ''; });
+    });
+})();
 </script>
 {% endblock %}

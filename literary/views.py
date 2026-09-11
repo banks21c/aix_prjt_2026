@@ -47,11 +47,15 @@ def literary_picker_view(request):
         messages.success(request, f"'{candidate}'을(를) 다음 작품으로 선택했습니다.")
         return redirect('literary_picker')
 
-    selected = LiteraryCandidate.objects.filter(is_selected=True).first()
+    candidates = list(LiteraryCandidate.objects.all())
+    selected = next((c for c in candidates if c.is_selected), None)
+    authors = sorted({c.author for c in candidates})
     context = {
         **admin_site.each_context(request),
         'title': '작가·작품 후보 선택',
-        'candidates': LiteraryCandidate.objects.all(),
+        'candidates': candidates,
+        'authors': authors,
+        'candidates_data': [{'id': c.pk, 'author': c.author, 'work': c.work} for c in candidates],
         'trigger_text': _trigger_text_for(selected.author, selected.work) if selected else '',
     }
     return render(request, 'literary/picker.html', context)
