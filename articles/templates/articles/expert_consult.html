@@ -19,6 +19,20 @@
            바깥(.ec-hero)은 .ec-body와 max-width/padding을 똑같이 맞춰 어떤 화면폭에서도
            카드와 좌우 선이 정확히 일치하게 하고, 파란 박스는 안쪽(.ec-hero-box)에만 그린다. */
         .ec-hero { max-width: 952px; margin: 0 auto; padding: 28px 20px 0; }
+        /* 상단 타이틀 영역 — expert_consult_apply.html의 .ea-title/.ea-expert-link와 같은 모양.
+           제목은 가운데, "전문가 상담 신청" 버튼만 같은 줄 오른쪽 끝(카드 오른쪽 선)에 붙인다. */
+        .ec-title { max-width: 952px; margin: 0 auto; padding: 40px 20px 0; }
+        .ec-title-row { position: relative; text-align: center; }
+        .ec-title h1 { font-size: 26px; font-weight: 800; margin: 0; word-break: keep-all; }
+        .ec-apply-link {
+            position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+            font-size: 14px; font-weight: 700; border-radius: 8px; padding: 7px 14px;
+            color: var(--brand-navy-start, #0a2647); border: 1px solid var(--brand-navy-start, #0a2647);
+            background: var(--color-white, #fff); text-decoration: none; white-space: nowrap;
+        }
+        .ec-apply-link:hover, .ec-apply-link:focus-visible {
+            background: var(--brand-navy-start, #0a2647); color: var(--color-white, #fff);
+        }
         /* 딥 네이비. 카드 안 강조색(var(--brand-primary, #0d47a1))과 같은 파란 계열이라 따로 놀지 않으면서
            충분히 어두워, 흰 제목 15.2:1 / 본문 7.4:1로 WCAG AA를 여유 있게 넘긴다. */
         .ec-hero-box {
@@ -160,6 +174,8 @@
             background: linear-gradient(135deg, var(--brand-navy-hover-start, #081d38), var(--brand-navy-hover-end, #0f3359));
         }
         @media (max-width: 576px) {
+            .ec-title-row { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+            .ec-apply-link { position: static; transform: none; }
             .ec-hero h1 { font-size: 25px; }
             .ec-hero-box { padding: 24px 22px 28px; }
             .ec-card { padding: 26px 22px; }
@@ -184,6 +200,13 @@
 </head>
 <body>
 {% include "articles/_header.html" %}
+
+<div class="ec-title">
+    <div class="ec-title-row">
+        <h1>전문가 소개</h1>
+        <a href="{% url 'expert_consult_apply' %}" class="ec-apply-link">전문가 상담 신청 <i class="fa-solid fa-chevron-right"></i></a>
+    </div>
+</div>
 
 <div class="ec-hero">
     <div class="ec-hero-box">

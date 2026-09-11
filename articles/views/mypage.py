@@ -212,12 +212,15 @@ def my_posted_articles_view(request):
         .order_by('-posted_at')
     )
 
-    paginator = Paginator(postings, 20)
+    paginator = Paginator(postings, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     context = {
         'site_title': 'NextFinUp - 내 포스팅 이력',
         'page_obj': page_obj,
+        # 발행이 수백 건인 계정은 페이지가 수십 개라 번호를 전부 나열하면 줄이 넘친다 —
+        # 현재 페이지 앞뒤 2개 + 처음/끝 1개만 보이고 나머지는 '…'로 접는다.
+        'page_range': paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1),
     }
     return render(request, 'articles/my_posted_articles.html', context)
 

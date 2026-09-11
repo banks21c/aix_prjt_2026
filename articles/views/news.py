@@ -23,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 def news_board_view(request):
+    return _render_article_board(request, posting_only=False)
+
+
+def blog_posting_board_view(request):
+    """상단 메뉴 '블로그 포스팅' — 경제 동향 게시판에서 포스팅 가능한 글(본문 있는 글)만
+    추려 보여주는 공개 목록. 목록/필터/포스팅 폼은 경제 동향과 같은 로직·템플릿을 쓰고,
+    본문 필터 대신 행마다 AI 요약 상태(요약됨 배지 / AI 요약 버튼)를 보여주는 것만 다르다."""
+    return _render_article_board(request, posting_only=True)
+
+
+def _render_article_board(request, posting_only):
     query = request.GET.get('q', '').strip()
     ai_filter = request.GET.get('ai_filter', 'all')
     if ai_filter not in ('all', 'pending', 'done'):
@@ -30,8 +41,12 @@ def news_board_view(request):
     content_filter = request.GET.get('content_filter', 'all')
     if content_filter not in ('all', 'has', 'none'):
         content_filter = 'all'
+    if posting_only:
+        # 원문 본문이 있어야 AI 요약/포스팅이 가능하다(news_ai_summarize_view가 본문 없는 글은 막음).
+        content_filter = 'has'
     post_filter = request.GET.get('post_filter', 'all')
-    if post_filter not in ('all', 'target', 'done'):
+    if post_filter not in ('all', 'target', 'done') or not posting_only:
+        # 포스팅대상/포스팅완료 토글은 블로그 포스팅 화면에만 있다(경제 동향에선 제거).
         post_filter = 'all'
 
     # user_blog_accounts는 post_filter(포스팅대상/포스팅완료)를 기사 목록 필터링에 쓰려면
@@ -53,6 +68,15 @@ def news_board_view(request):
         .select_related('stock', 'matched_keyword')
         .order_by('-scraped_at')
     )
+    # 블로그 포스팅 화면의 카테고리 콤보박스(검색조건). 빈 값 = 전체.
+    category = request.GET.get('category', '') if posting_only else ''
+    if category not in dict(AnalyzedArticle.CATEGORY_CHOICES):
+        category = ''
+    if not posting_only:
+        # 경제 동향은 경제 카테고리만 — 건강/의학·음식/영양·여행/관광 브리핑은 블로그 포스팅 화면에서만 보인다.
+        articles = articles.filter(content_category=AnalyzedArticle.CATEGORY_ECONOMY)
+    elif category:
+        articles = articles.filter(content_category=category)
     if query:
         articles = articles.filter(
             Q(title__icontains=query) | Q(stock__name__icontains=query) | Q(matched_keyword__keyword__icontains=query)
@@ -115,7 +139,12 @@ def news_board_view(request):
     next_url = f"{request.path}?{next_params.urlencode()}" if next_params else request.path
 
     context = {
-        'site_title': 'NextFinUp - 경제 동향',
+        'site_title': 'NextFinUp - 블로그 포스팅' if posting_only else 'NextFinUp - 경제 동향',
+        'posting_only': posting_only,
+        'category': category,
+        'category_choices': AnalyzedArticle.CATEGORY_CHOICES,
+        # 필터 토글/페이지 링크가 쿼리스트링을 직접 조립하므로 끝에 붙여 카테고리 선택을 유지시킨다.
+        'category_qs': f'&category={category}' if category else '',
         'page_obj': page_obj,
         'page_range': page_range,
         'prev_block_page': prev_block_page,
@@ -195,12 +224,35 @@ def post_articles_view(request):
 
     success_count = 0
     for account in connected_accounts:
+        # 회원 등급 한도(위 posting_stats)와 별개로, 발행 대상 블로그 계정 자체의 하루 한도도 건다.
+        # 앞의 것은 "회원에게 얼마나 줄 것인가", 이건 "대상 플랫폼이 스팸으로 보지 않게" 하는
+        # 안전장치라 목적이 다르다(Blogger 계정 영구 차단 전례). 이미 발행된 조합은 publish_article이
+        # 건너뛰므로 한도를 소모하지 않도록, 슬라이스가 아니라 성공 건수로 세며 끊는다.
+        quota = blog_posting.account_posting_quota(account)
+        account_remaining = quota['remaining']
+        if account_remaining == 0:
+            messages.warning(
+                request,
+                f"{account.get_platform_display()} 계정은 오늘 발행 한도({quota['limit']}건)를 모두 사용했습니다. "
+                "짧은 시간에 몰아서 올리면 플랫폼이 스팸으로 판단할 수 있어 내일 이어서 발행해주세요.",
+            )
+            continue
+
+        account_posted = 0
         for article in articles:
+            if account_remaining is not None and account_posted >= account_remaining:
+                messages.warning(
+                    request,
+                    f"{account.get_platform_display()} 계정은 하루 {quota['limit']}건까지만 발행해서 "
+                    f"{account_posted}건만 올렸습니다. 나머지는 내일 이어서 발행해주세요.",
+                )
+                break
             # 개별 포스팅은 목록 화면의 포스팅완료 버튼 상태로 바로 드러나므로 성공 메시지가 필요 없지만,
             # '선택 포스팅' 일괄 처리는 몇 건이 실제로 끝났는지 바로 안 보이므로 건수를 안내해준다.
             ok, result = blog_posting.publish_article(account, article)
             if ok:
                 success_count += 1
+                account_posted += 1
             else:
                 messages.error(request, f"[{account.get_platform_display()} · {article.title[:30]}] {result}")
 
@@ -644,6 +696,28 @@ def news_edit_view(request, pk):
         'form': form,
     }
     return render(request, 'articles/news_edit.html', context)
+
+
+@login_required
+@require_POST
+def news_delete_view(request, pk):
+    """권한 규칙은 news_edit_view와 같다 — staff는 모든 기사, 일반 회원은 본인이 등록한 기사만.
+    PostedArticle(발행 기록)은 on_delete=CASCADE로 같이 지워지지만 이미 블로그에 올라간 글
+    자체는 건드리지 않는다. 그래서 썸네일 파일은 발행 이력이 없을 때만 지운다 — build_post_content가
+    본문에 SITE_URL + thumbnail.url을 그대로 박아 넣어서(특히 Blogger), 파일을 지우면 이미 발행된
+    글의 이미지가 깨진다."""
+    article = get_object_or_404(AnalyzedArticle, pk=pk)
+    if not (request.user.is_staff or article.scraped_by_id == request.user.id):
+        messages.error(request, "본인이 등록한 기사만 삭제할 수 있습니다.")
+        return redirect('news_board')
+
+    title = article.display_title
+    thumbnail_file = article.thumbnail if article.thumbnail and not article.postings.exists() else None
+    article.delete()
+    if thumbnail_file:
+        thumbnail_file.delete(save=False)
+    messages.success(request, f"'{title[:40]}' 기사를 삭제했습니다.")
+    return redirect('news_board')
 
 
 @login_required

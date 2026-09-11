@@ -23,10 +23,11 @@ from .admin_tools import (
     generated_image_jpg_view,
     file_upload_view, file_upload_download_view, file_upload_delete_view,
     content_calendar_admin_view, publish_for_member_view,
+    naver_migration_list_view, naver_migration_detail_view,
 )
 from .news import (
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
-    news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view,
+    blog_posting_board_view, news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view,
+    news_delete_view, news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view,
     repost_article_view, republish_article_view,
 )
 from .stocks import (
@@ -65,8 +66,8 @@ __all__ = [
     'generated_image_jpg_view',
     'file_upload_view', 'file_upload_download_view', 'file_upload_delete_view',
     'content_calendar_admin_view', 'publish_for_member_view',
-    'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
-    'news_edit_view', 'news_regenerate_thumbnail_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
+    'blog_posting_board_view', 'news_ai_summarize_view', 'news_article_preview_view', 'news_board_view', 'news_detail_view',
+    'news_delete_view', 'news_edit_view', 'news_regenerate_thumbnail_view', 'news_scrape_view', 'news_write_view', 'post_articles_view',
     'repost_article_view', 'republish_article_view', 'stock_detail_view', 'stock_minute_chart_view',
     'stock_period_chart_view', 'watchlist_toggle_view',
     'market_index_minute_chart_view', 'stock_quote_view', 'stock_search_suggest_view', 'chatbot_ask_view',

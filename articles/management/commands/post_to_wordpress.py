@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand
-from articles.blog_posting import enabled_accounts, publish_article, select_candidates
+from articles.blog_posting import (
+    account_posting_quota, enabled_accounts, publish_article, select_candidates,
+)
 
 
 class Command(BaseCommand):
@@ -27,6 +29,14 @@ class Command(BaseCommand):
             return
 
         for account in accounts:
+            quota = account_posting_quota(account)
+            if quota['remaining'] == 0:
+                self.stdout.write(self.style.WARNING(
+                    f"[-] {account.user.username}: 오늘 발행 한도({quota['limit']}건, {quota['source']})를 "
+                    f"이미 채웠습니다. 건너뜁니다."
+                ))
+                continue
+
             candidates = select_candidates(account, account.user.preference, limit)
             if not candidates:
                 self.stdout.write(self.style.WARNING(f"[-] {account.user.username}: 새로 발행할 기사가 없습니다."))

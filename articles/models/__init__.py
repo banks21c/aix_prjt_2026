@@ -15,6 +15,7 @@ from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, Media
 from .content import (
     NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest, FinancialConsultSheet, Faq, ThemeColor,
     GeneratedImage, AdminUpload, ContentCalendarTheme, ContentCalendarTopic,
+    NaverBlogPost, NaverPostMigration,
 )
 
 __all__ = [
@@ -26,5 +27,5 @@ __all__ = [
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
     'FinancialConsultSheet', 'Faq', 'ThemeColor', 'GeneratedImage', 'AdminUpload',
-    'ContentCalendarTheme', 'ContentCalendarTopic',
+    'ContentCalendarTheme', 'ContentCalendarTopic', 'NaverBlogPost', 'NaverPostMigration',
 ]

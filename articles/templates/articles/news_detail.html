@@ -42,6 +42,11 @@
             {% endif %}
             {% if user.is_staff %}
             <a href="{% url 'news_edit' article.pk %}" class="btn btn-sm btn-outline-primary">✏️ 수정</a>
+            <form method="post" action="{% url 'news_delete' article.pk %}" class="d-inline m-0"
+                  onsubmit="return confirm('이 기사를 삭제할까요? 되돌릴 수 없습니다.\n(이미 블로그에 발행된 글은 그대로 남습니다.)');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ 삭제</button>
+            </form>
             {% endif %}
         </div>
 

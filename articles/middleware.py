@@ -29,6 +29,7 @@ MENU_URL_NAMES = {
     'main_dashboard',
     'my_page',
     'news_board',
+    'blog_posting_board',
     'news_detail',
     'stock_detail',
     'expert_consult',

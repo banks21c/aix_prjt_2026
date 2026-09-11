@@ -71,10 +71,14 @@
                     <a class="page-link" href="#" tabindex="-1" aria-disabled="true">&lsaquo;</a>
                     {% endif %}
                 </li>
-                {% for n in page_obj.paginator.page_range %}
+                {% for n in page_range %}
+                {% if n == page_obj.paginator.ELLIPSIS %}
+                <li class="page-item disabled"><span class="page-link">{{ n }}</span></li>
+                {% else %}
                 <li class="page-item{% if n == page_obj.number %} active{% endif %}">
                     <a class="page-link" href="?page={{ n }}">{{ n }}</a>
                 </li>
+                {% endif %}
                 {% endfor %}
                 <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
                     {% if page_obj.has_next %}

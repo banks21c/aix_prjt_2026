@@ -44,7 +44,8 @@ from articles.views import (
     generated_image_jpg_view,
     file_upload_view, file_upload_download_view, file_upload_delete_view,
     content_calendar_admin_view, publish_for_member_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
+    naver_migration_list_view, naver_migration_detail_view,
+    blog_posting_board_view, news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_delete_view, news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
     market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
     ai_performance_view,
@@ -91,6 +92,8 @@ urlpatterns = [
     path('admin-tools/content-calendar/food/', content_calendar_admin_view, {'kind': 'food'}, name='food_content_calendar_admin'),
     path('admin-tools/content-calendar/travel/', content_calendar_admin_view, {'kind': 'travel'}, name='travel_content_calendar_admin'),
     path('admin-tools/publish-for-member/', publish_for_member_view, name='publish_for_member'),
+    path('admin-tools/naver-migration/', naver_migration_list_view, name='naver_migration_list'),
+    path('admin-tools/naver-migration/<int:pk>/', naver_migration_detail_view, name='naver_migration_detail'),
     # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
     # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
     # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가
@@ -140,12 +143,14 @@ urlpatterns = [
     path('api/stock-quote/', stock_quote_view, name='stock_quote'),  # ◀ 대시보드 종목 검색 위젯이 호출하는 온디맨드 API
     path('api/stock-search/', stock_search_suggest_view, name='stock_search_suggest'),  # ◀ 검색창 자동완성 후보 목록 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
+    path('blog-posting/', blog_posting_board_view, name='blog_posting_board'),  # ◀ 상단 메뉴 '블로그 포스팅': 본문 있는(포스팅 가능한) 글만, 비로그인 공개
     path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑
     path('post/write/', news_write_view, name='news_write'),  # ◀ 원문 링크 없이 제목+본문 직접 입력 → AI 요약
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
     path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX
     path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
+    path('news/<int:pk>/delete/', news_delete_view, name='news_delete'),  # ◀ 기사 삭제(news_edit와 같은 권한: staff 또는 본인 등록 기사)
     path('news/<int:pk>/regenerate-thumbnail/', news_regenerate_thumbnail_view, name='news_regenerate_thumbnail'),  # ◀ 관리자 전용 썸네일 이미지 재생성
     path('news/<int:pk>/ai-summarize/', news_ai_summarize_view, name='news_ai_summarize'),  # ◀ 포스팅 직전 개별 기사 AI 요약 트리거
     path('news/<int:pk>/republish/', republish_article_view, name='republish_article'),  # ◀ 이미 발행된 계정에 최신 내용으로 재발행(같은 글 업데이트)

@@ -14,7 +14,7 @@ from .models import (
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
     ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot, Faq,
-    ContentCalendarTheme, ContentCalendarTopic,
+    ContentCalendarTheme, ContentCalendarTopic, NaverBlogPost, NaverPostMigration,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -321,7 +321,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
 
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'user_email', 'user_first_name', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
+    list_display = ('user', 'user_email', 'user_first_name', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'daily_limit_display', 'updated_at')
     list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
     search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
     list_select_related = ('user',)
@@ -330,6 +330,15 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
     # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
     exclude = ('credential',)
     readonly_fields = ('has_credential',)
+
+    @admin.display(description='하루 발행 한도')
+    def daily_limit_display(self, obj):
+        """공란이면 플랫폼 권장값이 적용된다는 걸 목록에서 바로 알 수 있게 실제 적용값을 보여준다."""
+        from .blog_posting import account_posting_quota
+        q = account_posting_quota(obj)
+        if q['is_unlimited']:
+            return '무제한'
+        return f"{q['used_today']}/{q['limit']}건 ({q['source']})"
 
     @admin.display(description='이메일')
     def user_email(self, obj):
@@ -378,6 +387,15 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
     list_editable = ('is_active_premium',)
     list_filter = ('is_active_premium',)
     search_fields = ('user__username', 'user__email')
+
+    @admin.display(description='하루 발행 한도')
+    def daily_limit_display(self, obj):
+        """공란이면 플랫폼 권장값이 적용된다는 걸 목록에서 바로 알 수 있게 실제 적용값을 보여준다."""
+        from .blog_posting import account_posting_quota
+        q = account_posting_quota(obj)
+        if q['is_unlimited']:
+            return '무제한'
+        return f"{q['used_today']}/{q['limit']}건 ({q['source']})"
 
     @admin.display(description='이메일')
     def user_email(self, obj):
@@ -675,6 +693,26 @@ class ContentCalendarTopicAdmin(admin.ModelAdmin):
     ordering = ('category', 'weekday', 'week_number')
 
 
+# 13-3. 네이버 블로그 이관 원문/이관 기록. 본문 HTML은 수집 커맨드가 채우는 값이라
+# Admin에서 손으로 고칠 일이 거의 없고, 실제 확인은 /admin-tools/naver-migration/ 화면에서
+# 한다(본문 렌더링 + 이미지 재호스팅 확인) — 여기는 검색/일괄 삭제용 최소 등록이다.
+@admin.register(NaverBlogPost)
+class NaverBlogPostAdmin(admin.ModelAdmin):
+    list_display = ('title', 'blog_id', 'posted_at', 'status', 'image_count', 'owner', 'scraped_at')
+    list_filter = ('blog_id', 'status')
+    search_fields = ('title', 'log_no', 'excerpt')
+    readonly_fields = ('created_at', 'updated_at', 'scraped_at')
+    ordering = ('-posted_at',)
+
+
+@admin.register(NaverPostMigration)
+class NaverPostMigrationAdmin(admin.ModelAdmin):
+    list_display = ('post', 'blog_account', 'status', 'published_at', 'target_url')
+    list_filter = ('status', 'blog_account')
+    search_fields = ('post__title', 'target_url')
+    ordering = ('-created_at',)
+
+
 # 14. Django Admin 목록을 하나의 "NextFinUp 관리" 통짜 목록 대신 5개 카테고리로 재구성한다
 # (신고: "장고 admin 메뉴가 카테고리화되지 않아 불편하다"). 실제 Django 앱은 여전히 auth/articles
 # 둘뿐이라 진짜 앱을 쪼갤 순 없지만, admin index 템플릿은 get_app_list가 돌려주는 dict 리스트를
@@ -708,7 +746,7 @@ _MODEL_CATEGORY = {
     'ContentCalendarTheme': '콘텐츠·상담', 'ContentCalendarTopic': '콘텐츠·상담',
     'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
     'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
-    'Faq': '콘텐츠·상담',
+    'Faq': '콘텐츠·상담', 'NaverBlogPost': '콘텐츠·상담', 'NaverPostMigration': '콘텐츠·상담',
 }
 
 # (표시명, url name) — admin-tools 뷰들. 재무상담 시트는 목록(FinancialConsultSheetAdmin,
@@ -729,6 +767,7 @@ _TOOL_LINKS = [
     ('음식/영양 발행 캘린더 (전체)', 'food_content_calendar_admin'),
     ('여행/관광 발행 캘린더 (전체)', 'travel_content_calendar_admin'),
     ('회원 대신 블로그 발행', 'publish_for_member'),
+    ('네이버 블로그 이관', 'naver_migration_list'),
 ]
 
 

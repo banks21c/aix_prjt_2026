@@ -7,12 +7,16 @@
 import logging
 import os
 import re
+from datetime import datetime, time, timedelta, timezone as dt_timezone
 
 import requests
 from django.conf import settings
 from django.utils import timezone
 
-from .models import AnalyzedArticle, BlogPostingAccount, PostedArticle, StockPrediction, UserSubscription
+from .models import (
+    AnalyzedArticle, BlogPostingAccount, NaverPostMigration, PostedArticle, StockPrediction,
+    UserSubscription,
+)
 from .utils import resolve_thumbnail_stock
 
 logger = logging.getLogger(__name__)
@@ -36,6 +40,64 @@ _LEADING_THUMBNAIL_IMG_RE = re.compile(
 
 WP_POST_STATUS = "publish"  # 검증 완료 후 바로 공개 발행으로 전환.
 BLOGGER_IS_DRAFT = False  # 검증 완료 후 바로 공개 발행으로 전환.
+
+# 발행 대상 계정 1개가 하루에 올릴 권장 최대 건수. 회원 등급 한도(MemberGrade.daily_post_limit,
+# 과금/혜택 개념)와 목적이 다르다 — 이쪽은 "대상 플랫폼이 우리를 스팸 봇으로 보지 않게" 하는
+# 안전장치다. 숫자 근거는 이 프로젝트에서 실제로 맞은 제재들이다:
+#   BLOGGER  — 이력 없는 블로그에 40건을 몰아 올리다 계정 단위로 글 생성이 영구 차단됐다
+#              (403 PERMISSION_DENIED, OAuth 재연결로도 안 풀림). 가장 보수적으로 잡는다.
+#   WORDPRESS— 자체 호스팅이라 플랫폼 차단 위험은 없지만, Cloudflare/EasyWP 앞단이 버스트에
+#              429를 냈다. 총량보다 간격 문제라 한도는 넉넉히 두고 간격으로 푼다.
+# 계정별로 BlogPostingAccount.daily_post_limit에 값을 넣으면 그 값이 우선한다(0=무제한).
+RECOMMENDED_DAILY_POST_LIMIT = {
+    'WORDPRESS': 10,
+    'BLOGGER': 3,
+}
+DEFAULT_DAILY_POST_LIMIT = 5  # 위 표에 없는 새 플랫폼이 생겼을 때의 보수적 기본값
+
+# 하루의 경계는 KST 기준으로 센다. settings.TIME_ZONE은 UTC라 timezone.localdate()가 커맨드
+# (미들웨어 없음)에서는 UTC 날짜를 주는데, 그러면 KST 00~09시 발행분이 전날로 잡혀 한도가
+# 실제보다 헐거워진다. 운영자도 크론도 KST로 생각하므로 여기서만 명시적으로 KST로 고정한다.
+KST_FOR_QUOTA = dt_timezone(timedelta(hours=9))
+
+
+def account_posting_quota(account):
+    """이 발행 계정의 오늘 발행 현황과 남은 건수.
+
+    {'limit', 'used_today', 'remaining', 'is_unlimited', 'source'} 를 돌려준다.
+    source는 한도 숫자가 어디서 왔는지('계정 설정' / '플랫폼 권장')로, 화면·로그에서
+    "이 숫자를 내가 정한 건가 기본값인가"를 구분하기 위한 표시용이다.
+
+    오늘 건수는 일반 발행(PostedArticle)과 네이버 이관 발행(NaverPostMigration 성공분)을
+    합쳐서 센다 — 플랫폼 입장에선 둘 다 똑같이 "이 블로그에 오늘 올라온 글"이라, 한쪽만
+    세면 이관 배치를 도는 날 한도가 두 배로 헐거워진다."""
+    if account.daily_post_limit is None:
+        limit = RECOMMENDED_DAILY_POST_LIMIT.get(account.platform, DEFAULT_DAILY_POST_LIMIT)
+        source = '플랫폼 권장'
+    else:
+        limit = account.daily_post_limit
+        source = '계정 설정'
+
+    today = timezone.now().astimezone(KST_FOR_QUOTA).date()
+    start = datetime.combine(today, time.min, tzinfo=KST_FOR_QUOTA)
+    end = start + timedelta(days=1)
+
+    used = (
+        PostedArticle.objects.filter(blog_account=account, posted_at__gte=start, posted_at__lt=end).count()
+        + NaverPostMigration.objects.filter(
+            blog_account=account, status='SUCCESS', published_at__gte=start, published_at__lt=end,
+        ).count()
+    )
+
+    is_unlimited = limit == 0
+    return {
+        'limit': limit,
+        'used_today': used,
+        'remaining': None if is_unlimited else max(0, limit - used),
+        'is_unlimited': is_unlimited,
+        'source': source,
+    }
+
 
 def posting_stats(user):
     """뉴스 게시판에 표시할 회원의 포스팅 현황.
@@ -132,6 +194,12 @@ def select_candidates(account, preference, limit=None):
 
     if limit is not None:
         candidates = candidates[:limit]
+
+    # 마지막에 계정별 하루 한도로 한 번 더 자른다. 호출부가 --limit을 안 줬거나(=미발행 백로그
+    # 전체가 대상) 크게 줬을 때도 하루 상한을 넘지 않게 하는 안전장치라, 여기가 마지막 관문이다.
+    quota = account_posting_quota(account)
+    if quota['remaining'] is not None and len(candidates) > quota['remaining']:
+        candidates = candidates[:quota['remaining']]
     return candidates
 
 

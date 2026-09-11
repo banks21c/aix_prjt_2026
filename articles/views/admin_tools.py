@@ -32,7 +32,7 @@ from ..image_series import (
     DEFAULT_REF_MODE, MAX_SCENES, REF_MODES, REF_MODE_LABELS,
     read_progress, series_prompt_path, split_prompts,
 )
-from ..models import AdminUpload, AnalyzedArticle, BlogPostingAccount, FinancialConsultSheet, GeneratedImage, PostedArticle, ThemeColor
+from ..models import AdminUpload, AnalyzedArticle, BlogPostingAccount, FinancialConsultSheet, GeneratedImage, NaverBlogPost, PostedArticle, ThemeColor
 from ..utils import limit_label
 from .performance import build_ai_performance_context
 
@@ -1732,3 +1732,90 @@ def publish_for_member_view(request):
         'category': category,
     }
     return render(request, 'articles/publish_for_member.html', context)
+
+
+# ==========================================
+# 네이버 블로그 이관 — 수집된 원문 목록/상세 (스태프 전용, 읽기 화면)
+# ==========================================
+NAVER_MIGRATION_PAGE_SIZE = 20
+
+
+@staff_member_required
+def naver_migration_list_view(request):
+    """collect_naver_blog_posts가 적재한 NaverBlogPost 목록.
+
+    이 화면은 조회 전용이다 — 수집은 커맨드(또는 크론)로만 돌린다. 화면에서 스크래핑을
+    걸 수 있게 하면 글 수십 건 × 이미지 수백 장을 받는 동안 요청이 살아 있어야 하는데,
+    Cloudflare 100초 상한에 그대로 걸린다(image_generator가 백그라운드 Popen + 폴링을
+    쓰는 것과 같은 이유). 대신 상단에 그때그때 복사해 쓸 커맨드를 적어 둔다."""
+    qs = NaverBlogPost.objects.select_related('owner').prefetch_related('migrations__blog_account')
+
+    blog_id = request.GET.get('blog_id', '').strip()
+    status = request.GET.get('status', '').strip()
+    q = request.GET.get('q', '').strip()
+    if blog_id:
+        qs = qs.filter(blog_id=blog_id)
+    if status:
+        qs = qs.filter(status=status)
+    if q:
+        qs = qs.filter(Q(title__icontains=q) | Q(excerpt__icontains=q) | Q(log_no__icontains=q))
+
+    paginator = Paginator(qs, NAVER_MIGRATION_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    all_posts = NaverBlogPost.objects.all()
+    stats = {
+        'total': all_posts.count(),
+        'scraped': all_posts.filter(status='SCRAPED').count(),
+        'failed': all_posts.filter(status='FAILED').count(),
+        'listed': all_posts.filter(status='LISTED').count(),
+        # 어느 대상 블로그로든 한 번이라도 발행 성공한 원문 수(중복 제거).
+        'migrated': all_posts.filter(migrations__status='SUCCESS').distinct().count(),
+    }
+
+    context = {
+        **admin_site.each_context(request),
+        'title': '📥 네이버 블로그 이관 — 원문 목록',
+        'page_obj': page_obj,
+        'stats': stats,
+        'blog_ids': list(
+            NaverBlogPost.objects.values_list('blog_id', flat=True).distinct().order_by('blog_id')
+        ),
+        'status_choices': NaverBlogPost.STATUS_CHOICES,
+        'blog_id': blog_id,
+        'status': status,
+        'q': q,
+    }
+    return render(request, 'articles/naver_migration_list.html', context)
+
+
+@staff_member_required
+def naver_migration_detail_view(request, pk):
+    """원문 1건 상세 — 이관용 본문 HTML을 그대로 렌더링해 이미지가 제대로 재호스팅됐는지
+    (네이버 CDN 403으로 깨지지 않는지) 눈으로 확인하는 게 이 화면의 핵심 용도다."""
+    post = get_object_or_404(
+        NaverBlogPost.objects.select_related('owner').prefetch_related('migrations__blog_account'), pk=pk
+    )
+
+    # 이전/다음 글(목록과 같은 정렬: 작성일 내림차순). 같은 블로그 안에서만 이동한다.
+    siblings = list(
+        NaverBlogPost.objects.filter(blog_id=post.blog_id).values_list('id', flat=True)
+    )
+    try:
+        idx = siblings.index(post.id)
+    except ValueError:
+        idx = -1
+    prev_id = siblings[idx - 1] if idx > 0 else None
+    next_id = siblings[idx + 1] if 0 <= idx < len(siblings) - 1 else None
+
+    context = {
+        **admin_site.each_context(request),
+        'title': f'📄 {post.title}',
+        'post': post,
+        'migrations': post.migrations.select_related('blog_account').all(),
+        'image_items': sorted((post.image_map or {}).items()),
+        'media_url': settings.MEDIA_URL,
+        'prev_id': prev_id,
+        'next_id': next_id,
+    }
+    return render(request, 'articles/naver_migration_detail.html', context)

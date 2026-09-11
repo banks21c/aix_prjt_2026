@@ -180,6 +180,18 @@ class BlogPostingAccount(models.Model):
     # DB에는 Fernet으로 암호화되어 저장되고(articles/fields.py), 파이썬 쪽에는 평문으로 노출된다.
     # 암호화 오버헤드 때문에 실제 저장 길이가 평문보다 길어져 max_length를 넉넉히 잡았다.
     credential = EncryptedCharField(max_length=1024, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
+    # 이 계정 하나가 하루에 발행할 수 있는 최대 건수. 회원 등급의 daily_post_limit(MemberGrade)과는
+    # 목적이 다르다 — 등급 한도는 "회원에게 얼마나 서비스를 줄 것인가"(과금/혜택)이고, 이쪽은
+    # "대상 플랫폼이 우리를 스팸으로 보지 않게 하는 안전장치"다. 실제로 몰아 발행하다가 Blogger는
+    # 계정 단위로 글 생성이 영구 차단됐고(soonks21, 2026-08), Cloudflare 뒤의 EasyWP는 429를
+    # 냈다. 그래서 한도는 회원이 아니라 '발행 대상 계정'에 걸어야 맞다.
+    #   공란(NULL) = 플랫폼별 권장값 사용 (blog_posting.RECOMMENDED_DAILY_POST_LIMIT)
+    #   0          = 무제한(명시적으로 해제 — 위험을 감수하겠다는 뜻)
+    #   N          = 하루 N건
+    daily_post_limit = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name="하루 발행 한도(공란=권장값, 0=무제한)",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
     class Meta:

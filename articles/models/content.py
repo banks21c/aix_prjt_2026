@@ -341,3 +341,117 @@ class AdminUpload(models.Model):
 
     def __str__(self):
         return self.original_filename
+
+
+# ==========================================
+# 16. 네이버 블로그 이관(마이그레이션) — 원본 보관 테이블 + 이관 이력
+# ==========================================
+class NaverBlogPost(models.Model):
+    """네이버 블로그 글 1건을 이 사이트 DB로 끌어와 보관하는 원본 테이블.
+
+    지금까지 네이버 → WordPress/Blogger 이관은 세션마다 일회용 스크립트를 새로 짜서
+    돌렸고(스크랩 결과가 어디에도 안 남아서, 어떤 글이 넘어갔는지 확인하려면 대상
+    사이트 REST API를 다시 조회해야 했다), 그래서 같은 글을 두 번 긁거나 이미지를 다시
+    내려받는 일이 반복됐다. 이 테이블은 그 중간 산출물을 영구 보관하는 자리다 —
+    한 번 수집해두면 대상 플랫폼이 몇 개든(WordPress, Blogger, …) 네이버를 다시
+    건드리지 않고 이 테이블만 읽어서 발행할 수 있다.
+
+    (blog_id, log_no)가 네이버 쪽 글의 자연키라 unique_together로 묶어 두었고, 수집
+    커맨드(collect_naver_blog_posts)는 이 키로 기존 행을 찾아 갱신하므로 몇 번을 다시
+    돌려도 행이 중복되지 않는다.
+
+    content_html은 본문 속 네이버 이미지(postfiles.pstatic.net)를 서버에 내려받아
+    nextfinup.com/media/naver_migration/ 로 재호스팅한 뒤 src를 바꿔치기한 "이관용"
+    HTML이다. 네이버 이미지 CDN은 외부 도메인 Referer로 걸려오는 요청을 403으로
+    막기 때문에, 원본 src를 그대로 둔 채 다른 블로그에 붙여넣으면 이미지가 전부 깨진다.
+    치환 전 HTML은 original_content_html에 따로 남겨 두어 이미지 처리 로직을 고쳤을 때
+    네이버를 다시 긁지 않고 재가공할 수 있게 했다."""
+
+    STATUS_CHOICES = [
+        ('LISTED', '목록만 수집(본문 없음)'),
+        ('SCRAPED', '본문 수집 완료'),
+        ('FAILED', '수집 실패'),
+    ]
+
+    blog_id = models.CharField(max_length=100, db_index=True, verbose_name="네이버 블로그 ID")
+    log_no = models.CharField(max_length=30, verbose_name="네이버 글 번호(logNo)")
+    # 이 블로그가 어느 회원 것인지. 회원 계정과 무관하게 관리자가 임의 블로그를 긁어올
+    # 수도 있어서 필수는 아니다(NULL 허용).
+    owner = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='naver_blog_posts', verbose_name="소유 회원",
+    )
+    title = models.CharField(max_length=500, verbose_name="제목")
+    content_html = models.TextField(blank=True, verbose_name="본문 HTML (이미지 재호스팅 완료)")
+    original_content_html = models.TextField(blank=True, verbose_name="본문 HTML (네이버 원본)")
+    excerpt = models.CharField(max_length=300, blank=True, verbose_name="본문 요약(목록 표시용)")
+    category_name = models.CharField(max_length=100, blank=True, verbose_name="네이버 카테고리")
+    tags = models.CharField(max_length=255, blank=True, verbose_name="태그(쉼표 구분)")
+    posted_at = models.DateTimeField(null=True, blank=True, verbose_name="네이버 원문 작성일")
+    source_url = models.URLField(max_length=500, verbose_name="네이버 원문 URL")
+    thumbnail_url = models.URLField(max_length=500, blank=True, verbose_name="대표 이미지 URL(재호스팅본)")
+    # {네이버 원본 이미지 URL: media 기준 상대경로} — 같은 글을 다시 수집할 때 이미 받아둔
+    # 파일을 재사용하고, 나중에 media 정리 시 어떤 파일이 어느 글 것인지 되짚기 위한 것.
+    image_map = models.JSONField(default=dict, blank=True, verbose_name="이미지 매핑(원본→재호스팅)")
+    image_count = models.PositiveIntegerField(default=0, verbose_name="본문 이미지 수")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='LISTED', db_index=True, verbose_name="수집 상태")
+    error_message = models.CharField(max_length=500, blank=True, verbose_name="마지막 수집 오류")
+    scraped_at = models.DateTimeField(null=True, blank=True, verbose_name="본문 수집 일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록일")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일")
+
+    class Meta:
+        unique_together = ('blog_id', 'log_no')
+        ordering = ['-posted_at', '-id']
+        indexes = [models.Index(fields=['blog_id', 'status'])]
+        verbose_name = "네이버 블로그 원문 (NaverBlogPost)"
+        verbose_name_plural = "네이버 블로그 원문 (NaverBlogPost)"
+
+    def __str__(self):
+        return f"[{self.blog_id}] {self.title}"
+
+    @property
+    def is_scraped(self):
+        return self.status == 'SCRAPED'
+
+    @property
+    def migrated_count(self):
+        """이 글이 실제로 발행 성공한 대상 블로그 수(목록 화면의 '이관' 배지용)."""
+        return self.migrations.filter(status='SUCCESS').count()
+
+
+class NaverPostMigration(models.Model):
+    """NaverBlogPost 1건을 어느 BlogPostingAccount로 발행했는지의 기록.
+
+    AnalyzedArticle에 대한 PostedArticle과 똑같은 역할이다 — (원문, 대상 계정) 조합을
+    unique_together로 묶어, 같은 글을 같은 블로그에 두 번 올리는 사고를 DB 차원에서
+    막는다. 실패도 행으로 남기는 이유는 재시도 대상을 골라내기 위해서다(과거 이관 때
+    Blogger 403 30건, EasyWP 429 8건처럼 특정 건만 반복 실패하는 패턴이 실제로 있었다)."""
+
+    STATUS_CHOICES = [
+        ('SUCCESS', '발행 성공'),
+        ('FAILED', '발행 실패'),
+    ]
+
+    post = models.ForeignKey(
+        NaverBlogPost, on_delete=models.CASCADE, related_name='migrations', verbose_name="네이버 원문",
+    )
+    blog_account = models.ForeignKey(
+        'articles.BlogPostingAccount', on_delete=models.CASCADE,
+        related_name='naver_migrations', verbose_name="발행 대상 블로그 계정",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='SUCCESS', verbose_name="발행 결과")
+    target_post_id = models.CharField(max_length=100, blank=True, verbose_name="대상 플랫폼 글 ID")
+    target_url = models.URLField(max_length=500, blank=True, verbose_name="발행된 글 URL")
+    error_message = models.CharField(max_length=500, blank=True, verbose_name="실패 사유")
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="발행 일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="기록 생성일")
+
+    class Meta:
+        unique_together = ('post', 'blog_account')
+        ordering = ['-created_at']
+        verbose_name = "네이버 글 이관 기록 (NaverPostMigration)"
+        verbose_name_plural = "네이버 글 이관 기록 (NaverPostMigration)"
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.post.title} → {self.blog_account}"

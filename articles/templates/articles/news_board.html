@@ -34,9 +34,15 @@
         <div class="row mb-4">
             <div class="col d-flex justify-content-between align-items-start">
                 <div>
+                    {% if posting_only %}
+                    <h2 class="fw-bold text-dark">✍️ 블로그 포스팅</h2>
+                    <p class="text-muted">본문이 있어 AI 요약 후 내 블로그에 바로 포스팅할 수 있는 글 목록입니다.</p>
+                    {% else %}
                     <h2 class="fw-bold text-dark">📰 경제 동향</h2>
                     <p class="text-muted">AI 에이전트가 수집·분석한 증권/경제 뉴스 목록입니다.</p>
+                    {% endif %}
                 </div>
+                {% if posting_only %}{# 뉴스 수집/자유 포스팅은 블로그 포스팅 화면에만 둔다(경제 동향에선 제거) #}
                 <div class="d-flex gap-2 flex-shrink-0">
                     {% if user.is_authenticated %}
                     <a href="{% url 'news_scrape' %}" class="btn btn-primary btn-sm">뉴스 수집</a>
@@ -46,6 +52,7 @@
                     <a href="#" class="btn btn-outline-primary btn-sm disabled" aria-disabled="true" tabindex="-1" title="로그인 후 이용할 수 있습니다">자유 포스팅</a>
                     {% endif %}
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -61,42 +68,58 @@
 
         <form method="get" class="card card-custom bg-white p-3 mb-3">
             <div class="input-group">
+                {% if posting_only %}
+                <select name="category" class="form-select flex-grow-0" style="width: 130px;" aria-label="카테고리" onchange="this.form.submit()">
+                    <option value="">전체 카테고리</option>
+                    {% for value, label in category_choices %}
+                    <option value="{{ value }}"{% if category == value %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
                 <input type="text" name="q" class="form-control" placeholder="제목, 종목명, 키워드로 검색" value="{{ query }}">
                 <button type="submit" class="btn btn-primary">검색</button>
-                {% if query or ai_filter != 'all' or content_filter != 'all' or post_filter != 'all' %}
-                <a href="{% url 'news_board' %}" class="btn btn-outline-secondary">초기화</a>
+                {% if query or category or ai_filter != 'all' or content_filter != 'all' and not posting_only or post_filter != 'all' %}
+                <a href="{{ request.path }}" class="btn btn-outline-secondary">초기화</a>
                 {% endif %}
             </div>
             <div class="d-flex flex-wrap gap-2 mt-2">
                 <div class="btn-group btn-group-sm filter-toggle-compact" role="group" aria-label="AI 요약 상태 필터">
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=all{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'all' %} active{% endif %}">전체</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=pending{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'pending' %} active{% endif %}">AI요약전</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=done{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-primary{% if ai_filter == 'done' %} active{% endif %}">AI요약완료</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=all{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-primary{% if ai_filter == 'all' %} active{% endif %}">전체</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=pending{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-primary{% if ai_filter == 'pending' %} active{% endif %}">AI요약전</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}ai_filter=done{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-primary{% if ai_filter == 'done' %} active{% endif %}">AI요약완료</a>
                 </div>
+                {% if not posting_only %}{# 블로그 포스팅 목록은 본문 있는 글로 고정이라 본문 필터가 없다 #}
                 <div class="btn-group btn-group-sm filter-toggle-compact" role="group" aria-label="본문 여부 필터">
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=all{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'all' %} active{% endif %}">전체</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=has{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'has' %} active{% endif %}">본문있음</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=none{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}" class="btn btn-outline-secondary{% if content_filter == 'none' %} active{% endif %}">본문없음</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=all{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-secondary{% if content_filter == 'all' %} active{% endif %}">전체</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=has{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-secondary{% if content_filter == 'has' %} active{% endif %}">본문있음</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}content_filter=none{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}" class="btn btn-outline-secondary{% if content_filter == 'none' %} active{% endif %}">본문없음</a>
                 </div>
-                {% if user_blog_accounts %}
+                {% endif %}
+                {% if user_blog_accounts and posting_only %}
                 <div class="btn-group btn-group-sm filter-toggle-compact" role="group" aria-label="포스팅 여부 필터">
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=all" class="btn btn-outline-success{% if post_filter == 'all' %} active{% endif %}">전체</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=target" class="btn btn-outline-success{% if post_filter == 'target' %} active{% endif %}">포스팅대상</a>
-                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=done" class="btn btn-outline-success{% if post_filter == 'done' %} active{% endif %}">포스팅완료</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=all{{ category_qs }}" class="btn btn-outline-success{% if post_filter == 'all' %} active{% endif %}">전체</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=target{{ category_qs }}" class="btn btn-outline-success{% if post_filter == 'target' %} active{% endif %}">포스팅대상</a>
+                    <a href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if ai_filter != 'all' %}ai_filter={{ ai_filter }}&{% endif %}{% if content_filter != 'all' %}content_filter={{ content_filter }}&{% endif %}post_filter=done{{ category_qs }}" class="btn btn-outline-success{% if post_filter == 'done' %} active{% endif %}">포스팅완료</a>
                 </div>
                 {% endif %}
             </div>
         </form>
 
-        {% if not user.is_authenticated %}
+        {% if posting_only %}{# 포스팅 안내 문구는 포스팅이 가능한 블로그 포스팅 화면에만 #}
+            {% if not user.is_authenticated %}
             <p class="text-muted small">기사를 골라 내 블로그에 직접 포스팅하려면 <a href="{% url 'login' %}">로그인</a>이 필요합니다.</p>
-        {% elif not user_blog_accounts %}
+            {% elif not user_blog_accounts %}
             <p class="text-muted small">아직 등록된 블로그 계정이 없습니다. <a href="{% url 'my_page' %}">마이페이지</a>에서 먼저 등록해주세요.</p>
+            {% endif %}
         {% endif %}
 
         <form method="post" action="{% url 'post_articles' %}" id="newsBoardForm">
             {% csrf_token %}
-            {% if user_blog_accounts %}
+            {% if user_blog_accounts and not posting_only %}
+            {# 경제 동향에는 포스팅 계정 카드/포스팅 버튼이 없다. next는 AI 요약 후 이 목록으로 돌아오게 하는 용도로만 남긴다. #}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {% endif %}
+            {% if user_blog_accounts and posting_only %}
             <input type="hidden" name="next" value="{{ next_url }}">
             <div class="card card-custom bg-white p-3 mb-3">
                 <div class="d-flex flex-row align-items-center flex-wrap gap-2">
@@ -150,7 +173,7 @@
                 {% if page_obj.object_list %}
                     {% for article in page_obj %}
                     <div class="news-row d-flex align-items-start">
-                        {% if user_blog_accounts and article.ai_generated and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
+                        {% if posting_only and user_blog_accounts and article.ai_generated and article.pk not in posted_article_ids and posting_stats.remaining != 0 %}
                         <div class="form-check pt-1 pe-2">
                             <input type="checkbox" class="form-check-input article-check" name="article_ids" value="{{ article.pk }}">
                         </div>
@@ -165,33 +188,42 @@
                                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}</a>{% endif %}
                                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
                                 {% if article.is_premium %} · <span class="badge bg-warning text-dark">한경 프리미엄9</span>{% endif %}
-                                {% if article.ai_summary %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
+                                {% if article.ai_summary and not posting_only %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
                             </div>
                             {% if article.ai_summary %}
                             <div class="news-summary">{{ article.ai_summary|truncatechars:120 }}</div>
                             {% endif %}
                         </div>
                         <div class="news-post-action ps-3 d-flex flex-column align-items-end gap-1">
-                            {% if not article.ai_generated %}
+                            {% if posting_only %}
+                                {# 블로그 포스팅 목록: 요약된 글엔 배지, 안 된 글엔 AI 요약 버튼(로그인 회원에게만). #}
+                                {% if article.ai_summary %}
+                                <span class="badge bg-info text-dark">AI요약완료</span>
+                                {% elif user.is_authenticated %}
+                                <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
+                                        {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
+                                {% endif %}
+                                {% if article.ai_generated and user_blog_accounts %}
+                                    {% if article.pk in posted_article_ids %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
+                                    {% elif posting_stats.remaining == 0 %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
+                                    {% else %}
+                                    <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">포스팅</button>
+                                    {% endif %}
+                                {% endif %}
+                            {% elif not article.ai_generated %}
                                 {% if user.is_authenticated and article.original_content %}
                                 <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
                                         {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
                                 {% endif %}
-                            {% elif user_blog_accounts %}
-                                {% if article.pk in posted_article_ids %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
-                                {% elif posting_stats.remaining == 0 %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
-                                {% else %}
-                                <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">포스팅</button>
-                                {% endif %}
-                            {% endif %}
+                            {% endif %}{# 경제 동향에는 포스팅 버튼이 없다 — 포스팅은 블로그 포스팅 화면에서만 #}
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <p class="text-muted text-center my-4">
-                        {% if query %}"{{ query }}"에 대한 검색 결과가 없습니다.{% else %}수집된 뉴스가 없습니다.{% endif %}
+                        {% if query %}"{{ query }}"에 대한 검색 결과가 없습니다.{% elif posting_only %}포스팅 가능한 글이 없습니다.{% else %}수집된 뉴스가 없습니다.{% endif %}
                     </p>
                 {% endif %}
             </div>
@@ -201,21 +233,21 @@
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
-                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}">&laquo;</a>
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}">&laquo;</a>
                 </li>
                 <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}">&lsaquo;</a>
+                    <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}">&lsaquo;</a>
                 </li>
                 {% for n in page_range %}
                 <li class="page-item{% if n == page_obj.number %} active{% endif %}">
-                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}">{{ n }}</a>
+                    <a class="page-link" href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}">{{ n }}</a>
                 </li>
                 {% endfor %}
                 <li class="page-item{% if not next_block_page %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}">&rsaquo;</a>
+                    <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}">&rsaquo;</a>
                 </li>
                 <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}">&raquo;</a>
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if ai_filter != 'all' %}&ai_filter={{ ai_filter }}{% endif %}{% if content_filter != 'all' %}&content_filter={{ content_filter }}{% endif %}{% if post_filter != 'all' %}&post_filter={{ post_filter }}{% endif %}{{ category_qs }}">&raquo;</a>
                 </li>
             </ul>
         </nav>
