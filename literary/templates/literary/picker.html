@@ -11,15 +11,25 @@
     table.picker tbody tr.selected { background: #eaf6f0; }
     table.picker tbody tr.selected td { font-weight: 600; color: #14705f; }
     .selected-badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #14705f; color: #fff; }
+    #trigger-box code { font-size: 13px; word-break: break-all; }
+    #trigger-box .form-label { font-size: 12px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <p class="text-muted mb-4">
     고전문학거장50인 중 채널이 아직 다루지 않은 후보만 추린 목록입니다. 행의 "선택" 버튼을
-    누르면 그 작가·작품이 "다음 작품"으로 표시되고(한 번에 하나만 유지), 롱폼 제작 파이프라인이
-    시작될 때 이 선택을 자동으로 확인합니다.
+    누르면 그 작가·작품이 "다음 작품"으로 표시되고(한 번에 하나만 유지), 아래 트리거 문구가
+    바뀌면서 클립보드에 바로 복사됩니다. 그 문구를 Claude Code에 붙여넣으면 파이프라인이 시작됩니다.
 </p>
+
+<div id="trigger-box" class="card card-custom bg-white p-3 mb-4">
+    <label class="form-label text-muted mb-1">트리거 문구</label>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <code id="trigger-text" class="flex-grow-1">{{ trigger_text|default:"작가·작품을 선택하면 여기에 트리거 문구가 표시됩니다." }}</code>
+        <button type="button" id="copy-btn" class="btn btn-outline-secondary btn-sm"{% if not trigger_text %} disabled{% endif %}>복사</button>
+    </div>
+</div>
 
 {% if messages %}
 <div class="mb-3">
@@ -48,7 +58,7 @@
                         {% if c.is_selected %}
                         <span class="selected-badge">선택됨</span>
                         {% else %}
-                        <form method="post" class="d-inline">
+                        <form method="post" class="pick-form d-inline">
                             {% csrf_token %}
                             <input type="hidden" name="candidate_id" value="{{ c.pk }}">
                             <button type="submit" class="btn btn-outline-success btn-sm">선택</button>
@@ -61,4 +71,56 @@
         </table>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.pick-form').forEach(function (form) {
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const submitBtn = form.querySelector('button');
+        submitBtn.disabled = true;
+        try {
+            const resp = await fetch(window.location.pathname, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || '선택 저장에 실패했습니다.');
+
+            document.getElementById('trigger-text').textContent = data.trigger_text;
+            const copyBtn = document.getElementById('copy-btn');
+            copyBtn.disabled = false;
+            try {
+                await navigator.clipboard.writeText(data.trigger_text);
+                copyBtn.textContent = '복사됨';
+                setTimeout(function () { copyBtn.textContent = '복사'; }, 1500);
+            } catch (clipErr) {
+                // 클립보드 권한이 없어도 위 트리거 문구는 화면에 그대로 남아 수동 복사 가능.
+            }
+
+            document.querySelectorAll('table.picker tbody tr').forEach(function (tr) {
+                tr.classList.remove('selected');
+            });
+            const tr = form.closest('tr');
+            tr.classList.add('selected');
+            form.outerHTML = '<span class="selected-badge">선택됨 · 복사됨</span>';
+        } catch (err) {
+            alert(err.message);
+            submitBtn.disabled = false;
+        }
+    });
+});
+
+document.getElementById('copy-btn').addEventListener('click', async function () {
+    const btn = this;
+    const text = document.getElementById('trigger-text').textContent;
+    try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = '복사됨';
+        setTimeout(function () { btn.textContent = '복사'; }, 1500);
+    } catch (err) {
+        alert('클립보드 복사에 실패했습니다.');
+    }
+});
+</script>
 {% endblock %}
