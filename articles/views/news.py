@@ -443,6 +443,7 @@ def news_ai_summarize_view(request, pk):
         article.ai_summarized_at = timezone.now()
         article.thumbnail = thumbnail.build_thumbnail_file(
             article.display_title, resolve_thumbnail_stock(article), article.matched_keyword, ai_summary=draft['ai_summary'],
+            content_category=article.content_category,
         )
         article.save(update_fields=[
             'ai_title', 'ai_summary', 'ai_analysis', 'blog_content',
@@ -739,6 +740,8 @@ def news_regenerate_thumbnail_view(request, pk):
         article.display_title, resolve_thumbnail_stock(article), article.matched_keyword,
         ai_summary=article.ai_summary or article.original_content[:400],
         show_meta=show_meta,
+        # 자유 포스팅은 생성 시점(news_write_view)처럼 카테고리 없이 기본 스타일로 그린다.
+        content_category=article.content_category if show_meta else None,
     )
     article.save(update_fields=['thumbnail'])
     messages.success(request, "썸네일 이미지를 다시 생성했습니다.")

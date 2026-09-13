@@ -56,6 +56,16 @@ SIGNAL_COLORS = {
 SIGNAL_LABELS = {'BUY': '매수', 'SELL': '매도', 'HOLD': '관망'}
 DEFAULT_SIGNAL_COLOR = "#8b98b8"  # 시그널 없음/중립
 
+# 종목이 없는 카드의 상단 태그 — content_category(AnalyzedArticle.CATEGORY_*)로 정한다. 발행
+# 커맨드(generate_*_briefing)가 넘기는 category_label과 같은 문구라, 관리자 '썸네일 재생성'처럼
+# category_label 없이 다시 그려도 같은 태그가 붙는다. 여기 없는 카테고리(경제 등)는 태그를
+# 달지 않는다 — 예전 기본값 "AI 요약 리포트"는 2026-09-13 삭제.
+CATEGORY_TAG_LABELS = {
+    'HEALTH': "건강정보",
+    'FOOD': "음식/영양정보",
+    'TRAVEL': "여행/관광정보",
+}
+
 FONT_BOLD = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
 FONT_REGULAR = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
 
@@ -300,7 +310,7 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
 
 
 def _compose_ai_image_background(ai_image_bytes):
-    """gemini-3.1-flash-image(Nano Banana 2)가 만든 이미지(비율이 카드와 정확히 안 맞을 수 있음)를 1200x630 캔버스에
+    """Nano Banana 2 Flash Lite(article_ai.GEMINI_IMAGE_MODEL)가 만든 이미지(비율이 카드와 정확히 안 맞을 수 있음)를 1200x630 캔버스에
     꽉 차게(cover) 리사이즈한 뒤 남는 부분을 가운데 기준으로 잘라낸다."""
     from io import BytesIO
     src = Image.open(BytesIO(ai_image_bytes)).convert("RGB")
@@ -317,29 +327,52 @@ def _compose_ai_image_background(ai_image_bytes):
     return resized.crop((left, top, left + target_w, top + target_h))
 
 
-def _draw_bottom_gradient(img, height=300):
-    """AI 이미지 위에 얹는 제목 텍스트가 배경과 상관없이 항상 읽히도록, 카드 하단에 어두운
-    그라데이션을 덧씌운다."""
+def _draw_bottom_gradient(img, text_top):
+    """AI 이미지 위에 얹는 제목 텍스트가 배경과 상관없이 항상 읽히도록, 제목이 놓이는 자리에만
+    어두운 그라데이션을 덧씌운다. 예전엔 하단 300px(카드 높이의 약 절반)을 선형으로 덮어 이미지가
+    전체적으로 탁해 보였다 — 지금은 제목 윗줄(text_top) 110px 위에서부터 부드럽게(smoothstep)
+    어두워져, 제목 윗줄 조금 아래부터 바닥까지만 진하게 덮는다."""
+    fade_start = max(0, text_top - 110)
+    solid_from = text_top + 20
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    for i in range(height):
-        alpha = int(210 * (i / height))
-        y = img.height - height + i
+    for y in range(fade_start, img.height):
+        t = min(1.0, (y - fade_start) / (solid_from - fade_start))
+        alpha = int(200 * t * t * (3 - 2 * t))
+        draw.line([(0, y), (img.width, y)], fill=(14, 21, 38, alpha))
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+
+
+def _draw_top_shade(img, height=130):
+    """우측 상단 날짜 글씨가 밝은 사진(음식·여행) 위에서도 읽히도록 카드 윗부분만 옅게 어둡게 한다."""
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for y in range(height):
+        alpha = int(110 * (1 - y / height))
         draw.line([(0, y), (img.width, y)], fill=(14, 21, 38, alpha))
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
 def _render_ai_hero_card(title, category_label, ai_image_bytes, show_meta=True):
-    """gemini-3.1-flash-image(Nano Banana 2)로 생성한 일러스트를 배경 전체에 깔고, 그 위에 액센트 바/날짜/카테고리
+    """article_ai.GEMINI_IMAGE_MODEL(Nano Banana 2 Flash Lite)로 생성한 일러스트를 배경 전체에 깔고, 그 위에 액센트 바/날짜/카테고리
     태그/제목만 얹는 단순한 레이아웃 — 경제 뉴스가 아닌 일반 기사용. 종목 시세·코스피/코스닥
     카드와 달리 정확한 수치를 보여줄 게 없으므로 그 자리를 이미지 자체가 대신한다.
     show_meta=False면 날짜/카테고리 태그를 그리지 않는다 — 회원이 직접 쓴 자유 포스팅은
     '리포트' 성격이 아니라 이 표시가 어색하다."""
     img = _compose_ai_image_background(ai_image_bytes)
-    img = _draw_bottom_gradient(img)
+    margin = 70
+
+    # 그라데이션을 제목 자리에 맞추려면 줄 수를 먼저 알아야 해서, 줄바꿈을 그라데이션보다 먼저 한다.
+    title_font = _font(FONT_BOLD, 44)
+    max_text_width = CANVAS_SIZE[0] - margin * 2
+    lines = _wrap_by_width(ImageDraw.Draw(img), title, title_font, max_text_width, max_lines=2)
+    text_top = CANVAS_SIZE[1] - 56 - len(lines) * 56
+
+    img = _draw_bottom_gradient(img, text_top)
+    if show_meta:
+        img = _draw_top_shade(img)
     draw = ImageDraw.Draw(img)
     accent = DEFAULT_SIGNAL_COLOR
-    margin = 70
 
     draw.rectangle([0, 0, CANVAS_SIZE[0], 10], fill=accent)
 
@@ -359,10 +392,7 @@ def _render_ai_hero_card(title, category_label, ai_image_bytes, show_meta=True):
             draw.rounded_rectangle([x0, y0, x1, y1], radius=tag_h / 2, fill=(14, 21, 38, 180), outline="white", width=2)
             draw.text(((x0 + x1) / 2, (y0 + y1) / 2), category_label, font=tag_font, fill="white", anchor="mm")
 
-    title_font = _font(FONT_BOLD, 44)
-    max_text_width = CANVAS_SIZE[0] - margin * 2
-    lines = _wrap_by_width(draw, title, title_font, max_text_width, max_lines=2)
-    y = CANVAS_SIZE[1] - 56 - len(lines) * 56
+    y = text_top
     for line in lines:
         draw.text((margin, y), line, font=title_font, fill="white")
         y += 56
@@ -386,7 +416,7 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     summary_lines: AI 3줄 요약 줄 목록 — market_data도 index_summary도 없는(=경제 뉴스가
     아닌) 카드에서, 빈 하단 공간에 짧게 줄인 요약을 대신 그릴 때 쓴다(ai_background_bytes가
     없을 때의 폴백).
-    ai_background_bytes: gemini-3.1-flash-image(Nano Banana 2)로 생성한 PNG 바이트 — 있으면
+    ai_background_bytes: Nano Banana 2 Flash Lite(article_ai.GEMINI_IMAGE_MODEL)로 생성한 PNG 바이트 — 있으면
     이 함수의 나머지 인자를 전부 무시하고 _render_ai_hero_card로 그린다(경제 뉴스가 아닌 기사용
     대표 레이아웃).
     show_meta=False면 그 위에 얹는 날짜/카테고리 태그를 생략한다(ai_background_bytes가 있을
@@ -474,7 +504,9 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
         if market_data:
             _draw_market_grid(draw, margin, grid_top, CANVAS_SIZE[0] - margin, grid_bottom, market_data)
         elif summary_lines:
-            _draw_summary_panel(draw, margin, grid_top, CANVAS_SIZE[0] - margin, 430, summary_lines)
+            # 요약 3줄(첫 줄 y0+52, 줄 간격 36, 글자 높이 약 30)이 들어가려면 패널 하단이 grid_top+175는
+            # 돼야 한다. 예전 430(=grid_top+135)은 셋째 줄이 테두리 밖으로 삐져나왔다.
+            _draw_summary_panel(draw, margin, grid_top, CANVAS_SIZE[0] - margin, 470, summary_lines)
 
     from io import BytesIO
     buf = BytesIO()
@@ -483,25 +515,29 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
 
 
 def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label=None,
-                          ai_summary=None, is_economic_news=None, index_summary=None, show_meta=True):
+                          ai_summary=None, is_economic_news=None, index_summary=None, show_meta=True,
+                          content_category=None):
     """news_ai_summarize_view/news_scrape_view/generate_featured_stock_briefing에서 AI 요약이
     만들어지는 시점에 호출. stock이 있으면 종목명/티커/최신 매매 시그널·실시간 시세로, 없으면
     매칭 키워드(또는 'AI 요약')로 카드를 그려 ImageField에 바로 할당 가능한 ContentFile을 반환한다.
-    category_label을 넘기면 상단 태그를 기본값(종목 분석 리포트/AI 요약 리포트) 대신 그 값으로 쓴다
-    (예: 특징주 브리핑 커맨드는 "특징주 브리핑"을 넘김).
+    category_label을 넘기면 상단 태그를 기본값 대신 그 값으로 쓴다(예: 특징주 브리핑 커맨드는
+    "특징주 브리핑"을 넘김). 기본값은 종목 카드면 "종목 분석 리포트", 종목이 없으면
+    CATEGORY_TAG_LABELS[content_category]이고, 거기도 없으면 태그를 달지 않는다.
     is_economic_news를 지정하지 않으면 stock이 있을 때만 경제/시황 기사로 보고 코스피/코스닥
     지수 요약을 그린다 — matched_keyword만으로는 판단하지 않는다. matched_keyword는
     NewsKeyword로 회원이 관심사 분류용으로 걸어둔 값일 뿐 그 기사가 실제로 국내 시황을 다룬다는
     뜻이 아니라서(예: "AI" 키워드에 걸린 스페이스X 실적 기사), 그 경우까지 지수 카드를 붙이면
     본문과 무관한 국내 지수가 나가버린다. stock도 없으면(=제목에 국내 종목명이 없으면) 대신
-    gemini-3.1-flash-image(Nano Banana 2)로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
+    Nano Banana 2 Flash Lite(article_ai.GEMINI_IMAGE_MODEL)로 본문 요약 기반 일러스트를 그린다(generate_thumbnail_image_bytes). 특징주
     브리핑처럼 종목이 없어도 확실히 시황 콘텐츠인 경우엔 True로 강제한다.
     index_summary를 직접 넘기면(주간 시황 정리처럼 "오늘" 지수가 아니라 이미 계산해둔 값을 쓰는
     경우) 아래의 오늘자 MarketIndex 자동 조회를 건너뛰고 그 값을 그대로 쓴다 — 토요일에 도는
     generate_weekly_market_briefing은 그날 MarketIndex가 없어(휴장) 자동 조회가 항상 비므로
     이 경로가 필요하다.
-    show_meta=False면 gemini-3.1-flash-image(Nano Banana 2) 배경 위 날짜/카테고리 태그를 생략한다 — 자유 포스팅(회원이
-    직접 쓴 글)은 '리포트'가 아니라서 이 표시가 어색하다."""
+    show_meta=False면 Nano Banana 2 Flash Lite(article_ai.GEMINI_IMAGE_MODEL) 배경 위 날짜/카테고리 태그를 생략한다 — 자유 포스팅(회원이
+    직접 쓴 글)은 '리포트'가 아니라서 이 표시가 어색하다.
+    content_category(AnalyzedArticle.CATEGORY_*)는 AI 일러스트의 스타일을 고르는 데만 쓴다
+    (article_ai.THUMBNAIL_STYLES) — None이면 회원 자유 포스팅용 기본 스타일."""
     from django.core.files.base import ContentFile
 
     from .models import MarketIndex, StockPrediction, StockRealtimePrice
@@ -535,7 +571,7 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
         ticker = None
         signal_color_key = None
         market_data = None
-        category_label = category_label or "AI 요약 리포트"
+        category_label = category_label or CATEGORY_TAG_LABELS.get(content_category)
 
         if is_economic_news and not index_summary:
             # 특정 종목이 없어 카드가 휑해 보이므로, 대신 오늘자 코스피/코스닥 지수 요약을 보여준다.
@@ -563,11 +599,13 @@ def build_thumbnail_file(title, stock=None, matched_keyword=None, category_label
 
         if not index_summary:
             if not is_economic_news:
-                # 경제 뉴스가 아닌 일반 기사는 코스피/코스닥 대신 gemini-3.1-flash-image(Nano Banana 2)로 그린 일러스트를
+                # 경제 뉴스가 아닌 일반 기사는 코스피/코스닥 대신 Nano Banana 2 Flash Lite(article_ai.GEMINI_IMAGE_MODEL)로 그린 일러스트를
                 # 대표 이미지로 쓴다. 실패/미설정 시 None이 돌아와 아래 summary_lines 폴백으로
                 # 자연스럽게 이어진다.
                 from . import article_ai
-                ai_background_bytes = article_ai.generate_thumbnail_image_bytes(title, ai_summary)
+                ai_background_bytes = article_ai.generate_thumbnail_image_bytes(
+                    title, ai_summary, content_category=content_category,
+                )
             if not ai_background_bytes:
                 summary_lines = [l.strip() for l in (ai_summary or '').split('\n') if l.strip()][:3] or None
 
@@ -594,7 +632,7 @@ if __name__ == "__main__":
          "종목 분석 리포트",
          {'current_price': 245500, 'prev_close': 236000, 'change': 9500, 'change_pct': 4.03,
           'volume': 3456789, 'trading_value': 245500 * 3456789}, None),
-        ("코스피, 미 연준 금리 동결 소식에 강보합 마감", "코스피", None, None, "AI 요약 리포트", None, None),
+        ("코스피, 미 연준 금리 동결 소식에 강보합 마감", "코스피", None, None, None, None, None),
         ("2026-07-31 장중 특징주 브리핑", "경제 뉴스", None, None, "특징주 브리핑", None, [
             {'label': '코스피', 'close': 3187.42, 'change': -12.5, 'change_pct': -0.39, 'volume': 412345678,
              'flows': {'foreign': -1523000, 'institution': -842000, 'retail': 2365000}},

@@ -9,10 +9,13 @@ from openai import BadRequestError, OpenAI
 
 logger = logging.getLogger(__name__)
 
-# 기사 썸네일용 AI 배경 일러스트 생성 모델 (Nano Banana 2). 2026-09-02, gpt-image-2 화질
-# 불만으로 전환 — 예전 gpt-image-2 버전은 아래 generate_thumbnail_image_bytes 뒤에 롤백용으로
-# 주석 처리해 남겨뒀다.
-GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+# 기사 썸네일용 AI 배경 일러스트 생성 모델. 2026-09-02, gpt-image-2 화질 불만으로 Nano Banana 2
+# (gemini-3.1-flash-image)로 전환 — 예전 gpt-image-2 버전은 아래 generate_thumbnail_image_bytes
+# 뒤에 롤백용으로 주석 처리해 남겨뒀다. 2026-09-13, 정식 서비스 전이라 비용을 줄이려고 Nano
+# Banana 2 Flash Lite(1K 기준 장당 약 $0.034, Nano Banana 2의 절반)로 낮췄다.
+GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+# 1K(16:9 = 1376x768)면 1200x630 카드로 줄여 쓰기에 충분하다. 2K는 비용만 늘어난다.
+GEMINI_IMAGE_SIZE = "1K"
 
 # 기사 3줄 요약/투자 분석/블로그 초안(generate_draft)에 쓰는 모델. 한때 Gemini(gemini-flash-latest)를
 # 썼으나 무료 티어 일일 한도(gemini-3.6-flash 기준 20건/일)가 실사용 중 반복적으로 소진돼(429
@@ -790,21 +793,65 @@ def _strip_proper_nouns(client, title, ai_summary):
         return ''
 
 
-# gemini-3.1-flash-image(Nano Banana 2) 전용 고정 스타일 접미사 — 기사마다 바뀌는 장면 묘사
-# 뒤에 항상 그대로 붙여서 카드 톤을 통일한다.
-COMMON_STYLE_SCRIPT = (
-    "flat editorial illustration, muted navy/blue color palette, high contrast, "
-    "professional news-site cover art"
-)
+# 콘텐츠 카테고리(AnalyzedArticle.content_category)별 썸네일 스타일. 'scene_hint'는 장면 묘사를
+# 만드는 gpt-4o-mini에 주는 한국어 지시, 'style'은 Nano Banana 프롬프트 뒤에 붙는 영어 스타일
+# 접미사다. 예전엔 모든 기사에 "flat editorial illustration, muted navy/blue color palette" 한
+# 가지를 붙였는데, 음식 사진의 채소·사람까지 전부 파랗게 칠해져 칙칙해 보였다(2026-09-13 교체).
+# 사이트 톤(남색)은 카드의 액센트 바·하단 그라데이션이 이미 맡고 있어서 이미지 색까지 묶을 필요가 없다.
+# 키가 None인 항목은 카테고리가 없는 회원 자유 포스팅(소설 줄거리 요약 등)용 기본값이다.
+THUMBNAIL_STYLES = {
+    'ECONOMY': {
+        'scene_hint': "",
+        'style': (
+            "modern editorial illustration, rich natural colors with deep blue accents, "
+            "cinematic lighting, professional news-site cover art"
+        ),
+    },
+    'HEALTH': {
+        'scene_hint': (
+            "기사가 다루는 증상·약·음식·생활 습관이 한눈에 드러나는 장면으로 묘사하라(예: 꽃가루 "
+            "알레르기면 꽃가루가 날리는 봄날 재채기하는 사람, 진통제 오남용이면 약통과 알약을 "
+            "들여다보며 망설이는 사람). 경고·주의를 다루는 기사를 즐겁기만 한 장면으로 바꾸지 말고, "
+            "주제는 그대로 보여주되 톤만 밝고 차분하게 하라. 수술·주사·피 등 거부감을 주는 의료 "
+            "장면은 피하라."
+        ),
+        'style': (
+            "clean modern editorial illustration, fresh bright palette of soft greens, "
+            "sky blues and warm whites, gentle soft lighting, calm reassuring mood"
+        ),
+    },
+    'FOOD': {
+        'scene_hint': "음식이나 신선한 재료가 화면의 주인공이 되도록 가까이서 보여주는 장면으로 묘사하라.",
+        'style': (
+            "appetizing food photography, soft natural window light, warm vibrant true-to-life "
+            "colors, shallow depth of field, styled tabletop"
+        ),
+    },
+    'TRAVEL': {
+        'scene_hint': "그 여행지를 대표하는 풍경이나 명소가 넓게 펼쳐진 장면으로 묘사하라.",
+        'style': (
+            "vivid cinematic travel photography, golden hour sunlight, rich natural colors, "
+            "wide scenic composition"
+        ),
+    },
+    None: {
+        'scene_hint': "글의 분위기와 핵심 장면이 드러나는 장면으로 묘사하라.",
+        'style': (
+            "richly colored painterly illustration, storybook atmosphere, dramatic lighting, "
+            "detailed textures"
+        ),
+    },
+}
 
 
-def _describe_symbolic_scene(client, title, ai_summary):
+def _describe_symbolic_scene(client, title, ai_summary, scene_hint=""):
     """title/ai_summary(한국어)를 gpt-4o-mini로 영어 '상징적 장면' 묘사 한 문장으로 바꾼다.
     Nano Banana는 헤드라인/요약 원문을 그대로 프롬프트에 욱여넣는 것보다, 구체적인 사물·행동·
     조명·구도가 있는 장면 묘사를 줬을 때 결과물 품질이 확실히 좋다(실사용 프롬프트 스크립트에서
     확인된 패턴). 실존 인물 이름·특정 가능한 초상은 프롬프트 단계에서부터 빼게 해 안전 필터
-    차단 확률도 같이 낮춘다. 실패 시 빈 문자열을 반환해 호출부가 (덜 정교한) 직접 프롬프트로
-    폴백하게 한다."""
+    차단 확률도 같이 낮춘다. scene_hint(THUMBNAIL_STYLES의 카테고리별 지시)가 있으면 지시문에
+    덧붙여 카테고리에 맞는 장면을 고르게 한다. 실패 시 빈 문자열을 반환해 호출부가 (덜 정교한)
+    직접 프롬프트로 폴백하게 한다."""
     try:
         response = client.chat.completions.create(
             model=DRAFT_MODEL,
@@ -815,8 +862,8 @@ def _describe_symbolic_scene(client, title, ai_summary):
                     "추상적인 개념어를 나열하지 말고 구체적인 사물·인물의 행동·조명·구도를 포함해 "
                     "한 문장으로 써라. 실존 인물의 이름이나 특정 가능한 초상은 절대 넣지 말고 "
                     "일반화된 인물 묘사만 써라(예: 'a tired office worker', 'an elderly musician'). "
-                    "글자·숫자·차트·로고·워터마크가 장면에 등장해서는 안 된다. 반드시 아래 JSON "
-                    "형식으로만 답하라.\n"
+                    "글자·숫자·차트·로고·워터마크가 장면에 등장해서는 안 된다. "
+                    f"{scene_hint} 반드시 아래 JSON 형식으로만 답하라.\n"
                     '{"scene": "영어 장면 묘사 한 문장"}'
                 )},
                 {'role': 'user', 'content': f"제목: {title}\n요약: {(ai_summary or '')[:400]}"},
@@ -832,18 +879,20 @@ def _describe_symbolic_scene(client, title, ai_summary):
         return ''
 
 
-def generate_thumbnail_image_bytes(title, ai_summary):
+def generate_thumbnail_image_bytes(title, ai_summary, content_category=None):
     """경제 뉴스가 아닌 일반 기사(관련 종목·매칭 키워드가 없는 기사)의 썸네일을
-    gemini-3.1-flash-image(Nano Banana 2)로 직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/
+    GEMINI_IMAGE_MODEL(Nano Banana 2 Flash Lite)로 직접 그려 PNG 바이트로 반환한다. 종목 시세·코스피/
     코스닥 지수처럼 정확한 수치를 보여줘야 하는 카드는 여기 쓰지 않는다 — AI 이미지 생성은 숫자를
     정확히 보장할 수 없어, 그런 카드는 thumbnail.py가 실제 데이터로 직접 그린다
     (_draw_market_grid/_draw_index_summary_boxes). GEMINI_API_KEY가 없거나(플레이스홀더 포함)
     호출이 실패하면 None을 반환해, 호출부(thumbnail.build_thumbnail_file)가 조용히 기존 PIL
     텍스트 패널 카드로 폴백하게 한다.
     헤드라인/요약을 그대로 프롬프트에 넣지 않고, 먼저 _describe_symbolic_scene으로 구체적인
-    장면 묘사로 바꾼 뒤 COMMON_STYLE_SCRIPT를 붙여 최종 프롬프트를 만든다 — 같은 모델이라도
-    프롬프트가 추상적이면 결과물 품질이 크게 떨어지기 때문. 하단 1/3은 title 텍스트 오버레이용
-    여백을 비우도록 명시한다(_render_ai_hero_card가 그 자리에 그라데이션+제목을 얹으므로).
+    장면 묘사로 바꾼 뒤 content_category에 맞는 THUMBNAIL_STYLES 스타일을 붙여 최종 프롬프트를
+    만든다 — 같은 모델이라도 프롬프트가 추상적이면 결과물 품질이 크게 떨어지기 때문. 예전엔 하단
+    1/3을 제목용 빈 여백으로 비우라고 시켰는데, 모델이 그 자리를 밋밋한 단색 띠로 채워 카드의 1/3이
+    죽은 공간이 됐다. 지금은 주제를 화면 위·가운데에 두라고만 하고, 제목 가독성은
+    _render_ai_hero_card의 그라데이션이 맡는다.
     헤드라인에 실존 인물/캐릭터/작품명 등 고유명사가 있으면 안전 필터에 걸려 응답에 이미지 파트가
     없을 수 있다 — 이 경우 한 번만, 고유명사를 뺀 일반화된 문장으로 재시도한다(고유명사 제거
     자체는 기존과 동일하게 gpt-4o-mini를 쓰는 _strip_proper_nouns 사용). 429(RESOURCE_EXHAUSTED,
@@ -853,18 +902,19 @@ def generate_thumbnail_image_bytes(title, ai_summary):
         return None
 
     openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    style = THUMBNAIL_STYLES.get(content_category) or THUMBNAIL_STYLES[None]
 
     def build_prompt(scene_text):
         return (
-            f"{scene_text}, {COMMON_STYLE_SCRIPT}, generous empty negative space in the bottom "
-            "third of the frame for a title text overlay, no text no watermark, "
-            "16:9 aspect ratio, 1920x1080"
+            f"{scene_text}, {style['style']}, main subject placed in the upper and central "
+            "part of the frame, sharp focus, highly detailed, no text, no letters, no watermark"
         )
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    # 해상도는 프롬프트 글자("1920x1080")로는 먹히지 않고 image_config로만 정해진다.
     config = genai_types.GenerateContentConfig(
         response_modalities=["IMAGE"],
-        image_config=genai_types.ImageConfig(aspect_ratio="16:9"),
+        image_config=genai_types.ImageConfig(aspect_ratio="16:9", image_size=GEMINI_IMAGE_SIZE),
     )
 
     def call(prompt_text):
@@ -877,7 +927,7 @@ def generate_thumbnail_image_bytes(title, ai_summary):
                     return part.inline_data.data
         return None
 
-    scene = _describe_symbolic_scene(openai_client, title, ai_summary) or (
+    scene = _describe_symbolic_scene(openai_client, title, ai_summary, style['scene_hint']) or (
         f"Headline: {title}\nSummary: {(ai_summary or '')[:400]}"
     )
 
@@ -907,7 +957,7 @@ def generate_thumbnail_image_bytes(title, ai_summary):
     generic_summary = _strip_proper_nouns(openai_client, title, ai_summary)
     if not generic_summary:
         return None
-    generic_scene = _describe_symbolic_scene(openai_client, title, generic_summary) or (
+    generic_scene = _describe_symbolic_scene(openai_client, title, generic_summary, style['scene_hint']) or (
         f"Summary: {generic_summary}"
     )
     try:

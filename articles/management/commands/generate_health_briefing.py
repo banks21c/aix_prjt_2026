@@ -66,6 +66,7 @@ class Command(BaseCommand):
                 original_content=f"[카테고리] {info['category_name']}\n[주제] {info['topic']}\n[각도] {info['angle']}",
                 thumbnail=thumbnail.build_thumbnail_file(
                     info['title'], category_label="건강정보", is_economic_news=False,
+                    content_category=AnalyzedArticle.CATEGORY_HEALTH,
                     ai_summary=draft['ai_summary'],
                 ),
                 applied_template='T1',
