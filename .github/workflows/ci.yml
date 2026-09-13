@@ -24,6 +24,10 @@ jobs:
 
     env:
       SECRET_KEY: ci-only-secret-key-not-for-production
+      # Fernet key for BlogPostingAccount.credential encryption (articles/fields.py); CI-only,
+      # generated with `Fernet.generate_key()` — settings.py has no default, so tests that create
+      # a BlogPostingAccount fail with TypeError without this.
+      CREDENTIAL_ENCRYPTION_KEY: ldow_vIMiI7OCsasux6dmX96TlqiVytaYJ5YnJJDNpg=
       DB_NAME: nextfinup_db
       # root is required (not a scoped app user) so Django's test runner can CREATE/DROP the
       # ephemeral test_nextfinup_db database — see deploy notes in CLAUDE.md.
