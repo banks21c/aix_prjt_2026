@@ -81,7 +81,12 @@ def get_fluctuation_ranking(sort_cls_code, market_scope=MARKET_SCOPE_ALL, count=
         "fid_input_iscd": market_scope,
         "fid_rank_sort_cls_code": sort_cls_code,
         "fid_input_cnt_1": "0",
-        "fid_prc_cls_code": "0",
+        # fid_prc_cls_code는 정렬 기준(sort_cls_code)에 따라 뜻이 달라진다: 상승률순일 때
+        # 0=저가대비/1=종가대비, 하락률순일 때 0=고가대비/1=종가대비. "1"(종가대비)로 고정해야
+        # 두 방향 모두 우리가 실제로 표시하는 전일 대비율(prdy_ctrt) 기준으로 순위가 뽑힌다.
+        # "0"으로 두면 하락률 상위가 "오늘 고점 대비 낙폭 상위"로 뽑혀, 전일 대비로는 보합/상승인
+        # 종목이 하락률 상위에 섞여 나올 수 있다(장중 급등 후 급락한 종목 등).
+        "fid_prc_cls_code": "1",
         "fid_input_price_1": "",
         "fid_input_price_2": "",
         "fid_vol_cnt": "",
@@ -142,6 +147,239 @@ def get_index_price(market_type):
         'low': float(output['bstp_nmix_lwpr']),
         'change': float(output['bstp_nmix_prdy_vrss']),
         'change_pct': float(output['bstp_nmix_prdy_ctrt']),
+        'volume': int(output.get('acml_vol') or 0),
+    }
+
+
+# 시장별 투자자매매동향(시세) TR_ID (v1_국내주식-074) - 시장 전체 외국인/개인/기관계 순매수 조회
+INVESTOR_TREND_TR_ID = "FHPTJ04030000"
+# FID_INPUT_ISCD(시장구분)는 지수 코드(0001/1001)와 별개로 KSP/KSQ를 쓴다
+MARKET_ISCD_MAP = {
+    'KOSPI': 'KSP',
+    'KOSDAQ': 'KSQ',
+}
+
+
+def get_investor_trend(market_type):
+    """시장별 투자자매매동향(시세) API로 코스피/코스닥 시장 전체의 외국인/개인/기관계
+    순매수 수량 + 순매수 금액(억원)을 조회합니다. 종목이 특정되지 않는 카드(특징주 브리핑,
+    헤더 지수 티커 팝업 등)의 시장 요약용. 금액 필드(*_ntby_tr_pbmn)는 백만원 단위로 확인됨
+    (실측: 원시값 818662 → 실제 8,186.62억원 → 100으로 나누면 억원)."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-time-by-market"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INVESTOR_TREND_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_INPUT_ISCD": MARKET_ISCD_MAP[market_type],
+        "FID_INPUT_ISCD_2": INDEX_CODE_MAP[market_type],
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 투자자매매동향 조회 실패: {data.get('msg1')}")
+
+    output = data.get('output')
+    if isinstance(output, list):
+        output = output[0] if output else {}
+
+    return {
+        'foreign_net_qty': int(output.get('frgn_ntby_qty') or 0),
+        'institution_net_qty': int(output.get('orgn_ntby_qty') or 0),
+        'retail_net_qty': int(output.get('prsn_ntby_qty') or 0),
+        'foreign_net_amount': int(output.get('frgn_ntby_tr_pbmn') or 0) / 100,
+        'institution_net_amount': int(output.get('orgn_ntby_tr_pbmn') or 0) / 100,
+        'retail_net_amount': int(output.get('prsn_ntby_tr_pbmn') or 0) / 100,
+    }
+
+
+INVESTOR_TRADE_BY_STOCK_TR_ID = "FHPTJ04160001"
+
+
+def get_investor_trade_by_stock(ticker, end_date):
+    """종목별 투자자매매동향(일별) API로 개별 종목의 투자자 주체별(외국인/개인/기관계 +
+    증권/투자신탁/사모펀드/은행/보험/종금/기금/기타) 순매수 수량·금액을 조회합니다.
+    end_date('YYYYMMDD') 기준으로 최근 30영업일치가 한 번에 내려옵니다(과거로 더 가려면
+    end_date를 그만큼 앞선 거래일로 바꿔 다시 호출 — collect_investor_flow의 백필 로직 참고).
+    금액 필드(*_ntby_tr_pbmn)는 백만원 단위(KIS 문서 명시)로 그대로 반환합니다.
+    "기금(fund)"이 국민연금 등 연기금류가 잡히는 가장 가까운 분류입니다(KIS가 국민연금을
+    별도 항목으로 분리해 주지 않음). 장마감(15:40 KST) 이후에만 당일 데이터가 조회됩니다."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INVESTOR_TRADE_BY_STOCK_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": ticker,
+        "FID_INPUT_DATE_1": end_date,
+        "FID_ORG_ADJ_PRC": "",
+        "FID_ETC_CLS_CODE": "1",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 종목별 투자자매매동향 조회 실패: {data.get('msg1')}")
+
+    rows = []
+    for row in data.get('output2', []):
+        bsop_date = row.get('stck_bsop_date')
+        if not bsop_date:
+            continue
+        rows.append({
+            'date': bsop_date,  # 'YYYYMMDD'
+            'foreign_net_qty': int(row.get('frgn_ntby_qty') or 0),
+            'foreign_net_amount': int(row.get('frgn_ntby_tr_pbmn') or 0),
+            'retail_net_qty': int(row.get('prsn_ntby_qty') or 0),
+            'retail_net_amount': int(row.get('prsn_ntby_tr_pbmn') or 0),
+            'institution_net_qty': int(row.get('orgn_ntby_qty') or 0),
+            'institution_net_amount': int(row.get('orgn_ntby_tr_pbmn') or 0),
+            'pension_net_qty': int(row.get('fund_ntby_qty') or 0),
+            'pension_net_amount': int(row.get('fund_ntby_tr_pbmn') or 0),
+            'trust_net_qty': int(row.get('ivtr_ntby_qty') or 0),
+            'trust_net_amount': int(row.get('ivtr_ntby_tr_pbmn') or 0),
+            'pe_fund_net_qty': int(row.get('pe_fund_ntby_vol') or 0),
+            'pe_fund_net_amount': int(row.get('pe_fund_ntby_tr_pbmn') or 0),
+            'securities_net_qty': int(row.get('scrt_ntby_qty') or 0),
+            'securities_net_amount': int(row.get('scrt_ntby_tr_pbmn') or 0),
+        })
+
+    rows.sort(key=lambda r: r['date'])
+    return rows
+
+
+# 금리 종합(국내채권/금리) TR_ID (국내주식-155) - 저장소에 있는 KIS API 문서 엑셀
+# ("kis_api/금리 종합(국내채권_금리) [국내주식-155].xlsx")로 확인한 값. output1은 해외금리지표
+# (미국 국채 등), output2는 국내채권/금리(국고채/회사채/CD/콜 등) — 헤더 티커는 output2만 쓴다.
+INTEREST_RATE_TR_ID = "FHPST07020000"
+
+# output2의 bcdt_code(자료코드) 중 헤더 티커에 보여줄 4개와 표시 라벨.
+# 실제 호출 결과 국고채(Y0101)/회사채(Y0102)는 응답 자체가 누락되거나 인코딩이 깨져서 와
+# (2026-08-04 확인, 재현됨 — API 쪽 데이터 이슈로 보임) 정상 수신되는 2개만 우선 노출한다.
+INTEREST_RATE_ITEMS = {
+    'Y0112': 'CD(91일)',
+    'Y0114': '콜금리',
+}
+
+
+def get_interest_rates():
+    """금리 종합(국내채권/금리) API로 CD(91일)/콜금리/국고채(3년)/회사채(3년) 등을 조회합니다.
+    {bcdt_code: {'name':, 'price':, 'change_pct':}} 형태로, output2에 실린 항목 전부를 반환합니다
+    (호출부가 INTEREST_RATE_ITEMS로 필요한 것만 골라 씀)."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/comp-interest"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": INTEREST_RATE_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": "I",
+        "FID_COND_SCR_DIV_CODE": "20702",
+        "FID_DIV_CLS_CODE": "1",
+        "FID_DIV_CLS_CODE1": "",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 금리 종합 조회 실패: {data.get('msg1')}")
+
+    # 앞쪽 일부 행은 필드가 밀려서 오는 데이터 이슈가 있어(2026-08-04 확인, 국고채/회사채가
+    # 이 구간에 걸림) 행 하나가 깨졌다고 나머지까지 못 쓰게 되지 않도록 개별적으로 건너뛴다.
+    result = {}
+    for row in data.get('output2', []):
+        try:
+            result[row['bcdt_code']] = {
+                'name': row['hts_kor_isnm'],
+                'price': float(row['bond_mnrt_prpr']),
+                'change_pct': float(row['bstp_nmix_prdy_ctrt']),
+            }
+        except (KeyError, ValueError):
+            continue
+    return result
+
+
+# 해외지수분봉조회 TR_ID (v1_해외주식-031). 이름과 달리 output1에 해당 종목/지수/환율의
+# "현재가 한 건"이 항상 같이 오므로(output2가 분봉 히스토리), 헤더 티커처럼 현재가만 필요할 땐
+# output1만 읽고 페이지네이션은 하지 않는다. FID_COND_MRKT_DIV_CODE: N=해외지수, X=환율(달러 기준
+# 국제시장), 종목코드(FID_INPUT_ISCD) 값은 실제 호출로 확인한 것들만 GLOBAL_QUOTE_ITEMS에 정리.
+OVERSEAS_INDEX_TR_ID = "FHKST03030200"
+
+# (category, code): 표시 라벨 — category는 GlobalMarketQuote.category, code는 그대로
+# get_overseas_index_price(mrkt_div_code, code)에 넘길 FID_INPUT_ISCD.
+GLOBAL_QUOTE_ITEMS = {
+    'FOREIGN_INDEX': {
+        # 심천(001001 등)은 시도해본 코드가 전부 결과 없음(0.00)으로 나와 아직 못 찾음 — 정확한
+        # FID_INPUT_ISCD 값을 확인하면 여기 추가.
+        '.DJI': ('N', '다우존스'),
+        'COMP': ('N', '나스닥'),
+        'SPX': ('N', 'S&P500'),
+        'HSCE': ('N', '홍콩H'),
+        'JP#NI225': ('N', '니케이225'),
+        'SHANG': ('N', '상해종합'),
+        'SX5E': ('N', '유로스톡스50'),
+    },
+    'FX_RATE': {
+        'FX@JPY': ('X', '달러/엔'),
+        'FX@EUR': ('X', '유로/달러'),
+        'FX@GBP': ('X', '파운드/달러'),
+    },
+}
+
+
+def get_overseas_index_price(mrkt_div_code, iscd):
+    """해외지수분봉조회 API로 해외지수/환율의 현재가 한 건을 조회합니다(output1만 사용).
+    mrkt_div_code: N(해외지수)/X(환율). iscd: '.DJI', 'FX@JPY' 등 GLOBAL_QUOTE_ITEMS 참고."""
+    token = get_access_token()
+    url = f"{settings.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/inquire-time-indexchartprice"
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "appkey": settings.KIS_APP_KEY,
+        "appsecret": settings.KIS_APP_SECRET,
+        "tr_id": OVERSEAS_INDEX_TR_ID,
+        "custtype": "P",
+    }
+    params = {
+        "FID_COND_MRKT_DIV_CODE": mrkt_div_code,
+        "FID_INPUT_ISCD": iscd,
+        "FID_HOUR_CLS_CODE": "0",
+        "FID_PW_DATA_INCU_YN": "N",
+    }
+    res = requests.get(url, headers=headers, params=params, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    if data.get('rt_cd') != '0':
+        raise RuntimeError(f"KIS 해외지수/환율 조회 실패({iscd}): {data.get('msg1')}")
+
+    output = data.get('output1') or {}
+    if not output.get('ovrs_nmix_prpr'):
+        raise RuntimeError(f"KIS 해외지수/환율 조회 결과 없음: {iscd}")
+
+    return {
+        'name': output.get('hts_kor_isnm') or iscd,
+        'price': float(output['ovrs_nmix_prpr']),
+        'change_pct': float(output['prdy_ctrt']),
     }
 
 
@@ -204,10 +442,16 @@ def get_index_daily_price(market_type, base_date):
 INDEX_MINUTE_PRICE_TR_ID = "FHPUP02110200"
 
 
-def get_today_index_minute_prices(market_type, interval_seconds=60):
+def get_today_index_minute_prices(market_type, interval_seconds=300):
     """
     국내업종 시간별지수(분) API로 당일 09:00부터 현재까지의 지수 값을 interval_seconds
     간격으로 한 번에 조회합니다. (오래된 시각 순으로 정렬해서 반환)
+
+    interval_seconds 기본값을 300(5분)으로 둔 이유: 이 API는 페이지네이션 없이 응답을
+    최근 ~100건으로만 잘라서 준다(실측 확인, 문서에도 페이지네이션 파라미터가 없음). 60초
+    (1분) 간격이면 100건이 겨우 100분(1.6시간)치라 장 마감 무렵엔 13:5x~15:30처럼 당일의
+    극히 일부만 표시되는 버그가 있었다. 300초 간격이면 100건이 500분(8.3시간)치라 정규장
+    전체(09:00~15:30, 390분)를 한 번의 호출로 다 담을 수 있다.
     """
     index_code = INDEX_CODE_MAP[market_type]
     token = get_access_token()
@@ -306,6 +550,11 @@ def get_stock_close_price(ticker):
     (stck_clpr)를 쓴다 — 주식현재가 조회는 이 구간에서 시간외단일가 등 정규장 종가가 아닌 값을
     돌려줄 수 있기 때문. 전일대비/등락률은 API가 주는 값 대신, 함께 받아온 최근 2개 영업일
     종가로 직접 계산해 일봉 응답의 필드명에 의존하지 않는다.
+
+    당일 장이 아직 열리지 않은 시간대(자정~09:00 KST)에 조회하면, KIS가 아직 거래되지 않은
+    다음 영업일 행을 직전 종가를 그대로 복사한 거래량 0짜리 더미로 함께 내려준다 — 이걸 그대로
+    "오늘" 행으로 쓰면 전일대비/등락률/거래량이 전부 0으로 나온다(실측 신고로 확인됨). 그래서
+    실제로 체결이 있었던(거래량>0) 행만 남기고 그중 최신 2개로 계산한다.
     """
     if is_regular_session_open():
         return get_stock_current_price(ticker)
@@ -313,6 +562,7 @@ def get_stock_close_price(ticker):
     end_date = datetime.now(KST).date()
     start_date = end_date - timedelta(days=14)
     rows = get_stock_daily_price(ticker, start_date.strftime('%Y%m%d'), end_date.strftime('%Y%m%d'))
+    rows = [r for r in rows if r['volume'] > 0]
     if len(rows) < 2:
         raise RuntimeError(f"{ticker}: 종가를 계산할 만큼의 일봉 데이터가 없습니다.")
 
@@ -524,6 +774,16 @@ def get_stock_current_price(ticker):
         'change': float(output['prdy_vrss']),
         'change_pct': float(output['prdy_ctrt']),
         'volume': int(output['acml_vol']),
+        # 밸류에이션 지표 — per/pbr/eps/bps는 이 API가 원래 같이 내려주는데 기존엔 안 쓰고
+        # 버렸다. hts_avls(시가총액)는 KIS 응답 단위가 억원이라 원 단위로 맞추려 1억을 곱한다
+        # (실측: 005930 hts_avls=13504904 -> 시가총액 1,350.49조원, stck_prpr*lstn_stcn과 일치).
+        'per': float(output['per']) if output.get('per') not in (None, '') else None,
+        'pbr': float(output['pbr']) if output.get('pbr') not in (None, '') else None,
+        'eps': float(output['eps']) if output.get('eps') not in (None, '') else None,
+        'bps': float(output['bps']) if output.get('bps') not in (None, '') else None,
+        'market_cap': int(float(output['hts_avls']) * 1_0000_0000) if output.get('hts_avls') not in (None, '') else None,
+        'week52_high': float(output['w52_hgpr']) if output.get('w52_hgpr') not in (None, '') else None,
+        'week52_low': float(output['w52_lwpr']) if output.get('w52_lwpr') not in (None, '') else None,
     }
 
 

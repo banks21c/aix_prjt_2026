@@ -15,9 +15,9 @@ def _unsubscribe_url(subscriber):
 
 class Command(BaseCommand):
     help = (
-        '상태가 READY인 뉴스레터 초안(NewsletterIssue)을 활성 구독자에게 발송하고 SENT로 표시합니다. '
-        '초안은 generate_newsletter_draft 커맨드가 자동 작성하고, 관리자가 Admin 화면에서 내용을 '
-        '검토·수정한 뒤 상태를 READY로 바꿔야 이 커맨드의 발송 대상이 됩니다.'
+        '상태가 READY인 뉴스레터(NewsletterIssue)를 활성 구독자에게 HTML 이메일로 발송하고 SENT로 '
+        '표시합니다. generate_newsletter_draft 커맨드가 자동 작성과 동시에 READY로 만들어두므로 '
+        '관리자 개입 없이 매일 자동 발송됩니다.'
     )
 
     def handle(self, *args, **options):
@@ -39,18 +39,21 @@ class Command(BaseCommand):
                 for subscriber in subscribers:
                     try:
                         body = (
-                            f"{issue.body}\n\n"
-                            "---\n"
-                            f"더 이상 수신을 원치 않으시면 아래 링크를 눌러 수신을 거부할 수 있습니다:\n"
-                            f"{_unsubscribe_url(subscriber)}"
+                            f"{issue.body}"
+                            '<p style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;'
+                            'font-size:12px;color:#999;">더 이상 수신을 원치 않으시면 '
+                            f'<a href="{_unsubscribe_url(subscriber)}">여기</a>를 눌러 수신을 '
+                            '거부할 수 있습니다.</p>'
                         )
-                        EmailMessage(
+                        message = EmailMessage(
                             subject=issue.subject,
                             body=body,
                             from_email=settings.DEFAULT_FROM_EMAIL,
                             to=[subscriber.email],
                             connection=connection,
-                        ).send(fail_silently=False)
+                        )
+                        message.content_subtype = "html"
+                        message.send(fail_silently=False)
                         sent_count += 1
                     except Exception as e:
                         self.stdout.write(self.style.ERROR(f"    ↳ [발송 실패] {subscriber.email}: {e}"))

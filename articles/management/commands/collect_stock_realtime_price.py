@@ -55,6 +55,13 @@ class Command(BaseCommand):
                         change=price['change'],
                         change_pct=price['change_pct'],
                         volume=price['volume'],
+                        per=price['per'],
+                        pbr=price['pbr'],
+                        eps=price['eps'],
+                        bps=price['bps'],
+                        market_cap=price['market_cap'],
+                        week52_high=price['week52_high'],
+                        week52_low=price['week52_low'],
                     ),
                 )
                 success_count += 1

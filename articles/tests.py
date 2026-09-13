@@ -15,8 +15,8 @@ from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, utils
 from .models import (
-    AnalyzedArticle, ConsultRequest, MemberGrade, Menu, StockDailyPrice, StockItem, StockPrediction,
-    UserPreference, UserSubscription,
+    AnalyzedArticle, BlogPostingAccount, ConsultRequest, MemberGrade, Menu, PostedArticle,
+    StockDailyPrice, StockItem, StockPrediction, UserPreference, UserSubscription,
 )
 
 STRONG_PASSWORD = "N3xtF1nUp-test-only!"
@@ -135,9 +135,12 @@ class PublicViewSmokeTests(TestCase):
 
 
 class GradeLimitTests(TestCase):
-    """MemberGrade의 daily_scrape_limit/daily_post_limit이 NULL이면 무제한, 관리자/프리미엄은
-    등급과 무관하게 항상 무제한이라는 규칙(articles.utils.scraping_stats,
-    articles.blog_posting.posting_stats)을 지킨다 — 프레임워크가 대신 검증해주지 않는 로직."""
+    """MemberGrade의 daily_scrape_limit/daily_post_limit이 NULL이면 무제한, 관리자는 등급과
+    무관하게 항상 무제한이라는 규칙(articles.utils.scraping_stats,
+    articles.blog_posting.posting_stats)을 지킨다 — 프레임워크가 대신 검증해주지 않는 로직.
+    프리미엄은 스크랩 자체엔 한도가 없지만(daily_scrape_limit), AI 요약이 들어가는 발행은
+    비용 때문에 등급과 무관하게 UserSubscription.PREMIUM_DAILY_POST_LIMIT(10건/일)로 고정된다
+    (c065f32) — 완전 무제한이 아니다."""
 
     def test_scraping_stats_respects_grade_limit(self):
         grade = MemberGrade.objects.create(name='일반', level=TEST_GRADE_LEVEL_START + 1, daily_scrape_limit=3)
@@ -172,7 +175,7 @@ class GradeLimitTests(TestCase):
         self.assertTrue(stats['is_admin'])
         self.assertIsNone(stats['remaining'])
 
-    def test_posting_stats_premium_is_unlimited_regardless_of_grade(self):
+    def test_posting_stats_premium_uses_fixed_limit_regardless_of_grade(self):
         grade = MemberGrade.objects.create(name='제한등급', level=TEST_GRADE_LEVEL_START + 4, daily_post_limit=1)
         user = User.objects.create_user(username='premiumuser', password='x')
         UserPreference.objects.create(user=user, grade=grade)
@@ -181,7 +184,113 @@ class GradeLimitTests(TestCase):
         stats = blog_posting.posting_stats(user)
 
         self.assertTrue(stats['is_premium'])
+        # 등급의 daily_post_limit(1)이 아니라 UserSubscription.PREMIUM_DAILY_POST_LIMIT(10)을 써야 한다.
+        self.assertEqual(stats['limit'], UserSubscription.PREMIUM_DAILY_POST_LIMIT)
+        self.assertEqual(stats['remaining'], UserSubscription.PREMIUM_DAILY_POST_LIMIT)
+
+    def test_posting_stats_admin_always_unlimited(self):
+        grade = MemberGrade.objects.create(name='제한등급2', level=TEST_GRADE_LEVEL_START + 6, daily_post_limit=1)
+        user = User.objects.create_user(username='adminposter', password='x', is_staff=True)
+        UserPreference.objects.create(user=user, grade=grade)
+
+        stats = blog_posting.posting_stats(user)
+
+        self.assertTrue(stats['is_admin'])
         self.assertIsNone(stats['remaining'])
+
+
+class AccountDailyPostQuotaTests(TestCase):
+    """BlogPostingAccount 단위의 하루 발행 한도(blog_posting.account_posting_quota) 규칙.
+
+    회원 등급 한도(GradeLimitTests)와 목적이 다른 별개 장치라 따로 검증한다 — 이쪽은 대상
+    플랫폼의 스팸 차단을 피하기 위한 것이고, 실제로 Blogger 계정이 영구 차단된 전례가 있어
+    조용히 무력화되면 안 되는 로직이다."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='quotauser', password='x')
+        self.account = BlogPostingAccount.objects.create(
+            user=self.user, platform='BLOGGER', is_enabled=True,
+            site_url='https://example.blogspot.com', account_id='b1', credential='token',
+        )
+
+    def test_blank_limit_falls_back_to_platform_recommendation(self):
+        quota = blog_posting.account_posting_quota(self.account)
+
+        self.assertEqual(quota['limit'], blog_posting.RECOMMENDED_DAILY_POST_LIMIT['BLOGGER'])
+        self.assertEqual(quota['source'], '플랫폼 권장')
+        self.assertFalse(quota['is_unlimited'])
+
+    def test_account_setting_overrides_recommendation(self):
+        self.account.daily_post_limit = 2
+        self.account.save()
+
+        quota = blog_posting.account_posting_quota(self.account)
+
+        self.assertEqual(quota['limit'], 2)
+        self.assertEqual(quota['source'], '계정 설정')
+
+    def test_zero_means_unlimited(self):
+        self.account.daily_post_limit = 0
+        self.account.save()
+
+        quota = blog_posting.account_posting_quota(self.account)
+
+        self.assertTrue(quota['is_unlimited'])
+        self.assertIsNone(quota['remaining'])
+
+    def test_todays_posts_consume_the_quota(self):
+        self.account.daily_post_limit = 2
+        self.account.save()
+        article = AnalyzedArticle.objects.create(
+            title='기사', original_url='https://example.com/quota', source_media='m',
+        )
+        PostedArticle.objects.create(blog_account=self.account, article=article)
+
+        quota = blog_posting.account_posting_quota(self.account)
+
+        self.assertEqual(quota['used_today'], 1)
+        self.assertEqual(quota['remaining'], 1)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class NewsDeleteTests(TestCase):
+    """news_delete_view 권한 규칙 — news_edit_view와 같이 staff 또는 본인 등록 기사만."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='owner', password='x')
+        self.other = User.objects.create_user(username='other', password='x')
+        self.staff = User.objects.create_user(username='staff', password='x', is_staff=True)
+        self.article = AnalyzedArticle.objects.create(
+            title='삭제 대상', original_url='https://example.com/delete', source_media='m', scraped_by=self.owner,
+        )
+        self.url = reverse('news_delete', args=[self.article.pk])
+
+    def test_get_is_not_allowed(self):
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+        self.assertTrue(AnalyzedArticle.objects.filter(pk=self.article.pk).exists())
+
+    def test_other_member_cannot_delete(self):
+        self.client.force_login(self.other)
+        self.client.post(self.url)
+        self.assertTrue(AnalyzedArticle.objects.filter(pk=self.article.pk).exists())
+
+    def test_owner_can_delete(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('news_board'), fetch_redirect_response=False)
+        self.assertFalse(AnalyzedArticle.objects.filter(pk=self.article.pk).exists())
+
+    def test_staff_can_delete_and_posting_records_cascade(self):
+        account = BlogPostingAccount.objects.create(
+            user=self.owner, platform='BLOGGER', is_enabled=True,
+            site_url='https://example.blogspot.com', account_id='b1', credential='token',
+        )
+        PostedArticle.objects.create(blog_account=account, article=self.article)
+        self.client.force_login(self.staff)
+        self.client.post(self.url)
+        self.assertFalse(AnalyzedArticle.objects.filter(pk=self.article.pk).exists())
+        self.assertFalse(PostedArticle.objects.filter(blog_account=account).exists())
 
 
 class ModelBasicsTests(TestCase):
@@ -262,11 +371,18 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'articles/expert_consult.html')
 
-    def test_expert_consult_page_contains_consult_form(self):
+    def test_expert_consult_page_links_to_apply_form(self):
+        # /experts/(프로필+12가지 약속)는 신청 폼 자체를 갖고 있지 않고, CTA로
+        # /experts/apply/(신청 폼 단독 페이지)를 가리키기만 한다.
         response = self.client.get(reverse('expert_consult'))
 
-        # 히어로 CTA가 가리키는 앵커와 폼 필드가 실제로 렌더링되는지
         self.assertContains(response, 'id="consult"')
+        self.assertContains(response, reverse('expert_consult_apply'))
+
+    def test_expert_consult_apply_page_contains_consult_form(self):
+        response = self.client.get(reverse('expert_consult_apply'))
+
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="ecName"')
         self.assertContains(response, 'id="ecPhone"')
         self.assertContains(response, 'id="ecWebsite"')  # 허니팟
@@ -287,7 +403,7 @@ class ExpertConsultTests(TestCase):
         self.assertEqual(ConsultRequest.objects.count(), 0)
 
     def test_expert_consult_menu_is_seeded_for_both_menu_types(self):
-        menus = Menu.objects.filter(name='전문가 상담')
+        menus = Menu.objects.filter(name='전문가 소개')
 
         self.assertEqual(menus.count(), 2)
         self.assertEqual({m.menu_type for m in menus}, {'INDEX', 'HEADER'})
@@ -310,5 +426,5 @@ class ExpertConsultTests(TestCase):
         landing_response = self.client.get(reverse('landing_page'))
         dashboard_response = self.client.get(reverse('main_dashboard'))
 
-        self.assertContains(landing_response, '전문가 상담')
-        self.assertContains(dashboard_response, '전문가 상담')
+        self.assertContains(landing_response, '전문가 소개')
+        self.assertContains(dashboard_response, '전문가 소개')

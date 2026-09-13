@@ -1,0 +1,150 @@
+{% load static %}
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); margin-bottom: 1rem; }
+        .up-value { color: var(--color-danger, #c62828); font-weight: bold; }
+        .down-value { color: var(--brand-accent, #1565c0); font-weight: bold; }
+        .flat-value { color: var(--text-gray, #616161); font-weight: bold; }
+        .signal-BUY { background-color: var(--bg-danger-soft-2, #ffebee); color: var(--color-danger, #c62828); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-SELL { background-color: var(--bg-info-soft, #e3f2fd); color: var(--brand-accent, #1565c0); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    <!-- 상단 네비게이션 바 -->
+    {% include "articles/_header.html" %}
+
+    <div class="container my-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">🎯 AI 예측 성과</h2>
+                <p class="text-muted">NextFinUp의 AI가 실제로 낸 매수/매도 시그널이 다음 거래일에 실제로 맞았는지, 가공 없이 그대로 공개합니다.</p>
+            </div>
+        </div>
+
+        <!-- 요약 -->
+        <div class="row row-cols-1 row-cols-md-3 g-4 mb-2">
+            <div class="col">
+                <div class="card card-custom bg-white p-4 text-center h-100">
+                    <div class="text-muted small">전체 시그널 적중률</div>
+                    <div class="fs-2 fw-bold">{% if summary_all.accuracy_pct != None %}{{ summary_all.accuracy_pct }}%{% else %}-{% endif %}</div>
+                    <div class="text-muted" style="font-size: 12px;">{{ summary_all.correct }}/{{ summary_all.total }}건 적중</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card card-custom bg-white p-4 text-center h-100">
+                    <div class="text-muted small">🟢 매수 시그널 적중률</div>
+                    <div class="fs-2 fw-bold up-value">{% if summary_buy.accuracy_pct != None %}{{ summary_buy.accuracy_pct }}%{% else %}-{% endif %}</div>
+                    <div class="text-muted" style="font-size: 12px;">{{ summary_buy.correct }}/{{ summary_buy.total }}건 적중</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card card-custom bg-white p-4 text-center h-100">
+                    <div class="text-muted small">🔵 매도 시그널 적중률</div>
+                    <div class="fs-2 fw-bold down-value">{% if summary_sell.accuracy_pct != None %}{{ summary_sell.accuracy_pct }}%{% else %}-{% endif %}</div>
+                    <div class="text-muted" style="font-size: 12px;">{{ summary_sell.correct }}/{{ summary_sell.total }}건 적중</div>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted small">※ 표본이 작을수록(특히 매도 시그널) 정확도 수치의 신뢰구간이 넓습니다. 과거 성과가 미래 수익률을 보장하지 않습니다.</p>
+
+        <!-- 신뢰도 구간별 실현 정확도 -->
+        <div class="card card-custom bg-white p-4 mb-4">
+            <h5 class="section-title">
+                📊 AI 확신도 구간별 실현 정확도
+                {% if snapshot %}<small class="text-muted fw-normal" style="font-size: 11px;">({{ snapshot.computed_at|date:"Y-m-d H:i" }} 기준, 표본 {{ snapshot.total_resolved|intcomma }}건)</small>{% endif %}
+            </h5>
+            {% if buckets_display %}
+                <p class="text-muted small">AI가 "다음날 상승/하락" 방향을 예측할 때 내놓는 확률이 얼마나 확신도가 높았는지에 따라 구간을 나누고, 그 구간에 속한 예측들이 실제로 얼마나 맞았는지 누적으로 집계했습니다. 매수/매도 시그널은 AI 확률이 75% 이상일 때만 발동됩니다 — 이 표가 그 기준을 정한 근거입니다.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr class="text-muted" style="font-size: 12px;">
+                                <th>AI 확률 임계값</th>
+                                <th class="text-end">표본 수</th>
+                                <th class="text-end">실현 정확도</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in buckets_display %}
+                                <tr style="font-size: 13px;" class="{% if b.threshold == 0.75 %}table-warning{% endif %}">
+                                    <td>
+                                        {{ b.threshold|floatformat:2 }} 이상
+                                        {% if b.threshold == 0.75 %}<span class="badge bg-warning text-dark" style="font-size: 10px;">현재 시그널 기준</span>{% endif %}
+                                    </td>
+                                    <td class="text-end">{{ b.n|intcomma }}건{% if b.low_sample %} <span class="text-muted" style="font-size: 11px;">(표본 부족)</span>{% endif %}</td>
+                                    <td class="text-end fw-bold {% if b.low_sample %}text-muted{% endif %}">
+                                        {% if b.accuracy_pct != None %}{{ b.accuracy_pct }}%{% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted small mb-0">아직 집계된 데이터가 없습니다.</p>
+            {% endif %}
+        </div>
+
+        <!-- 실제 발동된 매수/매도 시그널 내역 -->
+        <div class="card card-custom bg-white p-4 mb-4">
+            <h5 class="section-title">📋 실제 발동된 매수/매도 시그널 내역 <small class="text-muted fw-normal" style="font-size: 11px;">(최신순, 결과 확정분만)</small></h5>
+            {% if recent_signals %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr class="text-muted" style="font-size: 12px;">
+                                <th>날짜</th>
+                                <th>종목</th>
+                                <th>시그널</th>
+                                <th class="text-end">AI 확신도</th>
+                                <th class="text-end">다음날 등락률</th>
+                                <th class="text-center">결과</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in recent_signals %}
+                                <tr style="font-size: 13px;">
+                                    <td>{{ s.date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        <a href="{% url 'stock_detail' s.stock.ticker %}" class="fw-bold text-decoration-none text-dark">{{ s.stock.name }}({{ s.stock.ticker }})</a>
+                                    </td>
+                                    <td><span class="signal-{{ s.trading_signal }}">{% if s.trading_signal == 'BUY' %}매수{% else %}매도{% endif %}</span></td>
+                                    <td class="text-end">{{ s.up_probability_pct }}%</td>
+                                    <td class="text-end {% if s.actual_return_pct > 0 %}up-value{% elif s.actual_return_pct < 0 %}down-value{% else %}flat-value{% endif %}">
+                                        {% if s.actual_return_pct > 0 %}▲{% elif s.actual_return_pct < 0 %}▼{% else %}-{% endif %}{{ s.actual_return_pct|floatformat:2 }}%
+                                    </td>
+                                    <td class="text-center">{% if s.correct %}✅{% else %}❌{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted small mb-0">아직 결과가 확정된 매수/매도 시그널이 없습니다.</p>
+            {% endif %}
+        </div>
+
+        <p class="text-muted small">
+            이 페이지의 확신도 구간별 통계는 매일 새벽 자동 갱신됩니다{% if snapshot %}({{ snapshot.computed_at|date:"Y-m-d H:i" }} 기준){% endif %}.
+            과거 예측 성과가 미래 수익률을 보장하지 않으며, 투자 판단의 참고 자료로만 활용하시기 바랍니다.
+        </p>
+    </div>
+
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>

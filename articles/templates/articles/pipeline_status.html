@@ -1,0 +1,125 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+<link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .fresh { color: var(--color-success, #1e7e34); }
+    .stale { color: var(--color-danger, #c62828); }
+    .log-tail { background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 12px;
+                padding: 12px; border-radius: 8px; max-height: 320px; overflow-y: auto;
+                white-space: pre-wrap; word-break: break-all; }
+    .preview-box { background: #f8f9fb; border: 1px solid var(--border-light, #e9ecef); border-radius: 8px; padding: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-4">크론에 없는 무겁고 비정기적인 작업을 여기서 바로 실행하고, 마지막 실행 상태를 확인할 수 있습니다.
+    실행은 백그라운드로 시작되며, 이 페이지를 닫아도 계속 진행됩니다.</p>
+
+{% for job in pipelines %}
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="flex-grow-1" style="min-width: 0;">
+            <h5 class="fw-bold mb-1">{{ job.label }}</h5>
+            <p class="text-muted small mb-2">{{ job.note }}</p>
+            <div class="small">
+                마지막 실행:
+                {% if job.last_run %}
+                    <span class="{% if job.last_run_ago_minutes < 60 %}fresh{% else %}stale{% endif %}">
+                        {{ job.last_run|date:"Y-m-d H:i" }} ({{ job.last_run_ago_minutes }}분 전)
+                    </span>
+                {% else %}
+                    <span class="text-muted">기록 없음</span>
+                {% endif %}
+                &nbsp;
+                {% if job.running %}
+                    <span class="badge bg-primary">실행 중</span>
+                {% elif job.status == 'ok' %}
+                    <span class="badge bg-success">정상</span>
+                {% elif job.status == 'error' %}
+                    <span class="badge bg-danger">에러</span>
+                {% else %}
+                    <span class="badge bg-secondary">기록없음</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            {% if job.log_tail %}
+            <button class="btn btn-sm btn-outline-secondary" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#log-{{ job.key }}">
+                로그 보기
+            </button>
+            {% endif %}
+            <form method="post" action="{% url 'pipeline_trigger' job.key %}"
+                  onsubmit="return confirm('{{ job.label }}을(를) 지금 실행할까요?\n{{ job.note }}');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary" {% if job.running %}disabled{% endif %}>
+                    지금 실행
+                </button>
+            </form>
+        </div>
+    </div>
+    {% if job.preview %}
+    <div class="preview-box mt-3">
+        <div class="small fw-bold text-muted mb-2">지금 누르면</div>
+        {% if job.preview.type == 'blog' %}
+            {% if job.preview.rows %}
+            <table class="table table-sm mb-0">
+                <thead><tr><th>회원</th><th>사이트</th><th>발행될 글</th></tr></thead>
+                <tbody>
+                    {% for row in job.preview.rows %}
+                    <tr>
+                        <td>{{ row.username }}</td>
+                        <td class="small text-muted">{{ row.site_url|default:"—" }}</td>
+                        <td>
+                            {% if row.article_title %}
+                                {{ row.article_title }}
+                            {% else %}
+                                <span class="text-muted">발행 대상 없음</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">자동 포스팅을 켠 회원 계정이 없습니다.</p>
+            {% endif %}
+        {% elif job.preview.type == 'newsletter_draft' %}
+            {% if job.preview.skip_reason %}
+                <p class="text-muted small mb-0">⏭ {{ job.preview.skip_reason }}</p>
+            {% else %}
+                <p class="small mb-0 text-success">✅ 오늘 마감 브리핑으로 새 뉴스레터 초안(READY)을 생성합니다.</p>
+            {% endif %}
+        {% elif job.preview.type == 'newsletter_send' %}
+            {% if job.preview.ready_issues %}
+                <p class="small mb-1">활성 구독자 <b>{{ job.preview.subscriber_count }}명</b>에게 아래 {{ job.preview.ready_issues|length }}건을 발송합니다:</p>
+                <ul class="small mb-0">
+                    {% for issue in job.preview.ready_issues %}
+                    <li>{{ issue.subject }} ({{ issue.article_count }}건 포함)</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted small mb-0">발송 대기(READY) 상태인 초안이 없어 아무 것도 보내지 않습니다.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if job.log_tail %}
+    <div class="collapse mt-3" id="log-{{ job.key }}">
+        <div class="log-tail">{{ job.log_tail }}</div>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extrabody %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

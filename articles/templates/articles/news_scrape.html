@@ -6,12 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+        .section-title { font-weight: 800; color: var(--brand-primary, #0d47a1); border-left: 5px solid var(--brand-primary, #0d47a1); padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -30,11 +31,13 @@
         {% endif %}
 
         <div class="card card-custom bg-white p-4 mt-3">
-            <h3 class="fw-bold mb-2">🔗 뉴스 포스팅</h3>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h3 class="fw-bold mb-0">🔗 뉴스 수집</h3>
+                <a href="{% url 'news_write' %}" class="btn btn-outline-primary btn-sm flex-shrink-0">✍️ 자유 포스팅</a>
+            </div>
             <p class="text-muted small mb-4">
-                기사 원문 URL을 직접 입력하거나, 키워드로 검색해 등록된 언론사 기사 중에서 골라도 됩니다.
-                본문을 자동으로 스크래핑하고 AI가 3줄 요약·투자 관점 분석·블로그 초안을 생성한 뒤,
-                바로 편집 화면으로 이동해 내용을 검토·수정할 수 있습니다.
+                기사 원문 URL을 입력하고 '스크래핑' 버튼을 누르면 본문을 가져와 아래에 보여줍니다. AI 3줄 요약·
+                관점 분석·블로그 초안은 편집 화면에서 'AI 요약' 버튼을 눌러 별도로 생성할 수 있습니다.
             </p>
 
             <p class="mb-4">
@@ -52,41 +55,18 @@
             <form method="post" novalidate id="scrapeForm">
                 {% csrf_token %}
 
-                <div class="mb-3">
-                    <label for="inputMode" class="form-label fw-semibold">등록 방법</label>
-                    <select id="inputMode" class="form-select" style="max-width: 220px;">
-                        <option value="url">URL 직접 입력</option>
-                        <option value="keyword">검색어로 찾기</option>
-                    </select>
-                </div>
-
-                <div id="urlModeBlock">
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div id="keywordModeBlock" class="d-none">
-                    <div class="mb-2">
-                        <label for="keywordInput" class="form-label fw-semibold">검색어</label>
-                        <input type="text" id="keywordInput" class="form-control" placeholder="예: 삼성전자, 금리 인하, 2차전지 ...">
-                        <div class="form-text">입력을 멈추면 자동으로 등록된 언론사 기사 중에서 찾아 보여줍니다.</div>
-                    </div>
-                    <div id="searchStatus" class="small text-muted mb-2"></div>
-                    <div id="searchResults" class="list-group mb-2" style="max-height: 360px; overflow-y: auto;"></div>
-                </div>
-
-                <div class="d-flex justify-content-end gap-2 mt-4" id="submitBtnBlock">
+                {% for field in form %}
+                <div class="input-group mb-2">
+                    <span class="input-group-text fw-semibold">{{ field.label }}</span>
+                    {{ field }}
                     <button type="submit" class="btn btn-primary" id="scrapeSubmitBtn" {% if scraping_stats.remaining == 0 %}disabled{% endif %}>
                         스크래핑
                     </button>
                 </div>
+                {% if field.errors %}
+                <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                {% endif %}
+                {% endfor %}
             </form>
         </div>
 
@@ -94,57 +74,45 @@
             <h5 class="fw-bold mb-1" id="previewTitle"></h5>
             <div class="small text-muted mb-3" id="previewMeta"></div>
             <div class="mb-3">
+                <div class="fw-semibold mb-1">스크랩한 내용</div>
+                <textarea class="form-control small" id="previewContent" rows="8" readonly></textarea>
+            </div>
+            <div class="mb-3 d-none" id="previewSummaryBlock">
                 <div class="fw-semibold mb-1">AI 3줄 요약</div>
                 <div id="previewSummary" class="small" style="white-space: pre-line;"></div>
             </div>
-            <div class="mb-3">
-                <div class="fw-semibold mb-1">AI 투자 관점 분석</div>
+            <div class="mb-3 d-none" id="previewAnalysisBlock">
+                <div class="fw-semibold mb-1">AI 관점 분석</div>
                 <div id="previewAnalysis" class="small" style="white-space: pre-line;"></div>
             </div>
             <div class="d-flex justify-content-end gap-2">
                 <a href="#" id="previewDetailLink" class="btn btn-outline-secondary btn-sm">상세 보기</a>
-                <a href="#" id="previewEditLink" class="btn btn-outline-primary btn-sm">편집 화면으로 이동</a>
+                <form method="post" id="previewAiSummarizeForm" class="d-none">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" id="previewAiSummarizeNext">
+                    <button type="submit" class="btn btn-primary btn-sm" id="previewAiSummarizeBtn">AI 요약</button>
+                </form>
             </div>
         </div>
     </div>
 
     <script>
         (function () {
-            const modeSelect = document.getElementById('inputMode');
-            const urlBlock = document.getElementById('urlModeBlock');
-            const keywordBlock = document.getElementById('keywordModeBlock');
-            const urlInput = document.getElementById('{{ form.url.id_for_label }}');
-            const keywordInput = document.getElementById('keywordInput');
-            const searchStatus = document.getElementById('searchStatus');
-            const resultsBox = document.getElementById('searchResults');
             const form = document.getElementById('scrapeForm');
             const submitBtn = document.getElementById('scrapeSubmitBtn');
-            const submitBtnBlock = document.getElementById('submitBtnBlock');
             const previewBox = document.getElementById('registeredPreview');
             const previewTitle = document.getElementById('previewTitle');
             const previewMeta = document.getElementById('previewMeta');
+            const previewContent = document.getElementById('previewContent');
             const previewSummary = document.getElementById('previewSummary');
             const previewAnalysis = document.getElementById('previewAnalysis');
+            const previewSummaryBlock = document.getElementById('previewSummaryBlock');
+            const previewAnalysisBlock = document.getElementById('previewAnalysisBlock');
             const previewDetailLink = document.getElementById('previewDetailLink');
-            const previewEditLink = document.getElementById('previewEditLink');
+            const previewAiSummarizeForm = document.getElementById('previewAiSummarizeForm');
+            const previewAiSummarizeNext = document.getElementById('previewAiSummarizeNext');
             const previewUrlTemplate = '{% url "news_article_preview" pk=0 %}';
-
-            let debounceTimer = null;
-            let requestSeq = 0;
-
-            modeSelect.addEventListener('change', function () {
-                const isKeyword = modeSelect.value === 'keyword';
-                urlBlock.classList.toggle('d-none', isKeyword);
-                keywordBlock.classList.toggle('d-none', !isKeyword);
-                submitBtnBlock.classList.toggle('d-none', isKeyword);
-                if (isKeyword) {
-                    urlInput.value = '';
-                } else {
-                    resultsBox.innerHTML = '';
-                    searchStatus.textContent = '';
-                    previewBox.classList.add('d-none');
-                }
-            });
+            const scrapedArticleId = '{{ scraped_article_id|default:"" }}';
 
             function showRegisteredPreview(articleId) {
                 fetch(previewUrlTemplate.replace('0', articleId))
@@ -152,98 +120,35 @@
                     .then(function (data) {
                         previewTitle.textContent = data.title;
                         previewMeta.textContent = `${data.source_media} · ${data.scraped_at}`;
-                        previewSummary.textContent = data.ai_summary || '(AI 요약이 아직 없습니다)';
-                        previewAnalysis.textContent = data.ai_analysis || '(AI 분석이 아직 없습니다)';
+                        previewContent.value = data.original_content || '(스크랩한 원문이 없습니다)';
+                        previewSummary.textContent = data.ai_summary || '';
+                        previewAnalysis.textContent = data.ai_analysis || '';
+                        previewSummaryBlock.classList.toggle('d-none', !data.ai_summary);
+                        previewAnalysisBlock.classList.toggle('d-none', !data.ai_analysis);
                         previewDetailLink.href = data.detail_url;
-                        previewEditLink.href = data.edit_url;
+                        // AI 요약이 끝나면 편집 화면이 아니라 바로 상세 화면으로 이동한다.
+                        previewAiSummarizeForm.action = data.ai_summarize_url;
+                        previewAiSummarizeNext.value = data.detail_url;
+                        previewAiSummarizeForm.classList.toggle('d-none', data.ai_generated);
                         previewBox.classList.remove('d-none');
-                        previewBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     })
-                    .catch(function () {
-                        searchStatus.textContent = '기사 내용을 불러오지 못했습니다.';
-                    });
+                    .catch(function () {});
             }
 
-            function submitScrapeFor(link) {
-                if (submitBtn.disabled) {
-                    searchStatus.textContent = '오늘 등록 가능한 건수를 모두 사용했습니다.';
-                    return;
-                }
-                urlInput.value = link;
-                form.requestSubmit(submitBtn);
+            if (scrapedArticleId) {
+                showRegisteredPreview(scrapedArticleId);
             }
 
-            function renderResults(results) {
-                resultsBox.innerHTML = '';
-                previewBox.classList.add('d-none');
-                if (!results.length) {
-                    searchStatus.textContent = '검색 결과가 없습니다.';
-                    return;
-                }
-                searchStatus.textContent = `${results.length}건 찾음`;
-                results.forEach(function (item) {
-                    const row = document.createElement('div');
-                    row.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
-
-                    const info = document.createElement('div');
-                    const titleClass = item.already_registered ? 'fw-semibold text-primary' : 'fw-semibold';
-                    const titleStyle = item.already_registered ? ' style="cursor:pointer;"' : '';
-                    info.innerHTML = `<div class="${titleClass}"${titleStyle}>${item.title}</div>` +
-                        `<div class="small text-muted">${item.source}${item.pub_date ? ' · ' + item.pub_date : ''}` +
-                        (item.already_registered ? ' · <span class="text-warning">이미 등록됨</span>' : '') + `</div>`;
-                    if (item.already_registered) {
-                        info.querySelector('div').addEventListener('click', function () {
-                            showRegisteredPreview(item.article_id);
-                        });
-                    }
-                    row.appendChild(info);
-
-                    const actionBtn = document.createElement('button');
-                    actionBtn.type = 'button';
-                    actionBtn.className = 'btn btn-sm btn-primary flex-shrink-0';
-                    actionBtn.textContent = '스크래핑';
-                    actionBtn.addEventListener('click', function () {
-                        submitScrapeFor(item.link);
-                    });
-                    row.appendChild(actionBtn);
-
-                    resultsBox.appendChild(row);
-                });
-            }
-
-            keywordInput.addEventListener('input', function () {
-                const q = keywordInput.value.trim();
-                clearTimeout(debounceTimer);
-                if (!q) {
-                    resultsBox.innerHTML = '';
-                    searchStatus.textContent = '';
-                    return;
-                }
-                searchStatus.textContent = '검색 중...';
-                debounceTimer = setTimeout(function () {
-                    const mySeq = ++requestSeq;
-                    fetch('{% url "news_search" %}?q=' + encodeURIComponent(q))
-                        .then(function (r) { return r.json(); })
-                        .then(function (data) {
-                            if (mySeq !== requestSeq) return; // 더 최근 검색이 이미 진행 중이면 이 결과는 버림
-                            renderResults(data.results || []);
-                        })
-                        .catch(function () {
-                            if (mySeq !== requestSeq) return;
-                            searchStatus.textContent = '검색 중 오류가 발생했습니다.';
-                        });
-                }, 500);
+            // 스크래핑 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
+            form.addEventListener('submit', function () {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '스크래핑 중...';
             });
 
-            // 스크래핑 + AI 요약 호출은 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를 알려준다.
-            form.addEventListener('submit', function (e) {
-                if (modeSelect.value === 'keyword' && !urlInput.value) {
-                    e.preventDefault();
-                    searchStatus.textContent = '검색 결과 목록에서 스크래핑 버튼을 눌러주세요.';
-                    return;
-                }
-                submitBtn.disabled = true;
-                submitBtn.textContent = '스크래핑 및 AI 분석 중... (최대 30초 소요)';
+            previewAiSummarizeForm.addEventListener('submit', function () {
+                const btn = document.getElementById('previewAiSummarizeBtn');
+                btn.textContent = '⏳ 요약 중... (최대 30초 소요)';
+                setTimeout(function () { btn.disabled = true; }, 0);
             });
         })();
     </script>

@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제3보험 — 손해보험과 생명보험 사이, 실손의료보험이 있는 곳</title>
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
+<!-- 아래 스타일은 term-life/index.html과 시각적 일관성을 위해 그대로 복사한 것이라 사용하지 않는 선택자가 포함되어 있다 -->
+<style>
+  /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --ink: #212529;
+    --ink-soft: #868e96;
+    --paper: #f4f6f9;
+    --card: #ffffff;
+    --card-stub: #f1f3f5;
+    --line: #e9ecef;
+    --line-strong: #dee2e6;
+    --accent: #0d47a1;
+    --accent-ink: #ffffff;
+    --success: #2f7a4d;
+    --success-bg: #e6f4ea;
+    --shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both; }
+    .rise-delay-1 { animation-delay: .08s; }
+    .rise-delay-2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ── 헤더/네비 (연금저축·IRP·ISA 페이지와 같은 구조·높이) ── */
+  header { border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.15rem; letter-spacing: 0.01em; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: var(--accent);
+    transform: rotate(-6deg);
+  }
+  #nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  #nav a { text-decoration: none; opacity: 0.88; transition: opacity .2s; }
+  #nav a:hover, #nav a:focus-visible { opacity: 1; }
+  .nav-toggle { display: none; }
+  @media (max-width: 820px) {
+    #nav ul { display: none; }
+    .nav-toggle {
+      display: inline-flex; background: none; border: 1px solid var(--line-strong); color: var(--ink);
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    #nav.open ul {
+      display: flex; flex-direction: column; gap: 14px; position: absolute; left: 0; right: 0; top: 64px;
+      background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--line); z-index: 1010;
+    }
+  }
+
+  section { padding: 32px 0; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .section-title { font-size: 22px; font-weight: 800; }
+  .section-note { font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- comparison: ledger entry cards ---------- */
+  .plans { display: flex; flex-direction: column; gap: 14px; }
+  .ledger-entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ledger-entry:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,46,40,0.08), 0 16px 32px rgba(31,46,40,0.12); }
+
+  .ledger-stub {
+    background: var(--card-stub);
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .inst-name { font-size: 16px; font-weight: 800; }
+  .type-tag {
+    display: inline-block; margin-top: 6px; font-family: 'Pretendard Variable', 'Pretendard', sans-serif; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 2px 7px;
+  }
+
+  .ledger-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+
+  @media (max-width: 700px) {
+    .ledger-entry { grid-template-columns: 1fr; }
+    .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
+  }
+
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  .cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  .cmp th, .cmp td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  .cmp th { background: var(--card); font-weight: 700; }
+  .cmp caption { text-align: left; padding-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
+
+  /* ---------- 상담 유도 배너 ---------- */
+  .consult-cta {
+    background: var(--accent); color: #fff; border-radius: 12px; padding: 28px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .consult-cta h3 { font-size: 18px; margin: 0 0 4px; }
+  .consult-cta p { margin: 0; font-size: 13.5px; opacity: 0.88; }
+  .consult-cta .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 7px;
+    font-weight: 700; font-size: 14px; cursor: pointer; padding: 12px 22px; background: #fff; color: var(--accent);
+    text-decoration: none; white-space: nowrap;
+  }
+
+  /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
+  .pt-hero { max-width: 960px; margin: 0 auto; padding: 44px 24px 8px; }
+  .pt-eyebrow { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #0d47a1; margin: 0 0 10px; }
+  .pt-title { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; margin: 0 0 12px; }
+  .pt-title .pt-icon { font-size: 28px; line-height: 1; }
+  .pt-desc { font-size: 15px; color: #495057; max-width: 60ch; line-height: 1.6; margin: 0; }
+
+  /* ── 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ── */
+  .am-tabs-sub { background:#f8f9fb; }
+</style>
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
+<link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
+</head>
+<body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
+  <nav class="app-navbar">
+    <div class="container">
+      <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
+      <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기" onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
+      <div class="app-nav-menu" id="appNavMenu"></div>
+    </div>
+  </nav>
+  <script>
+    fetch('/partials/header/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var realMenu = wrapper.querySelector('#appNavMenu');
+        var menuTarget = document.getElementById('appNavMenu');
+
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
+      })
+      .catch(function () {});
+  </script>
+<div class="am-tabs">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/" class="am-tab">종합</a>
+    <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
+    <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
+    <a href="/asset-management/irp/" class="am-tab">IRP</a>
+    <a href="/asset-management/isa/" class="am-tab">ISA</a>
+    <a href="/asset-management/insurance/" class="am-tab is-active">보험</a>
+    <a href="/asset-management/bond/" class="am-tab">채권</a>
+    <a href="/asset-management/realestate/" class="am-tab">부동산</a>
+    <a href="/asset-management/youth-savings/" class="am-tab am-tab-new">청년저축<span class="am-tab-sparkle">✨</span></a>
+  </div>
+</div>
+<div class="am-tabs am-tabs-sub">
+  <div class="am-tabs-inner">
+    <a href="/asset-management/insurance/" class="am-tab">개요</a>
+    <a href="/asset-management/insurance/life/" class="am-tab">생명보험</a>
+    <a href="/asset-management/insurance/damage/" class="am-tab">손해보험</a>
+    <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
+    <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
+    <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
+    <a href="/asset-management/insurance/third/" class="am-tab is-active">제3보험</a>
+  </div>
+</div>
+
+
+  <header>
+    <div class="nav-inner">
+      <div class="brand"><span class="seal">🛡️</span>제3보험</div>
+      <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">메뉴</button>
+      <nav id="nav">
+        <ul>
+          <li><a href="#basics">핵심 원리</a></li>
+          <li><a href="#types">상품 종류</a></li>
+          <li><a href="#vs">생명·손해보험과 비교</a></li>
+          <li><a href="#renew">갱신형 특성</a></li>
+          <li><a href="#checklist">가입 전 확인</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="pt-hero">
+    <div class="pt-eyebrow">第三保險</div>
+    <h1 class="pt-title"><span class="pt-icon">🛡️</span>손해보험과 생명보험 사이에 있는 보험</h1>
+    <p class="pt-desc">사람의 신체를 대상으로 하지만, 실제로 들어간 치료비를 보상하는 실손형과 진단 시 정해진 금액을 주는 정액형이 섞여 있어 어느 한쪽으로 분류되지 않습니다. 실손의료보험 · 암보험 · 간병보험이 여기 속하고, 실제로 가장 많은 사람이 가입하는 영역입니다.</p>
+  </div>
+
+  <main>
+    <section id="basics">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">핵심 원리</h2>
+          <span class="section-note">생명보험도 손해보험도 아닌, 제3의 영역</span>
+        </div>
+        <div class="plans">
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">대상은 사람의 신체</div>
+              <span class="type-tag">생명보험 쪽 성격</span>
+            </div>
+            <div class="ledger-body">
+              <p>질병 · 상해 · 간병 상태처럼 사람에게 생긴 일을 보장 대상으로 삼습니다. 재산상 손해를 다루는 순수 손해보험과는 이 지점에서 다릅니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">지급방식은 실손 + 정액 혼재</div>
+              <span class="type-tag">손해보험 쪽 성격</span>
+            </div>
+            <div class="ledger-body">
+              <p>실손의료보험처럼 실제 쓴 치료비만큼 주는 실손형과, 암 진단비처럼 정해진 금액을 그대로 주는 정액형이 상품에 따라 섞여 있습니다.</p>
+            </div>
+          </div>
+          <div class="ledger-entry rise">
+            <div class="ledger-stub">
+              <div class="inst-name">두 보험사 모두 취급</div>
+              <span class="type-tag">손해보험사 · 생명보험사</span>
+            </div>
+            <div class="ledger-body">
+              <p>대상(사람의 신체)은 생명보험 영역이지만 손해보험사도 판매할 수 있도록 별도로 분류돼 있어, 어느 회사에서 가입했는지보다 상품의 지급방식을 확인하는 게 더 중요합니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="types">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">대표 상품 3가지</h2>
+          <span class="section-note">실제 가입률이 가장 높은 상품들</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>상품</th><th>보장</th><th>지급방식</th></tr></thead>
+            <tbody>
+              <tr><td>실손의료보험</td><td>질병 · 상해로 발생한 치료비</td><td>실손 — 자기부담금을 뺀 실제 지출분</td></tr>
+              <tr><td>암보험 · 진단비보험</td><td>암 등 특정 질병 진단</td><td>정액 — 진단 확정 시 약정 금액</td></tr>
+              <tr><td>간병보험</td><td>장기요양 · 일상생활 장해 상태</td><td>정액 또는 실손 (상품에 따라 다름)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>실손의료보험은 "제2의 건강보험"이라 불릴 만큼 많이 가입하지만, 진단비 · 간병 성격의 보장은 없습니다. 반대로 암보험 · 간병보험은 실제 치료비와 무관하게 정해진 금액이 나오지만 평소 소소한 병원비는 보장하지 않습니다 — 서로 보완 관계입니다.</p>
+      </div>
+    </section>
+
+    <section id="vs">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">생명보험 · 손해보험과 무엇이 다른가</h2>
+          <span class="section-note">기준은 대상이 아니라 지급방식</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>생명보험</th><th>손해보험</th><th>제3보험</th></tr></thead>
+            <tbody>
+              <tr><td>대상</td><td>사람의 생사</td><td>재산상 손해</td><td>사람의 신체(질병 · 상해 · 간병)</td></tr>
+              <tr><td>지급방식</td><td>정액</td><td>실손</td><td>실손 + 정액 혼재</td></tr>
+              <tr><td>중복 가입 시</td><td>계약마다 전액 지급</td><td>비례분담, 손해액 한도</td><td>실손형은 손해보험처럼 중복 무의미, 정액형은 생명보험처럼 중복 가입한 만큼 지급</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>실손의료보험을 여러 건 가입해도 실제 치료비 이상을 받을 수 없습니다(이득금지 원칙). 반면 암 진단비 같은 정액형은 여러 건 가입한 만큼 각각 지급됩니다. 같은 "제3보험"이라도 상품 성격에 따라 중복 가입의 의미가 완전히 달라지는 이유입니다.
+          <a href="../../insurance/damage/index.html">손해보험 페이지에서 실손 원칙 자세히 보기 &rarr;</a></p>
+      </div>
+    </section>
+
+    <section id="renew">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">갱신형이 대부분인 이유</h2>
+          <span class="section-note">나이 들수록 확인해야 할 부분</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>구분</th><th>특징</th></tr></thead>
+            <tbody>
+              <tr><td>보험기간</td><td>대부분 1~5년 단위로 갱신되는 구조</td></tr>
+              <tr><td>보험료</td><td>나이가 들고 손해율이 오르면 갱신 시점에 인상될 수 있음</td></tr>
+              <tr><td>보장 내용</td><td>제도 변경(예: 자기부담금 비율 조정)에 따라 갱신 때 바뀔 수 있음</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>사망을 보장하는 종신 · 정기보험과 달리, 제3보험은 의료 환경 변화에 맞춰 보험료 · 보장 조건이 주기적으로 조정되는 구조가 일반적입니다. 가입할 때의 조건이 평생 고정된다고 오해하지 않는 게 중요합니다.</p>
+      </div>
+    </section>
+
+    <section id="checklist">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="section-title">가입 전 확인할 것</h2>
+          <span class="section-note">이미 있는 보장과 겹치지 않는지가 핵심</span>
+        </div>
+        <div class="table-scroll">
+          <table class="cmp">
+            <thead><tr><th>#</th><th>확인 항목</th><th>기준</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>실손의료보험 중복 여부</td><td>이미 있다면 추가 가입은 보장 확대 효과가 없음</td></tr>
+              <tr><td>2</td><td>정액형(암 · 간병) 보장 공백</td><td>실손형만으로는 채워지지 않는 진단비 · 요양비 대비</td></tr>
+              <tr><td>3</td><td>갱신형 여부와 갱신 주기</td><td>총 납입 예상액을 장기로 따져볼 것</td></tr>
+              <tr><td>4</td><td>자기부담금 비율</td><td>실손형은 상품마다 자기부담 구조가 다름</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>제3보험은 실손형(의료비)과 정액형(진단비 · 간병비)의 성격이 다르므로, 이미 가진 보장이 어느 쪽인지부터 확인한 뒤 비어 있는 쪽을 채우는 순서로 접근하는 것이 중복 가입을 피하는 방법입니다.</p>
+      </div>
+    </section>
+
+    <section style="padding-top:8px;">
+      <div class="wrap">
+        <div class="consult-cta">
+          <div>
+            <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
+            <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
+          </div>
+          <a class="btn" href="/experts/apply/">💬 전문가 무료 상담 신청</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">🛡️ 제3보험 안내</div>
+      <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 제3보험을 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 보험사나 상품을 권유하지 않아요.</p>
+      <div class="disclaimer">
+        교육용 일반 정보이며 특정 상품의 가입 권유가 아닙니다. 가입한 보험의 보장 중복·공백 점검 등 개인별 맞춤 상담은 NextFinUp 전문가 상담을 통해 받아보실 수 있습니다.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 챕터 내비게이션 토글 (모바일) — 연금저축·IRP·ISA 페이지와 같은 패턴
+    (function () {
+      var navEl = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      if (!navEl || !toggle) return;
+      toggle.addEventListener('click', function () { navEl.classList.toggle('open'); });
+      navEl.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { navEl.classList.remove('open'); });
+      });
+    })();
+  </script>
+</body>
+</html>

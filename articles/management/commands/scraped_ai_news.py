@@ -65,7 +65,8 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.SUCCESS(f"    ↳ [경제지 기사 발견] {stock.name} ➔ {title[:22]}..."))
 
                         # ----------------------------------------------------
-                        content = fetch_article_content(link)
+                        fetched = fetch_article_content(link)
+                        content = fetched['content']
                         AnalyzedArticle.objects.create(
                             stock=stock,
                             title=title,
@@ -75,7 +76,7 @@ class Command(BaseCommand):
                             original_content=content,
                             has_reuse_restriction=detect_reuse_restriction(content),
                             applied_template='T1',
-                            is_premium=False,
+                            is_premium=fetched['is_premium'],
                             is_posted=False
                         )
                         count += 1

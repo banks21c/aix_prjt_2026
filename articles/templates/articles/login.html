@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -5,13 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
-            background-color: #f4f6f9;
-            color: #212529;
+            background-color: var(--bg-page, #f4f6f9);
+            color: var(--text-primary, #212529);
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             display: flex;
             align-items: center;
@@ -22,7 +24,7 @@
         .auth-card {
             width: 100%;
             max-width: 420px;
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 14px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.06);
             padding: 40px 36px;
@@ -33,10 +35,10 @@
             font-weight: 800;
             font-size: 22px;
             letter-spacing: -0.5px;
-            color: #0d47a1;
+            color: var(--brand-primary, #0d47a1);
             margin-bottom: 8px;
         }
-        .auth-title { text-align: center; font-size: 15px; color: #6c757d; margin: 0 0 28px; }
+        .auth-title { text-align: center; font-size: 15px; color: var(--text-muted, #6c757d); margin: 0 0 28px; }
 
         .messages { list-style: none; padding: 0; margin: 0 0 20px; }
         .messages li {
@@ -45,8 +47,8 @@
             font-size: 13px;
             margin-bottom: 8px;
         }
-        .messages .success { background: #e6f4ea; color: #1e7e34; }
-        .messages .error { background: #fdecea; color: #c62828; }
+        .messages .success { background: var(--bg-success-soft, #e6f4ea); color: var(--color-success, #1e7e34); }
+        .messages .error { background: var(--bg-danger-soft, #fdecea); color: var(--color-danger, #c62828); }
 
         .social-btn {
             display: flex;
@@ -64,16 +66,16 @@
         }
         .btn-kakao { background: #FEE500; color: #191919; }
         .btn-kakao:hover { background: #f5dc00; }
-        .btn-google { background: #fff; color: #3c4043; border-color: #dadce0; }
+        .btn-google { background: var(--color-white, #fff); color: #3c4043; border-color: #dadce0; }
         .btn-google:hover { background: #f8f9fa; }
-        .btn-naver { background: #03C75A; color: #fff; }
+        .btn-naver { background: #03C75A; color: var(--color-white, #fff); }
         .btn-naver:hover { background: #02b350; }
 
         .divider {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: #adb5bd;
+            color: var(--text-disabled, #adb5bd);
             font-size: 12px;
             margin: 22px 0;
         }
@@ -81,38 +83,38 @@
             content: "";
             flex: 1;
             height: 1px;
-            background: #e9ecef;
+            background: var(--border-light, #e9ecef);
         }
 
         .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 6px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary, #495057); margin-bottom: 6px; }
         .form-group input {
             width: 100%;
             padding: 11px 14px;
             border-radius: 8px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             font-size: 14px;
         }
-        .form-group input:focus { outline: none; border-color: #0d47a1; }
-        .field-errors { color: #c62828; font-size: 12px; margin-top: 6px; }
-        .non-field-errors { color: #c62828; font-size: 13px; margin-bottom: 16px; }
+        .form-group input:focus { outline: none; border-color: var(--brand-primary, #0d47a1); }
+        .field-errors { color: var(--color-danger, #c62828); font-size: 12px; margin-top: 6px; }
+        .non-field-errors { color: var(--color-danger, #c62828); font-size: 13px; margin-bottom: 16px; }
 
         .btn-submit {
             width: 100%;
             padding: 12px 16px;
             border-radius: 10px;
             border: none;
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             font-size: 15px;
             font-weight: 700;
             cursor: pointer;
             margin-top: 6px;
         }
-        .btn-submit:hover { background: #0b3c8a; }
+        .btn-submit:hover { background: var(--brand-primary-hover, #0b3c8a); }
 
-        .auth-footer { text-align: center; font-size: 13px; color: #6c757d; margin-top: 24px; }
-        .auth-footer a { color: #0d47a1; font-weight: 600; }
+        .auth-footer { text-align: center; font-size: 13px; color: var(--text-muted, #6c757d); margin-top: 24px; }
+        .auth-footer a { color: var(--brand-primary, #0d47a1); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -151,7 +153,11 @@
 		<a href="{% url 'naver_login' %}" class="social-btn btn-naver">N 네이버로 로그인</a>
         </form>
 
-        <p class="auth-footer">아직 계정이 없으신가요? <a href="{% url 'signup' %}">회원가입</a></p>
+        <p class="auth-footer">
+            아직 계정이 없으신가요? <a href="{% url 'signup' %}">회원가입</a>
+            <span style="color:var(--border-input, #ced4da);"> · </span>
+            <a href="{% url 'find_password' %}">비밀번호 찾기</a>
+        </p>
     </div>
 {% include "articles/_cookie_banner.html" %}
 </body>

@@ -19,21 +19,43 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
+from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
+from literary.views import literary_picker_view
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
 from articles.views import (
-    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view, cron_status_view,
-    privacy_policy_view, terms_of_service_view, insurance_compare_view, consult_request_view, header_fragment_view,
+    landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
+    newsletter_sample_view, cron_status_view,
+    privacy_policy_view, terms_of_service_view, email_collection_refusal_view, blog_connect_guide_view, adsense_guide_view, health_content_calendar_view, food_content_calendar_view, travel_content_calendar_view, insurance_compare_view, consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view,
+    ticker_data_view, ticker_stocks_view,
     expert_consult_view,
-    financial_consult_sheet_view, financial_consult_sheet_save_view,
-    news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_edit_view, news_scrape_view, news_search_view, post_articles_view, stock_detail_view, stock_minute_chart_view,
-    market_index_minute_chart_view,
+    expert_consult_apply_view,
+    faq_board_view,
+    tools_hub_view, char_counter_view, currency_converter_view, severance_calculator_view,
+    unemployment_benefit_calculator_view, net_pay_calculator_view, annual_leave_calculator_view,
+    json_formatter_view, image_resizer_view, qrcode_generator_view, background_remover_view,
+    unit_converter_view, spell_checker_view, spell_check_api_view,
+    subscribe_view,
+    subscribe_apply_view,
+    financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
+    integration_status_view,
+    pipeline_status_view, pipeline_trigger_view, server_health_view,
+    operations_overview_view, ai_performance_admin_view, theme_settings_view, theme_css_view,
+    image_generator_view, generated_image_list_view, generated_image_delete_view,
+    image_series_start_view, image_series_status_view,
+    generated_image_jpg_view,
+    file_upload_view, file_upload_download_view, file_upload_delete_view,
+    content_calendar_admin_view, publish_for_member_view,
+    naver_migration_list_view, naver_migration_detail_view,
+    blog_posting_board_view, news_ai_summarize_view, news_article_preview_view, news_board_view, news_detail_view, news_delete_view, news_edit_view, news_regenerate_thumbnail_view, news_scrape_view, news_write_view, post_articles_view, repost_article_view, republish_article_view, stock_detail_view, stock_minute_chart_view, stock_period_chart_view, watchlist_toggle_view,
+    market_index_minute_chart_view, stock_quote_view, stock_search_suggest_view,
     chatbot_ask_view,
-    signup_view, login_view, logout_view, delete_account_view,
+    ai_performance_view,
+    signup_view, login_view, logout_view, delete_account_view, find_password_view,
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
     blogger_connect_view, blogger_callback_view,
-    my_page_view, verify_email_view,
+    my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view, change_password_view,
 )  # ◀ 우리가 만든 뷰 임포트
 
 sitemaps = {
@@ -43,40 +65,114 @@ sitemaps = {
 }
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls),  # ◀ 시스템 관리 — 슈퍼유저 전용(articles/admin.py에서 제한)
+    path('staff/', business_admin_site.urls),  # ◀ 업무 관리(상담 신청/재무상담 시트/구독 신청/프리미엄 구독) — is_staff면 접근 가능
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap'),
     path('', landing_page_view, name='landing_page'),  # ◀ 메인 홈페이지(랜딩 페이지)
     path('newsletter/subscribe/', newsletter_subscribe_view, name='newsletter_subscribe'),
     path('newsletter/unsubscribe/<str:token>/', newsletter_unsubscribe_view, name='newsletter_unsubscribe'),
+    path('newsletter/sample/', newsletter_sample_view, name='newsletter_sample'),
     path('admin-tools/cron/', cron_status_view, name='cron_status'),
+    path('admin-tools/integrations/', integration_status_view, name='integration_status'),
+    path('admin-tools/pipeline/', pipeline_status_view, name='pipeline_status'),
+    path('admin-tools/pipeline/run/<str:key>/', pipeline_trigger_view, name='pipeline_trigger'),
+    path('admin-tools/health/', server_health_view, name='server_health'),
+    path('admin-tools/overview/', operations_overview_view, name='operations_overview'),
+    path('admin-tools/performance/', ai_performance_admin_view, name='ai_performance_admin'),
+    path('admin-tools/theme/', theme_settings_view, name='theme_settings'),
+    path('admin-tools/image-generator/', image_generator_view, name='image_generator'),
+    path('admin-tools/image-generator/series/start/', image_series_start_view, name='image_series_start'),
+    path('admin-tools/image-generator/series/status/', image_series_status_view, name='image_series_status'),
+    path('admin-tools/image-generator/list/', generated_image_list_view, name='generated_image_list'),
+    path('admin-tools/image-generator/<int:pk>/delete/', generated_image_delete_view, name='generated_image_delete'),
+    path('admin-tools/image-generator/<int:pk>/jpg/', generated_image_jpg_view, name='generated_image_jpg'),
+    path('admin-tools/uploads/', file_upload_view, name='file_upload'),
+    path('admin-tools/uploads/<int:pk>/download/', file_upload_download_view, name='file_upload_download'),
+    path('admin-tools/uploads/<int:pk>/delete/', file_upload_delete_view, name='file_upload_delete'),
+    path('admin-tools/content-calendar/health/', content_calendar_admin_view, {'kind': 'health'}, name='health_content_calendar_admin'),
+    path('admin-tools/content-calendar/food/', content_calendar_admin_view, {'kind': 'food'}, name='food_content_calendar_admin'),
+    path('admin-tools/content-calendar/travel/', content_calendar_admin_view, {'kind': 'travel'}, name='travel_content_calendar_admin'),
+    path('admin-tools/publish-for-member/', publish_for_member_view, name='publish_for_member'),
+    path('admin-tools/naver-migration/', naver_migration_list_view, name='naver_migration_list'),
+    path('admin-tools/naver-migration/<int:pk>/', naver_migration_detail_view, name='naver_migration_detail'),
+    path('admin-tools/literary-picker/', literary_picker_view, name='literary_picker'),
+    # ◀ /static/ 밖(동적) — nginx가 /static/만 직접 서빙하므로 여기 둬야 Django에 닿는다.
+    # 확장자를 .css로 하지 않는 이유: Cloudflare가 .css로 끝나는 URL을 origin의 Cache-Control과
+    # 무관하게 엣지에서 캐시해버리는 게 실측으로 확인돼(theme_css_view의 no-store 무시), 관리자가
+    # 색을 바꿔도 몇 시간은 예전 색이 그대로 보였다 — 템플릿 쪽은 캐시 무효화용 ?v=(theme_version
+    # 컨텍스트 프로세서) 쿼리스트링도 같이 붙여 이중으로 방어한다.
+    path('theme-style', theme_css_view, name='theme_css'),
     path('admin-tools/consult-sheet/', financial_consult_sheet_view, name='financial_consult_sheet'),
     path('admin-tools/consult-sheet/save/', financial_consult_sheet_save_view, name='financial_consult_sheet_save'),
+    path('admin-tools/consult-sheet/search/', financial_consult_sheet_search_view, name='financial_consult_sheet_search'),
     path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('terms/', terms_of_service_view, name='terms_of_service'),
+    path('email-collection-refusal/', email_collection_refusal_view, name='email_collection_refusal'),
+    path('guide/blog-connect/', blog_connect_guide_view, name='blog_connect_guide'),
+    path('guide/adsense/', adsense_guide_view, name='adsense_guide'),
+    path('health-calendar/', health_content_calendar_view, name='health_content_calendar'),
+    path('food-calendar/', food_content_calendar_view, name='food_content_calendar'),
+    path('travel-calendar/', travel_content_calendar_view, name='travel_content_calendar'),
+    path('faq/', faq_board_view, name='faq_board'),
     path('experts/', expert_consult_view, name='expert_consult'),
+    path('experts/apply/', expert_consult_apply_view, name='expert_consult_apply'),  # ◀ 프로필/12가지 약속 없이 신청 폼만 있는 단독 페이지
+    path('subscribe/', subscribe_view, name='subscribe'),
+    path('subscribe/apply/', subscribe_apply_view, name='subscribe_apply'),
     path('insurance/', insurance_compare_view, name='insurance_compare'),
+    path('tools/', tools_hub_view, name='tools_hub'),
+    path('tools/character-counter/', char_counter_view, name='char_counter'),
+    path('tools/currency-converter/', currency_converter_view, name='currency_converter'),
+    path('tools/severance-calculator/', severance_calculator_view, name='severance_calculator'),
+    path('tools/unemployment-benefit-calculator/', unemployment_benefit_calculator_view, name='unemployment_benefit_calculator'),
+    path('tools/net-pay-calculator/', net_pay_calculator_view, name='net_pay_calculator'),
+    path('tools/annual-leave-calculator/', annual_leave_calculator_view, name='annual_leave_calculator'),
+    path('tools/json-formatter/', json_formatter_view, name='json_formatter'),
+    path('tools/image-resizer/', image_resizer_view, name='image_resizer'),
+    path('tools/qrcode-generator/', qrcode_generator_view, name='qrcode_generator'),
+    path('tools/background-remover/', background_remover_view, name='background_remover'),
+    path('tools/unit-converter/', unit_converter_view, name='unit_converter'),
+    path('tools/spell-checker/', spell_checker_view, name='spell_checker'),
+    path('api/spell-check/', spell_check_api_view, name='spell_check_api'),
     path('partials/header/', header_fragment_view, name='header_fragment'),
+    path('partials/cookie-banner/', cookie_banner_fragment_view, name='cookie_banner_fragment'),
+    path('partials/ticker/', ticker_fragment_view, name='ticker_fragment'),
+    path('api/ticker/', ticker_data_view, name='ticker_data'),  # ◀ 첫 번째(시세) 티커가 폴링하는 JSON
+    path('api/ticker/stocks/', ticker_stocks_view, name='ticker_stocks'),  # ◀ 두 번째(개별 종목) 티커가 폴링하는 JSON
     path('api/consult/', consult_request_view, name='consult_request'),
     path('dashboard/', main_dashboard_view, name='main_dashboard'),  # ◀ AI 예측/뉴스 대시보드
+    path('performance/', ai_performance_view, name='ai_performance'),  # ◀ AI 예측 성과 공개 트랙레코드
     path('market-index/<str:market_type>/minute-chart/', market_index_minute_chart_view, name='market_index_minute_chart'),  # ◀ 대시보드 지수차트 '1일' 온디맨드 API
+    path('api/stock-quote/', stock_quote_view, name='stock_quote'),  # ◀ 대시보드 종목 검색 위젯이 호출하는 온디맨드 API
+    path('api/stock-search/', stock_search_suggest_view, name='stock_search_suggest'),  # ◀ 검색창 자동완성 후보 목록 API
     path('news/', news_board_view, name='news_board'),  # ◀ 수집된 뉴스 게시판
-    path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑 → AI 초안 생성
-    path('news/search/', news_search_view, name='news_search'),  # ◀ news_scrape 화면의 검색어로 찾기 모드가 쓰는 AJAX 엔드포인트
+    path('blog-posting/', blog_posting_board_view, name='blog_posting_board'),  # ◀ 상단 메뉴 '블로그 포스팅': 본문 있는(포스팅 가능한) 글만, 비로그인 공개
+    path('news/scrape/', news_scrape_view, name='news_scrape'),  # ◀ 관리자 전용: URL 입력 → 스크래핑
+    path('post/write/', news_write_view, name='news_write'),  # ◀ 원문 링크 없이 제목+본문 직접 입력 → AI 요약
     path('news/post/', post_articles_view, name='post_articles'),  # ◀ 선택한 기사를 내 블로그 계정에 수동 발행
     path('news/<int:pk>/', news_detail_view, name='news_detail'),
-    path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape 검색결과의 '이미 등록됨' 항목 미리보기 AJAX
+    path('news/<int:pk>/preview/', news_article_preview_view, name='news_article_preview'),  # ◀ news_scrape에서 방금 스크랩/중복 등록된 기사를 같은 화면 아래에 보여주는 AJAX
     path('news/<int:pk>/edit/', news_edit_view, name='news_edit'),  # ◀ 관리자 전용 기사 수정
+    path('news/<int:pk>/delete/', news_delete_view, name='news_delete'),  # ◀ 기사 삭제(news_edit와 같은 권한: staff 또는 본인 등록 기사)
+    path('news/<int:pk>/regenerate-thumbnail/', news_regenerate_thumbnail_view, name='news_regenerate_thumbnail'),  # ◀ 관리자 전용 썸네일 이미지 재생성
     path('news/<int:pk>/ai-summarize/', news_ai_summarize_view, name='news_ai_summarize'),  # ◀ 포스팅 직전 개별 기사 AI 요약 트리거
+    path('news/<int:pk>/republish/', republish_article_view, name='republish_article'),  # ◀ 이미 발행된 계정에 최신 내용으로 재발행(같은 글 업데이트)
+    path('news/<int:pk>/repost/', repost_article_view, name='repost_article'),  # ◀ 이미 발행된 계정에도 새 글로 다시 포스팅(포스팅 기능 그대로, 중복 발행 가드만 없음)
     path('stocks/<str:ticker>/', stock_detail_view, name='stock_detail'),  # ◀ 종목 상세(일봉 차트/AI 예측/관련 뉴스)
     path('stocks/<str:ticker>/minute-chart/', stock_minute_chart_view, name='stock_minute_chart'),  # ◀ 당일 분봉 온디맨드 API
+    path('stocks/<str:ticker>/period-chart/<str:period>/', stock_period_chart_view, name='stock_period_chart'),  # ◀ 주봉/월봉 온디맨드 API
+    path('stocks/<str:ticker>/watchlist/', watchlist_toggle_view, name='watchlist_toggle'),  # ◀ 관심종목 추가/삭제 토글 API
 
     path('api/chatbot/', chatbot_ask_view, name='chatbot_ask'),  # ◀ 주식/경제 챗봇 위젯 API
 
     path('signup/', signup_view, name='signup'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
+    path('find-password/', find_password_view, name='find_password'),  # ◀ 임시 비밀번호 발급(이메일 발송)
     path('accounts/delete/', delete_account_view, name='delete_account'),
     path('mypage/', my_page_view, name='my_page'),  # ◀ 내 정보 관리(뉴스구독/자동포스팅 설정)
+    path('mypage/posted/', my_posted_articles_view, name='my_posted_articles'),  # ◀ 내가 발행한 글 이력
+    path('mypage/password/', change_password_view, name='change_password'),  # ◀ 비밀번호 변경
+    path('mypage/blog/<str:platform>/disconnect/', blog_account_disconnect_view, name='blog_account_disconnect'),
     path('verify-email/<uidb64>/<token>/', verify_email_view, name='verify_email'),  # ◀ 이메일 인증 링크
 
     path('accounts/kakao/login/', kakao_login_view, name='kakao_login'),

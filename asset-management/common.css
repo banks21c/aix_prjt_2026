@@ -1,7 +1,14 @@
 /* 자산관리(asset-management) 전 페이지 공통 스타일.
-   각 페이지의 <head>에서 <link rel="stylesheet" href="/asset-management/common.css">로 불러온다.
+   각 페이지의 <head>에서 <link rel="stylesheet" href="/asset-management/common.css?v=202608072146">로 불러온다.
    페이지마다 조금씩 다른 부분(예: irp/savings-pension의 disclaimer 색, 보험 페이지의 .am-tabs-sub)은
-   각 파일의 자체 <style> 블록에 이 파일 다음 순서로 남겨 오버라이드한다. */
+   각 파일의 자체 <style> 블록에 이 파일 다음 순서로 남겨 오버라이드한다.
+
+   ?v=YYYYMMDDHHMM(분 단위)는 캐시 버스팅용(Cloudflare가 정적 파일을 max-age=14400으로 캐시하고,
+   브라우저도 별도로 캐시한다) — 하루에 여러 번 고칠 수도 있어서 날짜만으로는(YYYYMMDD) 같은 날
+   두 번째 수정이 캐시를 못 뚫는다(실측 확인). 이 파일을 고칠 때마다 모든 페이지의 <link> 쿼리를
+   "지금 시각"으로 같이 올려야 변경이 바로 반영된다. 16개 파일에 각각 박혀있어(공유 <head>
+   컴포넌트 없음) 전부 한 번에 sed로 바꾸는 게 안전하다:
+   find . -name '*.html' | xargs sed -i 's/common.css?v=[0-9]*/common.css?v=YYYYMMDDHHMM/' */
 
 /* ---------- 상단 네비게이션 (articles/_header.html과 동일한 규칙을 복제)
    fetch('/partials/header/')가 메뉴 항목만 채워 넣지, 이 nav 자체를 통째로
@@ -10,6 +17,11 @@
 .app-navbar .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .app-navbar .navbar-brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: -0.5px; color: #0d47a1; font-size: 20px; text-decoration: none; }
 .app-nav-menu { display: flex; align-items: center; gap: 8px; }
+.nav-tabs { display: inline-flex; align-items: stretch; }
+.nav-tab { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 700; color: #868e96; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 0 8px 0 0; text-decoration: none; white-space: nowrap; }
+.nav-tabs > .nav-tab, .nav-tabs > .nav-dropdown { margin-left: -1px; }
+.nav-tabs > .nav-tab:first-child, .nav-tabs > .nav-dropdown:first-child { margin-left: 0; }
+.nav-tab:hover, .nav-tab:focus, .nav-tab.active { background: #fff; color: #0d47a1; border-color: #0d47a1; position: relative; z-index: 1; text-decoration: none; }
 .nav-dropdown { position: relative; display: inline-block; }
 .nav-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 0; padding-top: 0; background: transparent; min-width: 140px; z-index: 1000; }
 .nav-dropdown-menu-inner { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); padding: 6px; }
@@ -36,6 +48,10 @@
   .app-nav-menu { display: none !important; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid #dee2e6; flex-direction: column !important; align-items: stretch !important; padding: 12px 16px 16px; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
   .app-nav-menu.open { display: flex !important; }
   .app-nav-menu .btn { width: 100%; justify-content: center; }
+  .nav-tabs { flex-direction: column; width: 100%; }
+  .nav-tabs > .nav-tab, .nav-tabs > .nav-dropdown { width: 100%; margin-left: 0; margin-top: -1px; }
+  .nav-tabs > .nav-tab:first-child, .nav-tabs > .nav-dropdown:first-child { margin-top: 0; }
+  .nav-tab { width: 100%; justify-content: center; border-radius: 8px; }
 }
 
 /* ---------- 자산관리 전 페이지 공통 탭바 (헤더 '자산관리' 온마우스 드롭다운을 대체) ---------- */

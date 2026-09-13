@@ -5,11 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="지역을 선택하고 예산·목적을 입력하면 맞춤 부동산 투자 분석과 유형 추천을 보여주는 홈페이지">
 <title>부동산 — 지역과 예산으로 찾는 맞춤 투자</title>
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav class="app-navbar">
     <div class="container">
       <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
@@ -24,13 +38,21 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>
 <div class="am-tabs">
   <div class="am-tabs-inner">
-    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/" class="am-tab">종합</a>
     <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
     <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
     <a href="/asset-management/irp/" class="am-tab">IRP</a>
@@ -78,11 +100,15 @@
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif;
-    line-height: 1.7;
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.01em;
   }
+  /* 다른 asset-management 페이지(채권·ISA 등)는 이 리셋이 있어 <a>가 항상 주변 글자색을
+     따라가는데, 이 페이지엔 빠져 있어서 색을 따로 안 준 링크(#nav a 등)가 브라우저 기본
+     파란 링크색(rgb(0,0,238))으로 떠 보였다. */
+  a { color: inherit; }
   /* 사이트 공통 본문 폭(960px). 주입되는 네비 바가 같은 칼럼에 정렬된다. */
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
   section { padding: 32px 0; border-top: 1px solid var(--line); }
@@ -315,7 +341,7 @@
   <section class="hero">
     <div class="wrap">
       <div class="hero-grid" style="grid-template-columns: 1fr; justify-items: start;">
-        <aside class="hero-card" aria-label="부동산 경기 사이클" style="max-width: 480px;">
+        <aside class="hero-card" aria-label="부동산 경기 사이클" style="max-width: 910px;">
           <h3>부동산 경기 사이클</h3>
           <p class="sub">국면에 따라 진입·청산 전략이 달라집니다</p>
           <div class="cycle">
@@ -410,7 +436,7 @@
           <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
           <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
         </div>
-        <a class="btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+        <a class="btn" href="/experts/apply/">💬 전문가 무료 상담 신청</a>
       </div>
     </div>
   </section>
@@ -421,7 +447,7 @@
     <div class="footer-brand">🏠 부동산 투자 길잡이</div>
     <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 지역·유형 맞춤 분석을 담은 교육용 참고 자료예요. 특정 물건의 수익을 보장하지 않아요.</p>
     <div class="disclaimer">
-      투자 유의 안내: 이 페이지의 지역 분석·수익률·추천은 일반적인 시장 원리에 기반한 교육용 참고 자료이며, 특정 물건의 수익을 보장하지 않습니다. 실제 투자 전에는 반드시 세무사·공인중개사 등 전문가 상담과 본인의 재무 상황 점검, 현장 임장을 병행하세요. 부동산은 정부 정책·금리·지역 여건에 따라 크게 달라집니다.
+      투자 유의 안내: 이 페이지의 지역 분석·수익률·추천은 일반적인 시장 원리에 기반한 교육용 참고 자료이며, 특정 물건의 수익을 보장하지 않습니다. 실제 투자 전에는 반드시 세무사·공인중개사 등 전문가 상담과 본인의 재무 상황 점검, 현장 임장을 병행하세요. NextFinUp 전문가 상담을 통해서도 도움을 받아보실 수 있습니다. 부동산은 정부 정책·금리·지역 여건에 따라 크게 달라집니다.
     </div>
   </div>
 </footer>

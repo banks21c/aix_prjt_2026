@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="ko">
 <head>
@@ -5,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ site_title }}</title>
 {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
 <style>
   :root {
     --ink: #1f2e28;
@@ -15,9 +17,9 @@
     --line: #d8d0ba;
     --line-strong: #b9b096;
     --accent: #a13d2e;
-    --accent-ink: #ffffff;
+    --accent-ink: var(--color-white, #fff);
     --success: #2f7a4d;
-    --success-bg: #e6f4ea;
+    --success-bg: var(--bg-success-soft, #e6f4ea);
     --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
   }
   @media (prefers-color-scheme: dark) {
@@ -43,8 +45,8 @@
   }
   :root[data-theme="light"] {
     --ink: #1f2e28; --ink-soft: #536056; --paper: #f1ede1; --card: #fffcf5; --card-stub: #e8e2ce;
-    --line: #d8d0ba; --line-strong: #b9b096; --accent: #a13d2e; --accent-ink: #ffffff;
-    --success: #2f7a4d; --success-bg: #e6f4ea; --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
+    --line: #d8d0ba; --line-strong: #b9b096; --accent: #a13d2e; --accent-ink: var(--color-white, #fff);
+    --success: #2f7a4d; --success-bg: var(--bg-success-soft, #e6f4ea); --shadow: 0 1px 2px rgba(31,46,40,0.06), 0 8px 24px rgba(31,46,40,0.08);
   }
 
   * { box-sizing: border-box; }

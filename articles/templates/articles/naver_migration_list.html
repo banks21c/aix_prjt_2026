@@ -1,0 +1,155 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .stat-row { display: flex; gap: 28px; flex-wrap: wrap; }
+    .stat-figure { font-size: 22px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--text-muted, #6c757d); }
+    .post-table td { vertical-align: middle; }
+    .post-thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; background: #f4f4f4; }
+    .post-title { font-weight: 600; }
+    .post-excerpt { font-size: 12.5px; color: var(--text-muted, #6c757d); max-height: 2.8em; overflow: hidden;
+                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .cmd-box { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 12px 14px;
+               font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; overflow-x: auto; }
+    /* admin/base_site.html의 a:link/a:visited 색 규칙이 부트스트랩 버튼의 흰 글씨를 덮어써서
+       파란 배경에 파란 글씨가 된다(버튼이 <a>라서 생기는 문제). 다시 흰색으로 못박는다. */
+    a.btn-primary, a.btn-primary:link, a.btn-primary:visited,
+    a.btn-primary:hover, a.btn-primary:focus { color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted">네이버 블로그에서 수집해 둔 원문 목록입니다. 수집은 아래 커맨드로 돌리고, 이 화면은 결과 확인용입니다.</p>
+
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="stat-row">
+        <div><div class="stat-figure">{{ stats.total }}</div><div class="stat-label">전체 원문</div></div>
+        <div><div class="stat-figure text-success">{{ stats.scraped }}</div><div class="stat-label">본문 수집 완료</div></div>
+        <div><div class="stat-figure text-secondary">{{ stats.listed }}</div><div class="stat-label">목록만(본문 없음)</div></div>
+        <div><div class="stat-figure text-danger">{{ stats.failed }}</div><div class="stat-label">수집 실패</div></div>
+        <div><div class="stat-figure text-primary">{{ stats.migrated }}</div><div class="stat-label">이관 발행 완료</div></div>
+    </div>
+</div>
+
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="fw-semibold mb-2">수집 커맨드</div>
+    <div class="cmd-box mb-2">cd /home/ubuntu/nextfinup &amp;&amp; venv/bin/python manage.py collect_naver_blog_posts &lt;블로그ID&gt; --owner &lt;회원이메일&gt;</div>
+    <div class="small text-muted">
+        RSS로 글 목록을 만든 뒤, 본문이 아직 없는 글만 PostView에서 긁어 이미지를 서버로 재호스팅합니다.
+        같은 커맨드를 몇 번 돌려도 행이 중복되지 않습니다.
+        <code>--limit N</code>(N건만), <code>--rescrape</code>(본문 재수집), <code>--list-only</code>(목록만) 옵션이 있습니다.
+    </div>
+</div>
+
+<form method="get" class="card card-custom bg-white p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small mb-1">블로그</label>
+            <select name="blog_id" class="form-select form-select-sm">
+                <option value="">전체</option>
+                {% for bid in blog_ids %}
+                <option value="{{ bid }}" {% if bid == blog_id %}selected{% endif %}>{{ bid }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">수집 상태</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">전체</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small mb-1">검색 (제목/본문/글번호)</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="검색어">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm flex-fill">검색</button>
+            <a href="{% url 'naver_migration_list' %}" class="btn btn-outline-secondary btn-sm">초기화</a>
+        </div>
+    </div>
+</form>
+
+{% if page_obj.paginator.count %}
+<div class="card card-custom bg-white p-0 mb-3">
+    <table class="table table-hover post-table mb-0">
+        <thead class="table-light">
+            <tr>
+                <th style="width:90px;">대표</th>
+                <th>제목</th>
+                <th style="width:110px;">블로그</th>
+                <th style="width:110px;">작성일</th>
+                <th style="width:70px;">이미지</th>
+                <th style="width:120px;">상태</th>
+                <th style="width:110px;">이관</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for post in page_obj %}
+            <tr>
+                <td>
+                    {% if post.thumbnail_url %}
+                    <img src="{{ post.thumbnail_url }}" class="post-thumb" alt="" loading="lazy">
+                    {% else %}
+                    <div class="post-thumb"></div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="post-title">
+                        <a href="{% url 'naver_migration_detail' post.pk %}">{{ post.title|default:"(제목 없음)" }}</a>
+                    </div>
+                    <div class="post-excerpt">{{ post.excerpt }}</div>
+                </td>
+                <td class="small">{{ post.blog_id }}</td>
+                <td class="small">{{ post.posted_at|date:"Y-m-d"|default:"-" }}</td>
+                <td class="small">{{ post.image_count }}</td>
+                <td>
+                    {% if post.status == 'SCRAPED' %}
+                    <span class="badge bg-success">본문 수집</span>
+                    {% elif post.status == 'FAILED' %}
+                    <span class="badge bg-danger" title="{{ post.error_message }}">수집 실패</span>
+                    {% else %}
+                    <span class="badge bg-secondary">목록만</span>
+                    {% endif %}
+                </td>
+                <td class="small">
+                    {% with n=post.migrated_count %}
+                    {% if n %}<span class="badge bg-primary">{{ n }}곳 발행</span>{% else %}<span class="text-muted">미발행</span>{% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&blog_id={{ blog_id|urlencode }}&status={{ status|urlencode }}&q={{ q|urlencode }}">이전</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">이전</span></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }} (총 {{ page_obj.paginator.count }}건)</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&blog_id={{ blog_id|urlencode }}&status={{ status|urlencode }}&q={{ q|urlencode }}">다음</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">다음</span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="card card-custom bg-white p-4 text-muted">
+    조건에 맞는 원문이 없습니다. 위 커맨드로 먼저 수집하세요.
+</div>
+{% endif %}
+{% endblock %}

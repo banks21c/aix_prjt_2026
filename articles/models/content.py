@@ -20,9 +20,10 @@ class NewsletterSubscriber(models.Model):
 
 
 class NewsletterIssue(models.Model):
-    """뉴스레터 발행 1회분. generate_newsletter_draft 커맨드가 최근 기사로 초안(DRAFT)을 자동
-    작성해두면, 관리자가 Admin 화면에서 제목/본문을 직접 확인·수정한 뒤 상태를 READY로 바꾼다.
-    send_newsletter 커맨드는 READY 상태인 건만 골라 발송하고 SENT로 넘긴다."""
+    """뉴스레터 발행 1회분. generate_newsletter_draft 커맨드가 최근 기사로 자동 작성과 동시에
+    상태를 곧장 READY로 만든다(관리자 검토 단계 없음 — 매일 밤 자동 발송). send_newsletter
+    커맨드는 READY 상태인 건만 골라 발송하고 SENT로 넘긴다. DRAFT는 과거 수동 검토 플로우의
+    잔재로, Admin에서 수동으로 초안을 만들어 검토하고 싶을 때를 위해 남겨둔 상태값이다."""
     STATUS_CHOICES = [
         ('DRAFT', '초안(검토 대기)'),
         ('READY', '발송 대기(다음 자동발송 때 전송)'),
@@ -141,3 +142,316 @@ class FinancialConsultSheet(models.Model):
 
     def __str__(self):
         return f"{self.customer_name or '(무기명)'} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+# ==========================================
+# 11-1. 캘린더 기반 자동 발행 주제 스케줄 (건강/의학·음식/영양·여행/관광)
+# ==========================================
+# AnalyzedArticle.CATEGORY_CHOICES / UserPreference.NEWS_CATEGORY_CHOICES와 값이 같은 상수를
+# 쓰지만, 그 두 모델을 그대로 import하지 않고 문자열을 중복 정의한다 — UserPreference가 이미
+# 같은 방식으로 하고 있는 기존 관례를 따른 것.
+CONTENT_CALENDAR_CATEGORY_CHOICES = [
+    ('HEALTH', '건강/의학'),
+    ('FOOD', '음식/영양'),
+    ('TRAVEL', '여행/관광'),
+]
+
+
+class ContentCalendarTheme(models.Model):
+    """캘린더 기반 카테고리(건강/의학 등)의 요일별 테마 1건. 한 카테고리당 7행(월~일)만
+    존재한다. 예전에는 articles/health_calendar.py/food_calendar.py에 하드코딩된
+    CATEGORIES 딕셔너리였던 것을 DB로 옮긴 것 — 관리자가 /admin/에서 문구를 직접 수정할
+    수 있게 하기 위함. am_title_template/pm_title_template은 "{t}" 자리에 그날의 주제
+    (ContentCalendarTopic.topic)를 채워 실제 발행 제목을 만든다."""
+    category = models.CharField(max_length=20, choices=CONTENT_CALENDAR_CATEGORY_CHOICES, verbose_name="카테고리")
+    weekday = models.PositiveSmallIntegerField(verbose_name="요일(0=월 ~ 6=일)")
+    key = models.CharField(max_length=50, verbose_name="내부 식별자")
+    name = models.CharField(max_length=100, verbose_name="테마명")
+    am_angle = models.CharField(max_length=200, verbose_name="오전 각도 라벨")
+    pm_angle = models.CharField(max_length=200, verbose_name="오후 각도 라벨")
+    am_title_template = models.CharField(max_length=200, verbose_name="오전 제목 템플릿({t}에 주제 삽입)")
+    pm_title_template = models.CharField(max_length=200, verbose_name="오후 제목 템플릿({t}에 주제 삽입)")
+
+    class Meta:
+        unique_together = ('category', 'weekday')
+        ordering = ['category', 'weekday']
+        verbose_name = "캘린더 요일 테마 (ContentCalendarTheme)"
+        verbose_name_plural = "캘린더 요일 테마 관리 (ContentCalendarTheme)"
+
+    WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
+
+    def get_weekday_display(self):
+        return self.WEEKDAY_KR[self.weekday]
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.get_weekday_display()} {self.name}"
+
+
+class ContentCalendarTopic(models.Model):
+    """캘린더 기반 카테고리의 요일별 52주(1년) 주제 1건. 한 카테고리당 364행(7요일 × 52주)이
+    존재한다. week_number(0~51)는 그 요일이 364일 주기 안에서 몇 번째로 돌아왔는지를 뜻하며,
+    articles/content_calendar.get_topic_for_date가 오늘 날짜로부터 계산해 이 값으로 조회한다.
+    예전에는 health_calendar.py/food_calendar.py의 TOPICS 딕셔너리였다."""
+    category = models.CharField(max_length=20, choices=CONTENT_CALENDAR_CATEGORY_CHOICES, verbose_name="카테고리")
+    weekday = models.PositiveSmallIntegerField(verbose_name="요일(0=월 ~ 6=일)")
+    week_number = models.PositiveSmallIntegerField(verbose_name="주차(0~51)")
+    topic = models.CharField(max_length=255, verbose_name="주제")
+
+    class Meta:
+        unique_together = ('category', 'weekday', 'week_number')
+        ordering = ['category', 'weekday', 'week_number']
+        verbose_name = "캘린더 주제 (ContentCalendarTopic)"
+        verbose_name_plural = "캘린더 주제 관리 (ContentCalendarTopic)"
+
+    def __str__(self):
+        weekday_kr = ContentCalendarTheme.WEEKDAY_KR[self.weekday]
+        return f"[{self.get_category_display()}] {weekday_kr}요일 {self.week_number + 1}주차 - {self.topic}"
+
+
+# ==========================================
+# 12. FAQ (자주 묻는 질문) 게시판
+# ==========================================
+class Faq(models.Model):
+    """관리자가 등록/수정하는 FAQ 목록. 회원이 직접 글을 쓰는 게시판이 아니라 Menu처럼
+    /admin/에서만 관리되고, 공개 페이지(faq_board_view)는 조회/검색/카테고리 필터만 제공한다."""
+    CATEGORY_CHOICES = [
+        ('ACCOUNT', '회원/계정'),
+        ('SUBSCRIPTION', '구독/이용권'),
+        ('PREDICTION', 'AI 예측'),
+        ('BLOG', '블로그 자동 발행'),
+        ('NEWSLETTER', '뉴스레터'),
+        ('ETC', '기타'),
+    ]
+
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='ETC', verbose_name="분류")
+    question = models.CharField(max_length=200, verbose_name="질문")
+    answer = models.TextField(verbose_name="답변")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    is_active = models.BooleanField(default=True, verbose_name="게시 여부")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록일")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일")
+
+    class Meta:
+        ordering = ['category', 'order', 'id']
+        verbose_name = "FAQ"
+        verbose_name_plural = "FAQ 관리 (Faq)"
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.question}"
+
+
+# ==========================================
+# 13. 사이트 색상 테마 (CSS 변수 하나당 한 행)
+# ==========================================
+class ThemeColor(models.Model):
+    """articles/static/articles/theme.css에 하드코딩되어 있던 CSS 변수(:root { --이름: 값; })를
+    DB로 옮긴 것 — theme_css_view가 이 테이블을 읽어 실시간으로 CSS를 렌더링하고, 각 템플릿은
+    {% static %}이 아니라 {% url 'theme_css' %}로 그 결과를 불러온다. theme_settings_view(관리자
+    전용 화면)에서 값을 바꾸면 재배포/재시작 없이 사이트 전체 색이 즉시 바뀐다. 템플릿의
+    var(--이름, #원래값) 두 번째 인자(fallback)는 이 테이블/뷰와 무관하게 그대로 남아있어,
+    이 메커니즘이 어떤 이유로든 응답하지 않아도 기존 색으로 안전하게 보인다."""
+    GROUP_CHOICES = [
+        ('BRAND', '브랜드 블루'),
+        ('BG', '배경'),
+        ('TEXT', '텍스트'),
+        ('BORDER', '테두리'),
+        ('DANGER', '위험/오류'),
+        ('SUCCESS', '성공'),
+        ('OTHER', '경고/기타'),
+    ]
+
+    name = models.CharField(max_length=50, unique=True, verbose_name="CSS 변수명 (예: --brand-primary)")
+    value = models.CharField(max_length=20, verbose_name="색상값 (예: #0d47a1)")
+    label = models.CharField(max_length=50, blank=True, verbose_name="설명")
+    group = models.CharField(max_length=10, choices=GROUP_CHOICES, default='OTHER', verbose_name="분류")
+    order = models.PositiveIntegerField(default=0, verbose_name="정렬 순서")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
+
+    class Meta:
+        ordering = ['group', 'order', 'name']
+        verbose_name = "테마 색상 (ThemeColor)"
+        verbose_name_plural = "테마 색상 관리 (ThemeColor)"
+
+    def __str__(self):
+        return f"{self.name} = {self.value}"
+
+
+# ==========================================
+# 14. AI 이미지 생성 기록 (image_generator_view, 비용 누적 합계용)
+# ==========================================
+class GeneratedImage(models.Model):
+    """관리자 AI 이미지 생성 도구(image_generator_view)에서 gpt-image 계열로 생성할 때마다
+    한 행씩 남긴다. cost_usd는 OpenAI 응답의 usage(입력/출력 토큰)를 그 시점 모델 단가로
+    환산해 계산한 값 — 실제 청구 금액과 반올림 등으로 미세하게 다를 수 있는 추정치다. 화면의
+    누적 합계는 이 테이블의 cost_usd를 그냥 SUM해서 보여준다."""
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성 일시")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="생성한 관리자")
+    model_name = models.CharField(max_length=30, verbose_name="모델")
+    size = models.CharField(max_length=30, verbose_name="해상도")
+    # 모델이 실제로 반환한 원본 해상도(크롭/리사이즈 전). size는 프리셋 라벨이거나 후처리를
+    # 거친 최종 파일 크기라, 모델이 요청한 비율을 지켜줬는지 판정하려면 이 값이 필요하다
+    # (예: 9:16을 요청했는데 1024x1024가 찍혀 있으면 그 모델은 비율 지정을 무시한 것).
+    # 이 필드가 생기기 전(2026-09-03 이전) 기록은 빈 문자열이다.
+    source_size = models.CharField(max_length=20, blank=True, verbose_name="원본 해상도")
+    quality = models.CharField(max_length=20, verbose_name="품질")
+    prompt = models.TextField(verbose_name="프롬프트")
+    file_path = models.CharField(max_length=255, verbose_name="저장 경로 (media 기준 상대경로)")
+    cost_usd = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, verbose_name="추정 비용(USD)")
+    # cost_usd를 계산한 근거가 된 토큰 수. 같은 모델·같은 해상도로 뽑아도 요금이 몇 %씩
+    # 달라지는데, 원인이 프롬프트 길이(입력)인지 모델이 함께 낸 부수 토큰(출력)인지는 이 값이
+    # 있어야 구분된다. 이 필드가 생기기 전(2026-09-03 이전) 기록은 NULL이다.
+    input_tokens = models.PositiveIntegerField(null=True, blank=True, verbose_name="입력 토큰")
+    output_tokens = models.PositiveIntegerField(null=True, blank=True, verbose_name="출력 토큰")
+    # 시리즈 생성(generate_image_series)으로 만든 행끼리 묶는 키. 앞 장을 레퍼런스 이미지로
+    # 물려 연속 생성한 한 묶음이 같은 series_key를 갖고, series_index가 그 안의 순번(1부터)이다.
+    # 화면의 진행률 폴링(image_series_status_view)과 목록의 시리즈 묶어보기가 이 값을 쓴다.
+    # 단일 생성(image_generator_view)으로 만든 행은 series_key가 빈 문자열이다.
+    series_key = models.CharField(max_length=32, blank=True, db_index=True, verbose_name="시리즈 키")
+    series_index = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="시리즈 내 순번")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "AI 이미지 생성 기록 (GeneratedImage)"
+        verbose_name_plural = "AI 이미지 생성 기록 (GeneratedImage)"
+
+    def __str__(self):
+        return f"{self.model_name} {self.size}/{self.quality} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+# ==========================================
+# 15. 관리자 파일 업로드 (file_upload_view) — FTP 접속 없이 서버로 파일을 옮기기 위한 용도
+# ==========================================
+class AdminUpload(models.Model):
+    """관리자 화면(/admin-tools/uploads/)에서 올린 파일 한 건. STATIC_ROOT/MEDIA_ROOT와 분리된
+    비공개 디렉터리(BASE_DIR/admin_uploads/, settings.ADMIN_UPLOAD_ROOT)에 저장하고 nginx가
+    직접 서빙하지 않으므로, 반드시 file_upload_download_view(스태프 전용)를 통해서만 내려받을
+    수 있다. stored_filename은 원본 파일명 충돌·경로 조작을 막기 위해 업로드 시 uuid를 붙여
+    새로 만든 이름이고, original_filename은 화면 표시/다운로드 시 파일명 복원용이다."""
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="업로드 일시")
+    uploaded_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="업로드한 관리자")
+    original_filename = models.CharField(max_length=255, verbose_name="원본 파일명")
+    stored_filename = models.CharField(max_length=255, unique=True, verbose_name="저장 파일명")
+    size_bytes = models.PositiveBigIntegerField(verbose_name="파일 크기(바이트)")
+    note = models.CharField(max_length=255, blank=True, verbose_name="메모")
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = "관리자 업로드 파일 (AdminUpload)"
+        verbose_name_plural = "관리자 업로드 파일 (AdminUpload)"
+
+    def __str__(self):
+        return self.original_filename
+
+
+# ==========================================
+# 16. 네이버 블로그 이관(마이그레이션) — 원본 보관 테이블 + 이관 이력
+# ==========================================
+class NaverBlogPost(models.Model):
+    """네이버 블로그 글 1건을 이 사이트 DB로 끌어와 보관하는 원본 테이블.
+
+    지금까지 네이버 → WordPress/Blogger 이관은 세션마다 일회용 스크립트를 새로 짜서
+    돌렸고(스크랩 결과가 어디에도 안 남아서, 어떤 글이 넘어갔는지 확인하려면 대상
+    사이트 REST API를 다시 조회해야 했다), 그래서 같은 글을 두 번 긁거나 이미지를 다시
+    내려받는 일이 반복됐다. 이 테이블은 그 중간 산출물을 영구 보관하는 자리다 —
+    한 번 수집해두면 대상 플랫폼이 몇 개든(WordPress, Blogger, …) 네이버를 다시
+    건드리지 않고 이 테이블만 읽어서 발행할 수 있다.
+
+    (blog_id, log_no)가 네이버 쪽 글의 자연키라 unique_together로 묶어 두었고, 수집
+    커맨드(collect_naver_blog_posts)는 이 키로 기존 행을 찾아 갱신하므로 몇 번을 다시
+    돌려도 행이 중복되지 않는다.
+
+    content_html은 본문 속 네이버 이미지(postfiles.pstatic.net)를 서버에 내려받아
+    nextfinup.com/media/naver_migration/ 로 재호스팅한 뒤 src를 바꿔치기한 "이관용"
+    HTML이다. 네이버 이미지 CDN은 외부 도메인 Referer로 걸려오는 요청을 403으로
+    막기 때문에, 원본 src를 그대로 둔 채 다른 블로그에 붙여넣으면 이미지가 전부 깨진다.
+    치환 전 HTML은 original_content_html에 따로 남겨 두어 이미지 처리 로직을 고쳤을 때
+    네이버를 다시 긁지 않고 재가공할 수 있게 했다."""
+
+    STATUS_CHOICES = [
+        ('LISTED', '목록만 수집(본문 없음)'),
+        ('SCRAPED', '본문 수집 완료'),
+        ('FAILED', '수집 실패'),
+    ]
+
+    blog_id = models.CharField(max_length=100, db_index=True, verbose_name="네이버 블로그 ID")
+    log_no = models.CharField(max_length=30, verbose_name="네이버 글 번호(logNo)")
+    # 이 블로그가 어느 회원 것인지. 회원 계정과 무관하게 관리자가 임의 블로그를 긁어올
+    # 수도 있어서 필수는 아니다(NULL 허용).
+    owner = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='naver_blog_posts', verbose_name="소유 회원",
+    )
+    title = models.CharField(max_length=500, verbose_name="제목")
+    content_html = models.TextField(blank=True, verbose_name="본문 HTML (이미지 재호스팅 완료)")
+    original_content_html = models.TextField(blank=True, verbose_name="본문 HTML (네이버 원본)")
+    excerpt = models.CharField(max_length=300, blank=True, verbose_name="본문 요약(목록 표시용)")
+    category_name = models.CharField(max_length=100, blank=True, verbose_name="네이버 카테고리")
+    tags = models.CharField(max_length=255, blank=True, verbose_name="태그(쉼표 구분)")
+    posted_at = models.DateTimeField(null=True, blank=True, verbose_name="네이버 원문 작성일")
+    source_url = models.URLField(max_length=500, verbose_name="네이버 원문 URL")
+    thumbnail_url = models.URLField(max_length=500, blank=True, verbose_name="대표 이미지 URL(재호스팅본)")
+    # {네이버 원본 이미지 URL: media 기준 상대경로} — 같은 글을 다시 수집할 때 이미 받아둔
+    # 파일을 재사용하고, 나중에 media 정리 시 어떤 파일이 어느 글 것인지 되짚기 위한 것.
+    image_map = models.JSONField(default=dict, blank=True, verbose_name="이미지 매핑(원본→재호스팅)")
+    image_count = models.PositiveIntegerField(default=0, verbose_name="본문 이미지 수")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='LISTED', db_index=True, verbose_name="수집 상태")
+    error_message = models.CharField(max_length=500, blank=True, verbose_name="마지막 수집 오류")
+    scraped_at = models.DateTimeField(null=True, blank=True, verbose_name="본문 수집 일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록일")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일")
+
+    class Meta:
+        unique_together = ('blog_id', 'log_no')
+        ordering = ['-posted_at', '-id']
+        indexes = [models.Index(fields=['blog_id', 'status'])]
+        verbose_name = "네이버 블로그 원문 (NaverBlogPost)"
+        verbose_name_plural = "네이버 블로그 원문 (NaverBlogPost)"
+
+    def __str__(self):
+        return f"[{self.blog_id}] {self.title}"
+
+    @property
+    def is_scraped(self):
+        return self.status == 'SCRAPED'
+
+    @property
+    def migrated_count(self):
+        """이 글이 실제로 발행 성공한 대상 블로그 수(목록 화면의 '이관' 배지용)."""
+        return self.migrations.filter(status='SUCCESS').count()
+
+
+class NaverPostMigration(models.Model):
+    """NaverBlogPost 1건을 어느 BlogPostingAccount로 발행했는지의 기록.
+
+    AnalyzedArticle에 대한 PostedArticle과 똑같은 역할이다 — (원문, 대상 계정) 조합을
+    unique_together로 묶어, 같은 글을 같은 블로그에 두 번 올리는 사고를 DB 차원에서
+    막는다. 실패도 행으로 남기는 이유는 재시도 대상을 골라내기 위해서다(과거 이관 때
+    Blogger 403 30건, EasyWP 429 8건처럼 특정 건만 반복 실패하는 패턴이 실제로 있었다)."""
+
+    STATUS_CHOICES = [
+        ('SUCCESS', '발행 성공'),
+        ('FAILED', '발행 실패'),
+    ]
+
+    post = models.ForeignKey(
+        NaverBlogPost, on_delete=models.CASCADE, related_name='migrations', verbose_name="네이버 원문",
+    )
+    blog_account = models.ForeignKey(
+        'articles.BlogPostingAccount', on_delete=models.CASCADE,
+        related_name='naver_migrations', verbose_name="발행 대상 블로그 계정",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='SUCCESS', verbose_name="발행 결과")
+    target_post_id = models.CharField(max_length=100, blank=True, verbose_name="대상 플랫폼 글 ID")
+    target_url = models.URLField(max_length=500, blank=True, verbose_name="발행된 글 URL")
+    error_message = models.CharField(max_length=500, blank=True, verbose_name="실패 사유")
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="발행 일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="기록 생성일")
+
+    class Meta:
+        unique_together = ('post', 'blog_account')
+        ordering = ['-created_at']
+        verbose_name = "네이버 글 이관 기록 (NaverPostMigration)"
+        verbose_name_plural = "네이버 글 이관 기록 (NaverPostMigration)"
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.post.title} → {self.blog_account}"

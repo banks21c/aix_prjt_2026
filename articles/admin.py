@@ -1,15 +1,20 @@
+from urllib.parse import urlencode
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from .models import (
     StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
     NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
-    LoginLog, MenuAccessLog, UserPreference, BlogPostingAccount, PostedArticle,
+    LoginLog, MenuAccessLog, SystemErrorLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
-    FinancialConsultSheet, MemberGrade, MediaOutlet,
+    FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
+    ExchangeRateSnapshot, SubscriptionOrder, Watchlist, PredictionAccuracySnapshot, Faq,
+    ContentCalendarTheme, ContentCalendarTopic, NaverBlogPost, NaverPostMigration,
 )
 
 # 이 서버엔 다른 프로젝트(phishcut) admin도 함께 떠 있어서, 기본 "Django administration"
@@ -17,6 +22,18 @@ from .models import (
 admin.site.site_header = "NextFinUp administration"
 admin.site.site_title = "NextFinUp admin"
 admin.site.index_title = "NextFinUp 관리"
+
+# /admin/(이 파일에 등록된 시스템 전체 — 파이프라인/ML/회원계정/자격증명 등)은 슈퍼유저 전용으로
+# 잠근다. 업무(상담·구독) 담당자는 articles/business_admin.py의 별도 /staff/ 사이트를 쓴다 —
+# 거기는 기본 권한 체크(is_staff)만 요구해 스태프면 누구나 들어오지만, is_superuser가 아닌
+# 스태프는 여기(/admin/) 로그인 자체가 막힌다. 이미 만들어진 admin.site 싱글턴의 __class__를
+# 바꿔치기하는 방식이라(공식 문서에도 나오는 패턴), 아래 @admin.register들은 손댈 필요 없다.
+class _SuperuserOnlyAdminSite(admin.AdminSite):
+    def has_permission(self, request):
+        return super().has_permission(request) and request.user.is_superuser
+
+
+admin.site.__class__ = _SuperuserOnlyAdminSite
 
 
 # 0-0-3. 회원 권한 등급 생성/수정/삭제 화면 (5단계로 시작, Admin에서 자유롭게 추가·수정·삭제 가능)
@@ -35,7 +52,10 @@ class MemberGradeAdmin(admin.ModelAdmin):
 class UserPreferenceInline(admin.StackedInline):
     model = UserPreference
     can_delete = False
-    fields = ('phone_number', 'grade')
+    fields = (
+        'phone_number', 'grade', 'news_subscription', 'interested_keywords',
+        'post_all_articles', 'auto_posting_enabled',
+    )
 
 # User 편집 화면에서 바로 프리미엄 구독 여부를 켜고 끌 수 있도록 UserSubscription도 인라인으로
 # 붙인다. 결제 연동이 없어 이 체크박스가 유일한 프리미엄 부여 수단이라, 별도 "User subscriptions"
@@ -50,8 +70,8 @@ admin.site.unregister(User)
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     inlines = (UserPreferenceInline, UserSubscriptionInline)
-    list_display = UserAdmin.list_display + ('phone_number', 'member_grade', 'is_premium')
-    list_filter = UserAdmin.list_filter + ('preference__grade', 'subscription__is_active_premium')
+    list_display = UserAdmin.list_display + ('phone_number', 'member_grade', 'is_premium', 'news_subscription', 'auto_posting')
+    list_filter = UserAdmin.list_filter + ('preference__grade', 'subscription__is_active_premium', 'preference__news_subscription', 'preference__auto_posting_enabled')
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('preference', 'preference__grade', 'subscription')
@@ -64,6 +84,14 @@ class CustomUserAdmin(UserAdmin):
     def member_grade(self, obj):
         grade = getattr(obj.preference, 'grade', None) if hasattr(obj, 'preference') else None
         return grade if grade else '-'
+
+    @admin.display(description='구독 카테고리')
+    def news_subscription(self, obj):
+        return obj.preference.get_news_subscription_display() if hasattr(obj, 'preference') else '-'
+
+    @admin.display(description='자동 포스팅', boolean=True)
+    def auto_posting(self, obj):
+        return getattr(obj.preference, 'auto_posting_enabled', False) if hasattr(obj, 'preference') else False
 
     @admin.display(description='프리미엄', boolean=True)
     def is_premium(self, obj):
@@ -133,7 +161,7 @@ class StockItemAdmin(admin.ModelAdmin):
 # 1-1. 코스피/코스닥 지수 시계열 관리
 @admin.register(MarketIndex)
 class MarketIndexAdmin(admin.ModelAdmin):
-    list_display = ('market_type', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'change', 'change_pct')
+    list_display = ('market_type', 'date', 'open_price', 'high_price', 'low_price', 'close_price', 'change', 'change_pct', 'volume', 'foreign_net_qty', 'institution_net_qty', 'retail_net_qty')
     list_filter = ('market_type',)
     ordering = ('-date', 'market_type')
 
@@ -146,6 +174,38 @@ class StockRealtimePriceAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # collect_stock_realtime_price 명령을 통해서만 생성됨
+
+# 1-0-1-2. 등락률 순위(특징종목) 캐시 조회용 (읽기 전용)
+@admin.register(RankedMover)
+class RankedMoverAdmin(admin.ModelAdmin):
+    list_display = ('rank_type', 'rank', 'ticker', 'name', 'price', 'change_pct', 'updated_at')
+    list_filter = ('rank_type',)
+    search_fields = ('ticker', 'name')
+    ordering = ('rank_type', 'rank')
+
+    def has_add_permission(self, request):
+        return False  # collect_fluctuation_ranking 명령을 통해서만 생성됨
+
+# 1-0-1-3. 해외지수/국제환율/금리 캐시 조회용 (읽기 전용)
+@admin.register(GlobalMarketQuote)
+class GlobalMarketQuoteAdmin(admin.ModelAdmin):
+    list_display = ('category', 'name', 'code', 'price', 'change_pct', 'order', 'updated_at')
+    list_filter = ('category',)
+    search_fields = ('name', 'code')
+    ordering = ('category', 'order')
+
+    def has_add_permission(self, request):
+        return False  # collect_global_market_data 명령을 통해서만 생성됨
+
+# 1-0-1-4. 환전 고시 환율 일별 이력 조회용 (읽기 전용)
+@admin.register(ExchangeRateSnapshot)
+class ExchangeRateSnapshotAdmin(admin.ModelAdmin):
+    list_display = ('currency_code', 'currency_name', 'date', 'deal_bas_r')
+    list_filter = ('currency_code',)
+    ordering = ('currency_code', '-date')
+
+    def has_add_permission(self, request):
+        return False  # collect_exchange_rate_fixing 명령을 통해서만 생성됨
 
 # 2-1. 일봉 가격(실제 OHLCV) 관리
 @admin.register(StockDailyPrice)
@@ -169,13 +229,68 @@ class StockPredictionAdmin(admin.ModelAdmin):
     show_full_result_count = False
     list_per_page = 100
 
+# /news/(news_board_view)의 AI요약/본문/포스팅 필터와 같은 기준을 admin 목록에도 제공.
+# ai_generated이 아니라 ai_summary로 걸러야 하는 이유는 news_board_view와 동일 —
+# ai_generated은 "포스팅 준비완료"에 가까운 필드라 AI 미호출 '바로 포스팅' 글까지 섞인다.
+class AiSummaryFilter(admin.SimpleListFilter):
+    title = 'AI 요약'
+    parameter_name = 'ai_summary_status'
+
+    def lookups(self, request, model_admin):
+        return (('done', 'AI요약완료'), ('pending', 'AI요약전'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'done':
+            return queryset.exclude(ai_summary='')
+        if self.value() == 'pending':
+            return queryset.filter(ai_summary='')
+        return queryset
+
+class OriginalContentFilter(admin.SimpleListFilter):
+    title = '본문'
+    parameter_name = 'content_status'
+
+    def lookups(self, request, model_admin):
+        return (('has', '본문있음'), ('none', '본문없음'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'has':
+            return queryset.exclude(original_content='')
+        if self.value() == 'none':
+            return queryset.filter(original_content='')
+        return queryset
+
+class PostedFilter(admin.SimpleListFilter):
+    """news_board_view의 포스팅대상/포스팅완료는 '로그인한 회원 본인의 연결 계정 전부에
+    발행됐는가'가 기준이라 회원마다 답이 다르다. admin은 특정 회원 관점이 아니라 전체 발행
+    현황을 보는 화면이므로, 여기선 단순히 '어느 계정에든 한 번이라도 발행됐는가'로 본다."""
+    title = '포스팅'
+    parameter_name = 'post_status'
+
+    def lookups(self, request, model_admin):
+        return (('done', '포스팅완료'), ('target', '포스팅대상'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'done':
+            return queryset.filter(postings__isnull=False).distinct()
+        if self.value() == 'target':
+            return queryset.filter(postings__isnull=True)
+        return queryset
+
 # 3. 증권 뉴스 및 AI 에이전트 가공 기사 관리
 @admin.register(AnalyzedArticle)
 class AnalyzedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'source_media', 'title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'scraped_by', 'scraped_at')
+    list_display = ('id', 'content_category', 'source_media', 'title', 'ai_title', 'stock', 'matched_keyword', 'applied_template', 'is_premium', 'is_posted', 'ai_generated', 'scraped_by', 'scraped_at')
     list_display_links = ('id', 'title')
-    list_filter = ('source_media', 'is_premium', 'is_posted', 'applied_template')
-    search_fields = ('title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
+    list_filter = (
+        'content_category', AiSummaryFilter, OriginalContentFilter, PostedFilter,
+        'ai_generated', 'source_media', 'is_premium', 'is_posted', 'applied_template',
+    )
+    search_fields = ('title', 'ai_title', 'ai_summary', 'blog_content', 'stock__name', 'matched_keyword__keyword')
+    list_per_page = 10
+
+    class Media:
+        css = {'all': ('articles/admin_analyzedarticle_v5.css',)}
     ordering = ('-scraped_at',)
 
 # 4-1. 마이페이지 - 뉴스구독/자동포스팅 환경설정 관리
@@ -206,7 +321,7 @@ class BlogAccountConnectionFilter(admin.SimpleListFilter):
 
 @admin.register(BlogPostingAccount)
 class BlogPostingAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'updated_at')
+    list_display = ('user', 'user_email', 'user_first_name', 'platform', 'connection_status', 'is_enabled', 'site_url_link', 'account_id', 'daily_limit_display', 'updated_at')
     list_filter = ('platform', 'is_enabled', BlogAccountConnectionFilter)
     search_fields = ('user__username', 'user__email', 'account_id', 'site_url')
     list_select_related = ('user',)
@@ -215,6 +330,23 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
     # 재입력할 때만 갱신 — 등록 여부만 has_credential로 별도 표시한다.
     exclude = ('credential',)
     readonly_fields = ('has_credential',)
+
+    @admin.display(description='하루 발행 한도')
+    def daily_limit_display(self, obj):
+        """공란이면 플랫폼 권장값이 적용된다는 걸 목록에서 바로 알 수 있게 실제 적용값을 보여준다."""
+        from .blog_posting import account_posting_quota
+        q = account_posting_quota(obj)
+        if q['is_unlimited']:
+            return '무제한'
+        return f"{q['used_today']}/{q['limit']}건 ({q['source']})"
+
+    @admin.display(description='이메일')
+    def user_email(self, obj):
+        return obj.user.email
+
+    @admin.display(description='이름')
+    def user_first_name(self, obj):
+        return obj.user.first_name
 
     @admin.display(description='연동 상태')
     def connection_status(self, obj):
@@ -235,7 +367,7 @@ class BlogPostingAccountAdmin(admin.ModelAdmin):
 # 4-3. 회원별 발행 이력 조회용 (읽기 전용)
 @admin.register(PostedArticle)
 class PostedArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'blog_account', 'article', 'external_url', 'posted_at')
+    list_display = ('id', 'blog_account', 'article_link', 'external_url', 'posted_at')
     list_filter = ('blog_account__platform',)
     search_fields = ('blog_account__user__username', 'article__title')
     ordering = ('-posted_at',)
@@ -243,13 +375,31 @@ class PostedArticleAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False  # 발행 커맨드(post_to_wordpress 등)를 통해서만 생성됨
 
+    @admin.display(description='기사(수집 원문)')
+    def article_link(self, obj):
+        url = reverse('admin:articles_analyzedarticle_change', args=[obj.article_id])
+        return format_html('<a href="{}">{}</a>', url, obj.article.title)
+
 # 4. 유저 프리미엄 구독 정보 관리
 @admin.register(UserSubscription)
 class UserSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'is_active_premium', 'subscribed_at', 'expired_at')
+    list_display = ('user', 'user_email', 'is_active_premium', 'subscribed_at', 'expired_at')
     list_editable = ('is_active_premium',)
     list_filter = ('is_active_premium',)
     search_fields = ('user__username', 'user__email')
+
+    @admin.display(description='하루 발행 한도')
+    def daily_limit_display(self, obj):
+        """공란이면 플랫폼 권장값이 적용된다는 걸 목록에서 바로 알 수 있게 실제 적용값을 보여준다."""
+        from .blog_posting import account_posting_quota
+        q = account_posting_quota(obj)
+        if q['is_unlimited']:
+            return '무제한'
+        return f"{q['used_today']}/{q['limit']}건 ({q['source']})"
+
+    @admin.display(description='이메일')
+    def user_email(self, obj):
+        return obj.user.email
 
 # 5. 소셜 로그인(카카오/구글) 연동 계정 관리
 @admin.register(SocialAccount)
@@ -257,6 +407,20 @@ class SocialAccountAdmin(admin.ModelAdmin):
     list_display = ('user', 'provider', 'provider_uid', 'email', 'connected_at')
     list_filter = ('provider',)
     search_fields = ('user__username', 'provider_uid', 'email')
+
+@admin.register(Watchlist)
+class WatchlistAdmin(admin.ModelAdmin):
+    list_display = ('user', 'stock', 'created_at')
+    search_fields = ('user__username', 'stock__name', 'stock__ticker')
+    ordering = ('-created_at',)
+
+@admin.register(PredictionAccuracySnapshot)
+class PredictionAccuracySnapshotAdmin(admin.ModelAdmin):
+    list_display = ('computed_at', 'total_resolved', 'overall_accuracy')
+    ordering = ('-computed_at',)
+
+    def has_add_permission(self, request):
+        return False  # compute_prediction_accuracy 커맨드를 통해서만 생성됨
 
 # 6. 챗봇 대화 기록 관리 (읽기 전용 조회 용도)
 @admin.register(ChatMessage)
@@ -295,6 +459,23 @@ class MenuAccessLogAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False  # 메뉴 접속 미들웨어를 통해서만 생성됨
 
+# 8-1. 시스템 에러 로그 관리 (읽기 전용 조회 용도) — 예전엔 ADMINS로 매번 메일이 갔지만
+# (config/settings.py의 LOGGING 참고), 봇의 잘못된 Host 헤더 스캔 등으로 메일함이 스팸으로
+# 도배돼서 여기 쌓아두고 조회하는 방식으로 바꿨다.
+@admin.register(SystemErrorLog)
+class SystemErrorLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'level', 'logger_name', 'short_message', 'status_code', 'request_path', 'created_at')
+    list_filter = ('level', 'logger_name')
+    search_fields = ('message', 'traceback', 'request_path')
+    ordering = ('-created_at',)
+
+    @admin.display(description='메시지')
+    def short_message(self, obj):
+        return obj.message[:100]
+
+    def has_add_permission(self, request):
+        return False  # DBErrorLogHandler(로깅)를 통해서만 생성됨
+
 # 9. 홈페이지 뉴스레터 구독자 관리
 @admin.register(NewsletterSubscriber)
 class NewsletterSubscriberAdmin(admin.ModelAdmin):
@@ -312,7 +493,8 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     search_fields = ('subject', 'body')
     ordering = ('-created_at',)
-    readonly_fields = ('article_count', 'created_at', 'sent_at', 'recipient_count')
+    fields = ('subject', 'body', 'body_preview', 'status', 'article_count', 'created_at', 'sent_at', 'recipient_count')
+    readonly_fields = ('body_preview', 'article_count', 'created_at', 'sent_at', 'recipient_count')
     actions = ['mark_ready']
 
     def get_readonly_fields(self, request, obj=None):
@@ -320,6 +502,27 @@ class NewsletterIssueAdmin(admin.ModelAdmin):
         if obj and obj.status == 'SENT':
             return self.readonly_fields + ('subject', 'body', 'status')
         return self.readonly_fields
+
+    def body_preview(self, obj):
+        # body는 실제 발송되는 이메일 HTML 원문이라 관리자 화면엔 텍스트로만 보여 눈으로 검수하기
+        # 어렵다 — iframe(srcdoc)에 그대로 렌더링해 실제 렌더 결과를 바로 옆에서 확인할 수 있게
+        # 한다. sandbox=""(모든 권한 없음)로 스크립트 실행/폼 제출/최상위 창 탐색을 전부 막아,
+        # AI가 만든 본문에 악의적인 스크립트가 섞여 있어도 admin 세션에 영향을 줄 수 없다.
+        if not obj or not obj.body:
+            return "(본문 없음)"
+        # Django admin이 readonly 필드 값을 감싸는 .readonly div는 기본 display:inline-block
+        # (내용 크기에 맞춰 줄어듦)이라, 그 안의 iframe에 width:100%를 줘도 퍼센트 기준이 되는
+        # 조상 자체가 "내용 크기만큼"이라 순환 참조가 되어 iframe 기본 폭(300px)으로 주저앉는다
+        # (실측: 287px). .field-body_preview .readonly를 block으로 강제해 조상 폭을 폼 너비
+        # 전체로 고정해야 안의 width:100%가 정상적으로 그 폭을 기준으로 계산된다.
+        return format_html(
+            '<style>.field-body_preview .readonly {{ display: block; width: 100%; }}</style>'
+            '<iframe srcdoc="{}" sandbox="" '
+            'style="display:block;width:100%;box-sizing:border-box;min-height:600px;'
+            'border:1px solid #ccc;background:#fff;"></iframe>',
+            obj.body,
+        )
+    body_preview.short_description = "본문 미리보기 (HTML 렌더링)"
 
     def has_add_permission(self, request):
         return False  # generate_newsletter_draft 커맨드를 통해서만 생성됨
@@ -349,19 +552,254 @@ class ConsultRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description='이름')
     def name_with_sheet_link(self, obj):
-        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결
-        return format_html(
-            '<a href="{}" target="_blank">{}</a>',
-            reverse('financial_consult_sheet'), obj.name,
-        )
+        # FC/PB가 리드를 클릭하면 바로 종합 재무상담 시트를 새 탭으로 열 수 있게 연결.
+        # ConsultRequest는 오직 사이트의 온라인 상담 신청 폼(consult_request_view)을 통해서만
+        # 생성되므로 신청경로는 항상 "온라인 상담신청"으로 넘긴다.
+        params = urlencode({
+            'name': obj.name,
+            'phone': obj.phone,
+            'apply_date': obj.created_at.strftime('%Y-%m-%d'),
+            'channel': '온라인 상담신청',
+        })
+        url = f"{reverse('financial_consult_sheet')}?{params}"
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.name)
+
+
+# 12-1. 구독 신청 (/subscribe/apply/) — PG 연동 전까지는 여기서 승인 액션으로 프리미엄을 켜준다.
+@admin.register(SubscriptionOrder)
+class SubscriptionOrderAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'name', 'phone', 'payment_method', 'status', 'reviewed_at')
+    # 목록 줄 끝에서 바로 콤보박스로 처리 상태를 바꾸고 한 번에 저장할 수 있게 한다(요청:
+    # "목록 라인 맨 끝에 저장 버튼"). Django가 list_editable을 쓰면 목록 첫 컬럼을 자동으로
+    # 상세화면 링크로 돌려주고, 그 아래 "Save" 버튼 하나로 변경된 행을 한꺼번에 저장한다 —
+    # 이 저장 경로도 save_model()을 그대로 타므로 승인 시 프리미엄 활성화 로직이 똑같이 적용된다.
+    list_editable = ('status',)
+    list_filter = ('status', 'payment_method', 'referral_source', 'motivation')
+    search_fields = ('name', 'phone', 'user__username', 'user__email')
+    readonly_fields = ('user', 'name', 'phone', 'referral_source', 'motivation', 'payment_method', 'created_at')
+    ordering = ('-created_at',)
+    actions = ['approve_orders', 'reject_orders']
+
+    @staticmethod
+    def _activate_premium(order):
+        """승인 처리(액션이든 상세 화면에서 상태를 직접 바꿔 저장하든) 시 프리미엄 구독을
+        켜는 공통 로직. 액션 메서드에만 있으면, 상세 화면에서 처리 상태 드롭다운을 "승인
+        완료"로 바꾸고 Save만 눌러도 상태만 바뀌고 실제 구독은 활성화 안 되는 불일치가
+        생긴다 — 그래서 save_model에서도 똑같이 타도록 뽑아뒀다."""
+        subscription, _ = UserSubscription.objects.get_or_create(user=order.user)
+        now = timezone.now()
+        subscription.is_active_premium = True
+        subscription.subscribed_at = subscription.subscribed_at or now
+        subscription.expired_at = now + timezone.timedelta(days=30)
+        subscription.save(update_fields=['is_active_premium', 'subscribed_at', 'expired_at'])
+        return now
+
+    @staticmethod
+    def _deactivate_premium(order):
+        """반려 처리 시(액션이든 상세 화면 저장이든) 프리미엄을 끈다. _activate_premium과
+        대칭 — 승인 후 반려로 뒤집는 경우(예: 결제 확인 전 실수로 승인) is_active_premium이
+        REJECTED 상태에서도 True로 남아있던 버그(2026-08-07, 다비드 계정에서 실측: 주문은
+        REJECTED인데 구독 페이지엔 "이미 프리미엄 구독 중"으로 표시됨) 재발 방지.
+        UserSubscription이 어느 주문으로 활성화됐는지 FK로 추적하진 않으므로, 이 사용자의
+        다른 주문이 이미 APPROVED 상태라면(정상적으로 유효한 별개의 구독) 끄지 않는다."""
+        if SubscriptionOrder.objects.filter(user=order.user, status='APPROVED').exclude(pk=order.pk).exists():
+            return
+        UserSubscription.objects.filter(user=order.user).update(is_active_premium=False)
+
+    @admin.action(description="선택한 신청을 승인하고 프리미엄 구독을 활성화")
+    def approve_orders(self, request, queryset):
+        approved = 0
+        for order in queryset.filter(status='PENDING'):
+            now = self._activate_premium(order)
+            order.status = 'APPROVED'
+            order.reviewed_at = now
+            order.save(update_fields=['status', 'reviewed_at'])
+            approved += 1
+        self.message_user(request, f"{approved}건을 승인하고 프리미엄을 활성화했습니다.")
+
+    @admin.action(description="선택한 신청을 반려")
+    def reject_orders(self, request, queryset):
+        rejected = 0
+        for order in queryset.exclude(status='REJECTED'):
+            self._deactivate_premium(order)
+            order.status = 'REJECTED'
+            order.reviewed_at = timezone.now()
+            order.save(update_fields=['status', 'reviewed_at'])
+            rejected += 1
+        self.message_user(request, f"{rejected}건을 반려했습니다.")
+
+    def save_model(self, request, obj, form, change):
+        # 상세(변경) 화면에서 처리 상태를 직접 바꿔 저장한 경우에도, 목록의 승인/반려
+        # 액션과 동일하게 프리미엄 활성화/비활성화가 같이 반영되게 한다.
+        if change and 'status' in form.changed_data:
+            if obj.status == 'APPROVED':
+                now = self._activate_premium(obj)
+                if not obj.reviewed_at:
+                    obj.reviewed_at = now
+            elif obj.status == 'REJECTED':
+                self._deactivate_premium(obj)
+                if not obj.reviewed_at:
+                    obj.reviewed_at = timezone.now()
+        super().save_model(request, obj, form, change)
 
 
 # 13. 종합 재무상담 시트 (financial_consult_sheet.html 저장 버튼으로 제출된 기록)
 @admin.register(FinancialConsultSheet)
 class FinancialConsultSheetAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_display = ('created_at', 'name_with_load_link', 'customer_phone', 'consultant_name', 'consult_date', 'created_by')
+    list_display_links = ('name_with_load_link',)  # created_at은 더 이상 (기본 admin 변경화면으로 가는) 링크가 아니게
     list_filter = ('created_at', 'consult_date')
     search_fields = ('customer_name', 'customer_phone', 'consultant_name')
     readonly_fields = ('customer_name', 'customer_phone', 'consultant_name', 'consult_date', 'data', 'created_by', 'created_at')
     ordering = ('-created_at',)
+
+    @admin.display(description='고객명')
+    def name_with_load_link(self, obj):
+        # 예전엔 이름이 아니라 저장 일시(created_at, list_display 첫 컬럼이라 기본 admin이
+        # 자동으로 링크를 건다)를 클릭하면 원본 JSONField를 그대로 보여주는 기본 변경화면으로
+        # 갔었다 — 이름을 눌렀을 때 실제 시트 화면(financial_consult_sheet_view)이 그 데이터로
+        # 채워진 채 열리도록 ?load=<id>로 바꾼다.
+        url = f"{reverse('financial_consult_sheet')}?load={obj.pk}"
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.customer_name or '(이름 없음)')
+
+
+# 13-1. FAQ (자주 묻는 질문) 게시판 — Menu처럼 관리자만 작성/수정, 공개 페이지는 조회 전용
+@admin.register(Faq)
+class FaqAdmin(admin.ModelAdmin):
+    list_display = ('question', 'category', 'order', 'is_active', 'updated_at')
+    list_editable = ('order', 'is_active')
+    list_filter = ('category', 'is_active')
+    search_fields = ('question', 'answer')
+    ordering = ('category', 'order')
+
+
+# 13-1. 캘린더 기반 자동 발행(건강/의학·음식/영양·여행/관광) 요일별 테마 — 7행/카테고리.
+# articles/content_calendar.py가 매일 이 테이블을 읽어 오늘의 제목을 만든다.
+@admin.register(ContentCalendarTheme)
+class ContentCalendarThemeAdmin(admin.ModelAdmin):
+    list_display = ('category', 'weekday', 'name', 'am_angle', 'pm_angle', 'am_title_template', 'pm_title_template')
+    list_editable = ('name', 'am_angle', 'pm_angle', 'am_title_template', 'pm_title_template')
+    list_filter = ('category',)
+    ordering = ('category', 'weekday')
+
+# 13-2. 캘린더 기반 자동 발행 주제 — 364행(7요일×52주)/카테고리. staff가 /admin/에서 직접
+# 고쳐가며 1년 주제 목록을 관리할 수 있게, topic을 목록에서 바로 수정 가능하게 한다.
+@admin.register(ContentCalendarTopic)
+class ContentCalendarTopicAdmin(admin.ModelAdmin):
+    list_display = ('category', 'weekday', 'week_number', 'topic')
+    list_editable = ('topic',)
+    list_filter = ('category', 'weekday')
+    search_fields = ('topic',)
+    ordering = ('category', 'weekday', 'week_number')
+
+
+# 13-3. 네이버 블로그 이관 원문/이관 기록. 본문 HTML은 수집 커맨드가 채우는 값이라
+# Admin에서 손으로 고칠 일이 거의 없고, 실제 확인은 /admin-tools/naver-migration/ 화면에서
+# 한다(본문 렌더링 + 이미지 재호스팅 확인) — 여기는 검색/일괄 삭제용 최소 등록이다.
+@admin.register(NaverBlogPost)
+class NaverBlogPostAdmin(admin.ModelAdmin):
+    list_display = ('title', 'blog_id', 'posted_at', 'status', 'image_count', 'owner', 'scraped_at')
+    list_filter = ('blog_id', 'status')
+    search_fields = ('title', 'log_no', 'excerpt')
+    readonly_fields = ('created_at', 'updated_at', 'scraped_at')
+    ordering = ('-posted_at',)
+
+
+@admin.register(NaverPostMigration)
+class NaverPostMigrationAdmin(admin.ModelAdmin):
+    list_display = ('post', 'blog_account', 'status', 'published_at', 'target_url')
+    list_filter = ('status', 'blog_account')
+    search_fields = ('post__title', 'target_url')
+    ordering = ('-created_at',)
+
+
+# 14. Django Admin 목록을 하나의 "NextFinUp 관리" 통짜 목록 대신 5개 카테고리로 재구성한다
+# (신고: "장고 admin 메뉴가 카테고리화되지 않아 불편하다"). 실제 Django 앱은 여전히 auth/articles
+# 둘뿐이라 진짜 앱을 쪼갤 순 없지만, admin index 템플릿은 get_app_list가 돌려주는 dict 리스트를
+# 그대로 순회해서 섹션을 그리므로, 모델을 카테고리별로 재배치한 가짜 "app" dict들을 만들어
+# 돌려주는 것만으로 화면상 카테고리처럼 보이게 할 수 있다(공식 문서에 나오는 패턴은 아니지만
+# get_app_list 오버라이드 자체는 흔한 방법). 각 카테고리 안에서는 Django 기본 정렬(표시 이름
+# 가나다순)을 그대로 유지한다 — 신고: "카테고리가 어려우면 가나다순으로"도 이미 만족된다.
+#
+# admin-tools/*(cron_status 등)는 실제 모델/DB 테이블이 없는 화면이라 ModelAdmin으로 등록할 수
+# 없어서, 모델 항목처럼 보이는 dict를 "운영 도구" 카테고리에 직접 끼워 넣는다.
+_original_get_app_list = admin.site.get_app_list
+
+_CATEGORY_ORDER = ['시세·예측', '뉴스', '회원', '콘텐츠·상담', '운영 도구']
+
+_MODEL_CATEGORY = {
+    # 시세·예측 (articles/models/market.py)
+    'StockItem': '시세·예측', 'StockDailyPrice': '시세·예측', 'StockPrediction': '시세·예측',
+    'MarketIndex': '시세·예측', 'MarketHoliday': '시세·예측', 'KisAccessToken': '시세·예측',
+    'StockRealtimePrice': '시세·예측', 'RankedMover': '시세·예측', 'GlobalMarketQuote': '시세·예측',
+    'ExchangeRateSnapshot': '시세·예측',
+    # 뉴스 (articles/models/news.py)
+    'NewsSource': '뉴스', 'NewsKeyword': '뉴스', 'MediaOutlet': '뉴스',
+    'AnalyzedArticle': '뉴스', 'PostedArticle': '뉴스',
+    # 회원 (articles/models/members.py + auth)
+    'User': '회원', 'Group': '회원', 'MemberGrade': '회원', 'UserPreference': '회원',
+    'BlogPostingAccount': '회원', 'UserSubscription': '회원', 'SocialAccount': '회원',
+    'LoginLog': '회원', 'MenuAccessLog': '회원', 'ChatMessage': '회원',
+    # 운영 도구
+    'SystemErrorLog': '운영 도구',
+    # 콘텐츠·상담 (articles/models/content.py)
+    'ContentCalendarTheme': '콘텐츠·상담', 'ContentCalendarTopic': '콘텐츠·상담',
+    'NewsletterSubscriber': '콘텐츠·상담', 'NewsletterIssue': '콘텐츠·상담', 'Menu': '콘텐츠·상담',
+    'ConsultRequest': '콘텐츠·상담', 'SubscriptionOrder': '콘텐츠·상담', 'FinancialConsultSheet': '콘텐츠·상담',
+    'Faq': '콘텐츠·상담', 'NaverBlogPost': '콘텐츠·상담', 'NaverPostMigration': '콘텐츠·상담', 'LiteraryCandidate': '콘텐츠·상담',
+}
+
+# (표시명, url name) — admin-tools 뷰들. 재무상담 시트는 목록(FinancialConsultSheetAdmin,
+# 콘텐츠·상담 카테고리)과 별개로 "작성 화면" 자체도 도구라 여기 따로 둔다.
+_TOOL_LINKS = [
+    ('크론 작업 현황', 'cron_status'),
+    ('발행 파이프라인 즉시 실행', 'pipeline_status'),
+    ('외부 연동 상태', 'integration_status'),
+    ('서버 상태', 'server_health'),
+    ('운영 현황', 'operations_overview'),
+    ('AI 예측 성과', 'ai_performance_admin'),
+    ('종합 재무상담 시트 작성', 'financial_consult_sheet'),
+    ('테마 색상 설정', 'theme_settings'),
+    ('AI 이미지 생성', 'image_generator'),
+    ('AI 이미지 생성 목록', 'generated_image_list'),
+    ('파일 업로드', 'file_upload'),
+    ('건강/의학 발행 캘린더 (전체)', 'health_content_calendar_admin'),
+    ('음식/영양 발행 캘린더 (전체)', 'food_content_calendar_admin'),
+    ('여행/관광 발행 캘린더 (전체)', 'travel_content_calendar_admin'),
+    ('회원 대신 블로그 발행', 'publish_for_member'),
+    ('네이버 블로그 이관', 'naver_migration_list'),
+    ('작가·작품 후보 선택', 'literary_picker'),
+]
+
+
+def _get_categorized_app_list(request, app_label=None):
+    original = _original_get_app_list(request, app_label=app_label)
+
+    buckets = {cat: [] for cat in _CATEGORY_ORDER}
+    for app in original:
+        for m in app['models']:
+            buckets.setdefault(_MODEL_CATEGORY.get(m['object_name'], '기타'), []).append(m)
+
+    for name, url_name in _TOOL_LINKS:
+        buckets['운영 도구'].append({
+            'name': name, 'object_name': url_name,
+            'admin_url': reverse(url_name), 'add_url': None, 'view_only': True,
+        })
+
+    result = []
+    for i, cat in enumerate(_CATEGORY_ORDER):
+        models = sorted(buckets.get(cat, []), key=lambda m: m['name'])
+        if not models:
+            continue
+        result.append({
+            'name': cat,
+            'app_label': f'category_{i}',
+            'app_url': None,
+            'has_module_perms': True,
+            'models': models,
+        })
+    return result
+
+
+admin.site.get_app_list = _get_categorized_app_list
 

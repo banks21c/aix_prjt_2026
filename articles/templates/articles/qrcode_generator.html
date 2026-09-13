@@ -1,0 +1,181 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .qr-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .qr-field .form-text { font-size: 12px; }
+
+        .qr-layout { display: flex; gap: 24px; flex-wrap: wrap; }
+        .qr-form { flex: 1 1 320px; min-width: 280px; }
+        .qr-preview { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+        .qr-canvas-wrap {
+            width: 260px; height: 260px; display: flex; align-items: center; justify-content: center;
+            background: #fff; border: 1px solid var(--bg-subtle-2, #eee); border-radius: 12px; padding: 10px;
+        }
+        .qr-canvas-wrap canvas { max-width: 100%; max-height: 100%; }
+        .qr-empty { color: var(--text-secondary, #adb5bd); font-size: 13px; text-align: center; }
+        .qr-error { color: #c0392b; font-size: 13px; text-align: center; display: none; }
+
+        .qr-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='qrcode_generator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">QR코드 생성기</h2>
+                <p class="text-muted mb-0">텍스트, URL, 와이파이 정보 등을 QR코드로 바로 만들어 PNG로 다운로드하세요. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4">
+            <div class="qr-layout">
+                <div class="qr-form">
+                    <div class="qr-field mb-3">
+                        <label for="qr-text">텍스트 / URL</label>
+                        <textarea id="qr-text" class="form-control" rows="3" placeholder="예: https://www.nextfinup.com"></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 qr-field">
+                            <label for="qr-size">크기</label>
+                            <select id="qr-size" class="form-select">
+                                <option value="200">200 × 200</option>
+                                <option value="300" selected>300 × 300</option>
+                                <option value="400">400 × 400</option>
+                                <option value="500">500 × 500</option>
+                            </select>
+                        </div>
+                        <div class="col-6 qr-field">
+                            <label for="qr-ecl">오류 정정 레벨</label>
+                            <select id="qr-ecl" class="form-select">
+                                <option value="L">L (약 7%)</option>
+                                <option value="M" selected>M (약 15%)</option>
+                                <option value="Q">Q (약 25%)</option>
+                                <option value="H">H (약 30%)</option>
+                            </select>
+                            <div class="form-text text-muted">높을수록 QR코드가 일부 손상돼도 인식이 잘 됩니다</div>
+                        </div>
+                        <div class="col-6 qr-field">
+                            <label for="qr-fg">전경색</label>
+                            <input type="color" id="qr-fg" class="form-control form-control-color" value="#000000">
+                        </div>
+                        <div class="col-6 qr-field">
+                            <label for="qr-bg">배경색</label>
+                            <input type="color" id="qr-bg" class="form-control form-control-color" value="#ffffff">
+                        </div>
+                    </div>
+                    <button type="button" id="qr-download-btn" class="btn btn-primary" disabled><i class="fa-solid fa-download"></i> PNG 다운로드</button>
+                </div>
+
+                <div class="qr-preview">
+                    <div class="qr-canvas-wrap">
+                        <canvas id="qr-canvas" style="display:none;"></canvas>
+                        <div id="qr-empty" class="qr-empty">텍스트를 입력하면<br>QR코드가 여기에 생성됩니다</div>
+                        <div id="qr-error" class="qr-error"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="qr-note">와이파이 QR코드는 <code>WIFI:T:WPA;S:네트워크이름;P:비밀번호;;</code> 형식으로, 연락처는 vCard 형식(<code>BEGIN:VCARD...END:VCARD</code>)으로 입력하면 스마트폰 카메라가 자동으로 인식합니다.</p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/lib/browser.min.js"></script>
+<script>
+(function () {
+    var textEl = document.getElementById('qr-text');
+    var sizeEl = document.getElementById('qr-size');
+    var eclEl = document.getElementById('qr-ecl');
+    var fgEl = document.getElementById('qr-fg');
+    var bgEl = document.getElementById('qr-bg');
+    var canvas = document.getElementById('qr-canvas');
+    var emptyEl = document.getElementById('qr-empty');
+    var errorEl = document.getElementById('qr-error');
+    var downloadBtn = document.getElementById('qr-download-btn');
+
+    var debounceTimer = null;
+
+    function render() {
+        var text = textEl.value.trim();
+        if (!text) {
+            canvas.style.display = 'none';
+            emptyEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            downloadBtn.disabled = true;
+            return;
+        }
+
+        var options = {
+            width: parseInt(sizeEl.value, 10),
+            errorCorrectionLevel: eclEl.value,
+            margin: 2,
+            color: { dark: fgEl.value, light: bgEl.value },
+        };
+
+        QRCode.toCanvas(canvas, text, options, function (err) {
+            if (err) {
+                canvas.style.display = 'none';
+                emptyEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = '생성 실패: ' + (err.message || '입력 내용이 너무 길거나 QR코드로 표현할 수 없습니다.');
+                downloadBtn.disabled = true;
+                return;
+            }
+            canvas.style.display = 'block';
+            emptyEl.style.display = 'none';
+            errorEl.style.display = 'none';
+            downloadBtn.disabled = false;
+        });
+    }
+
+    function scheduleRender() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(render, 250);
+    }
+
+    [textEl, sizeEl, eclEl, fgEl, bgEl].forEach(function (el) {
+        el.addEventListener('input', scheduleRender);
+        el.addEventListener('change', scheduleRender);
+    });
+
+    downloadBtn.addEventListener('click', function () {
+        canvas.toBlob(function (blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'qrcode.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }, 'image/png');
+    });
+})();
+</script>
+</body>
+</html>

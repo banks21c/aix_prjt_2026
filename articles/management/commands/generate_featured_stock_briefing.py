@@ -1,10 +1,30 @@
-from django.core.management.base import BaseCommand
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from articles import article_ai, thumbnail
+from articles.kis_client import get_stock_close_price
 from articles.models import AnalyzedArticle, MarketHoliday, RankedMover
 
 SESSION_LABELS = {'midday': '장중', 'close': '마감후'}
+
+
+def _find_sign_mismatches(movers):
+    """GAINER인데 등락률이 0% 이하, LOSER인데 0% 이상인 항목을 찾는다.
+
+    2026-08-03 실제 장애(c9e732f/2c4891f)의 원인이 KIS 조회 파라미터 오류로 RankedMover 자체가
+    '하락률 상위'에 상승 종목을 잘못 편입시킨 것이었다 — AI 요약이 아니라 원본 데이터가
+    깨진 경우라, 발행 직전에 원본 데이터 수준에서 한 번 더 검증해야 재발을 잡을 수 있다.
+    """
+    return [
+        m for m in movers
+        if m['change_pct'] is not None and (
+            (m['rank_type'] == 'GAINER' and m['change_pct'] <= 0)
+            or (m['rank_type'] == 'LOSER' and m['change_pct'] >= 0)
+        )
+    ]
 
 
 def _report_thesis_text(title, stock_name):
@@ -63,6 +83,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("[-] RankedMover 데이터가 없습니다. collect_fluctuation_ranking이 먼저 돌아야 합니다."))
             return
 
+        mismatches = _find_sign_mismatches(movers)
+        if mismatches:
+            detail = ', '.join(f"{m['name']}({m['rank_type']} {m['change_pct']}%)" for m in mismatches)
+            raise CommandError(
+                f"RankedMover 정합성 오류로 {session_label} 브리핑 생성을 중단합니다 — "
+                f"등락 방향과 순위 구분이 어긋난 종목: {detail}. collect_fluctuation_ranking 데이터를 "
+                f"먼저 확인하세요(발행하지 않고 종료합니다)."
+            )
+
         reports_qs = (
             AnalyzedArticle.objects
             .filter(title__startswith='[리포트 브리핑]', scraped_at__date=today)
@@ -70,10 +99,42 @@ class Command(BaseCommand):
             .select_related('stock')
             .order_by('scraped_at')
         )
-        reports = [
-            {'ticker': r.stock.ticker, 'name': r.stock.name, 'text': _report_thesis_text(r.title, r.stock.name)}
-            for r in reports_qs
-        ]
+        reports_list = list(reports_qs)
+
+        # StockRealtimePrice(5분 캐시)는 정규장 마감 직전 마지막 틱(정산 전 값)에 멈춰 있어
+        # 마감 후 조회하면 실제 종가와 어긋난다(2026-08-06 심텍 사례: 캐시 106,700/+3.59% vs
+        # 실제 종가 106,000/+2.91%) — 대시보드 매수/매도 신호 표에서 같은 문제를 캐시를 아예
+        # 쓰지 않고 get_stock_close_price 온디맨드 조회로 고친 것과 동일한 방식으로 맞춘다
+        # (정규장 중엔 실시간가, 마감 후엔 정산된 종가를 알아서 골라 줌). KIS 일봉 조회가 동시
+        # 요청에 약해 4개씩 병렬 + 재시도로 조회한다.
+        def _fetch_price(r, attempts=3):
+            for attempt in range(attempts):
+                try:
+                    fetched = get_stock_close_price(r.stock.ticker)
+                    return r.pk, fetched['close'], fetched['change_pct']
+                except Exception:
+                    if attempt == attempts - 1:
+                        return r.pk, None, None
+                    time.sleep(0.3)
+            return r.pk, None, None
+
+        price_map = {}
+        if reports_list:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                for pk, price, change_pct in executor.map(_fetch_price, reports_list):
+                    price_map[pk] = (price, change_pct)
+
+        def _report_dict(r):
+            price, change_pct = price_map.get(r.pk, (None, None))
+            return {
+                'ticker': r.stock.ticker,
+                'name': r.stock.name,
+                'text': _report_thesis_text(r.title, r.stock.name),
+                'price': price,
+                'change_pct': change_pct,
+            }
+
+        reports = [_report_dict(r) for r in reports_list]
 
         self.stdout.write(self.style.SUCCESS(
             f"🚀 {today} {session_label} AI 특징주 브리핑을 생성합니다. (증권사 리포트 {len(reports)}건 포함)"
@@ -93,7 +154,9 @@ class Command(BaseCommand):
                 ai_analysis=draft['ai_analysis'],
                 blog_content=draft['blog_content'],
                 original_content=article_ai.movers_to_text(movers, reports),
-                thumbnail=thumbnail.build_thumbnail_file(title, category_label="특징주 브리핑"),
+                thumbnail=thumbnail.build_thumbnail_file(
+                    title, category_label="특징주 브리핑", is_economic_news=True,
+                ),
                 applied_template='T1',
                 is_premium=False,
                 is_posted=False,

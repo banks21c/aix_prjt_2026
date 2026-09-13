@@ -1,0 +1,235 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .sc-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .sc-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .sc-field .form-text { font-size: 12px; }
+        .sc-period-note {
+            background: var(--bg-page, #f4f6f9); border-radius: 8px; padding: 10px 14px; font-size: 13px;
+            color: var(--text-secondary, #495057); margin-bottom: 16px;
+        }
+        .sc-period-note strong { color: var(--text-primary, #212529); }
+        .sc-warning {
+            background: #fff8e1; color: #8a6d00; border-radius: 8px; padding: 12px 14px; font-size: 13px;
+            margin-top: 16px; display: none;
+        }
+        .sc-result { background: var(--brand-primary, #0d47a1); color: #fff; border-radius: 12px; padding: 28px 30px; }
+        .sc-result .label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+        .sc-result .amount { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .sc-result .sub { font-size: 13px; opacity: .85; margin-top: 10px; line-height: 1.7; }
+        .sc-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='severance_calculator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">퇴직금 계산기</h2>
+                <p class="text-muted mb-0">근로기준법 기준(1일 평균임금 × 30일 × 재직일수 ÷ 365)으로 예상 퇴직금을 계산합니다. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="sc-section-title">재직 기간</div>
+            <div class="row g-3 mb-2">
+                <div class="col-md-6 sc-field">
+                    <label for="sc-join">입사일자</label>
+                    <input type="date" id="sc-join" class="form-control">
+                </div>
+                <div class="col-md-6 sc-field">
+                    <label for="sc-leave">퇴직일자</label>
+                    <input type="date" id="sc-leave" class="form-control">
+                </div>
+            </div>
+            <div id="sc-tenure-note" class="sc-period-note" style="display:none;"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="sc-section-title">평균임금 계산</div>
+            <div id="sc-avg-period-note" class="sc-period-note" style="display:none;"></div>
+            <div class="row g-3">
+                <div class="col-md-6 sc-field">
+                    <label for="sc-wage3">최근 3개월 급여 총액 (세전)</label>
+                    <input type="text" id="sc-wage3" inputmode="numeric" class="form-control" placeholder="예: 9,000,000">
+                    <div class="form-text text-muted">최근 3개월간 받은 기본급 + 제수당 합계</div>
+                </div>
+                <div class="col-md-6 sc-field">
+                    <label for="sc-bonus">연간 상여금 총액 <span class="text-muted fw-normal">(선택)</span></label>
+                    <input type="text" id="sc-bonus" inputmode="numeric" class="form-control" placeholder="예: 3,600,000">
+                    <div class="form-text text-muted">최근 1년간 받은 상여금 합계 — 3/12만 반영됩니다</div>
+                </div>
+                <div class="col-md-6 sc-field">
+                    <label for="sc-leave-pay">연차수당 <span class="text-muted fw-normal">(선택)</span></label>
+                    <input type="text" id="sc-leave-pay" inputmode="numeric" class="form-control" placeholder="예: 900,000">
+                    <div class="form-text text-muted">퇴직 전전연도 미사용 연차에 대한 수당 — 3/12만 반영됩니다</div>
+                </div>
+                <div class="col-md-6 sc-field">
+                    <label for="sc-ordinary">통상임금 (1일 기준) <span class="text-muted fw-normal">(선택)</span></label>
+                    <input type="text" id="sc-ordinary" inputmode="numeric" class="form-control" placeholder="예: 110,000">
+                    <div class="form-text text-muted">평균임금이 이보다 낮으면 통상임금을 대신 적용합니다</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sc-result mb-3">
+            <div class="label">예상 퇴직금</div>
+            <div class="amount" id="sc-result-amount">0원</div>
+            <div class="sub" id="sc-result-detail"></div>
+        </div>
+        <div class="sc-warning" id="sc-warning"></div>
+
+        <p class="sc-note">
+            실제 지급액은 회사의 취업규칙, 연차수당 산정 방식, 퇴직연금(DB/DC형) 운용 결과 등에 따라 달라질 수 있어 참고용입니다.
+            근로기준법상 퇴직금은 계속근로기간 1년 이상, 4주 평균 1주 소정근로시간 15시간 이상인 근로자에게 발생합니다.
+        </p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var joinEl = document.getElementById('sc-join');
+    var leaveEl = document.getElementById('sc-leave');
+    var tenureNote = document.getElementById('sc-tenure-note');
+    var avgPeriodNote = document.getElementById('sc-avg-period-note');
+    var wage3El = document.getElementById('sc-wage3');
+    var bonusEl = document.getElementById('sc-bonus');
+    var leavePayEl = document.getElementById('sc-leave-pay');
+    var ordinaryEl = document.getElementById('sc-ordinary');
+    var resultAmountEl = document.getElementById('sc-result-amount');
+    var resultDetailEl = document.getElementById('sc-result-detail');
+    var warningEl = document.getElementById('sc-warning');
+
+    function parseDate(str) {
+        if (!str) return null;
+        var d = new Date(str + 'T00:00:00');
+        return isNaN(d.getTime()) ? null : d;
+    }
+    function addDays(date, days) {
+        var d = new Date(date);
+        d.setDate(d.getDate() + days);
+        return d;
+    }
+    function addMonths(date, months) {
+        var d = new Date(date);
+        var day = d.getDate();
+        d.setMonth(d.getMonth() + months);
+        if (d.getDate() !== day) d.setDate(0); // 말일 넘어가면(예: 5/31 - 3개월) 대상월 마지막날로 보정
+        return d;
+    }
+    function daysBetween(a, b) {
+        return Math.round((b - a) / 86400000);
+    }
+    function fmtDate(d) {
+        return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+    }
+    function parseNum(str) {
+        var n = parseFloat(String(str || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtWon(n) {
+        return Math.round(n).toLocaleString('ko-KR') + '원';
+    }
+    function bindThousandsFormat(el) {
+        el.addEventListener('input', function () {
+            var n = parseNum(el.value);
+            var pos = el.selectionStart;
+            var before = el.value.length;
+            el.value = n ? n.toLocaleString('ko-KR') : '';
+            var after = el.value.length;
+            el.selectionStart = el.selectionEnd = Math.max(0, pos + (after - before));
+            update();
+        });
+    }
+
+    function update() {
+        var joinDate = parseDate(joinEl.value);
+        var leaveDate = parseDate(leaveEl.value);
+
+        if (!joinDate || !leaveDate || leaveDate <= joinDate) {
+            tenureNote.style.display = 'none';
+            avgPeriodNote.style.display = 'none';
+            warningEl.style.display = 'none';
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '입사일자와 퇴직일자를 입력해주세요.';
+            return;
+        }
+
+        var tenureDays = daysBetween(joinDate, leaveDate);
+        var years = Math.floor(tenureDays / 365);
+        var months = Math.floor((tenureDays % 365) / 30);
+        tenureNote.style.display = 'block';
+        tenureNote.innerHTML = '재직일수 <strong>' + tenureDays.toLocaleString('ko-KR') + '일</strong> (약 ' + years + '년 ' + months + '개월)';
+
+        var periodEnd = addDays(leaveDate, -1);
+        var periodStart = addMonths(leaveDate, -3);
+        var periodDays = daysBetween(periodStart, periodEnd) + 1;
+        avgPeriodNote.style.display = 'block';
+        avgPeriodNote.innerHTML = '평균임금 산정기간: <strong>' + fmtDate(periodStart) + ' ~ ' + fmtDate(periodEnd) + '</strong> (총 ' + periodDays + '일)';
+
+        var wage3 = parseNum(wage3El.value);
+        var bonus = parseNum(bonusEl.value);
+        var leavePay = parseNum(leavePayEl.value);
+        var ordinary = parseNum(ordinaryEl.value);
+
+        var totalWage = wage3 + (bonus * 3 / 12) + (leavePay * 3 / 12);
+        var avgDailyWage = periodDays > 0 ? totalWage / periodDays : 0;
+
+        var usedOrdinary = false;
+        if (ordinary > 0 && avgDailyWage < ordinary) {
+            avgDailyWage = ordinary;
+            usedOrdinary = true;
+        }
+
+        var severance = avgDailyWage * 30 * (tenureDays / 365);
+
+        if (wage3 <= 0) {
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '최근 3개월 급여 총액을 입력해주세요.';
+        } else {
+            resultAmountEl.textContent = fmtWon(severance);
+            resultDetailEl.textContent =
+                '1일 평균임금 ' + fmtWon(avgDailyWage) + (usedOrdinary ? ' (통상임금 적용)' : '') +
+                ' × 30일 × (' + tenureDays.toLocaleString('ko-KR') + '일 ÷ 365)';
+        }
+
+        if (tenureDays < 365) {
+            warningEl.style.display = 'block';
+            warningEl.textContent = '계속근로기간이 1년 미만이라 근로기준법상 퇴직금 지급 의무가 없는 경우입니다. 아래 금액은 참고용 계산 결과입니다.';
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+
+    [joinEl, leaveEl].forEach(function (el) { el.addEventListener('input', update); });
+    [wage3El, bonusEl, leavePayEl, ordinaryEl].forEach(bindThousandsFormat);
+
+    update();
+})();
+</script>
+</body>
+</html>

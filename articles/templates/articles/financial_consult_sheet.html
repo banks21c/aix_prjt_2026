@@ -4,8 +4,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 저장 버튼의 fetch가 same-origin인데도 브라우저/확장 프로그램이 Referer를 지우면
+     Django CSRF 검사가 (HTTPS 요청엔 Referer 필수라서) 이유도 안 보여주고 403을 내며
+     "저장 실패"로 보인다 — same-origin 요청에는 항상 Referer가 붙도록 강제한다. -->
+<meta name="referrer" content="same-origin">
 <title>{{ site_title }}</title>
 {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
   :root{
@@ -72,7 +77,34 @@
     display:inline-block; font-size:12.5px; font-weight:700; color:rgba(255,255,255,.82);
     text-decoration:none; margin-bottom:10px;
   }
-  .back-link:hover{ color:#fff; }
+  .back-link:hover{ color:var(--color-white, #fff); }
+
+  .load-widget{ position:relative; display:inline-block; margin-left:14px; }
+  .load-widget input{
+    font-size:12.5px; padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,.3);
+    background:rgba(255,255,255,.08); color:var(--color-white, #fff); width:220px;
+  }
+  .load-widget input::placeholder{ color:rgba(255,255,255,.55); }
+  .load-results{
+    position:absolute; top:100%; left:0; margin-top:4px; width:320px; max-height:280px; overflow-y:auto;
+    background:var(--color-white, #fff); border:1px solid var(--rule); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18);
+    z-index:50; display:none;
+  }
+  .load-results.open{ display:block; }
+  .load-results .item{
+    display:block; padding:8px 12px; font-size:13px; color:#222; text-decoration:none; cursor:pointer;
+    border-bottom:1px solid var(--bg-subtle, #f0f0f0);
+  }
+  .load-results .item:last-child{ border-bottom:none; }
+  .load-results .item:hover{ background:var(--accent-soft, #f4f6f9); }
+  .load-results .item .meta{ display:block; font-size:11px; color:#888; margin-top:2px; }
+  .load-results .empty{ padding:10px 12px; font-size:12.5px; color:#999; }
+  .loaded-banner{
+    display:flex; align-items:center; gap:10px; background:var(--accent-soft, #eef3fb);
+    border:1px solid var(--accent-2); border-radius:8px; padding:8px 14px; font-size:13px;
+    color:var(--accent-2); margin-bottom:14px;
+  }
+  .loaded-banner a{ font-weight:700; }
 
   /* ---- sticky quick-nav ---- */
   .quicknav{
@@ -97,7 +129,7 @@
   .quicknav a:hover{ color:var(--accent); border-color:var(--accent-2); }
   .quicknav .print-btn{
     margin-left:auto; flex:0 0 auto;
-    background:var(--accent); color:#fff; border:1px solid var(--accent);
+    background:var(--accent); color:var(--color-white, #fff); border:1px solid var(--accent);
     font-size:12px; font-weight:700; padding:7px 14px; border-radius:6px; cursor:pointer;
   }
   .quicknav .print-btn:hover{ background:var(--accent-2); }
@@ -107,17 +139,23 @@
     margin-top:28px; padding:22px 0; border-top:1px solid var(--rule);
   }
   .bottom-save .save-btn{
-    background:var(--accent); color:#fff; border:1px solid var(--accent);
+    background:var(--accent); color:var(--color-white, #fff); border:1px solid var(--accent);
     font-size:14.5px; font-weight:700; padding:10px 30px; border-radius:6px; cursor:pointer;
   }
   .bottom-save .save-btn:hover{ background:var(--accent-2); }
   .bottom-save .save-btn:disabled{ opacity:.6; cursor:default; }
   .bottom-save .save-status{ font-size:12.5px; color:var(--muted); white-space:nowrap; }
+  .bottom-save .list-btn{
+    background:var(--color-white, #fff); color:var(--accent); border:1px solid var(--accent);
+    font-size:14.5px; font-weight:700; padding:10px 30px; border-radius:6px; cursor:pointer;
+    text-decoration:none; display:inline-block;
+  }
+  .bottom-save .list-btn:hover{ background:var(--bg-page, #f4f6f9); }
 
   /* ---- header / masthead ---- */
   .masthead{
     background:var(--accent);
-    color:#fff;
+    color:var(--color-white, #fff);
     padding:20px 0 28px;
     margin-bottom:28px;
   }
@@ -142,12 +180,12 @@
   }
   .masthead .doc-meta input, .masthead .doc-meta select{
     width:100%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.5); border-radius:6px;
-    color:#fff; font-size:14.5px; padding:6px 8px; font-family:inherit;
+    color:var(--color-white, #fff); font-size:14.5px; padding:6px 8px; font-family:inherit;
   }
   .masthead .doc-meta input::placeholder{ color:rgba(255,255,255,.6); }
-  .masthead .doc-meta input:hover, .masthead .doc-meta select:hover{ border-color:#fff; }
+  .masthead .doc-meta input:hover, .masthead .doc-meta select:hover{ border-color:var(--color-white, #fff); }
   .masthead .doc-meta input:focus, .masthead .doc-meta select:focus{
-    outline:none; border-color:#fff; background:rgba(255,255,255,.22);
+    outline:none; border-color:var(--color-white, #fff); background:rgba(255,255,255,.22);
   }
   .masthead .doc-meta select option{ color:#111; }
   .purpose-row{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:4px; }
@@ -155,7 +193,7 @@
     display:flex; align-items:center; gap:6px; font-size:13px; color:rgba(255,255,255,.9);
     font-weight:500;
   }
-  .purpose-row input{ accent-color:#fff; width:15px; height:15px; }
+  .purpose-row input{ accent-color:var(--color-white, #fff); width:15px; height:15px; }
 
   .note{
     font-size:12px; color:var(--muted); background:var(--accent-soft);
@@ -287,16 +325,16 @@
   @media print{
     .no-print{ display:none !important; }
     body{ padding:0; }
-    .masthead{ background:#fff !important; color:#000; padding:14px 0; }
+    .masthead{ background:var(--color-white, #fff) !important; color:#000; padding:14px 0; }
     .masthead .eyebrow, .masthead p.sub, .masthead .doc-meta label{ color:#444 !important; }
-    .masthead .doc-meta input, .masthead .doc-meta select{ color:#000; background:#fff; border-color:#999; }
+    .masthead .doc-meta input, .masthead .doc-meta select{ color:#000; background:var(--color-white, #fff); border-color:#999; }
     .purpose-row label{ color:#000; }
     section.card{ break-inside:avoid; border:1px solid #ccc; }
-    .card-head{ background:#f0f0f0 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .card-head{ background:var(--bg-subtle, #f0f0f0) !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     a.quicknav, .quicknav{ display:none; }
     .app-navbar{ display:none !important; }
     .field input, .field select, .field textarea, table.grid td input, table.grid td select{
-      background:#fff !important; border-color:#999 !important;
+      background:var(--color-white, #fff) !important; border-color:#999 !important;
     }
   }
 </style>
@@ -330,6 +368,17 @@
 <div class="masthead">
   <div class="wrap">
     <a href="{% url 'cron_status' %}" class="back-link no-print">← 운영 도구로</a>
+    <div class="load-widget no-print">
+      <input type="text" id="load-search" placeholder="고객 이름/전화번호로 이전 시트 불러오기" autocomplete="off">
+      <div class="load-results" id="load-results"></div>
+    </div>
+    {% if load_sheet_id %}
+    <div class="loaded-banner no-print">
+      이전에 저장된 시트를 불러왔습니다 — 저장하면 이 기록이 업데이트됩니다.
+      <a href="{% url 'financial_consult_sheet' %}">새로 작성하기</a>
+    </div>
+    {% endif %}
+    <input type="hidden" id="loaded-sheet-id" value="{{ load_sheet_id }}">
     <div>
       <div class="eyebrow">Comprehensive Financial Consultation Sheet</div>
       <h1>종합 재무상담 시트</h1>
@@ -339,9 +388,16 @@
       <div><label>상담일자</label><input type="date" name="meta_consult_date" /></div>
       <div><label>상담자 (FC/PB)</label><input type="text" placeholder="이름 입력" name="meta_consultant" /></div>
       <div><label>신청 경로</label>
-        <select name="meta_channel"><option value="">선택</option><option>전화 상담신청</option><option>온라인 상담신청</option><option>방문 상담신청</option><option>소개/추천</option><option>기타</option></select>
+        <select name="meta_channel">
+          <option value="">선택</option>
+          <option {% if prefill_channel == '전화 상담신청' %}selected{% endif %}>전화 상담신청</option>
+          <option {% if prefill_channel == '온라인 상담신청' %}selected{% endif %}>온라인 상담신청</option>
+          <option {% if prefill_channel == '방문 상담신청' %}selected{% endif %}>방문 상담신청</option>
+          <option {% if prefill_channel == '소개/추천' %}selected{% endif %}>소개/추천</option>
+          <option {% if prefill_channel == '기타' %}selected{% endif %}>기타</option>
+        </select>
       </div>
-      <div><label>신청일</label><input type="date" name="meta_apply_date" /></div>
+      <div><label>신청일</label><input type="date" name="meta_apply_date" value="{{ prefill_apply_date }}" /></div>
     </div>
     <fieldset style="border:none;margin:0;padding:0;">
       <legend style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">상담 목적 (해당 항목 모두 선택)</legend>
@@ -367,9 +423,9 @@
     <div class="card-head"><span class="num">01</span><h2>고객 기본정보</h2><span class="en">Client Profile</span></div>
     <div class="card-body">
       <div class="field-grid">
-        <div class="field"><label>성명<span class="req">*</span></label><input type="text" name="s1_name" /></div>
+        <div class="field"><label>성명<span class="req">*</span></label><input type="text" name="s1_name" value="{{ prefill_name }}" /></div>
         <div class="field"><label>생년월일 (만 나이)</label><input type="date" name="s1_birth" /></div>
-        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" name="s1_phone" /></div>
+        <div class="field"><label>연락처</label><input type="text" placeholder="010-0000-0000" name="s1_phone" value="{{ prefill_phone }}" /></div>
         <div class="field"><label>이메일</label><input type="text" name="s1_email" /></div>
         <div class="field"><label>직업 / 직장</label><input type="text" name="s1_job" /></div>
         <div class="field"><label>결혼 여부 / 배우자 직업</label><input type="text" name="s1_marital" /></div>
@@ -663,11 +719,13 @@
   <div class="bottom-save no-print">
     <span class="save-status" id="save-status"></span>
     <button type="button" class="save-btn" id="save-btn">저장</button>
+    <a href="{% url 'admin:articles_financialconsultsheet_changelist' %}" class="list-btn">목록</a>
   </div>
 
   <footer>종합 재무상담 시트 · 국민연금 · 퇴직연금(IRP) · 연금저축 · ISA 통합 상담용 내부 양식</footer>
 </div>
 
+<script type="application/json" id="sheet-data-json">{{ load_sheet_data_json|safe }}</script>
 <script>
   // 상단 앱 헤더 + quicknav 실제 높이를 측정해 CSS 변수로 반영 (헤더에 quicknav가 가리지 않도록)
   function syncStickyOffsets(){
@@ -799,16 +857,22 @@
     btn.disabled = true;
     statusEl.style.color = 'var(--muted)';
     statusEl.textContent = '저장 중...';
+    var payload = collectFormData();
+    // 불러온 시트가 있으면(=수정 중) 새로 만들지 않고 그 레코드를 업데이트하도록 id를 함께 보낸다
+    var loadedIdEl = document.getElementById('loaded-sheet-id');
+    payload.sheet_id = (loadedIdEl && loadedIdEl.value) ? loadedIdEl.value : null;
     fetch("{% url 'financial_consult_sheet_save' %}", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-      body: JSON.stringify(collectFormData()),
+      body: JSON.stringify(payload),
     })
       .then(function(res){ return res.json().then(function(data){ return { ok: res.ok, data: data }; }); })
       .then(function(result){
         if(result.ok && result.data.ok){
           statusEl.style.color = 'var(--accent-2)';
           statusEl.textContent = '저장 완료 (' + new Date().toLocaleTimeString() + ')';
+          // 새로 만든 시트라면, 이후 저장부터는 같은 레코드를 계속 업데이트하도록 id를 기억해둔다
+          if(loadedIdEl && result.data.id) loadedIdEl.value = result.data.id;
         } else {
           statusEl.style.color = 'var(--seal)';
           statusEl.textContent = '저장 실패: ' + (result.data.error || '오류');
@@ -820,6 +884,169 @@
       })
       .finally(function(){ btn.disabled = false; });
   });
+
+  // ---- 불러오기: 검색창에서 고른 이전 시트의 전체 데이터를 폼에 채워 넣는다 ----
+  function setVal(name, value){
+    var el = document.querySelector('[name="' + name + '"]');
+    if(el) el.value = (value === undefined || value === null) ? '' : value;
+  }
+  function setChecked(name, checked){
+    var el = document.querySelector('[name="' + name + '"]');
+    if(el) el.checked = !!checked;
+  }
+  function setCheckedVal(name, value){
+    document.querySelectorAll('[name="' + name + '"]').forEach(function(el){ el.checked = (el.value === value); });
+  }
+  function setCheckedVals(name, values){
+    values = values || [];
+    document.querySelectorAll('[name="' + name + '"]').forEach(function(el){ el.checked = values.indexOf(el.value) !== -1; });
+  }
+  function populateTable(tableId, rows){
+    if(!rows || !rows.length) return;
+    var table = document.getElementById(tableId);
+    var headers = Array.prototype.map.call(table.querySelectorAll('thead th'), function(th){ return th.textContent.trim(); });
+    var tbody = table.querySelector('tbody');
+    // 저장된 행 수만큼 확보 — 부족하면 마지막 행을 복제(내용은 비움)해서 늘린다
+    while(tbody.querySelectorAll('tr').length < rows.length){
+      var lastRow = tbody.querySelector('tr:last-child');
+      var clone = lastRow.cloneNode(true);
+      clone.querySelectorAll('input').forEach(function(inp){
+        inp.value = '';
+        if(inp.type === 'checkbox' || inp.type === 'radio') inp.checked = false;
+      });
+      tbody.appendChild(clone);
+    }
+    var trs = tbody.querySelectorAll('tr');
+    rows.forEach(function(rowData, i){
+      var tds = trs[i].querySelectorAll('td');
+      tds.forEach(function(td, j){
+        var input = td.querySelector('input, select');
+        if(input) input.value = rowData[headers[j]] || '';
+      });
+    });
+  }
+
+  function populateFormData(data){
+    if(!data) return;
+    var meta = data.meta || {};
+    setVal('meta_consult_date', meta.consult_date);
+    setVal('meta_consultant', meta.consultant);
+    setVal('meta_channel', meta.channel);
+    setVal('meta_apply_date', meta.apply_date);
+    setCheckedVals('meta_purpose', meta.purpose);
+
+    var s1 = data.s1 || {};
+    setVal('s1_name', s1.name); setVal('s1_birth', s1.birth); setVal('s1_phone', s1.phone);
+    setVal('s1_email', s1.email); setVal('s1_job', s1.job); setVal('s1_marital', s1.marital);
+
+    populateTable('tbl-family', data.s2_family);
+
+    var s3 = data.s3 || {};
+    var inc = s3.income || {};
+    setVal('s3_income_labor', inc.labor); setVal('s3_income_business', inc.business);
+    setVal('s3_income_financial', inc.financial); setVal('s3_income_pension', inc.pension); setVal('s3_income_other', inc.other);
+    var exp = s3.expense || {};
+    setVal('s3_expense_fixed', exp.fixed); setVal('s3_expense_variable', exp.variable);
+    setVal('s3_expense_debt', exp.debt); setVal('s3_expense_insurance', exp.insurance);
+
+    var s4 = data.s4 || {};
+    setCheckedVal('s4_type', s4.type); setVal('s4_period', s4.period); setVal('s4_start_age', s4.start_age);
+    setVal('s4_monthly_amount', s4.monthly_amount); setVal('s4_makeup_period', s4.makeup_period);
+    setVal('s4_deferred', s4.deferred); setVal('s4_note', s4.note);
+
+    var s5 = data.s5 || {};
+    setCheckedVals('s5_types', s5.types); setVal('s5_institution', s5.institution); setVal('s5_balance', s5.balance);
+    setVal('s5_guaranteed_ratio', s5.guaranteed_ratio); setVal('s5_performance_ratio', s5.performance_ratio);
+    setVal('s5_irp_annual_contribution', s5.irp_annual_contribution); setVal('s5_irp_tax_credit', s5.irp_tax_credit);
+
+    var s6 = data.s6 || {};
+    setCheckedVals('s6_types', s6.types); setVal('s6_accounts_count', s6.accounts_count);
+    setVal('s6_total_balance', s6.total_balance); setVal('s6_annual_contribution', s6.annual_contribution);
+    setVal('s6_start_age', s6.start_age);
+
+    var s7 = data.s7 || {};
+    setCheckedVal('s7_type', s7.type); setVal('s7_join_date', s7.join_date); setVal('s7_maturity_date', s7.maturity_date);
+    setVal('s7_balance', s7.balance); setVal('s7_tax_free_used', s7.tax_free_used);
+    setVal('s7_conversion_plan', s7.conversion_plan); setVal('s7_note', s7.note);
+
+    populateTable('tbl-assets', data.s8_assets);
+    populateTable('tbl-debt', data.s9_debt);
+
+    var s10 = data.s10 || {};
+    setCheckedVal('s10_risk', s10.risk); setVal('s10_experience_years', s10.experience_years);
+    setVal('s10_loss_tolerance', s10.loss_tolerance); setVal('s10_investment_period', s10.investment_period);
+
+    var s11 = data.s11 || {};
+    setVal('s11_retire_age', s11.retire_age); setVal('s11_required_fund', s11.required_fund);
+    setVal('s11_monthly_living_cost', s11.monthly_living_cost);
+    var goals = s11.goals || {};
+    setChecked('s11_goal_housing_checked', goals.housing && goals.housing.checked);
+    setVal('s11_goal_housing_amount', goals.housing && goals.housing.amount);
+    setChecked('s11_goal_education_checked', goals.education && goals.education.checked);
+    setVal('s11_goal_education_amount', goals.education && goals.education.amount);
+    setChecked('s11_goal_gift_checked', goals.gift && goals.gift.checked);
+    setVal('s11_goal_gift_amount', goals.gift && goals.gift.amount);
+    setChecked('s11_goal_etc_checked', goals.etc && goals.etc.checked);
+    setVal('s11_goal_etc_note', goals.etc && goals.etc.note);
+
+    populateTable('tbl-tax', data.s12_tax);
+    document.querySelectorAll('#tbl-tax tr[data-tax-limit]').forEach(function(row){ recalcTaxRow(row); });
+
+    var s13 = data.s13 || {};
+    setVal('s13_opinion', s13.opinion); setVal('s13_proposal', s13.proposal); setVal('s13_action_item', s13.action_item);
+    setVal('s13_next_date', s13.next_date); setVal('s13_method', s13.method);
+
+    var s14 = data.s14 || {};
+    setChecked('s14_consent', s14.consent);
+
+    recalc();
+  }
+
+  (function(){
+    var raw = document.getElementById('sheet-data-json');
+    if(!raw) return;
+    try {
+      var data = JSON.parse(raw.textContent);
+      if(data) populateFormData(data);
+    } catch (e) { /* 손상된 데이터면 조용히 무시 — 빈 폼으로 시작 */ }
+  })();
+
+  // ---- 불러오기 검색창: 이름/전화번호로 검색 → 클릭하면 ?load=<id>로 이 페이지를 다시 연다 ----
+  (function(){
+    var input = document.getElementById('load-search');
+    var results = document.getElementById('load-results');
+    if(!input || !results) return;
+    var timer = null;
+
+    function renderResults(items){
+      if(!items.length){
+        results.innerHTML = '<div class="empty">검색 결과가 없습니다</div>';
+        results.classList.add('open');
+        return;
+      }
+      results.innerHTML = items.map(function(item){
+        var label = (item.customer_name || '(이름 없음)') + (item.customer_phone ? ' · ' + item.customer_phone : '');
+        var meta = (item.consult_date || '') + ' 상담' + (item.consultant_name ? ' · ' + item.consultant_name : '') + ' · 저장 ' + item.created_at;
+        return '<a class="item" href="?load=' + item.id + '">' + label + '<span class="meta">' + meta + '</span></a>';
+      }).join('');
+      results.classList.add('open');
+    }
+
+    input.addEventListener('input', function(){
+      var q = input.value.trim();
+      clearTimeout(timer);
+      if(!q){ results.classList.remove('open'); return; }
+      timer = setTimeout(function(){
+        fetch("{% url 'financial_consult_sheet_search' %}?q=" + encodeURIComponent(q))
+          .then(function(res){ return res.json(); })
+          .then(function(data){ renderResults(data.results || []); })
+          .catch(function(){ results.classList.remove('open'); });
+      }, 250);
+    });
+    document.addEventListener('click', function(e){
+      if(!input.contains(e.target) && !results.contains(e.target)) results.classList.remove('open');
+    });
+  })();
 </script>
 {% include "articles/_cookie_banner.html" %}
 </body>

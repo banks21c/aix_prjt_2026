@@ -1,0 +1,283 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .section-title { font-weight: 800; color: var(--brand-primary, #0d47a1); border-left: 5px solid var(--brand-primary, #0d47a1); padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+        /* Toast UI Editor는 엔터를 새 <p>로 처리하고 기본 10px 위아래 여백을 준다 —
+           문단 사이가 두 줄처럼 벌어져 보이지 않도록 여백을 줄인다(구조는 <p> 그대로 유지). */
+        .toastui-editor-contents p { margin: 0 !important; }
+        /* 에디터를 제목 필드처럼 라벨 우측에 배치하면서 부모 flex 아이템이 카드 폭을
+           벗어나지 않도록, 에디터 자체 기본 min-width(320px)를 무시하고 부모 폭에 맞춘다. */
+        #contentEditor .toastui-editor-defaultUI { min-width: 0; width: 100%; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+
+    <div class="container my-5" style="max-width: 780px;">
+        {% if messages %}
+        <div class="mt-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} py-2">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card card-custom bg-white p-4 mt-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h3 class="fw-bold mb-0">✍️ 자유 포스팅</h3>
+                <a href="{% url 'news_scrape' %}" class="btn btn-outline-primary btn-sm flex-shrink-0">🔗 뉴스 수집</a>
+            </div>
+
+            <p class="mb-4 d-flex flex-wrap gap-2">
+                {% if summarize_stats.remaining is None %}
+                    {% if summarize_stats.is_admin %}
+                    <span class="badge bg-dark">AI 요약 · 관리자 · 무제한</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} · 무제한</span>
+                    {% endif %}
+                {% elif summarize_stats.is_premium %}
+                    <span class="badge bg-light text-dark border">AI 요약 · 프리미엄 · 오늘 {{ summarize_stats.remaining }}건 남음</span>
+                {% else %}
+                    <span class="badge bg-light text-dark border">AI 요약 · {{ summarize_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ summarize_stats.remaining }}건 남음</span>
+                {% endif %}
+                {% if posting_stats.remaining is None %}
+                    {% if posting_stats.is_admin %}
+                    <span class="badge bg-dark">포스팅 · 관리자 · 무제한</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">포스팅 · {{ posting_stats.grade.name|default:"일반" }} · 무제한</span>
+                    {% endif %}
+                {% elif posting_stats.is_premium %}
+                    <span class="badge bg-light text-dark border">포스팅(AI 콘텐츠) · 프리미엄 · 오늘 {{ posting_stats.remaining }}건 남음 · 직접 작성은 무제한</span>
+                {% else %}
+                    <span class="badge bg-light text-dark border">포스팅 · {{ posting_stats.grade.name|default:"일반" }} 등급 · 오늘 {{ posting_stats.remaining }}건 남음</span>
+                {% endif %}
+            </p>
+
+            <form method="post" enctype="multipart/form-data" novalidate id="writeForm">
+                {% csrf_token %}
+
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded">
+                    {% if user_blog_accounts %}
+                    <label class="fw-semibold small mb-0">포스팅 계정</label>
+                    {% for account in user_blog_accounts %}
+                    <div class="form-check form-check-inline mb-0">
+                        <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="wacct-{{ account.pk }}" checked>
+                        <label class="form-check-label small" for="wacct-{{ account.pk }}">
+                            {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
+                        </label>
+                        {% if account.site_url %}
+                        <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    <div class="d-flex gap-2 ms-auto">
+                        <button type="submit" name="action" value="save_draft" class="btn btn-outline-secondary btn-sm" id="writeSaveBtnTop" title="지금 발행하지 않고 기사만 저장합니다. 뉴스 게시판에서 나중에 발행할 수 있어요.">
+                            💾 저장
+                        </button>
+                        {% if user_blog_accounts %}
+                        <button type="submit" name="action" value="post_now" class="btn btn-outline-primary btn-sm" id="writePostBtnTop">
+                            바로 포스팅
+                        </button>
+                        {% endif %}
+                        <button type="submit" name="action" value="ai_summarize" class="btn btn-primary btn-sm" id="writeSubmitBtnTop" {% if summarize_stats.remaining == 0 %}disabled{% endif %}>
+                            AI 요약
+                        </button>
+                    </div>
+                </div>
+
+                {% for field in form %}
+                {% if field.name == 'title' %}
+                <div class="mb-3 d-flex align-items-center gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0 flex-shrink-0">{{ field.label }}</label>
+                    <div class="flex-grow-1">
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                        {% endif %}
+                        <div class="text-danger small mt-1 d-none" id="titleClientError">제목을 입력해주세요.</div>
+                    </div>
+                </div>
+                {% elif field.name == 'content' %}
+                <div class="mb-3 d-flex align-items-start gap-2">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0 flex-shrink-0">{{ field.label }}</label>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        {{ field }}
+                        <div id="contentEditor" style="max-width: 100%;"></div>
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                        {% endif %}
+                        <div class="text-danger small mt-1 d-none" id="contentClientError">내용을 입력해주세요.</div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="thumbnailUploadInput" class="form-label fw-semibold mb-0 flex-shrink-0">썸네일 업로드</label>
+                        <span id="thumbnailFileName" class="form-control form-control-sm text-muted text-truncate flex-grow-1">선택된 파일 없음</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="thumbnailChooseBtn">파일 선택</button>
+                        <input type="file" name="thumbnail_upload" accept="image/*" class="d-none" id="thumbnailUploadInput">
+                    </div>
+                    <div class="form-text">※ 포스팅시 기본 썸네일 이미지가 생성됩니다. 다른 썸네일 이미지를 원하시면 업로드해주세요.</div>
+                    <img id="thumbnailPreview" class="d-none img-fluid rounded mt-2" style="max-height: 260px;" alt="업로드한 썸네일 미리보기">
+
+                    <p class="text-muted small mt-3 mb-0">
+                        ※ 원문 링크 없이 제목과 본문을 직접 입력해 기사를 등록합니다. 'AI 요약'을 누르면
+                        입력한 내용으로 AI 3줄 요약·관점 분석·블로그 초안을 생성하고 상세 화면으로
+                        이동합니다. 검토가 이미 끝난 원고라면 'AI 요약' 없이 입력한 내용 그대로 바로
+                        포스팅할 수도 있습니다. 지금 바로 발행하지 않고 나중에 포스팅하려면 '저장'을
+                        누르세요 — 기사만 저장되고, 이후 뉴스 게시판에서 원하는 때에 발행할 수 있습니다.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+    <script src="https://uicdn.toast.com/editor/latest/i18n/ko-kr.min.js"></script>
+    <script>
+        // content(본문)를 Toast UI Editor로 대체한다(news_edit.html의 blog_content와 동일한
+        // 패턴). 원본 textarea는 화면에서 숨기고 값 저장소로만 쓴다 — 에디터 'change' 시마다
+        // textarea.value를 계속 동기화해, 폼 제출 시 최신 HTML이 그대로 넘어가게 한다.
+        let syncContentTextarea = function () {};
+        (function () {
+            const textarea = document.getElementById('{{ form.content.id_for_label }}');
+            const mount = document.getElementById('contentEditor');
+            if (!textarea || !mount || typeof toastui === 'undefined') return;
+
+            textarea.style.display = 'none';
+
+            const editor = new toastui.Editor({
+                el: mount,
+                height: '310px',
+                initialEditType: 'wysiwyg',
+                previewStyle: 'vertical',
+                initialValue: textarea.value,
+                language: 'ko-KR',
+                usageStatistics: false,
+            });
+
+            syncContentTextarea = function () {
+                textarea.value = editor.getHTML();
+            };
+            editor.on('change', syncContentTextarea);
+        })();
+
+        (function () {
+            const form = document.getElementById('writeForm');
+            const actionButtons = form.querySelectorAll('button[name="action"]');
+            const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+            const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+            const titleError = document.getElementById('titleClientError');
+            const contentError = document.getElementById('contentClientError');
+
+            // 제목/본문이 비어 있으면 서버 왕복(폼 재렌더링) 없이 여기서 바로 막는다 — 폼에
+            // novalidate가 붙어 있어(숨겨진 Toast UI 원본 textarea가 required라 기본 HTML5
+            // 검증을 쓰면 안내 없이 조용히 제출이 막히는 문제 때문) 브라우저 기본 검증이 꺼져
+            // 있으므로, 직접 검증해 영어 기본 에러("This field is required")나 왕복에 따른
+            // 입력 손실 체감 없이 바로 안내한다.
+            function isContentEmpty() {
+                return contentTextarea.value.replace(/<[^>]*>/g, '').trim() === '';
+            }
+
+            form.addEventListener('submit', function (e) {
+                syncContentTextarea();
+
+                const titleEmpty = titleInput.value.trim() === '';
+                const contentEmpty = isContentEmpty();
+                titleError.classList.toggle('d-none', !titleEmpty);
+                contentError.classList.toggle('d-none', !contentEmpty);
+                titleInput.classList.toggle('is-invalid', titleEmpty);
+
+                if (titleEmpty || contentEmpty) {
+                    e.preventDefault();
+                    // contentTextarea는 화면에 숨겨져 있어(display:none) scrollIntoView가
+                    // 동작하지 않으므로, 실제로 보이는 에디터 마운트 요소를 기준으로 스크롤한다.
+                    const target = titleEmpty ? titleInput : document.getElementById('contentEditor');
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (titleEmpty) titleInput.focus();
+                    return;
+                }
+
+                // AI 호출/발행 API 호출 모두 몇 초 걸릴 수 있어, 중복 제출을 막고 진행 상태를
+                // 알려준다. 상단/하단에 각각 복제된 버튼이 있으므로 name="action" 버튼 전체를
+                // 대상으로 처리한다.
+                const submitterValue = e.submitter ? e.submitter.value : 'ai_summarize';
+                const loadingText = submitterValue === 'post_now'
+                    ? '⏳ 포스팅 중...'
+                    : submitterValue === 'save_draft'
+                    ? '⏳ 저장 중...'
+                    : '⏳ AI 요약 중... (최대 30초 소요)';
+                setTimeout(function () {
+                    actionButtons.forEach(function (btn) {
+                        if (btn.value === submitterValue) btn.textContent = loadingText;
+                        btn.disabled = true;
+                    });
+                }, 0);
+            });
+
+            if (titleInput) {
+                titleInput.addEventListener('input', function () {
+                    if (titleInput.value.trim() !== '') {
+                        titleError.classList.add('d-none');
+                        titleInput.classList.remove('is-invalid');
+                    }
+                });
+            }
+        })();
+
+        (function () {
+            // 서버 왕복 없이 선택한 파일을 바로 미리보기만 해준다 — 실제 저장은 폼 제출 시
+            // multipart/form-data로 thumbnail_upload 그대로 전달된다.
+            const fileInput = document.getElementById('thumbnailUploadInput');
+            const preview = document.getElementById('thumbnailPreview');
+            const chooseBtn = document.getElementById('thumbnailChooseBtn');
+            const fileName = document.getElementById('thumbnailFileName');
+            if (!fileInput || !preview) return;
+
+            if (chooseBtn) {
+                chooseBtn.addEventListener('click', function () { fileInput.click(); });
+            }
+
+            fileInput.addEventListener('change', function () {
+                const file = fileInput.files[0];
+                if (!file) {
+                    if (fileName) fileName.textContent = '선택된 파일 없음';
+                    preview.classList.add('d-none');
+                    preview.removeAttribute('src');
+                    return;
+                }
+                if (fileName) fileName.textContent = file.name;
+                preview.src = URL.createObjectURL(file);
+                preview.classList.remove('d-none');
+            });
+        })();
+    </script>
+{% include "articles/_cookie_banner.html" %}
+</body>
+</html>
