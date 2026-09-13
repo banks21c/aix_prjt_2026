@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand
-from articles.blog_posting import enabled_accounts, publish_article, select_candidates
+from articles.blog_posting import (
+    account_posting_quota, enabled_accounts, publish_article, select_candidates,
+)
 
 
 class Command(BaseCommand):
@@ -13,16 +15,28 @@ class Command(BaseCommand):
             '--limit', type=int, default=None,
             help='계정 1개당 한 번에 발행할 최대 건수 (생략 시 미발행 기사 전체)',
         )
+        parser.add_argument(
+            '--category', choices=['ECONOMY', 'HEALTH', 'FOOD', 'TRAVEL'], default=None,
+            help='이 구독 카테고리를 고른 회원 계정만 대상으로 실행 (생략 시 전체 계정)',
+        )
 
     def handle(self, *args, **options):
         limit = options.get('limit')
 
-        accounts = enabled_accounts('WORDPRESS')
+        accounts = enabled_accounts('WORDPRESS', category=options.get('category'))
         if not accounts.exists():
             self.stdout.write(self.style.WARNING("[-] 워드프레스 자동 포스팅을 활성화한 회원이 없습니다."))
             return
 
         for account in accounts:
+            quota = account_posting_quota(account)
+            if quota['remaining'] == 0:
+                self.stdout.write(self.style.WARNING(
+                    f"[-] {account.user.username}: 오늘 발행 한도({quota['limit']}건, {quota['source']})를 "
+                    f"이미 채웠습니다. 건너뜁니다."
+                ))
+                continue
+
             candidates = select_candidates(account, account.user.preference, limit)
             if not candidates:
                 self.stdout.write(self.style.WARNING(f"[-] {account.user.username}: 새로 발행할 기사가 없습니다."))

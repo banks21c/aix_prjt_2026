@@ -1,11 +1,22 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from articles.fields import EncryptedCharField
+from .market import StockItem
+
 
 # ==========================================
 # 4. 유저 구독 정보 테이블 (월 1만원 비즈니스 모델용)
 # ==========================================
 class UserSubscription(models.Model):
+    # 프리미엄이 실제로 푸는 하루 한도. AI 요약(3줄요약+투자분석+블로그본문, gpt-4o-mini)과
+    # AI 콘텐츠 발행(daily_post_limit)을 같은 숫자로 맞춘 이유는, AI 요약을 10건만 만들 수 있는데
+    # 발행이 그보다 넉넉하거나 무제한이면 발행 한도 자체가 의미가 없어지기 때문 — 두 단계를
+    # 같은 상한으로 짝지어야 "프리미엄 = 하루 10건 AI 콘텐츠"라는 약속이 실제로 지켜진다.
+    # (직접 작성해 AI 없이 바로 발행하는 것은 이 한도와 무관 — posting_stats가 별도로 무제한 처리)
+    PREMIUM_DAILY_AI_SUMMARIZE_LIMIT = 10
+    PREMIUM_DAILY_POST_LIMIT = 10
+
     # 장고 내장 기본 유저 모델과 1:1 매칭
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="subscription")
 
@@ -21,6 +32,55 @@ class UserSubscription(models.Model):
     def __str__(self):
         status = "유료회원" if self.is_active_premium else "일반회원"
         return f"{self.user.username} ({status})"
+
+
+# ==========================================
+# 4-1. 구독 신청 접수 (PG 연동 전까지는 신청만 쌓이고, 관리자가 검토 후 승인 액션으로
+#      위 UserSubscription.is_active_premium을 켜준다)
+# ==========================================
+class SubscriptionOrder(models.Model):
+    REFERRAL_SOURCE_CHOICES = [
+        ('SEARCH', '포털 검색'),
+        ('SNS', 'SNS'),
+        ('FRIEND', '지인 추천'),
+        ('NEWSLETTER', 'NextFinUp 뉴스레터'),
+        ('OTHER', '기타'),
+    ]
+    MOTIVATION_CHOICES = [
+        ('INFO', '투자·재테크 정보 습득'),
+        ('EXPERT', '전문가 상담 연계'),
+        ('CONTENT', '프리미엄 콘텐츠 이용'),
+        ('OTHER', '기타'),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('KAKAOPAY', '카카오페이'),
+        ('NAVERPAY', '네이버페이'),
+        ('CARD', '신용카드'),
+        ('TRANSFER', '계좌이체'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDING', '검토 대기'),
+        ('APPROVED', '승인 완료'),
+        ('REJECTED', '반려'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subscription_orders")
+    name = models.CharField(max_length=50, verbose_name="구독자명")
+    phone = models.CharField(max_length=20, verbose_name="휴대전화번호")
+    referral_source = models.CharField(max_length=20, choices=REFERRAL_SOURCE_CHOICES, blank=True, verbose_name="가입 경로")
+    motivation = models.CharField(max_length=20, choices=MOTIVATION_CHOICES, blank=True, verbose_name="구독 동기")
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, verbose_name="결제 수단")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING', verbose_name="처리 상태")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="신청 일시")
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="처리 일시")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "구독 신청 (SubscriptionOrder)"
+        verbose_name_plural = "구독 신청 관리 (SubscriptionOrder)"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_payment_method_display()} ({self.get_status_display()})"
 
 
 # ==========================================
@@ -43,6 +103,11 @@ class MemberGrade(models.Model):
     def __str__(self):
         return f"{self.level}. {self.name}"
 
+    @classmethod
+    def default_grade(cls):
+        """신규 회원에게 자동 부여할 기본 등급(가장 낮은 level). 등급이 하나도 없으면 None."""
+        return cls.objects.order_by('level').first()
+
 
 # ==========================================
 # 6. 마이페이지 - 뉴스 구독 / 자동 포스팅 설정 테이블
@@ -64,7 +129,24 @@ class UserPreference(models.Model):
     email_verification_token = models.CharField(max_length=64, blank=True, verbose_name="이메일 인증 토큰")
     email_verification_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="인증 메일 발송 시각")
 
-    news_subscription = models.BooleanField(default=False, verbose_name="뉴스 구독 여부")
+    # 비밀번호 찾기로 임시 비밀번호가 발급되면 True — 로그인 시 비밀번호 변경을 권유하는
+    # 배너를 띄우는 용도일 뿐, 변경을 강제하지는 않는다(마이페이지에서 직접 변경하면 해제됨).
+    temp_password_active = models.BooleanField(default=False, verbose_name="임시 비밀번호 사용 중")
+
+    # 원래는 단순 on/off BooleanField였으나(실제로는 어디서도 안 읽던 죽은 필드), 회원이
+    # 구독할 콘텐츠 카테고리를 고르는 라디오 버튼(경제/건강·의학/음식·영양, 단일 선택)으로 바꿨다.
+    # AnalyzedArticle.content_category와 값이 같은 상수를 쓰며, blog_posting.select_candidates가
+    # 이 값과 일치하는 카테고리의 기사만 발행 후보로 삼는다 — 즉 카테고리를 바꾸면 자동 포스팅
+    # 대상도 그 카테고리로 완전히 바뀐다(여러 카테고리 동시 구독 아님).
+    NEWS_CATEGORY_CHOICES = [
+        ('ECONOMY', '경제'),
+        ('HEALTH', '건강/의학'),
+        ('FOOD', '음식/영양'),
+        ('TRAVEL', '여행/관광'),
+    ]
+    news_subscription = models.CharField(
+        max_length=10, choices=NEWS_CATEGORY_CHOICES, default='ECONOMY', verbose_name="구독 카테고리",
+    )
     interested_keywords = models.CharField(max_length=255, blank=True, verbose_name="관심 키워드(콤마로 구분)")
     # 체크 시 관심 키워드 필터를 무시하고 모든 미발행 기사를 발행 대상으로 삼음
     post_all_articles = models.BooleanField(default=False, verbose_name="전체 기사 발행(관심 키워드 무시)")
@@ -94,8 +176,22 @@ class BlogPostingAccount(models.Model):
     # 워드프레스는 계정 ID+PW 방식
     # 블로거는 OAuth 연동이라 account_id에 블로그 ID를 자동으로 채워넣음(사용자 직접 입력 아님)
     account_id = models.CharField(max_length=150, blank=True, verbose_name="계정 ID / 블로그 ID")
-    # 블로거는 비밀번호가 아니라 구글 OAuth 리프레시 토큰을 저장(구글 로그인 연동 시 자동으로 채워넣음)
-    credential = models.CharField(max_length=255, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
+    # 블로거는 비밀번호가 아니라 OAuth 리프레시 토큰을 저장(OAuth 연동 시 자동으로 채워넣음)
+    # DB에는 Fernet으로 암호화되어 저장되고(articles/fields.py), 파이썬 쪽에는 평문으로 노출된다.
+    # 암호화 오버헤드 때문에 실제 저장 길이가 평문보다 길어져 max_length를 넉넉히 잡았다.
+    credential = EncryptedCharField(max_length=1024, blank=True, verbose_name="비밀번호 / API Key / OAuth 리프레시 토큰")
+    # 이 계정 하나가 하루에 발행할 수 있는 최대 건수. 회원 등급의 daily_post_limit(MemberGrade)과는
+    # 목적이 다르다 — 등급 한도는 "회원에게 얼마나 서비스를 줄 것인가"(과금/혜택)이고, 이쪽은
+    # "대상 플랫폼이 우리를 스팸으로 보지 않게 하는 안전장치"다. 실제로 몰아 발행하다가 Blogger는
+    # 계정 단위로 글 생성이 영구 차단됐고(soonks21, 2026-08), Cloudflare 뒤의 EasyWP는 429를
+    # 냈다. 그래서 한도는 회원이 아니라 '발행 대상 계정'에 걸어야 맞다.
+    #   공란(NULL) = 플랫폼별 권장값 사용 (blog_posting.RECOMMENDED_DAILY_POST_LIMIT)
+    #   0          = 무제한(명시적으로 해제 — 위험을 감수하겠다는 뜻)
+    #   N          = 하루 N건
+    daily_post_limit = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name="하루 발행 한도(공란=권장값, 0=무제한)",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
 
     class Meta:
@@ -113,6 +209,12 @@ class BlogPostingAccount(models.Model):
         if self.platform in ('WORDPRESS', 'BLOGGER'):
             return bool(self.site_url and self.account_id and self.credential)
         return False
+
+    def is_usable(self):
+        """뉴스 게시판/자유 포스팅 등 발행 대상 계정 목록에 노출할지 여부. 자격 정보가
+        연동돼 있어도(is_connected) 마이페이지에서 이 플랫폼 스위치를 꺼뒀다면(is_enabled=False)
+        노출하지 않는다 — 꺼두면 자동 포스팅뿐 아니라 수동 발행 선택지에서도 빠져야 한다."""
+        return self.is_enabled and self.is_connected()
 
 
 # ==========================================
@@ -163,6 +265,33 @@ class MenuAccessLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.menu_name} ({self.accessed_at})"
+
+
+class SystemErrorLog(models.Model):
+    """Django의 mail_admins(ADMINS로 이메일 발송) 대신 서버 에러(500, 잘못된 Host 헤더 등
+    django.* ERROR/WARNING 로그)를 여기 저장한다. 봇이 www.nextfinup.com 아닌 임의의 Host
+    헤더로 스캔할 때마다("Invalid HTTP_HOST header") 관리자 메일함이 스팸으로 도배되던 문제가
+    있어(실제 신고 사례) 이메일 대신 DB에 쌓고 관리자 화면에서 조회하는 방식으로 바꿨다. 기록은
+    config/settings.py의 LOGGING에 연결된 articles.logging_handlers.DBErrorLogHandler가 남긴다."""
+    level = models.CharField(max_length=10, default='ERROR', verbose_name="심각도")
+    logger_name = models.CharField(max_length=100, verbose_name="로거 이름")
+    message = models.TextField(verbose_name="메시지")
+    traceback = models.TextField(blank=True, verbose_name="트레이스백")
+    request_path = models.CharField(max_length=500, blank=True, verbose_name="요청 경로")
+    request_method = models.CharField(max_length=10, blank=True, verbose_name="요청 메서드")
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="상태 코드")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="발생 시각")
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+        ]
+        verbose_name = "시스템 에러 로그"
+        verbose_name_plural = "시스템 에러 로그"
+
+    def __str__(self):
+        return f"[{self.level}] {self.logger_name}: {self.message[:80]}"
 
 
 # ==========================================
@@ -220,3 +349,21 @@ class SocialAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()}"
+
+
+# ==========================================
+# 6. 관심종목 (종목 상세 페이지의 ⭐ 토글로 추가/삭제, 대시보드에 실시간가와 함께 노출)
+# ==========================================
+class Watchlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="watchlist_items", verbose_name="회원")
+    stock = models.ForeignKey(StockItem, on_delete=models.CASCADE, related_name="watchlisted_by", verbose_name="종목")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="추가일시")
+
+    class Meta:
+        unique_together = ('user', 'stock')
+        ordering = ['-created_at']
+        verbose_name = "관심종목 (Watchlist)"
+        verbose_name_plural = "관심종목 (Watchlist)"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.stock.name}"

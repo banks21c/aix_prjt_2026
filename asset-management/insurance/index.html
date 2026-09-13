@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>보험 — 어느 쪽부터 봐야 할까</title>
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <!-- 아래 스타일은 이 페이지 하위의 life/damage/whole-life/term-life/variable 페이지와 시각적 일관성을 위해 그대로 맞춘 것이라 사용하지 않는 선택자가 포함되어 있다 -->
 <style>
   /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
@@ -28,7 +29,7 @@
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    font-family: 'Pretendard Variable', 'Pretendard', sans-serif;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
@@ -105,7 +106,7 @@
     .ledger-stub { border-right: none; border-bottom: 1px solid var(--line); flex-direction: row; align-items: center; justify-content: space-between; }
   }
 
-  /* ---------- 5가지 보험 카드 ---------- */
+  /* ---------- 6가지 보험 카드 ---------- */
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
   a.card { display:block; background:var(--card); border:1px solid var(--line); border-radius:12px;
            padding:22px 24px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s; }
@@ -192,9 +193,22 @@
 </style>
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav class="app-navbar">
     <div class="container">
       <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
@@ -209,13 +223,21 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>
 <div class="am-tabs">
   <div class="am-tabs-inner">
-    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/" class="am-tab">종합</a>
     <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
     <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
     <a href="/asset-management/irp/" class="am-tab">IRP</a>
@@ -234,6 +256,7 @@
     <a href="/asset-management/insurance/whole-life/" class="am-tab">종신보험</a>
     <a href="/asset-management/insurance/term-life/" class="am-tab">정기보험</a>
     <a href="/asset-management/insurance/variable/" class="am-tab">변액보험</a>
+    <a href="/asset-management/insurance/third/" class="am-tab">제3보험</a>
   </div>
 </div>
 
@@ -261,7 +284,7 @@
     <h1 class="pt-title"><span class="pt-icon">🛡️</span>보험, 어느 쪽부터 봐야 할까</h1>
     <p class="pt-desc">보험은 크게 손해보험과 생명보험으로 나뉘고, 그 안에 종신·정기·변액·제3보험까지 다섯 갈래가 더 있어요. 보상 방식이 근본적으로 다른 이 구조를 알면, 내게 필요한 보장과 불필요하게 겹친 보장이 한눈에 보여요.</p>
     <div class="hero-ctas">
-      <a href="#compare" class="btn">5가지 보험 비교표 보기</a>
+      <a href="#compare" class="btn">6가지 보험 비교표 보기</a>
       <a href="#persona" class="btn-outline">내게 맞는 보험 찾기</a>
     </div>
   </div>
@@ -320,7 +343,7 @@
 
       <section id="compare">
         <div class="section-head">
-          <h2 class="section-title">5가지 보험, 한눈에 비교</h2>
+          <h2 class="section-title">6가지 보험, 한눈에 비교</h2>
           <span class="section-note">각 페이지에서 원리·종류·주의사항을 더 자세히 볼 수 있어요</span>
         </div>
         <div class="cards">
@@ -349,8 +372,12 @@
             <h2>변액보험 &rarr;</h2>
             <p>낸 보험료 일부가 펀드로 투자돼 성과에 따라 보험금 · 해지환급금이 달라져요. 예금자보호 대상이 아니에요.</p>
           </a>
+          <a class="card" href="../insurance/third/index.html">
+            <span class="type-tag">第三保險</span>
+            <h2>제3보험 &rarr;</h2>
+            <p>손해보험과 생명보험 사이 영역. 실손의료보험 · 암보험 · 간병보험이 여기 속해요. 실제 가입자가 가장 많아요.</p>
+          </a>
         </div>
-        <p style="margin-top:16px; font-size:14px; color:var(--ink-soft);">실손의료보험 · 암보험 등 <strong>제3보험</strong>은 손해보험과 생명보험 사이에 있어요. <a href="#third" style="color:var(--accent); font-weight:700;">아래에서 바로 보기 &rarr;</a></p>
       </section>
 
       <section id="trio">
@@ -398,7 +425,7 @@
           <span class="section-note">상황을 고르면 관련 페이지로 이동해요</span>
         </div>
         <div class="persona-grid">
-          <a class="persona" href="../insurance/damage/index.html">
+          <a class="persona" href="../insurance/third/index.html">
             <div class="persona-q">병원비·수술비가 걱정돼요</div>
             <div class="persona-a">제3보험(실손의료보험) 보기</div>
           </a>
@@ -470,7 +497,7 @@
             <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
             <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
           </div>
-          <a class="btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+          <a class="btn" href="/experts/apply/">💬 전문가 무료 상담 신청</a>
         </div>
       </section>
 
@@ -482,7 +509,7 @@
       <div class="footer-brand">🛡️ 보험 안내</div>
       <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 보험 제도를 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 보험사나 상품을 권유하지 않아요.</p>
       <div class="disclaimer">
-        본 사이트는 프로토타입 데모이며 실제 보험 비교·중개 서비스가 아닙니다. 보험 상품 비교·추천에는 관련 법령에 따른 보험대리점(GA) 등록 또는 금융위원회 혁신금융서비스 지정 등 법적 요건을 먼저 충족해야 합니다.
+        교육용 일반 정보이며 특정 보험 상품의 가입을 권유하는 것이 아닙니다. 보장 중복·공백 등 개인별 맞춤 점검은 NextFinUp 전문가 상담을 통해 받아보실 수 있습니다.
       </div>
     </div>
   </footer>
@@ -500,29 +527,19 @@
     })();
   </script>
 
-  <div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#16213a; color:#fff; padding:16px 20px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-    <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-      <p style="margin:0; font-size:13px; line-height:1.6; flex:1; min-width:240px; color:#dce8fb;">
-        NextFinUp은 로그인 유지 등 서비스 제공에 꼭 필요한 쿠키를 사용합니다. 계속 이용하시면 쿠키 사용에 동의하는 것으로 간주됩니다.
-        <a href="../privacy-policy/index.html" style="color:#9fc0ff; text-decoration:underline;">자세히 보기</a>
-      </p>
-      <button type="button" onclick="acceptCookieConsent()" style="background:#fff; color:#16213a; border:none; border-radius:6px; padding:9px 20px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">동의합니다</button>
-    </div>
-  </div>
+  <div id="cookieBannerRoot"></div>
   <script>
-    (function () {
-      try {
-        if (!localStorage.getItem('nextfinup_cookie_consent')) {
-          var el = document.getElementById('cookieConsentBanner');
-          if (el) { el.style.display = 'block'; }
-        }
-      } catch (e) { /* localStorage 접근 불가 시(사파리 시크릿 등) 배너를 띄우지 않고 조용히 무시 */ }
-    })();
-    function acceptCookieConsent() {
-      try { localStorage.setItem('nextfinup_cookie_consent', '1'); } catch (e) {}
-      var el = document.getElementById('cookieConsentBanner');
-      if (el) { el.style.display = 'none'; }
-    }
+    fetch('/partials/cookie-banner/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('cookieBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
   </script>
 </body>
 </html>

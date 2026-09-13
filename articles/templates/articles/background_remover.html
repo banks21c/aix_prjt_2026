@@ -1,0 +1,275 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .br-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .br-field .form-text { font-size: 12px; }
+
+        .br-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .br-dropzone:hover, .br-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .br-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .br-preview-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .br-preview-box { text-align: center; }
+        .br-preview-box img { max-width: 260px; max-height: 260px; border-radius: 8px; border: 1px solid var(--bg-subtle-2, #eee); background: repeating-conic-gradient(#f1f3f5 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+        .br-preview-meta { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 8px; }
+        .br-arrow { align-self: center; font-size: 20px; color: var(--text-secondary, #adb5bd); }
+
+        .br-result-placeholder {
+            width: 100%; max-width: 260px; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--bg-subtle-2, #eee);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+            background: linear-gradient(110deg, #eef0f2 8%, #fafbfc 18%, #eef0f2 33%);
+            background-size: 200% 100%; animation: br-shimmer 1.4s linear infinite;
+            color: var(--text-secondary, #868e96); font-size: 12.5px; font-weight: 600;
+        }
+        @keyframes br-shimmer { to { background-position-x: -200%; } }
+        .br-dots span { animation: br-blink 1.4s infinite; opacity: 0; }
+        .br-dots span:nth-child(2) { animation-delay: .2s; }
+        .br-dots span:nth-child(3) { animation-delay: .4s; }
+        @keyframes br-blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+
+        .br-progress-wrap { display: none; margin-top: 14px; }
+        .br-progress-label { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-bottom: 6px; }
+        .br-notice { background: #fff8e1; color: #8a6d00; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 16px; }
+        .br-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+        .br-error { color: #c0392b; font-size: 13px; margin-top: 10px; display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='background_remover' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">배경 제거 (누끼)</h2>
+                <p class="text-muted mb-0">AI가 브라우저에서 직접 배경을 지워 투명 PNG로 만들어드려요. 이미지는 서버로 전송되지 않고 기기에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="br-notice">
+            첫 실행 시 배경 제거용 AI 모델(수십MB)을 내려받아 다소 시간이 걸릴 수 있습니다. 이후에는 브라우저에 캐시되어 훨씬 빨라집니다.
+            구형 브라우저이거나 네트워크가 느리면 처리에 시간이 더 걸릴 수 있어요.
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="br-dropzone" id="br-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                <span id="br-dropzone-text">클릭하거나 이미지를 여기로 끌어다 놓으세요</span>
+                <input type="file" id="br-file" accept="image/*" class="d-none">
+            </div>
+
+            <div class="br-preview-row mt-3" id="br-preview-row" style="display:none;">
+                <div class="br-preview-box">
+                    <img id="br-upload-preview-img" alt="업로드한 이미지">
+                    <div class="br-preview-meta" id="br-upload-filename"></div>
+                </div>
+                <div class="br-arrow" id="br-result-arrow" style="display:none;"><i class="fa-solid fa-arrow-right"></i></div>
+                <div class="br-preview-box" id="br-result-box" style="display:none;">
+                    <div class="br-result-placeholder" id="br-result-placeholder">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <div>배경 제거 중<span class="br-dots"><span>.</span><span>.</span><span>.</span></span></div>
+                        <div id="br-placeholder-pct"></div>
+                    </div>
+                    <img id="br-result-img" alt="배경 제거 결과" style="display:none;">
+                    <div class="br-preview-meta">배경 제거 결과</div>
+                    <a id="br-download-btn" class="btn btn-primary btn-sm mt-2" download style="display:none;"><i class="fa-solid fa-download"></i> PNG 다운로드</a>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-3" id="br-settings" style="display:none;">
+                <div class="col-md-6 br-field">
+                    <label for="br-quality">모델 품질</label>
+                    <select id="br-quality" class="form-select">
+                        <option value="isnet_quint8">빠름 (작은 모델, ~40MB)</option>
+                        <option value="isnet_fp16" selected>고품질 (기본 모델, ~80MB)</option>
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="button" id="br-run-btn" class="btn btn-primary w-100"><i class="fa-solid fa-eraser"></i> 배경 제거하기</button>
+                </div>
+            </div>
+
+            <div class="br-progress-wrap" id="br-progress-wrap">
+                <div class="br-progress-label" id="br-progress-label">모델 준비 중...</div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" id="br-progress-bar" role="progressbar" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div class="br-error" id="br-error"></div>
+        </div>
+
+        <p class="br-note">인물·제품 사진처럼 배경과 대상이 뚜렷이 구분되는 이미지에서 결과가 가장 좋습니다. 머리카락처럼 가는 경계나 배경이 복잡한 사진은 경계가 완벽하지 않을 수 있어요.</p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script type="importmap">
+{
+    "imports": {
+        "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.bundle.min.mjs",
+        "onnxruntime-web/webgpu": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.webgpu.bundle.min.mjs"
+    }
+}
+</script>
+<script type="module">
+    // @imgly/background-removal의 dist/index.mjs 내부가 "onnxruntime-web"을 번들러 없이는
+    // 풀 수 없는 bare specifier로 import한다(peerDependency라 번들러가 node_modules에서
+    // 해석해주는 걸 전제로 함) — CDN에서 <script type="module">로 직접 쓰려면 위 importmap으로
+    // 그 이름을 실제 CDN URL에 직접 매핑해줘야 한다(버전은 이 라이브러리의 peerDependencies
+    // 명시값 1.21.0과 맞춤).
+
+    // 정적 import는 이 CDN 모듈 로드가 실패하면(광고차단 확장, 사내망 차단, 일시적 네트워크
+    // 오류 등) 스크립트 전체가 파싱조차 안 돼 드롭존 클릭 등 나머지 UI까지 먹통이 된다 —
+    // 그래서 "배경 제거하기" 버튼을 누른 시점에만 동적 import로 지연 로드하고 실패를
+    // try/catch로 잡아, 최소한 파일 선택/드래그앤드롭은 항상 동작하게 한다.
+    var removeBackgroundPromise = null;
+    function loadRemoveBackground() {
+        if (!removeBackgroundPromise) {
+            removeBackgroundPromise = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs')
+                .then(function (mod) { return mod.removeBackground; });
+        }
+        return removeBackgroundPromise;
+    }
+
+    var fileInput = document.getElementById('br-file');
+    var dropzone = document.getElementById('br-dropzone');
+    var dropzoneTextEl = document.getElementById('br-dropzone-text');
+    var previewRowEl = document.getElementById('br-preview-row');
+    var uploadPreviewImgEl = document.getElementById('br-upload-preview-img');
+    var uploadFilenameEl = document.getElementById('br-upload-filename');
+    var resultArrowEl = document.getElementById('br-result-arrow');
+    var resultBoxEl = document.getElementById('br-result-box');
+    var resultPlaceholderEl = document.getElementById('br-result-placeholder');
+    var placeholderPctEl = document.getElementById('br-placeholder-pct');
+    var settingsEl = document.getElementById('br-settings');
+    var qualityEl = document.getElementById('br-quality');
+    var runBtn = document.getElementById('br-run-btn');
+    var progressWrap = document.getElementById('br-progress-wrap');
+    var progressLabel = document.getElementById('br-progress-label');
+    var progressBar = document.getElementById('br-progress-bar');
+    var errorEl = document.getElementById('br-error');
+    var resultImgEl = document.getElementById('br-result-img');
+    var downloadBtn = document.getElementById('br-download-btn');
+
+    var currentFile = null;
+
+    function baseName(name) {
+        var idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function handleFile(file) {
+        if (!file || file.type.indexOf('image/') !== 0) return;
+        currentFile = file;
+        var url = URL.createObjectURL(file);
+
+        // 업로드가 실제로 반영됐다는 걸 바로 눈으로 확인할 수 있도록, 처리 전에도 여기서
+        // 업로드한 이미지 썸네일을 곧바로 보여준다(이전에는 "배경 제거하기"를 누르고 완료될
+        // 때까지 업로드 성공 여부를 알 방법이 없었다). 업로드 이미지는 이미 여기서 보이므로
+        // 결과가 나와도 원본을 다시 보여주지 않고, 그 오른쪽에 결과만 이어 붙인다.
+        uploadPreviewImgEl.src = url;
+        uploadFilenameEl.textContent = file.name + ' · ' + fmtBytes(file.size);
+        previewRowEl.style.display = 'flex';
+        dropzoneTextEl.textContent = '다른 이미지로 바꾸려면 클릭하거나 끌어다 놓으세요';
+
+        settingsEl.style.display = 'flex';
+        resultArrowEl.style.display = 'none';
+        resultBoxEl.style.display = 'none';
+        errorEl.style.display = 'none';
+    }
+
+    fileInput.addEventListener('change', function () { handleFile(fileInput.files[0]); });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    runBtn.addEventListener('click', function () {
+        if (!currentFile) return;
+        errorEl.style.display = 'none';
+
+        // 진행률 숫자만 보여주면 지루하니, 결과가 나올 자리에 바로 반짝이는(shimmer) 자리표시자를
+        // 띄워서 "지금 뭔가 만들어지고 있다"는 게 눈에 보이게 한다. 실제 결과 이미지/다운로드
+        // 버튼은 처리가 끝난 뒤에야 자리표시자 대신 나타난다.
+        resultPlaceholderEl.style.display = 'flex';
+        resultImgEl.style.display = 'none';
+        downloadBtn.style.display = 'none';
+        resultArrowEl.style.display = 'flex';
+        resultBoxEl.style.display = 'block';
+        placeholderPctEl.textContent = '';
+
+        progressWrap.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressLabel.textContent = 'AI 모델 라이브러리 불러오는 중...';
+        runBtn.disabled = true;
+
+        loadRemoveBackground().then(function (removeBackground) {
+            progressLabel.textContent = '모델 준비 중...';
+            var config = {
+                model: qualityEl.value,
+                output: { format: 'image/png', type: 'foreground' },
+                progress: function (key, current, total) {
+                    var pct = total ? Math.round((current / total) * 100) : 0;
+                    progressBar.style.width = pct + '%';
+                    progressLabel.textContent = key + ' (' + pct + '%)';
+                    placeholderPctEl.textContent = pct ? pct + '%' : '';
+                },
+            };
+            return removeBackground(currentFile, config);
+        }).then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            resultImgEl.src = url;
+            downloadBtn.href = url;
+            downloadBtn.download = baseName(currentFile.name) + '_nobg.png';
+            resultPlaceholderEl.style.display = 'none';
+            resultImgEl.style.display = 'block';
+            downloadBtn.style.display = 'inline-block';
+            progressWrap.style.display = 'none';
+            runBtn.disabled = false;
+            resultBoxEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }).catch(function (err) {
+            progressWrap.style.display = 'none';
+            resultArrowEl.style.display = 'none';
+            resultBoxEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            errorEl.textContent = '배경 제거에 실패했습니다: ' + (err && err.message ? err.message : '브라우저가 이 기능을 지원하지 않거나, 광고 차단 확장 프로그램이 AI 모델 다운로드를 막고 있거나, 네트워크 문제일 수 있습니다.');
+            runBtn.disabled = false;
+        });
+    });
+</script>
+</body>
+</html>

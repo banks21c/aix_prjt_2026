@@ -7,13 +7,118 @@
 #   crontab -l > deploy/crontab
 #
 # Read-only view of whatever is currently live: /admin-tools/cron/ (articles.views.cron_status_view).
+#
+# Every job runs through deploy/run_job.sh, which (1) prefixes each output line with a timestamp
+# before appending to the log file — plain `>>` gives no way to tell when a line was written,
+# which makes correlating failures across jobs hard during an incident — and (2) emails
+# settings.ADMINS via the notify_failure command if the job exits non-zero (eg. OOM kill), so a
+# quiet cron failure doesn't go unnoticed until someone happens to read the log.
+#
+# TIMEZONE: this server's system clock and Django's TIME_ZONE are both UTC, and cron itself has
+# no per-job TZ override — so every "hour" below is UTC, NOT Korea time (KST = UTC+9). All times
+# are chosen so the KST wall-clock time next to each line is what actually happens; get the KST
+# figure by adding 9 hours (and rolling the date forward past 24:00).
 
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_keyword_news >> /home/ubuntu/nextfinup/logs/collect_keyword_news.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_market_index >> /home/ubuntu/nextfinup/logs/collect_market_index.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_kis_news >> /home/ubuntu/nextfinup/logs/collect_kis_news.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_stock_realtime_price >> /home/ubuntu/nextfinup/logs/collect_stock_realtime_price.log 2>&1
-*/5 * * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py collect_fluctuation_ranking >> /home/ubuntu/nextfinup/logs/collect_fluctuation_ranking.log 2>&1
-0 8 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_newsletter_draft >> /home/ubuntu/nextfinup/logs/generate_newsletter_draft.log 2>&1
-0 18 * * * cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py send_newsletter >> /home/ubuntu/nextfinup/logs/send_newsletter.log 2>&1
-0 13 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_featured_stock_briefing --session=midday >> /home/ubuntu/nextfinup/logs/generate_featured_stock_briefing.log 2>&1
-40 15 * * 1-5 cd /home/ubuntu/nextfinup && /home/ubuntu/nextfinup/venv/bin/python manage.py generate_featured_stock_briefing --session=close >> /home/ubuntu/nextfinup/logs/generate_featured_stock_briefing.log 2>&1
+# --full-universe는 2026-08-05 하루 동안 전종목(활성 약 2,783개) 매칭 시 실제 수집량을
+# 재보기 위한 임시 실험 플래그다 — 오늘 확인 끝나면 이 플래그를 떼서 원래 is_major_index
+# 350종목 범위로 되돌릴 것.
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_keyword_news.log venv/bin/python manage.py collect_keyword_news --full-universe
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_market_index.log venv/bin/python manage.py collect_market_index
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
+# DART 공시(주요사항보고, B유형)는 인자 없이 돌리면 오늘 하루치만 조회해 API 호출 1회로 끝나므로
+# (일일 한도 대비 여유 충분) 다른 5분 주기 작업들과 같은 빈도로 둔다. 대시보드 "특징종목"(등락+
+# 뉴스·공시 동시 매칭)이 이 데이터가 없으면 공시 쪽 매칭이 하루 종일 0건으로 비어 있었다.
+*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_dart_disclosures.log venv/bin/python manage.py collect_dart_disclosures
+# 하나은행 고시 환율은 하루 단위로만 갱신되는 값이라(당일 내내 동일) 5분 주기는 낭비 — 30분마다
+# 확인해 그날 첫 고시가 뜨는 대로 반영한다.
+*/30 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_exchange_rate_fixing.log venv/bin/python manage.py collect_exchange_rate_fixing
+
+# 02:00 KST — 전종목 시세 증분 수집(collect_stock_data --all, 이미 저장된 최신 날짜 이후만 받아옴).
+# 장 시작(09:00 KST) 전 여유 있게 끝나도록 새벽 시간대에 배치. 평일에만 새 거래일 데이터가
+# 생기지만 주말에 돌아도 "신규 거래일 없음"으로 빠르게 끝나 무해하므로 매일 실행한다.
+0 17 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_data.log venv/bin/python manage.py collect_stock_data --all
+# 02:10 KST — 종목별 투자자매매동향(외국인/기관/연기금 등 순매수) 증분 수집(collect_investor_flow
+# --all, 코스피/코스닥 전종목 is_active=True 대상 — collect_stock_data/run_stock_prediction의
+# --all 범위와 동일하게 맞춤. 인자 없으면 종목당 최근 30영업일만 갱신 — update_or_create라 매일
+# 돌려도 안전). run_stock_prediction의 수급 피처(FLOW_FEATURE_COLUMNS) 입력 데이터로 위
+# collect_stock_data 직후, 아래 run_stock_prediction 전에 끝나도록 배치.
+10 17 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_investor_flow.log venv/bin/python manage.py collect_investor_flow --all
+# 04:30 KST — 전종목 AI 예측 재학습(run_stock_prediction --all). 위 수집 작업이 보통 2~2.2시간
+# 안에 끝나므로 30분 버퍼를 두고 시작하며, 자체 소요시간(2.5~2.8시간)을 감안해도 장 시작 전에
+# 끝난다.
+30 19 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/run_stock_prediction.log venv/bin/python manage.py run_stock_prediction --all
+# 08:00 KST — run_stock_prediction(04:30 KST 시작, 소요 2.5~2.8시간)이 끝난 뒤 AI 예측
+# 정확도 스냅샷 갱신(/performance/ 트랙레코드 페이지가 읽는 캐시). 전종목 이력 조인이 실측
+# 약 6~10초 걸려 페이지 요청마다 라이브로 계산하지 않고 이렇게 하루 한 번만 미리 계산해둔다.
+0 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/compute_prediction_accuracy.log venv/bin/python manage.py compute_prediction_accuracy
+
+# 13:00 KST(장중) — 특징주 브리핑 생성
+0 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=midday
+# 15:40 KST(마감후, 장마감 15:30+10분) — 특징주 브리핑 생성
+40 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_featured_stock_briefing.log venv/bin/python manage.py generate_featured_stock_briefing --session=close
+# 13:05 KST — 장중 브리핑 발행
+5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+5 4 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+# 15:45 KST — 마감후 브리핑 발행
+45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+45 6 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+# 16:00 KST — 마감후 브리핑을 뉴스레터 초안(READY)으로 생성
+0 7 * * 1-5 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_newsletter_draft.log venv/bin/python manage.py generate_newsletter_draft
+# 21:00 KST(밤 9시) — 뉴스레터 발송
+0 12 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/send_newsletter.log venv/bin/python manage.py send_newsletter
+
+# 건강/의학 구독 회원용 캘린더 기반 자동 발행(articles/health_calendar.py, 마이페이지 "뉴스 구독"
+# 에서 건강/의학을 고른 회원만 대상). 경제 콘텐츠와 달리 시황/휴장과 무관해 매일(요일 제한 없이)
+# 돈다 — 캘린더 자체가 토/일요일용 카테고리(계절·생활 속 건강/Q&A)도 포함하고 있어서, 평일만
+# 도는 기존 post_to_* 라인(1-5, 토요일 전용)에 얹으면 일요일 콘텐츠가 영영 발행되지 못한다.
+# --category=HEALTH로 계정 범위를 건강 구독자로만 좁혀서, 경제 구독자의 기존 발행 빈도(1일 2회)
+# 에 영향을 주지 않는다.
+# 08:00 KST — 오전 건강정보 생성
+0 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_health_briefing.log venv/bin/python manage.py generate_health_briefing --session=am
+# 08:10 KST — 오전 건강정보 발행
+10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=HEALTH
+10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=HEALTH
+# 15:00 KST — 오후 건강정보 생성
+0 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_health_briefing.log venv/bin/python manage.py generate_health_briefing --session=pm
+# 15:10 KST — 오후 건강정보 발행
+10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=HEALTH
+10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=HEALTH
+
+# 음식/영양 구독 회원용 캘린더 기반 자동 발행(articles/food_calendar.py) — 위 건강/의학과 완전히
+# 같은 구조. 같은 분(0/10, 6/23시)에 몰리지 않도록 5분 뒤로 살짝 offset만 뒀다(동시에 OpenAI를
+# 여러 건 호출하지 않기 위함 — 카테고리별로 계정을 --category로 분리하니 몰려도 무해하지만
+# 그래도 나눠둠).
+# 08:05 KST — 오전 음식/영양정보 생성
+5 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_food_briefing.log venv/bin/python manage.py generate_food_briefing --session=am
+# 08:15 KST — 오전 음식/영양정보 발행
+15 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=FOOD
+15 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=FOOD
+# 15:05 KST — 오후 음식/영양정보 생성
+5 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_food_briefing.log venv/bin/python manage.py generate_food_briefing --session=pm
+# 15:15 KST — 오후 음식/영양정보 발행
+15 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=FOOD
+15 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=FOOD
+
+# 여행/관광 구독 회원용 캘린더 기반 자동 발행(articles/content_calendar.py, category=TRAVEL) —
+# 건강/의학·음식/영양과 완전히 같은 구조. 같은 분(0/5/10, 6/23시)에 몰리지 않도록 건강/음식보다
+# 5분 더 뒤로 offset만 뒀다.
+# 08:10 KST — 오전 여행/관광정보 생성
+10 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_travel_briefing.log venv/bin/python manage.py generate_travel_briefing --session=am
+# 08:20 KST — 오전 여행/관광정보 발행
+20 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=TRAVEL
+20 23 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=TRAVEL
+# 15:10 KST — 오후 여행/관광정보 생성
+10 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_travel_briefing.log venv/bin/python manage.py generate_travel_briefing --session=pm
+# 15:20 KST — 오후 여행/관광정보 발행
+20 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1 --category=TRAVEL
+20 6 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1 --category=TRAVEL
+
+# 토요일 10:00 KST — 주간 시황 정리 생성(지난 5거래일 코스피/코스닥 등락 + 주간 급등락 종목).
+# 평일 마감후 브리핑과 달리 휴장일 체크가 필요 없다(토요일 자체가 항상 휴장이라 늘 실행).
+0 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/generate_weekly_market_briefing.log venv/bin/python manage.py generate_weekly_market_briefing
+# 토요일 10:05 KST — 주간 시황 정리 발행
+5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
+5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1

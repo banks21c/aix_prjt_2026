@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-from .models import UserPreference
+from .models import MemberGrade, UserPreference
 
 TOKEN_VALID_HOURS = 24
 
@@ -20,7 +20,9 @@ def send_verification_email(request, user, new_email, preference=None):
     (예: pref_form.save()) 이 함수가 방금 기록한 값을 오래된 값으로 덮어써버리기 때문이다.
     """
     if preference is None:
-        preference, _ = UserPreference.objects.get_or_create(user=user)
+        preference, _ = UserPreference.objects.get_or_create(
+            user=user, defaults={'grade': MemberGrade.default_grade()}
+        )
     token = secrets.token_urlsafe(32)
     preference.pending_email = new_email
     preference.email_verification_token = token

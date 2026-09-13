@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from django.core.management.base import BaseCommand
 
-from articles.kis_client import get_index_daily_price, get_index_price, is_market_open
+from articles.kis_client import get_index_daily_price, get_index_price, get_investor_trend, is_market_open
 from articles.models import MarketIndex
 
 MARKET_TYPES = ['KOSPI', 'KOSDAQ']
@@ -72,18 +72,44 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"    ↳ {market_type} KIS 실시간 갱신 실패: {e}"))
             return
 
+        # KIS가 간혹 오늘자 시가/고가/저가를 0으로 내려줄 때가 있다(현재가/등락률은 정상인데
+        # 셋 다 0인 응답이 실측 확인됨 — 원인 불명, 아마 그 순간 KIS 쪽 당일 통계가 갱신
+        # 중이었던 것으로 추정). 0을 그대로 저장하면 대시보드 캔들차트가 0부터 시작하는
+        # 막대(스파이크)로 그려지므로(신고: "비가 내린 것처럼 꽂힌다"), 현재가로 대체한다.
+        # 5분마다 다시 갱신되니 다음 폴링에서 정상값이 오면 자연히 덮어써진다.
+        open_price = quote['open'] or quote['close']
+        high_price = quote['high'] or quote['close']
+        low_price = quote['low'] or quote['close']
+
+        defaults = dict(
+            open_price=round(open_price, 2),
+            high_price=round(high_price, 2),
+            low_price=round(low_price, 2),
+            close_price=round(quote['close'], 2),
+            change=round(quote['change'], 2),
+            change_pct=round(quote['change_pct'], 2),
+            volume=quote['volume'],
+        )
+
+        # 별도 API라 독립적으로 실패할 수 있음 — 실패해도 지수 자체 갱신은 계속 진행
+        try:
+            trend = get_investor_trend(market_type)
+            defaults.update(
+                foreign_net_qty=trend['foreign_net_qty'],
+                institution_net_qty=trend['institution_net_qty'],
+                retail_net_qty=trend['retail_net_qty'],
+                foreign_net_amount=round(trend['foreign_net_amount'], 2),
+                institution_net_amount=round(trend['institution_net_amount'], 2),
+                retail_net_amount=round(trend['retail_net_amount'], 2),
+            )
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"    ↳ {market_type} 투자자매매동향 조회 실패: {e}"))
+
         today = date.today()
         _, created = MarketIndex.objects.update_or_create(
             market_type=market_type,
             date=today,
-            defaults=dict(
-                open_price=round(quote['open'], 2),
-                high_price=round(quote['high'], 2),
-                low_price=round(quote['low'], 2),
-                close_price=round(quote['close'], 2),
-                change=round(quote['change'], 2),
-                change_pct=round(quote['change_pct'], 2),
-            ),
+            defaults=defaults,
         )
         action = '신규' if created else '갱신'
         self.stdout.write(self.style.SUCCESS(

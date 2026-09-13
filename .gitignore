@@ -1,10 +1,11 @@
 venv/
-venv.bak*/
 __pycache__/
 *.pyc
-db.sqlite3
 logs/*.log
 .DS_Store
 .claude/settings.local.json
 .env
 staticfiles/
+media/
+admin_uploads/
+환율API.txt

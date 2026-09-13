@@ -6,14 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .news-meta { font-size: 13px; color: #868e96; }
-        .section-title { font-weight: 800; color: #0d47a1; border-left: 5px solid #0d47a1; padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
-        .content-block { white-space: pre-line; line-height: 1.8; color: #343a40; }
+        .news-meta { font-size: 13px; color: var(--text-faint, #868e96); }
+        .section-title { font-weight: 800; color: var(--brand-primary, #0d47a1); border-left: 5px solid var(--brand-primary, #0d47a1); padding-left: 10px; margin-top: 24px; margin-bottom: 12px; }
+        .content-block { white-space: pre-line; line-height: 1.8; color: var(--text-body-alt, #343a40); }
         /* blog_content는 에디터에서 만든 <p> 태그가 그대로 들어있다 — 브라우저 기본 <p> 여백(1em)을
            없애 에디터에서 보던 것과 동일하게, 줄바꿈처럼 자연스러운 간격으로 보이게 한다. 대신 소제목
            (<h3>) 위쪽에만 여백을 줘서 앞 문단과 구분되게 한다. */
@@ -32,8 +33,20 @@
     <div class="container my-5" style="max-width: 780px;">
         <div class="d-flex justify-content-end align-items-center gap-2">
             <a href="{% url 'news_board' %}" class="btn btn-sm btn-outline-secondary">목록</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'news_scrape' %}" class="btn btn-sm btn-outline-primary">📰 뉴스 수집</a>
+            <a href="{% url 'news_write' %}" class="btn btn-sm btn-outline-primary">✍️ 자유 포스팅</a>
+            {% endif %}
+            {% if article.source_type == 'RSS' %}
+            <a href="{{ article.original_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">원문 보기 ↗</a>
+            {% endif %}
             {% if user.is_staff %}
             <a href="{% url 'news_edit' article.pk %}" class="btn btn-sm btn-outline-primary">✏️ 수정</a>
+            <form method="post" action="{% url 'news_delete' article.pk %}" class="d-inline m-0"
+                  onsubmit="return confirm('이 기사를 삭제할까요? 되돌릴 수 없습니다.\n(이미 블로그에 발행된 글은 그대로 남습니다.)');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ 삭제</button>
+            </form>
             {% endif %}
         </div>
 
@@ -46,59 +59,67 @@
         {% endif %}
 
         <div class="card card-custom bg-white p-4 mt-3">
-            <h3 class="fw-bold">{{ article.title }}</h3>
+            <h3 class="fw-bold">{{ article.display_title }}{% if not article.original_content %} <span class="badge bg-light text-muted border" style="font-size: 11px;">본문없음</span>{% endif %}</h3>
+            {% if article.ai_title and article.ai_title != article.title %}
+            <p class="text-muted small mb-2">원본 제목: {{ article.title }}</p>
+            {% endif %}
             <div class="news-meta mb-3">
                 {{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}
                 {% if article.stock %} · <a href="{% url 'stock_detail' article.stock.ticker %}" class="badge bg-light text-dark text-decoration-none">{{ article.stock.name }}({{ article.stock.ticker }})</a>{% endif %}
                 {% if article.matched_keyword %} · <span class="badge bg-light text-dark">#{{ article.matched_keyword.keyword }}</span>{% endif %}
-                {% if article.is_premium %} · <span class="badge bg-warning text-dark">PREMIUM</span>{% endif %}
-                {% if article.ai_generated %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
+                {% if article.is_premium %} · <span class="badge bg-warning text-dark">한경 프리미엄9</span>{% endif %}
+                {% if article.ai_summary %} · <span class="badge bg-info text-dark">AI 요약 완료</span>{% endif %}
             </div>
 
             {% if article.thumbnail %}
-            <img src="{{ article.thumbnail.url }}" alt="{{ article.title }}" class="img-fluid rounded mb-3">
+            <img src="{{ article.thumbnail.url }}" alt="{{ article.display_title }}" class="img-fluid rounded mb-3">
             {% endif %}
+
+            <!-- AI 요약 버튼을 아래 '📄 원문 전문' 제목 옆으로 옮기면서, 그 버튼이 시각적으로
+                 속한 위치와 실제 제출되는 폼(newsDetailForm, action=post_articles)이 달라졌다 —
+                 news_edit.html의 aiSummarizeForm과 같은 패턴으로, DOM 어디에 있든 버튼의
+                 form="aiSummarizeForm" 속성으로 이 폼에 연결한다. -->
+            <form method="post" action="{% url 'news_ai_summarize' article.pk %}" id="aiSummarizeForm">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+            </form>
 
             <form method="post" action="{% url 'post_articles' %}" id="newsDetailForm">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
-
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    {% if article.source_type == 'RSS' %}
-                    <a href="{{ article.original_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">원문 보기 ↗</a>
-                    {% endif %}
-                    {% if not article.ai_generated and article.original_content and user.is_authenticated %}
-                    <button type="submit" formaction="{% url 'news_ai_summarize' article.pk %}" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
-                            {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
-                    {% endif %}
-                </div>
 
                 {% if not user.is_authenticated %}
                 <p class="text-muted small">이 기사를 내 블로그에 포스팅하려면 <a href="{% url 'login' %}">로그인</a>이 필요합니다.</p>
                 {% elif not user_blog_accounts %}
                 <p class="text-muted small">아직 등록된 블로그 계정이 없습니다. <a href="{% url 'my_page' %}">마이페이지</a>에서 먼저 등록해주세요.</p>
                 {% else %}
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-2 bg-light rounded">
-                    <label class="fw-semibold small mb-0">포스팅 계정</label>
-                    {% for account in user_blog_accounts %}
-                    <div class="form-check form-check-inline mb-0">
-                        <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="acct-{{ account.pk }}" checked>
-                        <label class="form-check-label small" for="acct-{{ account.pk }}">
-                            {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
-                        </label>
-                        {% if account.site_url %}
-                        <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
-                        {% endif %}
+                <div class="d-flex align-items-center gap-3 mb-3 p-2 bg-light rounded">
+                    <div class="flex-grow-1">
+                        <label class="fw-semibold small mb-1 d-block">포스팅 계정</label>
+                        {% for account in user_blog_accounts %}
+                        <div class="form-check mb-1">
+                            <input type="checkbox" class="form-check-input" name="account_ids" value="{{ account.pk }}" id="acct-{{ account.pk }}" checked>
+                            <label class="form-check-label small" for="acct-{{ account.pk }}">
+                                {{ account.get_platform_display }} ({{ account.account_id|default:account.site_url|default:"계정" }})
+                            </label>
+                            {% if account.site_url %}
+                            <a href="{{ account.site_url }}" target="_new" rel="noopener noreferrer" class="small ms-1">↗</a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                    <div class="ms-auto">
+                    <div class="d-flex gap-2 flex-shrink-0">
+                        {% if has_any_posted %}
+                        <button type="submit" formaction="{% url 'republish_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 재발행 중..." title="체크한 계정에 이미 올라간 글을 최신 내용으로 덮어씁니다">🔄 재발행</button>
+                        <button type="submit" formaction="{% url 'repost_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 포스팅 중..." title="이미 올라간 글은 그대로 두고 별개의 새 글로 다시 포스팅합니다">새로포스팅</button>
+                        {% endif %}
                         {% if article.ai_generated %}
                             {% if is_posted %}
                             <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
                             {% elif posting_stats.remaining == 0 %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="오늘 발행 한도 소진">포스팅 불가</button>
                             {% else %}
-                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">이 기사 포스팅</button>
+                            <button type="submit" name="solo_article_id" value="{{ article.pk }}" class="btn btn-sm btn-primary" data-loading-text="⏳ 포스팅 중...">기사 포스팅</button>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -110,24 +131,37 @@
             <h6 class="section-title">📰 AI 3줄 요약</h6>
             <div class="content-block">{{ article.ai_summary }}</div>
 
-            <h6 class="section-title">💡 AI 투자 관점 분석</h6>
+            <h6 class="section-title">💡 AI 관점 분석</h6>
             <div class="content-block">{{ article.ai_analysis }}</div>
             {% else %}
             <p class="text-muted small mt-3">
-                {% if not article.original_content %}이 기사는 원문이 없어 AI 요약을 생성할 수 없습니다.{% else %}아직 AI 요약이 생성되지 않았습니다.{% if user.is_authenticated %} 위 "✨ AI 요약" 버튼을 눌러 생성해주세요.{% endif %}{% endif %}
+                {% if not article.original_content %}이 기사는 원문이 없어 AI 요약을 생성할 수 없습니다.{% else %}아직 AI 요약이 생성되지 않았습니다.{% if user.is_authenticated %} 아래 "📄 원문 전문" 옆의 "✨ AI 요약" 버튼을 눌러 생성해주세요.{% endif %}{% endif %}
             </p>
             {% endif %}
 
-            <h6 class="section-title">AI 요약 전문</h6>
+            <!-- blog_content는 AI 요약 흐름(draft['blog_content'])과 '바로 포스팅'(회원이 직접
+                 쓴 원고 그대로)이 같이 채우는 필드다 — ai_summary가 있을 때만 실제로 AI가 만든
+                 결과이므로, 없을 때는 "AI 요약 전문"이라고 부르면 안 된다(신고: "AI요약한것이
+                 아니기 때문에 이 자리에 들어가면 안돼"). -->
+            <h6 class="section-title">{% if article.ai_summary %}AI 요약 전문{% else %}포스팅 원고{% endif %}</h6>
             {% if article.blog_content %}
             <div class="content-block">{{ article.blog_content|safe }}</div>
             {% else %}
-            <p class="text-muted small">아직 AI 요약이 생성되지 않았습니다. 위 "✨ AI 요약" 버튼을 눌러 생성해주세요.</p>
+            <p class="text-muted small">없음</p>
             {% endif %}
 
             {% if article.original_content %}
-            <h6 class="section-title">📄 원문 전문</h6>
-            <div class="content-block">{{ article.original_content }}</div>
+            <div class="d-flex justify-content-between align-items-center" style="margin-top: 24px; margin-bottom: 12px;">
+                <h6 class="section-title mb-0" style="margin-top: 0;">📄 원문 전문</h6>
+                <div class="d-flex gap-2">
+                    {% if not article.ai_summary and user.is_authenticated %}
+                    <button type="submit" form="aiSummarizeForm" class="btn btn-sm btn-outline-primary ai-summarize-btn" data-loading-text="⏳ 요약 중..."
+                            {% if summarize_stats.remaining == 0 %}disabled title="오늘 AI 요약 한도 소진"{% endif %}>✨ AI 요약</button>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleOriginalContentBtn">{% if article.ai_summary %}보기{% else %}숨기기{% endif %}</button>
+                </div>
+            </div>
+            <div class="content-block" id="originalContentBlock" {% if article.ai_summary %}style="display:none;"{% endif %}>{{ article.original_content }}</div>
             {% endif %}
         </div>
     </div>
@@ -135,19 +169,21 @@
     <!-- AI 요약/포스팅 버튼은 실제 서버 처리(OpenAI 호출 등)가 몇 초 걸리는 일반 폼 submit이라,
          클릭 후 아무 반응이 없어 보이는 동안 회원이 다시 누르지 않도록 전체 화면을 잠그는 오버레이
          (news_board.html과 동일한 패턴) -->
-    <div id="formLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; flex-direction:column; color:#fff; font-family:'Pretendard', sans-serif; text-align:center; padding:20px;">
+    <div id="formLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; flex-direction:column; color:var(--color-white, #fff); font-family:'Pretendard', sans-serif; text-align:center; padding:20px;">
         <div class="spinner-border text-light mb-3" role="status" style="width:3rem; height:3rem;"></div>
         <div id="formLoadingText" style="font-size:15px; font-weight:600;">처리 중입니다...</div>
         <div style="font-size:12px; color:#cbd5e1; margin-top:4px;">잠시만 기다려주세요. 화면을 벗어나지 마세요.</div>
     </div>
 
     <script>
-        const newsDetailForm = document.getElementById('newsDetailForm');
         const loadingOverlay = document.getElementById('formLoadingOverlay');
         const loadingText = document.getElementById('formLoadingText');
 
-        if (newsDetailForm && loadingOverlay) {
-            newsDetailForm.addEventListener('submit', function (e) {
+        // AI 요약 버튼이 aiSummarizeForm으로, 나머지(재발행/포스팅 등)는 newsDetailForm으로
+        // 제출된다 — 로딩 오버레이는 두 폼 어느 쪽이 제출되든 똑같이 떠야 한다.
+        function attachLoadingOverlay(form) {
+            if (!form || !loadingOverlay) return;
+            form.addEventListener('submit', function (e) {
                 const submitter = e.submitter || document.activeElement;
                 if (!submitter || submitter.type !== 'submit') return;
 
@@ -163,6 +199,8 @@
                 setTimeout(function () { submitter.disabled = true; }, 0);
             });
         }
+        attachLoadingOverlay(document.getElementById('newsDetailForm'));
+        attachLoadingOverlay(document.getElementById('aiSummarizeForm'));
 
         // 뒤로가기로 캐시된(bfcache) 페이지가 복원될 때 오버레이/비활성화가 그대로 남지 않게 초기화
         window.addEventListener('pageshow', function (e) {
@@ -170,6 +208,16 @@
                 loadingOverlay.style.display = 'none';
             }
         });
+
+        const toggleOriginalContentBtn = document.getElementById('toggleOriginalContentBtn');
+        const originalContentBlock = document.getElementById('originalContentBlock');
+        if (toggleOriginalContentBtn && originalContentBlock) {
+            toggleOriginalContentBtn.addEventListener('click', function () {
+                const isHidden = originalContentBlock.style.display === 'none';
+                originalContentBlock.style.display = isHidden ? '' : 'none';
+                toggleOriginalContentBtn.textContent = isHidden ? '숨기기' : '보기';
+            });
+        }
     </script>
 {% include "articles/_cookie_banner.html" %}
 </body>

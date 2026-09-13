@@ -1,0 +1,266 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .np-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .np-field .form-text { font-size: 12px; }
+        .np-advanced-toggle { font-size: 13px; font-weight: 700; color: var(--brand-primary, #0d47a1); cursor: pointer; text-decoration: none; }
+        .np-advanced-toggle:hover { text-decoration: underline; }
+
+        .np-result { background: var(--brand-primary, #0d47a1); color: #fff; border-radius: 12px; padding: 28px 30px; }
+        .np-result .label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+        .np-result .amount { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .np-result .sub { font-size: 13px; opacity: .85; margin-top: 10px; }
+
+        .np-table { width: 100%; font-size: 13.5px; }
+        .np-table th { color: var(--text-secondary, #6c757d); font-weight: 700; font-size: 12px; text-transform: uppercase; text-align: left; }
+        .np-table td, .np-table th { padding: 8px 6px; border-bottom: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .np-table tr:last-child td { border-bottom: none; }
+        .np-table td.amt { text-align: right; font-variant-numeric: tabular-nums; }
+        .np-table tr.total td { font-weight: 800; border-top: 2px solid var(--bg-subtle-2, #dee2e6); }
+
+        .np-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+        .np-basis-hint { font-size: 12px; color: var(--text-secondary, #868e96); margin-top: -2px; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='net_pay_calculator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">급여 실수령액 계산기</h2>
+                <p class="text-muted mb-0">연봉(세전)에서 4대보험료와 소득세를 공제한 예상 월 실수령액을 계산합니다. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="row g-3">
+                <div class="col-md-4 np-field">
+                    <label for="np-salary">연봉 (세전)</label>
+                    <input type="text" id="np-salary" inputmode="numeric" class="form-control" placeholder="예: 40,000,000">
+                </div>
+                <div class="col-md-4 np-field">
+                    <label for="np-nontax">비과세액 (월)</label>
+                    <input type="text" id="np-nontax" inputmode="numeric" class="form-control" value="200,000">
+                    <div class="form-text text-muted">식대 등 — 2023년 이후 월 20만원까지 비과세</div>
+                </div>
+                <div class="col-md-4 np-field">
+                    <label for="np-dependents">부양가족 수 (본인 포함)</label>
+                    <input type="number" id="np-dependents" class="form-control" value="1" min="1" max="11">
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <a class="np-advanced-toggle" data-bs-toggle="collapse" href="#np-advanced" role="button">
+                <i class="fa-solid fa-sliders"></i> 4대보험료율 직접 설정 (선택 — 매년 조정되는 고시값)
+            </a>
+            <div class="collapse mt-3" id="np-advanced">
+                <div class="row g-3">
+                    <div class="col-md-3 np-field">
+                        <label for="np-np-rate">국민연금 요율(%)</label>
+                        <input type="text" id="np-np-rate" class="form-control" value="4.5">
+                    </div>
+                    <div class="col-md-3 np-field">
+                        <label for="np-np-cap">국민연금 상한 월소득</label>
+                        <input type="text" id="np-np-cap" inputmode="numeric" class="form-control" value="6,170,000">
+                    </div>
+                    <div class="col-md-3 np-field">
+                        <label for="np-hi-rate">건강보험 요율(%)</label>
+                        <input type="text" id="np-hi-rate" class="form-control" value="3.545">
+                    </div>
+                    <div class="col-md-3 np-field">
+                        <label for="np-ltc-rate">장기요양보험 요율(건보료의 %)</label>
+                        <input type="text" id="np-ltc-rate" class="form-control" value="12.95">
+                    </div>
+                    <div class="col-md-3 np-field">
+                        <label for="np-ei-rate">고용보험 요율(%)</label>
+                        <input type="text" id="np-ei-rate" class="form-control" value="0.9">
+                    </div>
+                </div>
+                <div class="np-basis-hint mt-2">2025년 기준 요율 — 국민연금은 매년 7월, 건강보험은 매년 1월 조정됩니다. 최신 요율은 4대사회보험 정보연계센터에서 확인하세요.</div>
+            </div>
+        </div>
+
+        <div class="np-result mb-3">
+            <div class="label">예상 월 실수령액</div>
+            <div class="amount" id="np-result-amount">0원</div>
+            <div class="sub" id="np-result-detail"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4">
+            <table class="np-table">
+                <tbody id="np-breakdown"></tbody>
+            </table>
+        </div>
+
+        <p class="np-note">
+            소득세는 국세청 근로소득 간이세액표와 동일한 산정 절차(근로소득공제 → 인적공제 → 종합소득세 누진세율표 → 근로소득세액공제)로 근사 계산한 값이며,
+            자녀세액공제·추가공제(경로우대·장애인 등)는 반영하지 않아 실제 원천징수세액과 차이가 있을 수 있습니다. 정확한 금액은 회사 급여담당자 또는 홈택스
+            간이세액표를 확인해주세요.
+        </p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+    var salaryEl = document.getElementById('np-salary');
+    var nontaxEl = document.getElementById('np-nontax');
+    var dependentsEl = document.getElementById('np-dependents');
+    var npRateEl = document.getElementById('np-np-rate');
+    var npCapEl = document.getElementById('np-np-cap');
+    var hiRateEl = document.getElementById('np-hi-rate');
+    var ltcRateEl = document.getElementById('np-ltc-rate');
+    var eiRateEl = document.getElementById('np-ei-rate');
+    var resultAmountEl = document.getElementById('np-result-amount');
+    var resultDetailEl = document.getElementById('np-result-detail');
+    var breakdownEl = document.getElementById('np-breakdown');
+
+    function parseNum(str) {
+        var n = parseFloat(String(str || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtWon(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+    function bindThousandsFormat(el) {
+        el.addEventListener('input', function () {
+            var n = parseNum(el.value);
+            var pos = el.selectionStart;
+            var before = el.value.length;
+            el.value = n ? n.toLocaleString('ko-KR') : '';
+            var after = el.value.length;
+            el.selectionStart = el.selectionEnd = Math.max(0, pos + (after - before));
+            update();
+        });
+    }
+
+    // 근로소득공제 (소득세법 제47조)
+    function earnedIncomeDeduction(totalPay) {
+        if (totalPay <= 5000000) return totalPay * 0.7;
+        if (totalPay <= 15000000) return 3500000 + (totalPay - 5000000) * 0.4;
+        if (totalPay <= 45000000) return 7500000 + (totalPay - 15000000) * 0.15;
+        if (totalPay <= 100000000) return 12000000 + (totalPay - 45000000) * 0.05;
+        return 14750000 + (totalPay - 100000000) * 0.02;
+    }
+
+    // 종합소득세 누진세율표 (2023년 개정, 2025년 현재도 적용)
+    function progressiveTax(base) {
+        var brackets = [
+            [14000000, 0.06, 0],
+            [50000000, 0.15, 840000],
+            [88000000, 0.24, 6240000],
+            [150000000, 0.35, 15360000],
+            [300000000, 0.38, 37060000],
+            [500000000, 0.40, 94060000],
+            [1000000000, 0.42, 174060000],
+            [Infinity, 0.45, 384060000],
+        ];
+        for (var i = 0; i < brackets.length; i++) {
+            if (base <= brackets[i][0]) return Math.max(0, base * brackets[i][1] - brackets[i][2]);
+        }
+        return 0;
+    }
+
+    // 근로소득세액공제 (소득세법 제59조)
+    function earnedIncomeTaxCredit(calculatedTax, totalPay) {
+        var credit = calculatedTax <= 1300000 ? calculatedTax * 0.55 : 715000 + (calculatedTax - 1300000) * 0.3;
+        var limit;
+        if (totalPay <= 33000000) limit = 740000;
+        else if (totalPay <= 70000000) limit = Math.max(660000, 740000 - (totalPay - 33000000) * 0.008);
+        else limit = Math.max(500000, 660000 - (totalPay - 70000000) * 0.5);
+        return Math.min(credit, limit);
+    }
+
+    function update() {
+        var salary = parseNum(salaryEl.value);
+        var nontaxMonthly = parseNum(nontaxEl.value);
+        var dependents = Math.max(1, parseInt(dependentsEl.value, 10) || 1);
+
+        if (salary <= 0) {
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '연봉을 입력해주세요.';
+            breakdownEl.innerHTML = '';
+            return;
+        }
+
+        var monthlyGross = salary / 12;
+        var monthlyTaxableForInsurance = Math.max(0, monthlyGross - nontaxMonthly);
+
+        var npRate = parseNum(npRateEl.value) / 100;
+        var npCap = parseNum(npCapEl.value);
+        var npBase = npCap > 0 ? Math.min(monthlyTaxableForInsurance, npCap) : monthlyTaxableForInsurance;
+        var nationalPension = npBase * npRate;
+
+        var hiRate = parseNum(hiRateEl.value) / 100;
+        var healthInsurance = monthlyTaxableForInsurance * hiRate;
+
+        var ltcRate = parseNum(ltcRateEl.value) / 100;
+        var longTermCare = healthInsurance * ltcRate;
+
+        var eiRate = parseNum(eiRateEl.value) / 100;
+        var employmentInsurance = monthlyTaxableForInsurance * eiRate;
+
+        // 소득세: 연간 기준으로 계산 후 12로 나눔 (간이세액표 산정 원리와 동일한 절차)
+        var annualTaxablePay = Math.max(0, salary - nontaxMonthly * 12);
+        var deduction = earnedIncomeDeduction(annualTaxablePay);
+        var earnedIncomeAmount = Math.max(0, annualTaxablePay - deduction);
+        var personalDeduction = dependents * 1500000;
+        var taxBase = Math.max(0, earnedIncomeAmount - personalDeduction);
+        var calculatedTax = progressiveTax(taxBase);
+        var taxCredit = earnedIncomeTaxCredit(calculatedTax, annualTaxablePay);
+        var annualIncomeTax = Math.max(0, calculatedTax - taxCredit);
+        var monthlyIncomeTax = annualIncomeTax / 12;
+        var monthlyLocalTax = monthlyIncomeTax * 0.1;
+
+        var totalDeduction = nationalPension + healthInsurance + longTermCare + employmentInsurance + monthlyIncomeTax + monthlyLocalTax;
+        var netPay = monthlyGross - totalDeduction;
+
+        resultAmountEl.textContent = fmtWon(netPay);
+        resultDetailEl.textContent = '월급여 ' + fmtWon(monthlyGross) + ' − 공제 합계 ' + fmtWon(totalDeduction);
+
+        var rows = [
+            ['국민연금', nationalPension],
+            ['건강보험', healthInsurance],
+            ['장기요양보험', longTermCare],
+            ['고용보험', employmentInsurance],
+            ['소득세', monthlyIncomeTax],
+            ['지방소득세', monthlyLocalTax],
+        ];
+        var html = rows.map(function (r) {
+            return '<tr><td>' + r[0] + '</td><td class="amt">' + fmtWon(r[1]) + '</td></tr>';
+        }).join('');
+        html += '<tr class="total"><td>공제 합계</td><td class="amt">' + fmtWon(totalDeduction) + '</td></tr>';
+        breakdownEl.innerHTML = html;
+    }
+
+    [dependentsEl, npRateEl, hiRateEl, ltcRateEl, eiRateEl].forEach(function (el) { el.addEventListener('input', update); });
+    [salaryEl, nontaxEl, npCapEl].forEach(bindThousandsFormat);
+
+    update();
+})();
+</script>
+</body>
+</html>

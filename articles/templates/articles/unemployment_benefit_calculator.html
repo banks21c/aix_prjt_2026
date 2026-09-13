@@ -1,0 +1,246 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .uc-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .uc-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .uc-field .form-text { font-size: 12px; }
+        .uc-period-note {
+            background: var(--bg-page, #f4f6f9); border-radius: 8px; padding: 10px 14px; font-size: 13px;
+            color: var(--text-secondary, #495057); margin-bottom: 16px;
+        }
+        .uc-period-note strong { color: var(--text-primary, #212529); }
+        .uc-warning {
+            background: #fff8e1; color: #8a6d00; border-radius: 8px; padding: 12px 14px; font-size: 13px;
+            margin-top: 16px; line-height: 1.7;
+        }
+        .uc-result { background: var(--brand-primary, #0d47a1); color: #fff; border-radius: 12px; padding: 28px 30px; }
+        .uc-result .label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+        .uc-result .amount { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .uc-result .sub { font-size: 13px; opacity: .85; margin-top: 10px; line-height: 1.7; }
+        .uc-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+        .uc-basis-hint { font-size: 12px; color: var(--text-secondary, #868e96); margin-top: -2px; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='unemployment_benefit_calculator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">실업급여(구직급여) 계산기</h2>
+                <p class="text-muted mb-0">고용보험법 기준(이직 전 1일 평균임금 × 60% × 소정급여일수)으로 예상 구직급여를 계산합니다. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="uc-warning mb-3">
+            실업급여(구직급여)는 <strong>비자발적 퇴사</strong>(권고사직·계약만료·회사 사정 등)이고, 이직일 이전 18개월간 피보험단위기간이 <strong>통산 180일 이상</strong>인 경우에만 수급 대상입니다. 자발적 퇴사는 원칙적으로 제외되며(일부 예외 있음), 아래 계산 결과는 수급 자격을 전제로 한 예상 금액입니다.
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="uc-section-title">가입 기간 · 연령</div>
+            <div class="row g-3 mb-2">
+                <div class="col-md-4 sc-field uc-field">
+                    <label for="uc-join">입사일자</label>
+                    <input type="date" id="uc-join" class="form-control">
+                </div>
+                <div class="col-md-4 sc-field uc-field">
+                    <label for="uc-leave">이직일자</label>
+                    <input type="date" id="uc-leave" class="form-control">
+                </div>
+                <div class="col-md-4 sc-field uc-field">
+                    <label for="uc-age">이직일 기준 만 나이</label>
+                    <input type="number" id="uc-age" class="form-control" min="15" max="100" placeholder="예: 35">
+                </div>
+            </div>
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="uc-disabled">
+                <label class="form-check-label" for="uc-disabled" style="font-size:13px;">장애인입니다 (50세 이상과 동일한 소정급여일수 기준 적용)</label>
+            </div>
+            <div id="uc-tenure-note" class="uc-period-note mt-2" style="display:none;"></div>
+            <div class="form-text text-muted">이직일자 기준 고용보험 가입기간은 이 직장의 재직기간으로 계산합니다. 이전 직장에서 이어진 가입기간이 있다면 실제 소정급여일수는 더 길 수 있습니다.</div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="uc-section-title">평균임금</div>
+            <div id="uc-avg-period-note" class="uc-period-note" style="display:none;"></div>
+            <div class="row g-3">
+                <div class="col-md-6 sc-field uc-field">
+                    <label for="uc-wage3">최근 3개월 급여 총액 (세전)</label>
+                    <input type="text" id="uc-wage3" inputmode="numeric" class="form-control" placeholder="예: 9,000,000">
+                    <div class="form-text text-muted">최근 3개월간 받은 기본급 + 제수당 합계</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="uc-section-title">상한액 · 하한액 기준값 <span class="text-muted fw-normal text-lowercase" style="font-size:12px;">(정부 고시 — 필요시 최신값으로 수정하세요)</span></div>
+            <div class="row g-3">
+                <div class="col-md-6 sc-field uc-field">
+                    <label for="uc-cap">구직급여 1일 상한액</label>
+                    <input type="text" id="uc-cap" inputmode="numeric" class="form-control" value="66,000">
+                    <div class="uc-basis-hint">2019.1.1 이후 66,000원으로 고정 운영 중(변경 시 고용노동부 고시 확인)</div>
+                </div>
+                <div class="col-md-6 sc-field uc-field">
+                    <label for="uc-minwage">해당 연도 최저시급</label>
+                    <input type="text" id="uc-minwage" inputmode="numeric" class="form-control" value="10,320">
+                    <div class="uc-basis-hint">하한액 = 최저시급 × 80% × 8시간으로 자동 계산됩니다</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="uc-result mb-3">
+            <div class="label">예상 구직급여 총액</div>
+            <div class="amount" id="uc-result-amount">0원</div>
+            <div class="sub" id="uc-result-detail"></div>
+        </div>
+
+        <p class="uc-note">
+            실제 수급액은 고용센터의 수급자격 인정 심사, 구직활동 이행 여부, 조기재취업수당 등에 따라 달라질 수 있어 참고용입니다.
+            상한액·최저시급은 매년 바뀔 수 있으니 정확한 계산을 위해 고용노동부·워크넷 고시값으로 위 항목을 확인 후 수정해주세요.
+        </p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var joinEl = document.getElementById('uc-join');
+    var leaveEl = document.getElementById('uc-leave');
+    var ageEl = document.getElementById('uc-age');
+    var disabledEl = document.getElementById('uc-disabled');
+    var wage3El = document.getElementById('uc-wage3');
+    var capEl = document.getElementById('uc-cap');
+    var minWageEl = document.getElementById('uc-minwage');
+    var tenureNote = document.getElementById('uc-tenure-note');
+    var avgPeriodNote = document.getElementById('uc-avg-period-note');
+    var resultAmountEl = document.getElementById('uc-result-amount');
+    var resultDetailEl = document.getElementById('uc-result-detail');
+
+    function parseDate(str) {
+        if (!str) return null;
+        var d = new Date(str + 'T00:00:00');
+        return isNaN(d.getTime()) ? null : d;
+    }
+    function addDays(date, days) { var d = new Date(date); d.setDate(d.getDate() + days); return d; }
+    function addMonths(date, months) {
+        var d = new Date(date);
+        var day = d.getDate();
+        d.setMonth(d.getMonth() + months);
+        if (d.getDate() !== day) d.setDate(0);
+        return d;
+    }
+    function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+    function fmtDate(d) { return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); }
+    function parseNum(str) {
+        var n = parseFloat(String(str || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtWon(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+    function bindThousandsFormat(el) {
+        el.addEventListener('input', function () {
+            var n = parseNum(el.value);
+            var pos = el.selectionStart;
+            var before = el.value.length;
+            el.value = n ? n.toLocaleString('ko-KR') : '';
+            var after = el.value.length;
+            el.selectionStart = el.selectionEnd = Math.max(0, pos + (after - before));
+            update();
+        });
+    }
+
+    // 소정급여일수: 50세 미만 / 50세 이상(또는 장애인) × 피보험기간 구간(고용보험법 시행령 별표1, 2019.10.1~ 기준)
+    function getBenefitDays(insuredYears, seniorGroup) {
+        var bands = seniorGroup
+            ? [[1, 120], [3, 180], [5, 210], [10, 240], [Infinity, 270]]
+            : [[1, 120], [3, 150], [5, 180], [10, 210], [Infinity, 240]];
+        for (var i = 0; i < bands.length; i++) {
+            if (insuredYears < bands[i][0]) return bands[i][1];
+        }
+        return bands[bands.length - 1][1];
+    }
+
+    function update() {
+        var joinDate = parseDate(joinEl.value);
+        var leaveDate = parseDate(leaveEl.value);
+        var age = parseFloat(ageEl.value);
+
+        if (!joinDate || !leaveDate || leaveDate <= joinDate) {
+            tenureNote.style.display = 'none';
+            avgPeriodNote.style.display = 'none';
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '입사일자와 이직일자를 입력해주세요.';
+            return;
+        }
+
+        var tenureDays = daysBetween(joinDate, leaveDate);
+        var insuredYears = tenureDays / 365;
+        var years = Math.floor(tenureDays / 365);
+        var months = Math.floor((tenureDays % 365) / 30);
+        tenureNote.style.display = 'block';
+        tenureNote.innerHTML = '고용보험 가입기간(이 직장 기준) <strong>' + tenureDays.toLocaleString('ko-KR') + '일</strong> (약 ' + years + '년 ' + months + '개월)';
+
+        var periodEnd = addDays(leaveDate, -1);
+        var periodStart = addMonths(leaveDate, -3);
+        var periodDays = daysBetween(periodStart, periodEnd) + 1;
+        avgPeriodNote.style.display = 'block';
+        avgPeriodNote.innerHTML = '평균임금 산정기간: <strong>' + fmtDate(periodStart) + ' ~ ' + fmtDate(periodEnd) + '</strong> (총 ' + periodDays + '일)';
+
+        var wage3 = parseNum(wage3El.value);
+        var avgDailyWage = periodDays > 0 ? wage3 / periodDays : 0;
+
+        var cap = parseNum(capEl.value);
+        var minWage = parseNum(minWageEl.value);
+        var floor = Math.round(minWage * 0.8) * 8;
+
+        var dailyBenefit = avgDailyWage * 0.6;
+        var boundApplied = null;
+        if (cap > 0 && dailyBenefit > cap) { dailyBenefit = cap; boundApplied = 'cap'; }
+        else if (floor > 0 && dailyBenefit < floor) { dailyBenefit = floor; boundApplied = 'floor'; }
+
+        var seniorGroup = (!isNaN(age) && age >= 50) || disabledEl.checked;
+        var benefitDays = getBenefitDays(insuredYears, seniorGroup);
+        var total = dailyBenefit * benefitDays;
+
+        if (wage3 <= 0 || isNaN(age)) {
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '최근 3개월 급여 총액과 나이를 입력해주세요.';
+        } else {
+            resultAmountEl.textContent = fmtWon(total);
+            resultDetailEl.textContent =
+                '구직급여 일액 ' + fmtWon(dailyBenefit) +
+                (boundApplied === 'cap' ? ' (상한액 적용)' : boundApplied === 'floor' ? ' (하한액 적용)' : '') +
+                ' × 소정급여일수 ' + benefitDays + '일 (' + (seniorGroup ? '50세 이상/장애인' : '50세 미만') + ' 기준, 가입기간 약 ' + years + '년)';
+        }
+    }
+
+    [joinEl, leaveEl, ageEl].forEach(function (el) { el.addEventListener('input', update); });
+    disabledEl.addEventListener('change', update);
+    [wage3El, capEl, minWageEl].forEach(bindThousandsFormat);
+
+    update();
+})();
+</script>
+</body>
+</html>

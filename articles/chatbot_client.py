@@ -1,11 +1,31 @@
 import logging
+import subprocess
 
 from django.conf import settings
 from django.db.models import Max
 
-from .models import AnalyzedArticle, MarketIndex, RankedMover, StockItem, StockPrediction
+from .models import (
+    AnalyzedArticle, MarketIndex, NewsKeyword, RankedMover, StockDailyPrice, StockItem,
+    StockPrediction, StockRealtimePrice,
+)
 
 logger = logging.getLogger(__name__)
+
+# collect_stock_data(주가 재수집)/run_stock_prediction(예측 재학습)은 무겁고 비정기적으로
+# 수동 실행되는데, 돌아가는 도중엔 아직 갱신 전인 예측값이 최신인 것처럼 보일 수 있다.
+# 프로세스가 떠 있는지 확인해, 돌고 있으면 그 사실을 답변에 반영한다.
+_PIPELINE_COMMANDS = ('collect_stock_data', 'run_stock_prediction')
+
+
+def _pipeline_is_running():
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'manage.py (' + '|'.join(_PIPELINE_COMMANDS) + ')'],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 SIMULATION_ANSWER = (
     "챗봇 기능은 현재 준비 중입니다. 관리자가 OpenAI API 키를 설정하면 "
@@ -15,9 +35,22 @@ ERROR_ANSWER = "일시적인 오류로 답변을 생성하지 못했습니다. �
 
 SYSTEM_PROMPT = """당신은 NextFinUp의 AI 주식/경제 챗봇입니다.
 - 아래 [제공 데이터]에 있는 내용만 근거로 답변하세요. 데이터에 없는 내용은 추측하지 말고 모른다고 답하세요.
+- "실시간 현재가 데이터 없음" 또는 "AI 예측 데이터 없음"이라고 명시된 종목은, 그 어떤 경우에도
+  가격·등락률·예측 수치를 절대로 지어내지 마세요. NextFinUp이 그 종목을 추적하지 않는다고
+  (코스피200·코스닥150 종목만 지원한다고) 사실대로 답하세요. 다른 곳에서 본 것 같은 대략적인
+  가격이라도 마치 실제 데이터인 것처럼 제시하면 안 됩니다.
+- "OO주 전망"처럼 특정 종목이 아닌 테마/섹터를 묻는 질문에는, [제공 데이터]의 "'OO' 테마 관련
+  최신 뉴스" 목록을 근거로 최근 동향을 요약해 답하세요. 다만 목록에 없는 구체적 가격·등락률·
+  예측 수치는 지어내지 마세요.
 - 주식, 증시, 경제, 투자와 무관한 질문에는 정중히 답변을 거절하고 주식/경제 관련 질문을 유도하세요.
 - 한국어로, 간결하고 명확하게 답변하세요.
 - 원화(원) 가격을 말할 때는 소수점 없이 정수로만 표시하세요 (예: 254,250원, 254,250.00원 금지).
+- "지금/현재 가격이 얼마냐"는 질문에는 반드시 [실시간 현재가] 줄의 값을 쓰세요. [AI 예측] 줄의
+  "기준일 종가"는 그 예측이 계산된 날짜의 종가일 뿐 오늘 가격이 아니므로, "지금 가격"으로
+  혼동해서 답하지 마세요 — 두 값이 다르면(예측 데이터 갱신 지연 등) 그 사실도 짧게 언급하세요.
+- 질문이 현재가만 물었더라도, [제공 데이터]에 그 종목의 [AI 예측] 줄(또는 "갱신 중" 안내)이
+  있으면 답변에 같이 붙이세요 — 사용자가 매번 "내일 예상가는?"을 따로 다시 묻지 않아도 되도록,
+  종목이 언급되면 현재가와 AI 예측(또는 갱신 상태)을 한 번에 답하는 게 기본입니다.
 - 답변 말미에 "본 답변은 투자 참고용이며 투자 손실에 대한 법적 책임을 지지 않습니다."를 짧게 덧붙이세요.
 
 [제공 데이터]
@@ -47,6 +80,22 @@ def _find_mentioned_stocks(question, limit=3):
     return matched
 
 
+# "로봇주 전망"처럼 특정 종목명이 아니라 테마/섹터를 묻는 질문은 _find_mentioned_stocks로는
+# 잡히지 않는다. collect_keyword_news가 이미 NewsKeyword(관리자가 등록한 감지 키워드) 기준으로
+# 관련 기사를 모아두고 있으므로, 질문에 등록된 키워드가 들어있으면 그 키워드로 태깅된 최근 기사를
+# 컨텍스트에 얹어 테마성 질문도 답할 수 있게 한다.
+def _find_mentioned_keywords(question, limit=2):
+    # is_active는 "신규 기사를 계속 수집할지"만 통제한다 — 꺼져 있어도 과거에 이 키워드로
+    # 태깅된 기사(matched_keyword)는 그대로 유효한 데이터이므로 필터링하지 않는다.
+    matched = []
+    for keyword in NewsKeyword.objects.values_list('keyword', flat=True):
+        if keyword in question:
+            matched.append(keyword)
+        if len(matched) >= limit:
+            break
+    return matched
+
+
 def _build_context(question):
     lines = []
 
@@ -69,22 +118,61 @@ def _build_context(question):
         lines.append(f"- 하락률 상위 종목: {loser_str}")
 
     mentioned = _find_mentioned_stocks(question)
+    pipeline_running = _pipeline_is_running() if mentioned else False
     for ticker, name in mentioned:
-        pred = (
-            StockPrediction.objects
-            .filter(stock__ticker=ticker)
-            .order_by('-date')
-            .first()
-        )
-        if pred:
-            next_close = f"{pred.pred_next_close:,.0f}원" if pred.pred_next_close is not None else "정보 없음"
-            up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
-            down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
+        # 실시간 현재가(5분 주기로 갱신)는 AI 예측용 일봉/예측 데이터(무거워서 수동 실행 주기)보다
+        # 훨씬 자주 갱신되므로, "지금 얼마냐"는 질문엔 이 값을 써야 한다 — 둘을 섞으면 며칠 지난
+        # 예측 기준일 종가를 "지금 가격"으로 잘못 답하게 된다.
+        realtime = StockRealtimePrice.objects.filter(stock__ticker=ticker).first()
+        if realtime:
+            # 갱신 시각은 일부러 컨텍스트에 안 넣는다 — "~시각 기준 갱신" 문구를 답변에 넣지
+            # 말라고 프롬프트로 지시해봐도 모델이 종종 그대로 옮겨 적어서, 애초에 모델에게
+            # 안 보여주는 쪽이 확실하다.
             lines.append(
-                f"- [{name}] {pred.date} 종가 {pred.close_price:,.0f}원, "
-                f"AI 내일 예상종가 {next_close}, "
-                f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
+                f"- [{name}] 실시간 현재가 {realtime.close_price:,.0f}원 ({realtime.change_pct:+.2f}%)"
             )
+        else:
+            # 코스피200·코스닥150 밖이라 5분 캐시가 없는 종목은, utils.build_mentioned_stocks_table과
+            # 같은 방식으로 KIS에 온디맨드 조회한다 — 실시간 시세 자체는 종목코드만 있으면 지수
+            # 편입 여부와 무관하게 조회 가능하다(AI 예측과 달리 캐시가 없다고 진짜 값이 없는 게
+            # 아니다). 조회마저 실패하면 그때는 정말 데이터가 없는 것이니 명시적으로 없다고 밝힌다.
+            try:
+                from .kis_client import get_stock_close_price
+                fetched = get_stock_close_price(ticker)
+                lines.append(
+                    f"- [{name}] 실시간 현재가 {fetched['close']:,.0f}원 ({fetched['change_pct']:+.2f}%) "
+                    f"(코스피200·코스닥150 밖 종목이라 KIS 온디맨드 조회)"
+                )
+            except Exception:
+                lines.append(f"- [{name}] 실시간 현재가 데이터 없음 (종목코드 조회 실패)")
+
+        if pipeline_running:
+            # 재수집/재학습이 진행 중이면 기존 예측은 곧 낡은 값이 될 걸 알면서 보여주는 셈이라,
+            # 예측 수치 대신 갱신 중이라는 사실만 전달한다 (실시간 현재가는 위에서 이미 보여줬다).
+            lines.append(f"- [{name}] AI 예측 데이터를 지금 갱신(재학습)하는 중입니다. 잠시 후 다시 확인해주세요.")
+        else:
+            pred = (
+                StockPrediction.objects
+                .filter(stock__ticker=ticker)
+                .order_by('-date')
+                .first()
+            )
+            if pred:
+                # StockPrediction엔 예측값만 있고 실가격은 없다(StockDailyPrice가 분리 보관) —
+                # 기준일 종가는 그쪽에서 따로 조회해야 한다.
+                daily = StockDailyPrice.objects.filter(stock__ticker=ticker, date=pred.date).first()
+                base_close = f"{daily.close_price:,.0f}원" if daily else "정보 없음"
+                next_close = f"{pred.pred_next_close:,.0f}원" if pred.pred_next_close is not None else "정보 없음"
+                up_prob = f"{pred.up_probability * 100:.1f}%" if pred.up_probability is not None else "정보 없음"
+                down_prob = f"{pred.down_probability * 100:.1f}%" if pred.down_probability is not None else "정보 없음"
+                lines.append(
+                    f"- [{name}] AI 예측(기준일 {pred.date} 종가 {base_close}): "
+                    f"내일 예상종가 {next_close}, "
+                    f"상승확률 {up_prob}, 하락확률 {down_prob}, 매매신호 {pred.get_trading_signal_display()}"
+                )
+            else:
+                # 예측도 코스피200·코스닥150 종목만 대상 — 마찬가지로 명시적으로 없다고 밝힌다.
+                lines.append(f"- [{name}] AI 예측 데이터 없음 (코스피200·코스닥150 종목만 AI 예측 대상)")
         articles = (
             AnalyzedArticle.objects
             .filter(stock__ticker=ticker)
@@ -93,6 +181,18 @@ def _build_context(question):
         for a in articles:
             suffix = f": {a.ai_summary}" if a.ai_summary else ""
             lines.append(f"- [{name} 관련 뉴스] {a.title}{suffix}")
+
+    for keyword in _find_mentioned_keywords(question):
+        keyword_articles = (
+            AnalyzedArticle.objects
+            .filter(matched_keyword__keyword=keyword)
+            .order_by('-scraped_at')[:5]
+        )
+        if keyword_articles:
+            lines.append(f"- '{keyword}' 테마 관련 최신 뉴스:")
+            for a in keyword_articles:
+                suffix = f": {a.ai_summary}" if a.ai_summary else ""
+                lines.append(f"  · {a.title}{suffix}")
 
     latest_news = AnalyzedArticle.objects.select_related('stock').order_by('-scraped_at')[:5]
     if latest_news:

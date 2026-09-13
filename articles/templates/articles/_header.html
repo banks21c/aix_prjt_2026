@@ -3,9 +3,10 @@
      Bootstrap 유무와 무관하게 항상 같은 모양으로 보이도록 아래 <style>이 필요한 CSS를 전부 자체적으로 갖고 있다.
      is_index_page가 True로 전달되면(랜딩 페이지) index_menus + 랜딩 전용 링크를, 아니면 header_menus + 내부 앱 전용 링크를 보여준다.
      FontAwesome <link>은 head에서 로드해야 하므로 이 컴포넌트를 쓰는 각 템플릿의 <head>에 있다(이 파일에는 없음). -->
+{% include "articles/_ticker.html" %}
 <nav class="app-navbar">
     <div class="container">
-        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: #6c757d;">AI종합자산관리 허브</span></a>
+        <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size: 14px; font-weight: 400; color: var(--text-muted, #6c757d);">AI종합자산관리 허브</span></a>
         <button type="button" class="app-navbar-toggler" aria-label="메뉴 열기"
                 onclick="document.getElementById('appNavMenu').classList.toggle('open')">☰</button>
         <div class="app-nav-menu" id="appNavMenu">
@@ -14,15 +15,17 @@
             {% else %}
                 {% with menus=header_menus %}{% include "articles/_nav_menu_loop.html" %}{% endwith %}
             {% endif %}
-            {% if user.is_staff %}
+            {% if user.is_superuser %}
                 <a href="/admin/" class="btn btn-outline-secondary" target="_blank">관리자</a>
+            {% elif user.is_staff %}
+                <a href="/staff/" class="btn btn-outline-secondary" target="_blank">업무관리</a>
             {% endif %}
             {% if user.is_authenticated %}
                 {% with provider=user.social_accounts.first.provider %}
                 <a href="{% url 'my_page' %}" class="btn btn-outline-secondary">
                     {% if provider == 'KAKAO' %}<span class="provider-badge" style="background:#FEE500;color:#191919;">💬</span>
-                    {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:#fff;color:#3c4043;border:1px solid #dadce0;">G</span>
-                    {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:#fff;">N</span>
+                    {% elif provider == 'GOOGLE' %}<span class="provider-badge" style="background:var(--color-white, #fff);color:#3c4043;border:1px solid #dadce0;">G</span>
+                    {% elif provider == 'NAVER' %}<span class="provider-badge" style="background:#03C75A;color:var(--color-white, #fff);">N</span>
                     {% endif %}
                     {{ user.first_name|default:user.username }}님
                 </a>
@@ -37,8 +40,8 @@
 </nav>
 <style>
     .app-navbar {
-        background: #fff;
-        border-bottom: 1px solid #e9ecef;
+        background: var(--color-white, #fff);
+        border-bottom: 1px solid var(--border-light, #e9ecef);
         position: sticky;
         top: 0;
         z-index: 1020;
@@ -59,7 +62,7 @@
         gap: 6px;
         font-weight: 800;
         letter-spacing: -0.5px;
-        color: #0d47a1;
+        color: var(--brand-primary, #0d47a1);
         font-size: 20px;
         text-decoration: none;
     }
@@ -69,6 +72,40 @@
         gap: 8px;
     }
 
+    /* 메뉴(경제 동향/대시보드/ISA 등)는 KRX/NXT 탭(finance.naver.com) 스타일 — 서로 붙어있는
+       탭 형태로 로그인/로그아웃/구독 같은 "버튼"과 확실히 구분되게 한다. 왼쪽은 옆 탭과 붙어
+       각지고, 오른쪽 두 모서리만 둥글게 해서 버튼과는 다른 탭 모양임을 드러낸다. */
+    .nav-tabs { display: inline-flex; align-items: stretch; }
+    .nav-tab {
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-faint, #868e96);
+        background: var(--bg-hover, #f1f3f5);
+        border: 1px solid var(--border-subtle, #dee2e6);
+        border-radius: 0 8px 0 0;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .nav-tabs > .nav-tab,
+    .nav-tabs > .nav-dropdown {
+        margin-left: -1px;
+    }
+    .nav-tabs > .nav-tab:first-child,
+    .nav-tabs > .nav-dropdown:first-child {
+        margin-left: 0;
+    }
+    .nav-tab:hover, .nav-tab:focus, .nav-tab.active {
+        background: var(--color-white, #fff);
+        color: var(--brand-primary, #0d47a1);
+        border-color: var(--brand-primary, #0d47a1);
+        position: relative;
+        z-index: 1;
+        text-decoration: none;
+    }
     .nav-dropdown { position: relative; display: inline-block; }
     .nav-dropdown-menu {
         display: none;
@@ -82,8 +119,8 @@
         z-index: 1000;
     }
     .nav-dropdown-menu-inner {
-        background: #fff;
-        border: 1px solid #dee2e6;
+        background: var(--color-white, #fff);
+        border: 1px solid var(--border-subtle, #dee2e6);
         border-radius: 8px;
         box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         padding: 6px;
@@ -98,7 +135,7 @@
         border-radius: 6px;
         white-space: nowrap;
     }
-    .nav-dropdown-menu a:hover { background: #f1f3f5; }
+    .nav-dropdown-menu a:hover { background: var(--bg-hover, #f1f3f5); }
     @media (max-width: 768px) {
         .nav-dropdown-menu { position: static; display: block; padding-top: 0; margin-top: 0; }
         .nav-dropdown-menu-inner { background: none; box-shadow: none; border: none; padding: 0 0 0 12px; }
@@ -120,32 +157,32 @@
         text-decoration: none;
     }
     .app-navbar .btn-outline-secondary {
-        border-color: #ced4da;
-        color: #495057;
-        background: #fff;
+        border-color: var(--border-input, #ced4da);
+        color: var(--text-secondary, #495057);
+        background: var(--color-white, #fff);
     }
     .app-navbar .btn-outline-secondary:hover {
-        background: #f1f3f5;
-        color: #495057;
-        border-color: #ced4da;
+        background: var(--bg-hover, #f1f3f5);
+        color: var(--text-secondary, #495057);
+        border-color: var(--border-input, #ced4da);
     }
     .app-navbar .btn-primary {
-        background: #0d47a1;
-        border-color: #0d47a1;
-        color: #fff;
+        background: var(--brand-primary, #0d47a1);
+        border-color: var(--brand-primary, #0d47a1);
+        color: var(--color-white, #fff);
     }
     .app-navbar .btn-primary:hover {
-        background: #0b3c8a;
-        border-color: #0b3c8a;
+        background: var(--brand-primary-hover, #0b3c8a);
+        border-color: var(--brand-primary-hover, #0b3c8a);
     }
     .app-navbar .btn-outline-danger {
-        border-color: #dc3545;
-        color: #dc3545;
-        background: #fff;
+        border-color: var(--color-danger-alt, #dc3545);
+        color: var(--color-danger-alt, #dc3545);
+        background: var(--color-white, #fff);
     }
     .app-navbar .btn-outline-danger:hover {
-        background: #dc3545;
-        color: #fff;
+        background: var(--color-danger-alt, #dc3545);
+        color: var(--color-white, #fff);
     }
 
     .provider-badge {
@@ -162,7 +199,7 @@
     .app-navbar-toggler {
         display: none;
         background: none;
-        border: 1px solid #ced4da;
+        border: 1px solid var(--border-input, #ced4da);
         border-radius: 6px;
         font-size: 18px;
         line-height: 1;
@@ -178,8 +215,8 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: #fff;
-            border-bottom: 1px solid #dee2e6;
+            background: var(--color-white, #fff);
+            border-bottom: 1px solid var(--border-subtle, #dee2e6);
             flex-direction: column !important;
             align-items: stretch !important;
             padding: 12px 16px 16px;
@@ -188,5 +225,9 @@
         }
         .app-nav-menu.open { display: flex !important; }
         .app-nav-menu .btn { width: 100%; justify-content: center; }
+        .nav-tabs { flex-direction: column; width: 100%; }
+        .nav-tabs > .nav-tab, .nav-tabs > .nav-dropdown { width: 100%; margin-left: 0; margin-top: -1px; }
+        .nav-tabs > .nav-tab:first-child, .nav-tabs > .nav-dropdown:first-child { margin-top: 0; }
+        .nav-tab { width: 100%; justify-content: center; border-radius: 8px; }
     }
 </style>
