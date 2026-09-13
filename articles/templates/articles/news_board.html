@@ -18,7 +18,11 @@
         .news-title:hover { color: var(--brand-primary, #0d47a1); }
         .news-meta { font-size: 12px; color: var(--text-faint, #868e96); }
         .news-summary { font-size: 14px; color: var(--text-secondary, #495057); margin-top: 6px; }
-        .news-post-action { flex-shrink: 0; width: 110px; text-align: right; }
+        /* 포스팅완료+재발행이 한 줄에 나란히 서야 해서 고정폭(110px) 대신 내용만큼 넓어지게 하고,
+           대신 왼쪽 글 영역(flex-grow-1)이 min-width:0으로 줄어들며 자리를 내준다. */
+        .news-post-action { flex-shrink: 0; min-width: 110px; text-align: right; }
+        .news-post-action .btn { white-space: nowrap; }
+        .news-row > .flex-grow-1 { min-width: 0; }
         .post-toolbar { position: sticky; top: 0; z-index: 5; }
         .filter-toggle-compact .btn { padding: 2px 8px; font-size: 12px; }
     </style>
@@ -205,7 +209,11 @@
                                 {% endif %}
                                 {% if article.ai_generated and user_blog_accounts %}
                                     {% if article.pk in posted_article_ids %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
+                                    {# 재발행은 상단 '포스팅 계정' 체크박스로 고른 계정에 올라간 기존 글을 최신 내용으로 덮어쓴다(news_detail.html의 재발행과 같은 뷰). #}
+                                    <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled>포스팅완료</button>
+                                        <button type="submit" formaction="{% url 'republish_article' article.pk %}" class="btn btn-sm btn-outline-primary" data-loading-text="⏳ 재발행 중..." title="체크한 계정에 이미 올라간 글을 최신 내용으로 덮어씁니다">🔄 재발행</button>
+                                    </div>
                                     {% elif posting_stats.remaining == 0 %}
                                     <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="무료 회원 하루 한도 소진">포스팅 불가</button>
                                     {% else %}
