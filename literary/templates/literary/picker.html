@@ -1,0 +1,222 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    table.picker td, table.picker th { vertical-align: middle; padding: 10px 14px; }
+    table.picker tbody tr.selected { background: #eaf6f0; }
+    table.picker tbody tr.selected td { font-weight: 600; color: #14705f; }
+    .selected-badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #14705f; color: #fff; }
+    .status-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    .status-badge.produced { background: #f3e6c9; color: #8a5a00; }
+    .status-badge.unproduced { background: #e9ecef; color: #495057; }
+    #trigger-box code { font-size: 13px; word-break: break-all; }
+    #trigger-box .form-label { font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-4">
+    작가·작품 카탈로그입니다(제작완료 포함, 아무것도 빼지 않았습니다). 행의 "선택" 버튼을
+    누르면 그 작가·작품이 "다음 작품"으로 표시되고(한 번에 하나만 유지, 제작완료여도 재제작용으로
+    다시 선택 가능), 아래 트리거 문구가 바뀌면서 클립보드에 바로 복사됩니다. 그 문구를
+    Claude Code에 붙여넣으면 파이프라인이 시작됩니다.
+</p>
+
+<div id="trigger-box" class="card card-custom bg-white p-3 mb-4">
+    <label class="form-label text-muted mb-1">트리거 문구</label>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <code id="trigger-text" class="flex-grow-1">{{ trigger_text|default:"작가·작품을 선택하면 여기에 트리거 문구가 표시됩니다." }}</code>
+        <button type="button" id="copy-btn" class="btn btn-outline-secondary btn-sm"{% if not trigger_text %} disabled{% endif %}>복사</button>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:"info" }} mb-2">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{{ candidates_data|json_script:"candidates-data" }}
+<form method="get" id="filter-form">
+<div class="card card-custom bg-white p-3 mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-auto">
+            <label class="form-label mb-1">작가</label>
+            <select name="author" id="filter-author" class="form-select form-select-sm">
+                <option value="">--선택--</option>
+                {% for a in authors %}<option value="{{ a }}"{% if a == filter_author %} selected{% endif %}>{{ a }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1">작품</label>
+            <select name="work" id="filter-work" class="form-select form-select-sm"{% if not filter_author %} disabled{% endif %}>
+                <option value="">--선택--</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1 d-block">제작 상태</label>
+            <div class="btn-group" role="group" aria-label="제작 상태 필터">
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-all" value=""{% if filter_produced == "" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-all">전체</label>
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-no" value="false"{% if filter_produced == "false" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-no">미제작</label>
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-yes" value="true"{% if filter_produced == "true" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-yes">제작완료</label>
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">검색</button>
+            <a href="{% url "literary_picker" %}" class="btn btn-outline-secondary btn-sm">전체보기</a>
+        </div>
+    </div>
+</div>
+</form>
+
+<div class="card card-custom bg-white p-0 mb-4">
+    <div class="table-responsive">
+        <table class="picker table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>작가</th>
+                    <th>작품</th>
+                    <th class="text-end">선택</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in page_obj %}
+                <tr data-author="{{ c.author }}" data-work="{{ c.work }}" data-produced="{{ c.is_produced|yesno:"true,false" }}"{% if c.is_selected %} class="selected"{% endif %}>
+                    <td>{{ c.author }}</td>
+                    <td>『{{ c.work }}』{% if c.is_produced %}<span class="status-badge produced">제작완료</span>{% else %}<span class="status-badge unproduced">미제작</span>{% endif %}</td>
+                    <td class="text-end">
+                        {% if c.is_selected %}
+                        <span class="selected-badge">선택됨</span>
+                        {% else %}
+                        <form method="post" class="pick-form d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="candidate_id" value="{{ c.pk }}">
+                            <button type="submit" class="btn btn-outline-success btn-sm">선택</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="p-3">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+            <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
+                <a class="page-link" href="?page=1{{ filter_qs }}">&laquo;</a>
+            </li>
+            <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
+                <a class="page-link" href="?page={{ prev_block_page|default:page_obj.number }}{{ filter_qs }}">&lsaquo;</a>
+            </li>
+            {% for n in page_range %}
+            <li class="page-item{% if n == page_obj.number %} active{% endif %}">
+                <a class="page-link" href="?page={{ n }}{{ filter_qs }}">{{ n }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item{% if not next_block_page %} disabled{% endif %}">
+                <a class="page-link" href="?page={{ next_block_page|default:page_obj.number }}{{ filter_qs }}">&rsaquo;</a>
+            </li>
+            <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{{ filter_qs }}">&raquo;</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+document.querySelectorAll(".pick-form").forEach(function (form) {
+    form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const submitBtn = form.querySelector("button");
+        submitBtn.disabled = true;
+        try {
+            const resp = await fetch(window.location.pathname, {
+                method: "POST",
+                body: new FormData(form),
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || "선택 저장에 실패했습니다.");
+
+            document.getElementById("trigger-text").textContent = data.trigger_text;
+            const copyBtn = document.getElementById("copy-btn");
+            copyBtn.disabled = false;
+            try {
+                await navigator.clipboard.writeText(data.trigger_text);
+                copyBtn.textContent = "복사됨";
+                setTimeout(function () { copyBtn.textContent = "복사"; }, 1500);
+            } catch (clipErr) {
+                // 클립보드 권한이 없어도 위 트리거 문구는 화면에 그대로 남아 수동 복사 가능.
+            }
+
+            document.querySelectorAll("table.picker tbody tr").forEach(function (tr) {
+                tr.classList.remove("selected");
+            });
+            const tr = form.closest("tr");
+            tr.classList.add("selected");
+            form.outerHTML = "<span class=\"selected-badge\">선택됨 · 복사됨</span>";
+        } catch (err) {
+            alert(err.message);
+            submitBtn.disabled = false;
+        }
+    });
+});
+
+document.getElementById("copy-btn").addEventListener("click", async function () {
+    const btn = this;
+    const text = document.getElementById("trigger-text").textContent;
+    try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "복사됨";
+        setTimeout(function () { btn.textContent = "복사"; }, 1500);
+    } catch (err) {
+        alert("클립보드 복사에 실패했습니다.");
+    }
+});
+</script>
+<script>
+(function () {
+    const CANDIDATES = JSON.parse(document.getElementById("candidates-data").textContent);
+    const authorSelect = document.getElementById("filter-author");
+    const workSelect = document.getElementById("filter-work");
+    const currentWork = "{{ filter_work|escapejs }}";
+
+    function populateWorkOptions(author, preselectWork) {
+        workSelect.innerHTML = "<option value=\"\">--선택--</option>";
+        if (!author) {
+            workSelect.disabled = true;
+            return;
+        }
+        CANDIDATES.filter(function (c) { return c.author === author; }).forEach(function (c) {
+            const opt = document.createElement("option");
+            opt.value = c.work;
+            opt.textContent = c.work;
+            if (preselectWork && c.work === preselectWork) opt.selected = true;
+            workSelect.appendChild(opt);
+        });
+        workSelect.disabled = false;
+    }
+
+    if (authorSelect.value) {
+        populateWorkOptions(authorSelect.value, currentWork);
+    }
+
+    authorSelect.addEventListener("change", function () {
+        populateWorkOptions(authorSelect.value, null);
+    });
+})();
+</script>
+{% endblock %}

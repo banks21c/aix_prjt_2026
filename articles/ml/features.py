@@ -18,6 +18,19 @@ FEATURE_COLUMNS = [
     'bb_pct',
 ]
 
+# StockInvestorFlow(종목별 투자자매매동향, collect_investor_flow) 기반 수급 피처. FEATURE_COLUMNS와
+# 별도 목록으로 두는 이유는 run_stock_prediction이 "기본 피처만" 모델과 "기본+수급" 모델을 같은
+# 종목·같은 날짜에 나란히 학습해 StockPrediction의 *_flow 필드로 비교할 수 있게 하기 위함이다
+# (수급 데이터가 1년치뿐이라 전체 히스토리 대비 최근 구간에서만 계산 가능 — add_investor_flow_features
+# 참고).
+# 하루치 순매수비율(_net_ratio)은 하루 노이즈에 취약해 1차 비교(홀드아웃 정확도 47.51%→46.83%)에서
+# 신호로 못 잡혔다. 기관/외국인 수급은 하루가 아니라 며칠에 걸쳐 매집·매도가 이어지는 경향이 있어
+# _5d(5거래일 누적) 컬럼을 추가로 넣어, 지속적인 순매수/순매도 추세를 모델이 볼 수 있게 한다.
+FLOW_FEATURE_COLUMNS = [
+    'foreign_net_ratio', 'institution_net_ratio', 'pension_net_ratio',
+    'foreign_net_ratio_5d', 'institution_net_ratio_5d', 'pension_net_ratio_5d',
+]
+
 MIN_HISTORY_DAYS = 60  # 60거래일(ma60 등 계산에 필요한 최소 길이) 미만 종목은 제외
 
 
@@ -90,18 +103,26 @@ def add_features_for_one_stock(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=None) -> list:
+def get_eligible_stock_ids(min_history_days: int = MIN_HISTORY_DAYS, stock_ids=None,
+                            include_all: bool = False) -> list:
     """학습 대상 종목 id 목록을, 일봉 데이터를 메모리에 전혀 올리지 않고 DB 집계(COUNT)만으로 뽑아냅니다.
 
     메모리가 빠듯한 서버에서 350개 종목(코스피200/코스닥150) x 10년치 일봉을 한 번에 하나의
     DataFrame으로 합치면(구 build_feature_dataframe) 700만 행 가까이 쌓여 스왑을 다 채우고
     서버가 멎을 수 있습니다. 그래서 이 함수로 "학습 가능한 종목 id"만 가볍게 먼저 뽑고,
     run_stock_prediction이 build_feature_dataframe_for_stock()으로 종목을 하나씩 순차 처리합니다.
+
+    기본은 collect_stock_data와 동일하게 is_major_index=True(코스피200/코스닥150)만 대상으로
+    좁히고, include_all=True(run_stock_prediction --all)일 때만 is_active=True 전체 종목을
+    대상으로 합니다.
     """
     from django.db.models import Count
     from articles.models import StockDailyPrice
 
-    qs = StockDailyPrice.objects.filter(stock__is_major_index=True, stock__is_active=True)
+    stock_filter = {'stock__is_active': True}
+    if not include_all:
+        stock_filter['stock__is_major_index'] = True
+    qs = StockDailyPrice.objects.filter(**stock_filter)
     if stock_ids is not None:
         qs = qs.filter(stock_id__in=stock_ids)
 
@@ -145,6 +166,50 @@ def build_feature_dataframe_for_stock(stock_id: int) -> pd.DataFrame:
     raw['volume'] = raw['volume'].astype(float)
 
     return add_features_for_one_stock(raw)
+
+
+def add_investor_flow_features(df: pd.DataFrame, stock_id: int) -> pd.DataFrame:
+    """build_feature_dataframe_for_stock()이 만든 df(date/volume 컬럼 포함)에 StockInvestorFlow
+    기반 수급 비율 피처(FLOW_FEATURE_COLUMNS)를 좌측 조인으로 덧붙인다. 순매수 수량을 그날
+    거래량으로 나눠 종목 규모와 무관하게 비교 가능한 비율로 만든다(원본 수량은 시가총액이 크게
+    다른 종목끼리 그대로 비교할 수 없다). StockInvestorFlow는 최근 1년치만 있어 그 이전 날짜는
+    NaN이 된다 — 정상이며, 호출부(run_stock_prediction)가 이 컬럼이 채워진 행만 골라 별도로
+    학습한다."""
+    from articles.models import StockInvestorFlow
+
+    df = df.copy()
+    flow_qs = StockInvestorFlow.objects.filter(stock_id=stock_id).values(
+        'date', 'foreign_net_qty', 'institution_net_qty', 'pension_net_qty',
+    )
+    flow_df = pd.DataFrame.from_records(flow_qs)
+    if flow_df.empty:
+        for col in FLOW_FEATURE_COLUMNS:
+            df[col] = np.nan
+        return df
+
+    df['date'] = pd.to_datetime(df['date'])
+    flow_df['date'] = pd.to_datetime(flow_df['date'])
+    merged = df.merge(flow_df, on='date', how='left').sort_values('date').reset_index(drop=True)
+
+    safe_volume = merged['volume'].replace(0, np.nan)
+    merged['foreign_net_ratio'] = merged['foreign_net_qty'] / safe_volume
+    merged['institution_net_ratio'] = merged['institution_net_qty'] / safe_volume
+    merged['pension_net_ratio'] = merged['pension_net_qty'] / safe_volume
+
+    # 5거래일 누적 순매수수량 / 5거래일 누적 거래량 — 하루 단위 비율보다 지속적인 수급 추세에
+    # 덜 민감하게 흔들린다. min_periods=3으로 둬 수급 데이터 시작 직후 며칠도 바로 값이 생기게
+    # 한다(그 이전 구간은 net_qty 자체가 NaN이라 rolling sum도 자연히 NaN이 된다).
+    safe_volume_5d = merged['volume'].rolling(5, min_periods=3).sum().replace(0, np.nan)
+    for base, qty_col in (
+        ('foreign', 'foreign_net_qty'),
+        ('institution', 'institution_net_qty'),
+        ('pension', 'pension_net_qty'),
+    ):
+        merged[f'{base}_net_ratio_5d'] = (
+            merged[qty_col].rolling(5, min_periods=3).sum() / safe_volume_5d
+        )
+
+    return merged.drop(columns=['foreign_net_qty', 'institution_net_qty', 'pension_net_qty'])
 
 
 def compute_display_indicators(df: pd.DataFrame) -> pd.DataFrame:

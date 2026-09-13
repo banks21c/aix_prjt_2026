@@ -1,4 +1,5 @@
 {% load static %}
+{% load static humanize %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,21 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { background-color: #f4f6f9; font-family: 'Pretendard', sans-serif; }
-        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: #0d47a1 !important; }
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .section-title { font-weight: 800; color: #212529; margin-bottom: 1rem; }
-        .up-value { color: #c62828; font-weight: bold; }
-        .down-value { color: #1565c0; font-weight: bold; }
-        .flat-value { color: #616161; font-weight: bold; }
-        .signal-BUY { background-color: #ffebee; color: #c62828; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-SELL { background-color: #e3f2fd; color: #1565c0; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
-        .signal-HOLD { background-color: #f5f5f5; color: #616161; font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .section-title { font-weight: 800; color: var(--text-primary, #212529); margin-bottom: 1rem; }
+        .up-value { color: var(--color-danger, #c62828); font-weight: bold; }
+        .down-value { color: var(--brand-accent, #1565c0); font-weight: bold; }
+        .flat-value { color: var(--text-gray, #616161); font-weight: bold; }
+        .signal-BUY { background-color: var(--bg-danger-soft-2, #ffebee); color: var(--color-danger, #c62828); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-SELL { background-color: var(--bg-info-soft, #e3f2fd); color: var(--brand-accent, #1565c0); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+        .signal-HOLD { background-color: #f5f5f5; color: var(--text-gray, #616161); font-weight: bold; border-radius: 6px; padding: 3px 8px; font-size: 12px; }
         .chart-wrap { position: relative; height: 320px; }
-        .news-item + .news-item { border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
+        .news-item + .news-item { border-top: 1px solid var(--bg-subtle-2, #eee); padding-top: 10px; margin-top: 10px; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -39,16 +41,22 @@
                 </h2>
             </div>
             <div class="col-auto text-end">
+                {% if user.is_authenticated %}
+                <button type="button" id="watchlistBtn" class="btn btn-sm {% if is_watching %}btn-warning{% else %}btn-outline-secondary{% endif %} mb-2" onclick="toggleWatchlist()">
+                    <span id="watchlistIcon">{% if is_watching %}★{% else %}☆{% endif %}</span> 관심종목
+                </button>
+                {% endif %}
                 {% if realtime %}
                 <div class="fs-3 fw-bold">
-                    {{ realtime.close|floatformat:0 }}원
+                    {{ realtime.close|floatformat:0|intcomma }}원
                     <span class="{% if realtime.change > 0 %}up-value{% elif realtime.change < 0 %}down-value{% else %}flat-value{% endif %}" style="font-size: 15px;">
-                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change|floatformat:0 }} ({{ realtime.change_pct|floatformat:2 }}%)
+                        {% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_abs|floatformat:0|intcomma }}
+                        ({% if realtime.change > 0 %}▲{% elif realtime.change < 0 %}▼{% else %}-{% endif %}{{ realtime.change_pct_abs|floatformat:2 }}%)
                     </span>
                 </div>
                 <div class="text-muted" style="font-size: 11px;">🟢 한국투자증권 · {{ realtime.updated_at|date:"H:i" }} 기준</div>
                 {% elif latest_price %}
-                <div class="fs-3 fw-bold">{{ latest_price.close_price|floatformat:0 }}원</div>
+                <div class="fs-3 fw-bold">{{ latest_price.close_price|floatformat:0|intcomma }}원</div>
                 <div class="text-muted" style="font-size: 11px;">{{ latest_price.date|date:"Y-m-d" }} 종가</div>
                 {% endif %}
                 {% if latest_pred %}
@@ -70,6 +78,8 @@
                     {% endif %}
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-primary" id="btnDaily" onclick="showDailyChart()">일봉</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnWeekly" onclick="showPeriodChart('weekly')">주봉</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnMonthly" onclick="showPeriodChart('monthly')">월봉</button>
                         <button type="button" class="btn btn-outline-primary" id="btnMinute" onclick="showMinuteChart()">당일 분봉</button>
                     </div>
                 </div>
@@ -89,6 +99,43 @@
                 <p class="text-muted small mb-0">일봉 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</p>
             {% endif %}
         </div>
+
+        <!-- 밸류에이션 지표 -->
+        {% if valuation %}
+        <div class="card card-custom bg-white p-4 mb-4">
+            <h5 class="section-title">💹 밸류에이션 지표 <small class="text-muted fw-normal" style="font-size: 11px;">(한국투자증권)</small></h5>
+            <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
+                <div class="col">
+                    <div class="text-muted small">PER</div>
+                    <div class="fw-bold fs-6">{% if valuation.per != None %}{{ valuation.per|floatformat:2 }}배{% else %}-{% endif %}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">PBR</div>
+                    <div class="fw-bold fs-6">{% if valuation.pbr != None %}{{ valuation.pbr|floatformat:2 }}배{% else %}-{% endif %}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">EPS</div>
+                    <div class="fw-bold fs-6">{% if valuation.eps != None %}{{ valuation.eps|floatformat:0|intcomma }}원{% else %}-{% endif %}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">BPS</div>
+                    <div class="fw-bold fs-6">{% if valuation.bps != None %}{{ valuation.bps|floatformat:0|intcomma }}원{% else %}-{% endif %}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">시가총액</div>
+                    <div class="fw-bold fs-6">{{ valuation.market_cap_label|default:"-" }}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">52주 최고</div>
+                    <div class="fw-bold fs-6">{% if valuation.week52_high != None %}{{ valuation.week52_high|floatformat:0|intcomma }}원{% else %}-{% endif %}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">52주 최저</div>
+                    <div class="fw-bold fs-6">{% if valuation.week52_low != None %}{{ valuation.week52_low|floatformat:0|intcomma }}원{% else %}-{% endif %}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- 기술적 지표 -->
         {% if indicators %}
@@ -126,11 +173,11 @@
                 </div>
                 <div class="col">
                     <div class="text-muted small">MA5 / MA20 / MA60</div>
-                    <div class="fw-bold fs-6">{{ latest_indicators.ma5|floatformat:0|default:"-" }} / {{ latest_indicators.ma20|floatformat:0|default:"-" }} / {{ latest_indicators.ma60|floatformat:0|default:"-" }}</div>
+                    <div class="fw-bold fs-6">{{ latest_indicators.ma5|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.ma20|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.ma60|floatformat:0|intcomma|default:"-" }}</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">볼린저밴드 상단/하단</div>
-                    <div class="fw-bold fs-6">{{ latest_indicators.bb_upper|floatformat:0|default:"-" }} / {{ latest_indicators.bb_lower|floatformat:0|default:"-" }}</div>
+                    <div class="fw-bold fs-6">{{ latest_indicators.bb_upper|floatformat:0|intcomma|default:"-" }} / {{ latest_indicators.bb_lower|floatformat:0|intcomma|default:"-" }}</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">변동성(20일, 일간수익률 표준편차)</div>
@@ -147,7 +194,7 @@
             <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
                 <div class="col">
                     <div class="text-muted small">내일 예상 종가</div>
-                    <div class="fw-bold fs-5">{{ latest_pred.pred_next_close|floatformat:0 }}원</div>
+                    <div class="fw-bold fs-5">{{ latest_pred.pred_next_close|floatformat:0|intcomma }}원</div>
                 </div>
                 <div class="col">
                     <div class="text-muted small">상승 확률</div>
@@ -169,16 +216,33 @@
 
         <!-- 관련 뉴스 -->
         <div class="card card-custom bg-white p-4">
-            <h5 class="section-title">📰 관련 뉴스</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="section-title mb-0">📰 관련 뉴스</h5>
+                {% if news %}
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-primary" id="btnNewsAll" onclick="filterNews('all')">전체</button>
+                    <button type="button" class="btn btn-outline-primary" id="btnNewsHasBody" onclick="filterNews('has-body')">본문있음</button>
+                    <button type="button" class="btn btn-outline-primary" id="btnNewsNoBody" onclick="filterNews('no-body')">본문없음</button>
+                </div>
+                {% endif %}
+            </div>
             {% if news %}
                 {% for article in news %}
-                <div class="news-item">
+                <div class="news-item" data-has-body="{% if article.original_content %}1{% else %}0{% endif %}">
+                    {% if article.original_content %}
                     <a href="{% url 'news_detail' article.pk %}" class="fw-semibold text-decoration-none text-dark d-block" style="font-size: 14px;">
-                        {{ article.title }}
+                        {{ article.display_title }}
                     </a>
+                    {% else %}
+                    <span class="fw-semibold text-dark d-block" style="font-size: 14px;">
+                        {{ article.display_title }}
+                        <span class="badge bg-light text-muted border ms-1" style="font-size: 11px;">본문없음</span>
+                    </span>
+                    {% endif %}
                     <div class="text-muted" style="font-size: 12px;">{{ article.source_media }} · {{ article.scraped_at|date:"Y-m-d H:i" }}</div>
                 </div>
                 {% endfor %}
+                <p class="text-muted small mb-0" id="newsEmptyFiltered" style="display:none;">해당 조건의 뉴스가 없습니다.</p>
             {% else %}
                 <p class="text-muted small mb-0">관련 뉴스가 없습니다.</p>
             {% endif %}
@@ -188,7 +252,52 @@
     {{ ohlc|json_script:"stock-ohlc" }}
     {{ indicators|json_script:"indicator-data" }}
     <script>
+        function getCookie(name) {
+            const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? decodeURIComponent(match.pop()) : '';
+        }
+
+        function filterNews(type) {
+            const items = document.querySelectorAll('.news-item');
+            let visibleCount = 0;
+            items.forEach(function (item) {
+                const hasBody = item.getAttribute('data-has-body') === '1';
+                const show = type === 'all' || (type === 'has-body' && hasBody) || (type === 'no-body' && !hasBody);
+                item.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            const emptyMsg = document.getElementById('newsEmptyFiltered');
+            if (emptyMsg) emptyMsg.style.display = visibleCount ? 'none' : '';
+
+            document.getElementById('btnNewsAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('btnNewsAll').classList.toggle('btn-outline-primary', type !== 'all');
+            document.getElementById('btnNewsHasBody').classList.toggle('btn-primary', type === 'has-body');
+            document.getElementById('btnNewsHasBody').classList.toggle('btn-outline-primary', type !== 'has-body');
+            document.getElementById('btnNewsNoBody').classList.toggle('btn-primary', type === 'no-body');
+            document.getElementById('btnNewsNoBody').classList.toggle('btn-outline-primary', type !== 'no-body');
+        }
+
+        function toggleWatchlist() {
+            const btn = document.getElementById('watchlistBtn');
+            const icon = document.getElementById('watchlistIcon');
+            btn.disabled = true;
+            fetch("{% url 'watchlist_toggle' stock.ticker %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.ok) return;
+                    icon.textContent = data.watching ? '★' : '☆';
+                    btn.classList.toggle('btn-warning', data.watching);
+                    btn.classList.toggle('btn-outline-secondary', !data.watching);
+                })
+                .finally(() => { btn.disabled = false; });
+        }
+
         const MINUTE_CHART_URL = "{% url 'stock_minute_chart' stock.ticker %}";
+        const WEEKLY_CHART_URL = "{% url 'stock_period_chart' stock.ticker 'weekly' %}";
+        const MONTHLY_CHART_URL = "{% url 'stock_period_chart' stock.ticker 'monthly' %}";
         const dailyOhlc = (() => {
             const el = document.getElementById('stock-ohlc');
             return el ? JSON.parse(el.textContent) : [];
@@ -202,6 +311,7 @@
         let chart = null;
         let series = null;
         let minuteCache = null;
+        const periodCache = { weekly: null, monthly: null };
         let overlaySeries = null;  // { ma5, ma20, ma60, bbUpper, bbLower }
         let overlayVisible = true;
 
@@ -222,8 +332,22 @@
             };
         }
 
+        // 일봉 time은 서버가 'YYYY-MM-DD' 문자열로 내려주는데(articles/views/stocks.py), 이걸
+        // lightweight-charts에 BusinessDay 대용으로 그냥 넘기면 라이브러리가 포매터 콜백에
+        // 원본 문자열을 그대로 돌려주는 경우가 있어(버전/설정에 따라 다름) — {year,month,day}
+        // 객체라고 가정하고 .month를 바로 읽으면 문자열엔 그런 프로퍼티가 없어 "undefined월"로
+        // 표시된다. 숫자(분봉 타임스탬프)/문자열('YYYY-MM-DD')/객체 셋 다 안전하게 처리한다.
+        function timeParts(time) {
+            if (typeof time === 'number') return kstDateParts(time);
+            if (typeof time === 'string') {
+                const [y, m, d] = time.split('-').map(Number);
+                return { year: y, month: m, day: d };
+            }
+            return time; // 이미 {year, month, day} 형태
+        }
+
         function chartTickFormatter(time, tickMarkType) {
-            const p = typeof time === 'number' ? kstDateParts(time) : time;
+            const p = timeParts(time);
             if (tickMarkType === LightweightCharts.TickMarkType.Year) return `${p.year}`;
             if (tickMarkType === LightweightCharts.TickMarkType.Month) return `${p.month}월`;
             if (tickMarkType === LightweightCharts.TickMarkType.DayOfMonth) return `${pad2(p.month)}/${pad2(p.day)}`;
@@ -231,11 +355,15 @@
         }
 
         function chartCrosshairFormatter(time) {
+            const p = timeParts(time);
             if (typeof time === 'number') {
-                const p = kstDateParts(time);
                 return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hours)}:${pad2(p.minutes)}`;
             }
-            return `${time.year}-${pad2(time.month)}-${pad2(time.day)}`;
+            return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+        }
+
+        function chartPriceFormatter(price) {
+            return Math.round(price).toLocaleString('ko-KR');
         }
 
         function addOverlaySeries() {
@@ -254,9 +382,28 @@
             overlaySeries.bbLower.setData(indicatorData.bb_lower);
         }
 
-        function setOverlayVisible(visible) {
+        function setOverlayVisible(visible, includeBands = true) {
             if (!overlaySeries) return;
-            Object.values(overlaySeries).forEach(s => s.applyOptions({ visible }));
+            overlaySeries.ma5.applyOptions({ visible });
+            overlaySeries.ma20.applyOptions({ visible });
+            overlaySeries.ma60.applyOptions({ visible });
+            overlaySeries.bbUpper.applyOptions({ visible: includeBands && visible });
+            overlaySeries.bbLower.applyOptions({ visible: includeBands && visible });
+        }
+
+        // 주봉/월봉은 일봉용 이동평균(ma5/ma20/ma60) 대신, 서버가 봉 자체 종가로 다시 계산해준
+        // 이동평균으로 오버레이 데이터를 갈아끼운다. 볼린저밴드는 주봉/월봉 기준으로 계산해두지
+        // 않았으므로 비운다 — visible:false로 숨기기만 하고 데이터를 그대로 두면, lightweight-charts가
+        // "숨긴" 시리즈의 시각 포인트도 여전히 x축(타임스케일) 계산에 포함시켜서, 최근 180거래일치
+        // 촘촘한 일봉 날짜들이 10년치 월봉의 최근 구간에 섞여 그 부분만 비정상적으로 넓게 벌어지고
+        // 나머지(과거) 구간은 좁게 눌리는("징검다리" 형태) 현상이 생긴다. 반드시 setData([])로 비워야 한다.
+        function setPeriodOverlayData(data) {
+            if (!overlaySeries) return;
+            overlaySeries.ma5.setData(data.ma5 || []);
+            overlaySeries.ma20.setData(data.ma20 || []);
+            overlaySeries.ma60.setData(data.ma60 || []);
+            overlaySeries.bbUpper.setData([]);
+            overlaySeries.bbLower.setData([]);
         }
 
         function toggleOverlaySeries() {
@@ -274,21 +421,23 @@
                 layout: { textColor: '#495057', background: { type: 'solid', color: 'transparent' } },
                 grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
                 timeScale: { borderColor: '#e0e0e0', tickMarkFormatter: chartTickFormatter },
-                localization: { timeFormatter: chartCrosshairFormatter },
+                localization: { timeFormatter: chartCrosshairFormatter, priceFormatter: chartPriceFormatter },
                 rightPriceScale: { borderColor: '#e0e0e0' },
             });
             series = chart.addCandlestickSeries({
                 upColor: '#c62828', downColor: '#1565c0',
                 borderUpColor: '#c62828', borderDownColor: '#1565c0',
                 wickUpColor: '#c62828', wickDownColor: '#1565c0',
+                priceFormat: { type: 'price', precision: 0, minMove: 1 },
             });
             addOverlaySeries();
             window.addEventListener('resize', () => chart.applyOptions({ width: el.clientWidth }));
         }
 
-        function setActiveButton(dailyActive) {
-            document.getElementById('btnDaily').className = 'btn ' + (dailyActive ? 'btn-primary' : 'btn-outline-primary');
-            document.getElementById('btnMinute').className = 'btn ' + (dailyActive ? 'btn-outline-primary' : 'btn-primary');
+        function setActiveButton(activeId) {
+            ['btnDaily', 'btnWeekly', 'btnMonthly', 'btnMinute'].forEach(id => {
+                document.getElementById(id).className = 'btn ' + (id === activeId ? 'btn-primary' : 'btn-outline-primary');
+            });
         }
 
         function showDailyChart() {
@@ -298,21 +447,78 @@
             document.getElementById('minuteChartError').style.display = 'none';
             chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
             series.setData(dailyOhlc);
+            // 주봉/월봉/분봉 보다가 돌아온 경우 오버레이가 그쪽 데이터로 바뀌었거나 비어있을 수 있으므로 복원
+            if (overlaySeries && indicatorData) {
+                overlaySeries.ma5.setData(indicatorData.ma5);
+                overlaySeries.ma20.setData(indicatorData.ma20);
+                overlaySeries.ma60.setData(indicatorData.ma60);
+                overlaySeries.bbUpper.setData(indicatorData.bb_upper);
+                overlaySeries.bbLower.setData(indicatorData.bb_lower);
+            }
             setOverlayVisible(overlayVisible);
             chart.timeScale().fitContent();
-            setActiveButton(true);
+            setActiveButton('btnDaily');
+        }
+
+        function showPeriodChart(period) {
+            ensureChart();
+            if (!series) return;
+            const label = period === 'weekly' ? '주봉' : '월봉';
+            document.getElementById('chartTitle').textContent = `📈 ${label} 차트`;
+            setActiveButton(period === 'weekly' ? 'btnWeekly' : 'btnMonthly');
+            chart.applyOptions({ timeScale: { timeVisible: false, secondsVisible: false } });
+
+            const errorEl = document.getElementById('minuteChartError');
+            errorEl.style.display = 'none';
+
+            if (periodCache[period]) {
+                series.setData(periodCache[period].ohlc);
+                setPeriodOverlayData(periodCache[period]);
+                setOverlayVisible(overlayVisible, false);
+                chart.timeScale().fitContent();
+                return;
+            }
+
+            fetch(period === 'weekly' ? WEEKLY_CHART_URL : MONTHLY_CHART_URL)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error || !data.ohlc || !data.ohlc.length) {
+                        errorEl.textContent = data.error || `${label} 데이터가 없습니다.`;
+                        errorEl.style.display = 'block';
+                        return;
+                    }
+                    periodCache[period] = data;
+                    series.setData(data.ohlc);
+                    setPeriodOverlayData(data);
+                    setOverlayVisible(overlayVisible, false);
+                    chart.timeScale().fitContent();
+                })
+                .catch(() => {
+                    errorEl.textContent = `${label} 데이터를 불러오는 중 오류가 발생했습니다.`;
+                    errorEl.style.display = 'block';
+                });
         }
 
         function showMinuteChart() {
             ensureChart();
             if (!series) return;
             document.getElementById('chartTitle').textContent = '⏱️ 당일 분봉 (1분)';
-            setActiveButton(false);
+            setActiveButton('btnMinute');
             // 분봉은 같은 날짜 안에서 여러 시각이 찍히므로, 시간(HH:MM)까지 축에 표시되도록 전환
             // (X축 KST 변환은 chartTickFormatter/chartCrosshairFormatter가 처리)
             chart.applyOptions({ timeScale: { timeVisible: true, secondsVisible: false } });
-            // 이동평균/볼린저밴드는 일봉 기준으로 미리 계산해둔 값이라 분봉 시간축과 안 맞으므로 숨긴다
+            // 이동평균/볼린저밴드를 숨기는 것만으로는 부족하다 — 주봉/월봉을 거쳐온 경우 ma5/ma20/ma60에
+            // 10년치 시각 포인트가 남아있는데, lightweight-charts는 숨긴 시리즈의 시각 포인트도 fitContent()
+            // 범위 계산에 포함시켜서, 당일 하루치 분봉이 10년 범위 안에 파묻혀 사실상 안 보이게 된다.
+            // 데이터 자체를 비워야 한다.
             setOverlayVisible(false);
+            if (overlaySeries) {
+                overlaySeries.ma5.setData([]);
+                overlaySeries.ma20.setData([]);
+                overlaySeries.ma60.setData([]);
+                overlaySeries.bbUpper.setData([]);
+                overlaySeries.bbLower.setData([]);
+            }
 
             if (minuteCache) {
                 series.setData(minuteCache);

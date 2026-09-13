@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+<link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .cat-badge { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; color: #0d47a1; white-space: nowrap; }
+    table.cal td, table.cal th { vertical-align: top; padding: 8px 12px; }
+    table.cal td.day-col { white-space: nowrap; font-weight: 700; color: #555; }
+    table.cal tbody tr.today { background: #fff8e1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-4">
+    내부용 전체 스케줄표입니다(364일 주기, 다 돌면 처음부터 재사용). 공개 페이지는 요일별 예시
+    1개씩만 보여주므로(회원이 통째로 퍼가는 걸 우려해 의도적으로 숨김), 실제 무엇이 언제
+    발행될지는 이 화면에서만 전체를 확인할 수 있습니다.
+</p>
+
+<div class="card card-custom bg-white p-0 mb-4">
+    <div class="table-responsive">
+        <table class="cal table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>날짜</th>
+                    <th class="day-col">요일</th>
+                    <th>카테고리</th>
+                    <th>오전 발행 제목</th>
+                    <th>오후 발행 제목</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr{% if row.date == today %} class="today"{% endif %}>
+                    <td>{{ row.date|date:"Y-m-d" }}</td>
+                    <td class="day-col">{{ row.weekday }}</td>
+                    <td><span class="cat-badge">{{ row.category_name }}</span></td>
+                    <td>{{ row.am_title }}</td>
+                    <td>{{ row.pm_title }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

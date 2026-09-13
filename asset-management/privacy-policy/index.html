@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NextFinUp - 개인정보처리방침</title>
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <style>
   :root, :root[data-theme="dark"], :root[data-theme="light"] {
     --ink:#212529; --paper:#f4f6f9; --card:#ffffff; --line:#e9ecef; --accent:#0d47a1; --muted:#868e96;
   }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--paper); color:var(--ink); line-height:1.75;
-         font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  body { margin:0; background:var(--paper); color:var(--ink); line-height:1.6;
+         font-family:'Pretendard Variable','Pretendard',sans-serif; }
   .wrap { max-width:960px; margin:0 auto; padding:8px 24px 72px; }
   .updated { color:var(--muted); font-size:13px; margin:0 0 40px; }
   h2 { font-size:18px; margin:40px 0 12px; color:var(--accent); letter-spacing:-.01em; }
@@ -35,6 +36,20 @@
 </style>
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav id="nfu-header-fallback" style="background:#fff;border-bottom:1px solid #e9ecef;position:sticky;top:0;z-index:1020;">
     <div style="max-width:1140px;margin:0 auto;padding:0 20px;height:64px;display:flex;align-items:center;">
       <a href="/" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;letter-spacing:-0.5px;color:#0d47a1;font-size:20px;text-decoration:none;">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
@@ -61,7 +76,7 @@
     <p class="updated">시행일 2026년 7월 27일</p>
 
     <div class="note">
-      이 사이트는 노후 자산 제도를 설명하는 <strong>교육용 데모</strong>입니다. 특정 금융상품의
+      이 사이트는 노후 자산 제도를 설명하고 전문가 상담을 연결해 드리는 서비스입니다. 특정 금융상품의
       가입을 권유하지 않으며, 상담신청 외에는 개인정보를 수집하지 않습니다.
     </div>
 

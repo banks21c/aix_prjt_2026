@@ -1,0 +1,23 @@
+/* AnalyzedArticleAdmin 목록 화면의 "원본 제목"(title) 컬럼 300px 고정 + 가로 스크롤.
+
+   title 컬럼이 찌그러졌던 진짜 원인: 아래 두 번째 규칙에서 title만 예외로
+   white-space:normal(줄바꿈 허용)을 줬더니, table-layout:auto 배치 알고리즘이 "줄바꿈
+   가능한 컬럼"을 유일한 신축 컬럼으로 보고 공간이 모자랄 때 title부터 먼저 눌러버렸다.
+   나머지 컬럼처럼 title도 그냥 nowrap(줄바꿈 없음)으로 두면(= 아래에서 white-space를
+   따로 선언하지 않아 위 공통 규칙의 nowrap을 그대로 물려받음) 모든 컬럼이 동등하게
+   취급되어 더 이상 줄어들지 않고, 테이블 전체가 컨테이너보다 넓어지면서
+   #changelist-form .results의 overflow-x:auto가 가로 스크롤바를 만들어준다. */
+#changelist table {
+    table-layout: auto;
+    width: auto !important;
+}
+#changelist table tbody td,
+#changelist table tbody th {
+    white-space: nowrap;
+}
+#changelist table thead th.column-title,
+#changelist table tbody td.field-title,
+#changelist table tbody th.field-title {
+    width: 300px !important;
+    max-width: 300px !important;
+}

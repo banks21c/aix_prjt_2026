@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>국민연금 — 쉽고 정확하게 안내합니다</title>
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <style>
   /* 이 페이지 고유의 변수명(--brand, --bg …)은 그대로 두고 값만 NextFinUp
      팔레트에 매핑한다. 마크업을 건드리지 않고 분위기만 통일하기 위해서다. */
@@ -28,8 +29,8 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth;color-scheme:light dark}
   body{
-    font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
-    color:var(--text);background:var(--bg);line-height:1.65;
+    font-family:'Pretendard Variable','Pretendard',sans-serif;
+    color:var(--text);background:var(--bg);line-height:1.6;
     -webkit-font-smoothing:antialiased;
   }
   a{color:inherit;text-decoration:none}
@@ -122,6 +123,9 @@
 
   /* ── 카드 그리드 ── */
   .grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  /* 제도 소개(가입 대상/보험료율/연금의 종류/물가에 연동) 4장만 2x2로 고정 배치.
+     다른 .grid(예: 2026 개정 카드들)는 auto-fit 그대로 둔다. */
+  #intro .grid{grid-template-columns:repeat(2,1fr)}
   .card{
     background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
     padding:26px;box-shadow:var(--shadow);
@@ -230,6 +234,7 @@
     .passbook-main{padding:28px 24px 24px}
     .passbook-cover{border-left:none;border-top:1px solid var(--border);flex-direction:row;padding:20px}
     .calc{grid-template-columns:1fr}
+    #intro .grid{grid-template-columns:1fr}
   }
 
   /* ── 자산관리 전 페이지 공통 타이틀 영역(위치/폰트크기/높이/아이콘을 통일) ── */
@@ -241,9 +246,22 @@
 </style>
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
-<link rel="stylesheet" href="/asset-management/common.css">
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav class="app-navbar">
     <div class="container">
       <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
@@ -258,13 +276,21 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>
 <div class="am-tabs">
   <div class="am-tabs-inner">
-    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/" class="am-tab">종합</a>
     <a href="/asset-management/national-pension/" class="am-tab is-active">국민연금</a>
     <a href="/asset-management/savings-pension/" class="am-tab">연금저축</a>
     <a href="/asset-management/irp/" class="am-tab">IRP</a>
@@ -337,8 +363,8 @@
         <p>가입자의 상황에 따라 다양한 급여를 지급합니다.</p>
         <ul>
           <li>노령연금 — 나이가 들어 소득이 없을 때</li>
-          <li>장애연금 — 질병·사고로 장애가 남았을 때</li>
-          <li>유족연금 — 가입자 사망 시 유족에게</li>
+          <li>장애연금 — 질병·사고로 장애가 남았을 때. <strong>가입기간 10년 이상(또는 초진일 전 5년 중 3년 납부) 시 수급 가능</strong>하며, 급여율은 가입기간이 아니라 <strong>장애등급(1~4급)에 따라 기본연금액의 60~100%</strong>(4급은 일시보상금)</li>
+          <li>유족연금 — 가입자 사망 시 유족에게. <strong>가입기간 10년 이상(또는 사망일 전 5년 중 3년 납부) 시 수급 가능</strong>하며, <strong>가입기간에 따라 급여율 40%(10년 미만)~60%(20년 이상)</strong> 차등 지급</li>
           <li>반환일시금 — 수급 요건 미충족 시 환급</li>
         </ul>
       </div>
@@ -620,7 +646,7 @@
         <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
         <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
       </div>
-      <a class="consult-cta-btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+      <a class="consult-cta-btn" href="/experts/apply/">💬 전문가 무료 상담 신청</a>
     </div>
   </section>
 
@@ -631,7 +657,7 @@
     <div class="footer-brand">🏛️ 국민연금 안내</div>
     <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 국민연금 제도 이해를 돕기 위한 비공식 안내 페이지예요. 특정 금융회사나 상품을 권유하지 않아요.</p>
     <div class="disclaimer">
-      정확한 정보·신청·상담은 국민연금공단 <a href="https://www.nps.or.kr" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">www.nps.or.kr</a> 또는 국번없이 <strong>☎ 1355</strong>로 문의하세요. 본 사이트는 프로토타입 데모이며 실제 금융투자상품 비교·중개 서비스가 아닙니다.
+      정확한 정보·신청은 국민연금공단 <a href="https://www.nps.or.kr" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">www.nps.or.kr</a> 또는 국번없이 <strong>☎ 1355</strong>로 문의하세요. 개인별 맞춤 상담은 NextFinUp 전문가 상담을 통해서도 받아보실 수 있습니다.
     </div>
   </div>
 </footer>

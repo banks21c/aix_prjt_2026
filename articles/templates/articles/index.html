@@ -6,15 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
     {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
     <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css">
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background-color: #f4f6f9;
-            color: #212529;
+            background-color: var(--bg-page, #f4f6f9);
+            color: var(--text-primary, #212529);
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         a { text-decoration: none; }
@@ -31,10 +34,10 @@
             border: 1px solid transparent;
             cursor: pointer;
         }
-        .btn-outline { border-color: #ced4da; color: #495057; background: #fff; }
-        .btn-outline:hover { background: #f1f3f5; }
-        .btn-primary { background: #0d47a1; color: #fff; }
-        .btn-primary:hover { background: #0b3c8a; }
+        .btn-outline { border-color: var(--border-input, #ced4da); color: var(--text-secondary, #495057); background: var(--color-white, #fff); }
+        .btn-outline:hover { background: var(--bg-hover, #f1f3f5); }
+        .btn-primary { background: var(--brand-primary, #0d47a1); color: var(--color-white, #fff); }
+        .btn-primary:hover { background: var(--brand-primary-hover, #0b3c8a); }
 
         .site-messages { list-style: none; padding: 0; margin: 20px 0 0; }
         .site-messages li {
@@ -43,13 +46,13 @@
             font-size: 14px;
             font-weight: 600;
         }
-        .site-messages .success { background: #e6f4ea; color: #1e7e34; }
-        .site-messages .error { background: #fdecea; color: #c62828; }
+        .site-messages .success { background: var(--bg-success-soft, #e6f4ea); color: var(--color-success, #1e7e34); }
+        .site-messages .error { background: var(--bg-danger-soft, #fdecea); color: var(--color-danger, #c62828); }
 
         /* 히어로 섹션 */
         .hero {
-            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 60%, #1e88e5 100%);
-            color: #fff;
+            background: linear-gradient(135deg, var(--brand-primary, #0d47a1) 0%, var(--brand-accent, #1565c0) 60%, #1e88e5 100%);
+            color: var(--color-white, #fff);
             padding: 96px 0 80px;
         }
         .hero h1 {
@@ -61,14 +64,14 @@
         .hero p {
             font-size: 17px;
             line-height: 1.7;
-            color: #dce8fb;
+            color: var(--brand-hero-text, #dce8fb);
             max-width: 640px;
             margin: 0 0 32px;
         }
         .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-        .hero .btn-primary { background: #ffffff; color: #0d47a1; }
+        .hero .btn-primary { background: var(--color-white, #fff); color: var(--brand-primary, #0d47a1); }
         .hero .btn-primary:hover { background: #eef3fb; }
-        .hero .btn-outline { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
+        .hero .btn-outline { background: transparent; color: var(--color-white, #fff); border-color: rgba(255,255,255,0.6); }
         .hero .btn-outline:hover { background: rgba(255,255,255,0.12); }
         .hero-stat {
             margin-top: 48px;
@@ -80,21 +83,52 @@
             border-radius: 12px;
         }
         .hero-stat strong { font-size: 26px; font-weight: 800; }
-        .hero-stat span { font-size: 14px; color: #dce8fb; }
+        .hero-stat span { font-size: 14px; color: var(--brand-hero-text, #dce8fb); }
 
-        .hero-grid {
+        .hero-grid { display: block; }
+        /* slick.js가 원본 슬라이드 엘리먼트에 직접 .slick-slide 클래스를 붙이는데(별도 래퍼 없이),
+           slick.css의 `.slick-initialized .slick-slide { display: block; }`가 클래스 2개짜리라
+           단일 클래스 `.hero-slide{display:grid}`보다 우선순위가 높아 grid가 조용히 무시된다
+           (텍스트가 화면 크기와 무관하게 항상 컨테이너 전체 폭을 차지하는 형태로 관측됨).
+           동일한 우선순위(클래스 2개)로 맞추고, slick.css보다 뒤에 선언해 이겨야 한다. */
+        .hero-slick .hero-slide {
+            /* slick.css는 `.slick-slide { float: left; }`로 슬라이드를 가로로 나란히 붙여 넘기고,
+               1장씩(slidesToShow:1) 보여줄 슬라이드 폭만큼 트랙을 transform으로 밀어 넘긴다.
+               그런데 float에 width를 안 주면 grid 컨테이너는 자기 내용물 크기로만 줄어든다
+               (inline-block처럼 shrink-to-fit) — 그러면 실제 렌더 폭이 slick이 계산한 "슬라이드 1장
+               폭"보다 좁아져서, 다음 슬라이드로 넘어가도 이전 슬라이드가 다 안 밀려나고 그 옆에
+               다음 슬라이드 글자가 겹쳐 보인다(실측 신고: "3번째 슬라이드 글씨가 1번째에 겹침").
+               width:100%로 슬라이드 폭을 슬롯 전체로 강제 고정해야 한다.
+               width를 고정해도 겹침이 재현돼(실측 신고: 3번 슬라이드 문단 중간 단어들이 1번에
+               겹침) — grid 내부 콘텐츠(문단 텍스트 등)가 어떤 이유로든 자기 칼럼 폭을 넘겨
+               흘러나오면 slick-list의 overflow:hidden(슬라이드 "사이" 클리핑용)만으로는 같은
+               슬라이드 박스 밖으로 새는 걸 못 막는다. 슬라이드 자기 자신도 overflow:hidden으로
+               막아, 안의 내용이 뭐든 자기 박스 밖으로는 절대 못 나가게 이중으로 잠근다. */
             display: grid;
+            width: 100%;
+            overflow: hidden;
             grid-template-columns: 1.1fr 0.9fr;
             gap: 40px;
             align-items: center;
         }
-        .hero-chart {
+        .hero-chart, .hero-visual {
+            /* CSS grid의 fr 트랙은 기본적으로 min-width:auto(=자기 내용물의 최소 너비)를
+               바닥값으로 깔고 그 이상에서만 1.1fr:0.9fr 비율로 나눈다. 슬라이드2는 노드 3개
+               (60px×3=180)+패딩(44) = 224px가 이 칼럼의 콘텐츠 최소 너비라, 텍스트 칼럼이
+               차지하는 몫까지 더하면 폭 배분이 224px(=거의 딱 이 컨텐츠 최소값)로 눌려버렸다
+               (실측 신고: 다른 슬라이드 372px인데 이건 225px). 슬라이드마다 텍스트 길이가
+               달라 칼럼별 최소너비 경쟁 결과가 슬라이드마다 달라지는 게 원인이라, min-width:0로
+               그 바닥값 자체를 없애 항상 fr 비율(+max-width 캡)대로만 계산되게 한다. */
+            min-width: 0;
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.16);
             border-radius: 16px;
             padding: 22px 22px 26px;
             backdrop-filter: blur(6px);
         }
+        /* 차트 슬라이드는 영상/애니메이션 슬라이드보다 내용이 작아, 칼럼 폭을 꽉 채우지 않고
+           텍스트 바로 옆으로 붙는 크기로 줄인다. */
+        .hero-chart { max-width: 380px; }
         .hero-chart-label {
             display: flex;
             align-items: center;
@@ -102,7 +136,7 @@
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.04em;
-            color: #dce8fb;
+            color: var(--brand-hero-text, #dce8fb);
             margin-bottom: 4px;
         }
         .hero-chart-label .dot {
@@ -129,18 +163,265 @@
             margin-top: 6px;
         }
         .hero-chart-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
-        .hero-chart-unit { font-size: 12px; color: #dce8fb; }
+        .hero-chart-unit { font-size: 12px; color: var(--brand-hero-text, #dce8fb); }
+
+        /* 슬라이드1 — AI 예측 파이프라인 다이어그램. 5개 레이어(데이터→피처→RF/LightGBM→
+           앙상블→예측가) 카드가 세로로 쌓이고, 위에서 아래로 순차적으로 밝아지며 활성화되는
+           빌드업 애니메이션. 실제 영상 대신 CSS/SVG로 구현 — 텍스트·숫자가 항상 정확하게
+           고정되고(영상 생성 AI가 흔히 틀리는 부분), 9:16 세로 비율에도 자연스럽게 맞는다. */
+        .hero-ml-pipeline {
+            max-width: 380px;
+            aspect-ratio: 3 / 4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 3px;
+            overflow: hidden;
+            padding: 12px 12px 10px;
+        }
+        .mlp-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 8px;
+            padding: 6px 8px;
+            opacity: 0.35;
+            filter: grayscale(1);
+            transform: scale(0.97);
+            animation: mlpReveal 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-layer1 { opacity: 1; filter: none; transform: none; animation: none; border-color: rgba(255,255,255,0.2); }
+        .mlp-card-title {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 10px; font-weight: 700; color: var(--color-white, #fff); margin-bottom: 3px;
+        }
+        .mlp-card-title-sm { font-size: 9px; font-weight: 700; color: var(--color-white, #fff); text-align: center; margin-top: 3px; }
+        .mlp-card-sub { font-size: 7.5px; color: #aebfdc; margin-top: 3px; }
+        .mlp-icon { width: 14px; height: 14px; flex: none; color: var(--color-white, #fff); }
+        .mlp-candles { display: block; width: 100%; height: 28px; }
+        .mlp-pills { display: flex; flex-wrap: wrap; gap: 3px; }
+        .mlp-pill {
+            font-size: 7px; font-weight: 600; color: var(--brand-hero-text, #dce8fb);
+            background: rgba(0,194,168,0.16); border: 1px solid rgba(0,194,168,0.4);
+            border-radius: 999px; padding: 2px 5px;
+            opacity: 0; transform: translateY(3px);
+            animation: mlpPillIn 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-pill:nth-child(1) { animation-delay: 0.7s; }
+        .mlp-pill:nth-child(2) { animation-delay: 0.8s; }
+        .mlp-pill:nth-child(3) { animation-delay: 0.9s; }
+        .mlp-pill:nth-child(4) { animation-delay: 1.0s; }
+        .mlp-pill:nth-child(5) { animation-delay: 1.1s; }
+        .mlp-pill:nth-child(6) { animation-delay: 1.2s; }
+        .mlp-pill:nth-child(7) { animation-delay: 1.3s; }
+        .mlp-pill:nth-child(8) { animation-delay: 1.4s; }
+        .mlp-row { display: flex; gap: 5px; }
+        .mlp-card-half { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
+        .mlp-rf { animation-delay: 2.3s; }
+        .mlp-lgbm { animation-delay: 2.3s; }
+        .mlp-rf .mlp-icon { color: #ff8a3d; }
+        .mlp-lgbm .mlp-icon { color: #4da8ff; }
+        .mlp-layer2 { animation-delay: 0.6s; }
+        .mlp-layer4 { animation-delay: 3.3s; display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
+        .mlp-layer4 .mlp-icon { color: #8e5cff; }
+        .mlp-layer5 { animation-delay: 4.3s; }
+        .mlp-arrow {
+            align-self: center;
+            width: 2px; height: 8px;
+            background: linear-gradient(#0002, #0002);
+            position: relative;
+            opacity: 0.35;
+            animation: mlpArrow 9s ease-in-out infinite;
+            animation-fill-mode: backwards;
+        }
+        .mlp-arrow::after {
+            content: ''; position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%);
+            border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid rgba(255,255,255,0.5);
+        }
+        .mlp-arrow-1 { animation-delay: 0.3s; }
+        .mlp-arrow-split { animation-delay: 2.0s; }
+        .mlp-arrow-merge { animation-delay: 3.0s; }
+        .mlp-arrow-4 { animation-delay: 4.0s; }
+        @keyframes mlpReveal {
+            0% { opacity: 0.35; filter: grayscale(1); transform: scale(0.97); }
+            6% { opacity: 1; filter: grayscale(0); transform: scale(1); }
+            92% { opacity: 1; filter: grayscale(0); transform: scale(1); }
+            97%, 100% { opacity: 0.35; filter: grayscale(1); transform: scale(0.97); }
+        }
+        @keyframes mlpPillIn {
+            0% { opacity: 0; transform: translateY(3px); }
+            5% { opacity: 1; transform: translateY(0); }
+            92% { opacity: 1; transform: translateY(0); }
+            97%, 100% { opacity: 0; transform: translateY(3px); }
+        }
+        @keyframes mlpArrow {
+            0% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
+            6% { opacity: 1; background: linear-gradient(#00c2a8, var(--color-gold, #facc15)); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            92% { opacity: 1; background: linear-gradient(#00c2a8, var(--color-gold, #facc15)); box-shadow: 0 0 6px 0 rgba(0,194,168,0.6); }
+            97%, 100% { opacity: 0.35; background: rgba(255,255,255,0.2); box-shadow: none; }
+        }
+        .mlp-sparkline { display: block; width: 100%; height: 22px; margin-top: 2px; }
+        .mlp-sparkline path {
+            stroke-dasharray: 140;
+            stroke-dashoffset: 140;
+            animation: mlpSparkDraw 9s ease-in-out infinite;
+        }
+        @keyframes mlpSparkDraw {
+            0%, 50% { stroke-dashoffset: 140; }
+            64% { stroke-dashoffset: 0; }
+            92% { stroke-dashoffset: 0; }
+            97%, 100% { stroke-dashoffset: 140; }
+        }
+        .mlp-accuracy { margin-top: 5px; }
+        .mlp-bar-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+        .mlp-bar-label { font-size: 6.5px; color: #aebfdc; width: 34px; flex: none; }
+        .mlp-bar { flex: 1 1 auto; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
+        .mlp-bar-value { font-size: 6.5px; color: var(--brand-hero-text, #dce8fb); width: 26px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+        .mlp-bar-fill { height: 100%; border-radius: 3px; }
+        .mlp-bar-base .mlp-bar-fill {
+            width: 0%; background: #64748b;
+            animation: mlpBarBase 9s ease-in-out infinite;
+        }
+        @keyframes mlpBarBase {
+            0%, 68% { width: 0%; }
+            74% { width: 100%; }
+            92% { width: 100%; }
+            97%, 100% { width: 0%; }
+        }
+        .mlp-bar-fill-improved {
+            width: 0%; background: linear-gradient(90deg, var(--color-gold, #facc15), var(--color-success-alt, #22c55e));
+            animation: mlpBarImproved 9s ease-in-out infinite;
+        }
+        @keyframes mlpBarImproved {
+            0%, 74% { width: 0%; }
+            80% { width: 50%; }
+            92% { width: 50%; }
+            97%, 100% { width: 0%; }
+        }
+        .mlp-badge {
+            margin-top: 5px; text-align: center; font-size: 7.5px; font-weight: 700;
+            color: var(--color-success-alt, #22c55e); background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4);
+            border-radius: 999px; padding: 2px 6px;
+            opacity: 0; transform: scale(0.7);
+            animation: mlpBadgePop 9s ease-in-out infinite;
+        }
+        @keyframes mlpBadgePop {
+            0%, 82% { opacity: 0; transform: scale(0.7); }
+            86% { opacity: 1; transform: scale(1.12); }
+            89% { transform: scale(1); }
+            92% { opacity: 1; transform: scale(1); }
+            97%, 100% { opacity: 0; transform: scale(0.7); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .mlp-card, .mlp-pill, .mlp-arrow, .mlp-sparkline path, .mlp-bar-base .mlp-bar-fill,
+            .mlp-bar-fill-improved, .mlp-badge { animation: none !important; opacity: 1 !important; filter: none !important; transform: none !important; }
+            .mlp-sparkline path { stroke-dashoffset: 0 !important; }
+            .mlp-bar-base .mlp-bar-fill { width: 100% !important; }
+            .mlp-bar-fill-improved { width: 50% !important; }
+        }
+
+        /* 슬라이드2 — RSS 수집→AI 요약→블로그 자동배포 흐름 애니메이션. 차트 슬라이드처럼
+           라벨/캡션을 더해 내용을 채우고, 아이콘 행은 그 사이에 둔다. 다른 두 슬라이드의
+           비주얼(.hero-ml-pipeline/.hero-chart)은 max-width:380px인데 여기만 340px로 더
+           좁게 잡혀 있었다 — 슬라이드마다 비주얼 박스 너비가 들쭉날쭉해 보였던 원인 중 하나라
+           같은 380px로 맞춘다. */
+        .hero-flow-panel { max-width: 380px; }
+        .hero-flow-panel .hero-chart-readout { margin-top: 14px; }
+        .hero-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 160px;
+            padding: 0 4px;
+        }
+        .hero-flow-node { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 auto; width: 60px; }
+        .hero-flow-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.24);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-white, #fff);
+            animation: flowGlow 4.5s ease-in-out infinite;
+        }
+        .hero-flow-icon svg { width: 20px; height: 20px; }
+        .hero-flow-node:nth-child(1) .hero-flow-icon { animation-delay: 0s; }
+        .hero-flow-node:nth-child(3) .hero-flow-icon { animation-delay: -1.5s; }
+        .hero-flow-node:nth-child(5) .hero-flow-icon { animation-delay: -3s; }
+        .hero-flow-label { font-size: 11px; font-weight: 700; color: var(--brand-hero-text, #dce8fb); text-align: center; line-height: 1.35; }
+        .hero-flow-arrow { position: relative; flex: 1 1 auto; height: 2px; background: rgba(255,255,255,0.2); margin: 0 -4px 20px; border-radius: 2px; overflow: visible; }
+        .hero-flow-arrow::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 6px;
+            height: 6px;
+            margin-top: -3px;
+            border-radius: 50%;
+            background: #6ee7b7;
+            box-shadow: 0 0 8px 1px rgba(110,231,183,0.7);
+            opacity: 0;
+            animation: flowTravel 4.5s ease-in-out infinite;
+        }
+        .hero-flow-arrow.hero-flow-arrow-2::after { animation-delay: -1.5s; }
+        @keyframes flowGlow {
+            0%, 8% { transform: scale(1.12); background: rgba(110,231,183,0.28); border-color: rgba(110,231,183,0.6); }
+            25%, 100% { transform: scale(1); background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.24); }
+        }
+        @keyframes flowTravel {
+            0% { left: 0; opacity: 0; }
+            8% { opacity: 1; }
+            33% { left: calc(100% - 8px); opacity: 1; }
+            41%, 100% { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-flow-icon, .hero-flow-arrow::after { animation: none; }
+            .hero-flow-node:nth-child(3) .hero-flow-icon { background: rgba(110,231,183,0.28); border-color: rgba(110,231,183,0.6); }
+        }
 
         @media (max-width: 900px) {
-            .hero-grid { grid-template-columns: 1fr; }
-            .hero-chart { order: -1; max-width: 460px; margin: 0 auto 8px; }
+            /* 위 .hero-slick .hero-slide(클래스 2개, 우선순위 0,0,2,0)를 이겨야 실제로 1열로
+               바뀐다 — 여기 .hero-slide 단일 클래스로는 순서상 뒤에 와도 우선순위에서 져서
+               조용히 무시되고, 데스크톱용 2열(1.1fr 0.9fr) 그리드가 모바일 폭에 그대로 남아
+               텍스트와 차트가 겹쳐 보였다(88번째 줄 주석과 동일한 종류의 문제). */
+            .hero-slick .hero-slide { grid-template-columns: 1fr; }
+            /* order:-1로 차트를 텍스트보다 먼저 보여주던 걸 제거 — 데스크톱과 같은 순서
+               (설명 먼저, 차트 나중)로 통일한다. */
+            /* margin-left/right:auto는 그리드 아이템의 기본 justify-items:stretch를 깨고
+               "내용물 크기로 줄인 뒤 auto 여백으로 가운데 정렬"로 바꿔버린다 — 그래서 콘텐츠가
+               작은 슬라이드2(.hero-flow-panel, 아이콘 3개뿐)만 눈에 띄게 좁아졌다(실측: 372px
+               트랙인데 225px로 줄어듦 — 슬라이드1/3은 내부 콘텐츠 자체가 커서 우연히 안 티났을
+               뿐, 같은 버그였다). auto 여백을 빼서 1열에서도 트랙 폭 그대로 stretch하게 한다. */
+            .hero-chart, .hero-visual { max-width: 460px; margin-top: 24px; }
         }
+
+        /* 히어로 영역 — Slick으로 3장 슬라이드 전환. 슬라이드마다 텍스트(h1/p/버튼/스탯) +
+           우측 비주얼(영상/애니메이션/차트)을 한 쌍으로 묶어 하나의 슬라이드를 구성한다.
+           슬라이드마다 콘텐츠 높이가 달라 들쭉날쭉하면 전환할 때마다 아래 "AI 분석 브리핑"
+           영역이 들썩이므로, 가장 긴 슬라이드(1번) 기준 min-height를 고정해 셋 다 같은
+           높이를 쓰게 한다(adaptiveHeight: false). */
+        .hero-slick { overflow: hidden; }
+        .hero-slick .hero-text { min-height: 460px; min-width: 0; }
+        .hero-slick .hero-slide { min-height: 460px; }
+        .hero-slick .slick-dots { position: static; text-align: left; margin-top: 12px; }
+        .hero-slick .slick-dots li { width: 9px; height: 9px; margin: 0 4px 0 0; }
+        .hero-slick .slick-dots li button { width: 9px; height: 9px; padding: 0; }
+        .hero-slick .slick-dots li button:before {
+            content: ''; width: 9px; height: 9px; left: 0; top: 0; border-radius: 50%;
+            background: var(--color-white, #fff); opacity: 0.4;
+        }
+        .hero-slick .slick-dots li.slick-active button:before { opacity: 1; }
 
         /* 섹션 공통 */
         section { padding: 72px 0; }
         .section-title { text-align: center; margin-bottom: 48px; }
-        .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; color: #212529; }
-        .section-title p { font-size: 15px; color: #6c757d; margin: 0; }
+        .section-title h2 { font-size: 28px; font-weight: 800; margin: 0 0 12px; color: var(--text-primary, #212529); }
+        .section-title p { font-size: 15px; color: var(--text-muted, #6c757d); margin: 0; }
 
         /* 기능 카드 */
         .feature-grid {
@@ -149,7 +430,7 @@
             gap: 24px;
         }
         .feature-card {
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 12px;
             padding: 32px 28px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -157,12 +438,12 @@
         }
         .feature-card:hover { transform: translateY(-4px); }
         .feature-card .icon { font-size: 30px; margin-bottom: 16px; }
-        .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: #0d47a1; }
-        .feature-card p { font-size: 14px; line-height: 1.65; color: #6c757d; margin: 0; }
+        .feature-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 10px; color: var(--brand-primary, #0d47a1); }
+        .feature-card p { font-size: 14px; line-height: 1.65; color: var(--text-muted, #6c757d); margin: 0; }
 
         /* 진행 절차 */
         .flow {
-            background: #fff;
+            background: var(--color-white, #fff);
         }
         .flow-grid {
             display: grid;
@@ -178,33 +459,43 @@
             height: 36px;
             line-height: 36px;
             border-radius: 50%;
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             font-weight: 700;
             margin: 0 auto 14px;
             font-size: 14px;
         }
-        .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; color: #212529; }
-        .flow-step p { font-size: 13px; color: #6c757d; margin: 0; line-height: 1.6; }
+        .flow-step h4 { font-size: 15px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary, #212529); }
+        .flow-step p { font-size: 13px; color: var(--text-muted, #6c757d); margin: 0; line-height: 1.6; }
 
         /* 최신 뉴스 */
-        .news-list { display: flex; flex-direction: column; gap: 14px; }
+        .news-list { display: flex; flex-direction: column; gap: 8px; }
         .news-item {
-            display: block;
-            background: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--color-white, #fff);
             border-radius: 10px;
-            padding: 18px 22px;
+            padding: 12px 22px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             color: inherit;
+            overflow: hidden;
         }
-        .news-item .stock { font-size: 12px; font-weight: 700; color: #0d47a1; margin-bottom: 6px; display: block; }
-        .news-item .title { font-size: 15px; font-weight: 600; color: #212529; }
-        .news-empty { text-align: center; color: #adb5bd; font-size: 14px; padding: 32px 0; }
+        .news-item .stock { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--brand-primary, #0d47a1); white-space: nowrap; }
+        .news-item .title {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-size: 14px; font-weight: 600; color: var(--text-primary, #212529);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .news-item .date { flex: 0 0 auto; font-size: 12px; color: var(--text-disabled, #adb5bd); white-space: nowrap; }
+        .news-item .badge-nolink { flex: 0 0 auto; font-size: 11px; font-weight: 500; color: var(--text-disabled, #adb5bd); border: 1px solid var(--border-subtle, #dee2e6); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+        .news-empty { text-align: center; color: var(--text-disabled, #adb5bd); font-size: 14px; padding: 32px 0; }
 
         /* 뉴스레터 */
-        .newsletter { background: #fff; border-top: 1px solid #e9ecef; text-align: center; }
+        .newsletter { background: var(--color-white, #fff); border-top: 1px solid var(--border-light, #e9ecef); text-align: center; }
         .newsletter h2 { font-size: 22px; font-weight: 800; margin: 0 0 10px; }
-        .newsletter p { font-size: 14px; color: #6c757d; margin: 0 0 24px; }
+        .newsletter p { font-size: 14px; color: var(--text-muted, #6c757d); margin: 0 0 24px; }
         .newsletter-form {
             display: flex;
             gap: 10px;
@@ -215,31 +506,22 @@
             flex: 1;
             padding: 12px 16px;
             border-radius: 8px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             font-size: 14px;
         }
-        .newsletter-form input[type="email"]:focus { outline: none; border-color: #0d47a1; }
+        .newsletter-form input[type="email"]:focus { outline: none; border-color: var(--brand-primary, #0d47a1); }
         .newsletter-form .btn-primary { white-space: nowrap; }
         .newsletter-consent {
             margin: 0 auto 20px;
             font-size: 11.5px;
             line-height: 1.7;
-            color: #adb5bd;
+            color: var(--text-disabled, #adb5bd);
         }
         @media (max-width: 480px) {
             .newsletter-form { flex-direction: column; }
         }
 
-        /* 푸터 */
-        footer {
-            background: #10131a;
-            color: #adb5bd;
-            padding: 32px 0;
-            font-size: 13px;
-            text-align: center;
-        }
-        footer strong { color: #fff; }
-        .disclaimer { max-width: 640px; margin: 10px auto 0; line-height: 1.6; color: #6c757d; }
+        /* 푸터 스타일은 articles/_footer.html이 자체적으로 갖고 있음(.app-footer) */
 
         @media (max-width: 900px) {
             .feature-grid { grid-template-columns: 1fr; }
@@ -247,7 +529,9 @@
             .hero h1 { font-size: 30px; }
         }
 
-        /* 챗봇 위젯 */
+        /* 챗봇 위젯. 다른 어떤 레이어(헤더/쿠키 배너 등)보다도 항상 위에 뜨도록 z-index를
+           최대한 높게 잡는다 — 원형 버튼 안에 글자 없는 말풍선 도형을 그리고, 그 안에서
+           점 3개가 메신저 '입력 중' 표시처럼 순서대로 펄스한다. */
         .chatbot-toggle {
             position: fixed;
             right: 24px;
@@ -255,26 +539,51 @@
             width: 56px;
             height: 56px;
             border-radius: 50%;
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             border: none;
-            font-size: 24px;
             box-shadow: 0 6px 16px rgba(13,71,161,0.35);
             cursor: pointer;
-            z-index: 100;
+            z-index: 2147483000;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .chatbot-toggle:hover { background: #0b3c8a; }
-        .chatbot-toggle-dots {
-            display: inline-block;
-            min-width: 30px;
-            font-weight: 900;
-            font-size: 28px;
-            letter-spacing: 2px;
-            line-height: 1;
-            text-align: left;
+        .chatbot-toggle:hover { background: var(--brand-primary-hover, #0b3c8a); }
+        .chatbot-bubble-icon {
+            position: relative;
+            width: 30px;
+            height: 20px;
+            background: var(--color-white, #fff);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .chatbot-bubble-icon::after {
+            content: '';
+            position: absolute;
+            left: 9px;
+            bottom: -5px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid var(--color-white, #fff);
+        }
+        .chatbot-bubble-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--brand-primary, #0d47a1);
+            animation: chatbotBubbleDot 1.2s infinite ease-in-out;
+        }
+        .chatbot-bubble-dot:nth-child(2) { animation-delay: 0.2s; }
+        .chatbot-bubble-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes chatbotBubbleDot {
+            0%, 60%, 100% { transform: scale(1); opacity: 0.45; }
+            30% { transform: scale(1.4); opacity: 1; }
         }
 
         .chatbot-panel {
@@ -285,18 +594,18 @@
             max-width: calc(100vw - 32px);
             height: 460px;
             max-height: calc(100vh - 140px);
-            background: #fff;
+            background: var(--color-white, #fff);
             border-radius: 14px;
             box-shadow: 0 12px 32px rgba(0,0,0,0.18);
             display: none;
             flex-direction: column;
             overflow: hidden;
-            z-index: 100;
+            z-index: 2147483000;
         }
         .chatbot-panel.open { display: flex; }
         .chatbot-header {
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             padding: 14px 16px;
             font-size: 14px;
             font-weight: 700;
@@ -304,8 +613,8 @@
             justify-content: space-between;
             align-items: center;
         }
-        .chatbot-header small { display: block; font-weight: 400; font-size: 11px; color: #dce8fb; margin-top: 2px; }
-        .chatbot-close { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+        .chatbot-header small { display: block; font-weight: 400; font-size: 11px; color: var(--brand-hero-text, #dce8fb); margin-top: 2px; }
+        .chatbot-close { background: none; border: none; color: var(--color-white, #fff); font-size: 18px; cursor: pointer; line-height: 1; }
         .chatbot-messages {
             flex: 1;
             overflow-y: auto;
@@ -313,25 +622,25 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            background: #f4f6f9;
+            background: var(--bg-page, #f4f6f9);
         }
         .chatbot-msg { max-width: 85%; padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
-        .chatbot-msg.user { align-self: flex-end; background: #0d47a1; color: #fff; border-bottom-right-radius: 2px; }
-        .chatbot-msg.bot { align-self: flex-start; background: #fff; color: #212529; border: 1px solid #e9ecef; border-bottom-left-radius: 2px; }
-        .chatbot-msg.bot.pending { color: #adb5bd; }
-        .chatbot-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e9ecef; }
+        .chatbot-msg.user { align-self: flex-end; background: var(--brand-primary, #0d47a1); color: var(--color-white, #fff); border-bottom-right-radius: 2px; }
+        .chatbot-msg.bot { align-self: flex-start; background: var(--color-white, #fff); color: var(--text-primary, #212529); border: 1px solid var(--border-light, #e9ecef); border-bottom-left-radius: 2px; }
+        .chatbot-msg.bot.pending { color: var(--text-disabled, #adb5bd); }
+        .chatbot-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border-light, #e9ecef); }
         .chatbot-input-row input {
             flex: 1;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--border-input, #ced4da);
             border-radius: 8px;
             padding: 9px 12px;
             font-size: 13px;
             outline: none;
         }
-        .chatbot-input-row input:focus { border-color: #0d47a1; }
+        .chatbot-input-row input:focus { border-color: var(--brand-primary, #0d47a1); }
         .chatbot-input-row button {
-            background: #0d47a1;
-            color: #fff;
+            background: var(--brand-primary, #0d47a1);
+            color: var(--color-white, #fff);
             border: none;
             border-radius: 8px;
             padding: 0 16px;
@@ -339,7 +648,7 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .chatbot-input-row button:disabled { background: #adb5bd; cursor: not-allowed; }
+        .chatbot-input-row button:disabled { background: var(--text-disabled, #adb5bd); cursor: not-allowed; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -361,49 +670,253 @@
     <!-- 히어로 -->
     <div class="hero">
         <div class="container hero-grid">
-            <div class="hero-text">
-                <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
-                <p>
-                    LightGBM·RandomForest 앙상블 머신러닝 모델이 KOSPI200·KOSDAQ150 종목의 다음날 종가와
-                    상승 확률, 5일 예상 수익률을 예측하고, 실시간 경제 뉴스를 자동으로 분석해
-                    투자 판단에 필요한 인사이트를 함께 제공합니다.
-                </p>
-                <div class="hero-actions">
-                    <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
-                    <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+            <div class="hero-slick">
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>AI가 읽는 주식 시장,<br>한 화면에서 확인하세요.</h1>
+                        <p>
+                            LightGBM·RandomForest 앙상블 머신러닝 모델이 코스피·코스닥 전종목의 다음날 종가와
+                            상승 확률, 5일 예상 수익률, 매수·매도·관망 시그널을 예측해 투자 판단에
+                            필요한 인사이트를 제공합니다.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="/dashboard/" class="btn btn-primary">AI 예측 대시보드 보기</a>
+                            <a href="#features" class="btn btn-outline">서비스 살펴보기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>{{ active_stock_count }}</strong>
+                            <span>개 종목 AI 모니터링 중</span>
+                        </div>
+                    </div>
+                    <div class="hero-visual hero-ml-pipeline" aria-hidden="true">
+                        <div class="mlp-card mlp-layer1">
+                            <div class="mlp-card-title">10년치 주가 데이터</div>
+                            <svg class="mlp-candles" viewBox="0 0 100 34" preserveAspectRatio="none">
+                                <line x1="6" y1="4" x2="6" y2="18" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="3" y="8" width="6" height="7" fill="#ef4444"/>
+                                <line x1="18" y1="2" x2="18" y2="20" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="15" y="6" width="6" height="10" fill="#22c55e"/>
+                                <line x1="30" y1="6" x2="30" y2="24" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="27" y="10" width="6" height="9" fill="#22c55e"/>
+                                <line x1="42" y1="3" x2="42" y2="16" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="39" y="5" width="6" height="8" fill="#ef4444"/>
+                                <line x1="54" y1="7" x2="54" y2="26" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="51" y="12" width="6" height="10" fill="#22c55e"/>
+                                <line x1="66" y1="4" x2="66" y2="19" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="63" y="7" width="6" height="9" fill="#22c55e"/>
+                                <line x1="78" y1="8" x2="78" y2="28" stroke="#ef4444" stroke-width="1.6"/>
+                                <rect x="75" y="13" width="6" height="11" fill="#ef4444"/>
+                                <line x1="90" y1="5" x2="90" y2="21" stroke="#22c55e" stroke-width="1.6"/>
+                                <rect x="87" y="9" width="6" height="9" fill="#22c55e"/>
+                                <rect x="3" y="30" width="6" height="4" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="15" y="28" width="6" height="6" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="27" y="29" width="6" height="5" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="39" y="31" width="6" height="3" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="51" y="27" width="6" height="7" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="63" y="30" width="6" height="4" fill="rgba(34,197,94,0.5)"/>
+                                <rect x="75" y="28" width="6" height="6" fill="rgba(239,68,68,0.5)"/>
+                                <rect x="87" y="29" width="6" height="5" fill="rgba(34,197,94,0.5)"/>
+                            </svg>
+                            <div class="mlp-card-sub">KRX 일봉 · 2016.8–2026.8 · 약 2,500일</div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-1"></div>
+
+                        <div class="mlp-card mlp-layer2">
+                            <div class="mlp-card-title">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.7 6.3a4 4 0 1 0-5.4 5.4l-6 6a1.5 1.5 0 0 0 2 2l6-6a4 4 0 0 0 5.4-5.4l-2.1 2.1-2-2 2.1-2.1z"/>
+                                </svg>
+                                피처 엔지니어링
+                            </div>
+                            <div class="mlp-pills">
+                                <span class="mlp-pill">외국인 순매수</span>
+                                <span class="mlp-pill">외국인 순매도</span>
+                                <span class="mlp-pill">기관 순매수</span>
+                                <span class="mlp-pill">기관 순매도</span>
+                                <span class="mlp-pill">거래량</span>
+                                <span class="mlp-pill">MA(5/20)</span>
+                                <span class="mlp-pill">RSI</span>
+                                <span class="mlp-pill">MACD</span>
+                            </div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-split"></div>
+
+                        <div class="mlp-row">
+                            <div class="mlp-card mlp-card-half mlp-rf">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22v-7"/>
+                                    <path d="M12 15l-5-5"/>
+                                    <path d="M12 15l5-5"/>
+                                    <path d="M12 10V4"/>
+                                    <path d="M8 6l4-4 4 4"/>
+                                </svg>
+                                <div class="mlp-card-title-sm">Random Forest</div>
+                            </div>
+                            <div class="mlp-card mlp-card-half mlp-lgbm">
+                                <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M11 20A7 7 0 0 1 4 13c0-6 7-11 15-11 0 8-5 15-11 15z"/>
+                                    <path d="M4 20 12 12"/>
+                                </svg>
+                                <div class="mlp-card-title-sm">LightGBM</div>
+                            </div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-merge"></div>
+
+                        <div class="mlp-card mlp-layer4">
+                            <svg class="mlp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/>
+                            </svg>
+                            <div class="mlp-card-title-sm">앙상블 스태킹</div>
+                        </div>
+
+                        <div class="mlp-arrow mlp-arrow-4"></div>
+
+                        <div class="mlp-card mlp-layer5">
+                            <div class="mlp-card-title-sm">예측 주가</div>
+                            <svg class="mlp-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="mlpSparkGrad" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stop-color="#facc15"/>
+                                        <stop offset="100%" stop-color="#22c55e"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M2,20 L14,17 L26,18 L38,12 L50,14 L62,8 L74,9 L86,4 L98,3" fill="none" stroke="url(#mlpSparkGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <div class="mlp-accuracy">
+                                <div class="mlp-bar-row">
+                                    <span class="mlp-bar-label">기본 모델</span>
+                                    <div class="mlp-bar mlp-bar-base"><div class="mlp-bar-fill"></div></div>
+                                    <span class="mlp-bar-value">0.082</span>
+                                </div>
+                                <div class="mlp-bar-row">
+                                    <span class="mlp-bar-label">피처 추가</span>
+                                    <div class="mlp-bar"><div class="mlp-bar-fill mlp-bar-fill-improved"></div></div>
+                                    <span class="mlp-bar-value">0.041</span>
+                                </div>
+                                <div class="mlp-badge">↑ 정확도 50% 개선</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="hero-stat">
-                    <strong>{{ active_stock_count }}</strong>
-                    <span>개 종목 AI 모니터링 중</span>
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>실시간 경제 뉴스,<br>AI가 종목별로 정리해드립니다.</h1>
+                        <p>
+                            주요 경제지 피드를 실시간으로 수집해 관심 종목과 자동 매칭하고,
+                            개별 기사는 포스팅 시점에 AI 요약이 함께 제공됩니다. 등락률 상위
+                            특징종목은 하루 두 번(장중·마감후) AI가 통합 분석 리포트로 발행합니다.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="#ai-briefing" class="btn btn-outline">AI 분석 브리핑</a>
+                            <a href="/news/" class="btn btn-primary">실시간 뉴스보기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>하루 2회</strong>
+                            <span>AI 특징종목 브리핑 자동 발행</span>
+                        </div>
+                    </div>
+                    <div class="hero-visual hero-flow-panel">
+                        <div class="hero-chart-label">
+                            <span class="dot"></span>
+                            뉴스 자동화 파이프라인
+                        </div>
+                        <div class="hero-flow" aria-hidden="true">
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/>
+                                        <path d="M4 11a9 9 0 0 1 9 9"/>
+                                        <path d="M4 5a15 15 0 0 1 15 15"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">RSS 뉴스<br>수집</span>
+                            </div>
+                            <div class="hero-flow-arrow hero-flow-arrow-1"></div>
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/>
+                                        <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">AI 요약</span>
+                            </div>
+                            <div class="hero-flow-arrow hero-flow-arrow-2"></div>
+                            <div class="hero-flow-node">
+                                <div class="hero-flow-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="22" y1="2" x2="11" y2="13"/>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                    </svg>
+                                </div>
+                                <span class="hero-flow-label">블로그<br>자동배포</span>
+                            </div>
+                        </div>
+                        <div class="hero-chart-readout">
+                            <span class="hero-chart-value">5분</span>
+                            <span class="hero-chart-unit">마다 자동 수집 · 요약 · 발행</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="hero-chart">
-                <div class="hero-chart-label">
-                    <span class="dot"></span>
-                    AI 자산 증식 시뮬레이션
-                </div>
-                <canvas id="heroChart" width="520" height="360" aria-hidden="true"></canvas>
-                <div class="hero-chart-readout">
-                    <span class="hero-chart-value" id="heroChartValue">100.0</span>
-                    <span class="hero-chart-unit">자산 지수 (시작 100)</span>
+                <div class="hero-slide">
+                    <div class="hero-text">
+                        <h1>AI만으로 부족하다면,<br>전문가와 함께 점검하세요.</h1>
+                        <p>
+                            국민연금부터 부동산까지, 자산 전체를 전문가가 무료로 함께 점검해드립니다.
+                            AI 분석은 참고 자료일 뿐, 최종 판단은 사람이 직접 상담해드리는
+                            전문가 상담 서비스로 한 번 더 확인해보세요.
+                        </p>
+                        <div class="hero-actions">
+                            <a href="{% url 'expert_consult_apply' %}" class="btn btn-primary">전문가 상담 신청하기</a>
+                            <a href="/asset-management/" class="btn btn-outline">자산관리 시작하기</a>
+                        </div>
+                        <div class="hero-stat">
+                            <strong>무료 상담</strong>
+                            <span>자산 전체를 전문가와 함께</span>
+                        </div>
+                    </div>
+                    <div class="hero-chart">
+                        <div class="hero-chart-label">
+                            <span class="dot"></span>
+                            AI 자산 증식 시뮬레이션
+                        </div>
+                        <canvas id="heroChart" width="520" height="360" aria-hidden="true"></canvas>
+                        <div class="hero-chart-readout">
+                            <span class="hero-chart-value" id="heroChartValue">100.0</span>
+                            <span class="hero-chart-unit">자산 지수 (시작 100)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 최신 뉴스 -->
-    <section>
+    <section id="ai-briefing">
         <div class="container">
             <div class="section-title">
-                <h2>최신 AI 분석 브리핑</h2>
+                <h2>AI 분석 브리핑</h2>
                 <p>가장 최근에 수집·분석된 종목 뉴스입니다.</p>
             </div>
             <div class="news-list">
                 {% for article in latest_articles %}
+                {% if article.original_content %}
                 <a href="{% url 'news_detail' article.pk %}" class="news-item">
                     <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
-                    <span class="title">{{ article.title }}</span>
+                    <span class="title">{{ article.display_title }}</span>
+                    <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
                 </a>
+                {% else %}
+                <div class="news-item">
+                    <span class="stock">{% if article.stock %}{{ article.stock.name }}{% else %}종목 미매칭{% endif %} · {{ article.source_media }}</span>
+                    <span class="title">{{ article.display_title }}</span>
+                    <span class="badge-nolink">본문없음</span>
+                    <span class="date">{{ article.scraped_at|date:"m.d" }}</span>
+                </div>
+                {% endif %}
                 {% empty %}
                 <div class="news-empty">아직 수집된 분석 브리핑이 없습니다.</div>
                 {% endfor %}
@@ -415,7 +928,7 @@
     <section id="features">
         <div class="container">
             <div class="section-title">
-                <h2>NextFinUp이 제공하는 것</h2>
+                <h2>제공하는 서비스</h2>
                 <p>데이터 수집부터 예측, 뉴스 분석까지 전 과정을 자동화했습니다.</p>
             </div>
             <div class="feature-grid">
@@ -429,12 +942,13 @@
                     <div class="icon">📰</div>
                     <h3>실시간 뉴스 매칭</h3>
                     <p>한국경제·매일경제 등 주요 경제지 피드를 실시간 수집해 관심 종목과
-                        연관된 기사를 자동으로 골라 3줄 요약과 투자 관점 분석을 제공합니다.</p>
+                        자동으로 매칭해 쌓아둡니다. 등락률 상위 특징종목은 하루 두 번 AI가
+                        통합 분석 리포트를 작성해 발행하고, 개별 기사는 포스팅 시점에 AI 요약이 생성됩니다.</p>
                 </div>
                 <div class="feature-card">
                     <div class="icon">📊</div>
                     <h3>종목별 통합 브리핑</h3>
-                    <p>KOSPI200·KOSDAQ150 편입 종목을 중심으로 가격 데이터, AI 예측, 최신 뉴스를
+                    <p>코스피·코스닥 전종목의 가격 데이터, AI 예측, 최신 뉴스를
                         한 화면의 대시보드에서 한눈에 확인할 수 있습니다.</p>
                 </div>
             </div>
@@ -452,7 +966,7 @@
                 <div class="flow-step">
                     <div class="num">1</div>
                     <h4>종목 데이터 수집</h4>
-                    <p>KOSPI200·KOSDAQ150 편입 종목의 10년치 일봉 데이터를 수집합니다.</p>
+                    <p>코스피·코스닥 전종목의 일봉 데이터를 수집합니다(신규 종목 최초 1회는 10년치, 이후 매일 신규 거래일만).</p>
                 </div>
                 <div class="flow-step">
                     <div class="num">2</div>
@@ -490,28 +1004,25 @@
                 <input type="email" name="email" placeholder="이메일 주소" required>
                 <button type="submit" class="btn btn-primary">구독하기</button>
             </form>
+            <p style="margin-top: 12px;">
+                <a href="{% url 'newsletter_sample' %}" target="_blank" rel="noopener noreferrer" style="font-size: 13px; color: inherit; text-decoration: underline;">
+                    📩 실제 발송된 뉴스레터 샘플 보기
+                </a>
+            </p>
         </div>
     </section>
 
-    <footer>
-        <div class="container">
-            <div><strong>NextFinUp</strong> — AI 차세대 자산 분석 포털</div>
-            <p class="disclaimer">
-                본 서비스에서 제공되는 모든 예측 및 분석 정보는 머신러닝 알고리즘과 AI 에이전트가
-                자동으로 생성한 참고용 콘텐츠이며, 투자 손실에 대한 법적 책임을 지지 않습니다.
-                최종 투자 판단과 책임은 이용자 본인에게 있습니다.
-            </p>
-            <p style="margin-top: 14px;">
-                <a href="{% url 'privacy_policy' %}" style="color:#adb5bd;">개인정보처리방침</a>
-                <span style="color:#495057;"> · </span>
-                <a href="{% url 'terms_of_service' %}" style="color:#adb5bd;">이용약관</a>
-            </p>
-        </div>
-    </footer>
+    {% include "articles/_footer.html" %}
 
     <!-- 주식/경제 챗봇 위젯 -->
     {% csrf_token %}
-    <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기"><span class="chatbot-toggle-dots" id="chatbotToggleDots">.</span></button>
+    <button type="button" class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기">
+        <span class="chatbot-bubble-icon">
+            <span class="chatbot-bubble-dot"></span>
+            <span class="chatbot-bubble-dot"></span>
+            <span class="chatbot-bubble-dot"></span>
+        </span>
+    </button>
     <div class="chatbot-panel" id="chatbotPanel">
         <div class="chatbot-header">
             <div>
@@ -547,15 +1058,6 @@
                 if (panel.classList.contains('open')) input.focus();
             });
             closeBtn.addEventListener('click', () => panel.classList.remove('open'));
-
-            // 챗봇 아이콘에 '.' → '..' → '...' 점 애니메이션을 반복해 눈에 띄게 한다.
-            const toggleDots = document.getElementById('chatbotToggleDots');
-            const DOT_FRAMES = ['.', '..', '...'];
-            let dotFrame = 0;
-            setInterval(() => {
-                dotFrame = (dotFrame + 1) % DOT_FRAMES.length;
-                toggleDots.textContent = DOT_FRAMES[dotFrame];
-            }, 500);
 
             function appendMessage(text, role) {
                 const el = document.createElement('div');
@@ -613,6 +1115,20 @@
         })();
     </script>
 
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
+    <script>
+        $('.hero-slick').slick({
+            dots: true,
+            arrows: false,
+            autoplay: true,
+            autoplaySpeed: 6000,
+            infinite: true,
+            adaptiveHeight: false,
+            speed: 500,
+        });
+    </script>
+
     <script>
         (function () {
             const canvas = document.getElementById('heroChart');
@@ -620,6 +1136,17 @@
             const ctx = canvas.getContext('2d');
             const valueEl = document.getElementById('heroChartValue');
             const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            // 이 캔버스가 속한 슬라이드가 지금 slick의 활성(보이는) 슬라이드일 때만 그린다.
+            // 비활성 슬라이드는 slick이 화면 밖으로 밀어둘 뿐 DOM/레이아웃은 그대로 살아있는데,
+            // 애니메이션 루프가 멈추지 않고 계속 resizeCanvas()로 캔버스의 실제 내부 해상도
+            // (width/height 속성, height:auto라 표시 크기가 여기 따라간다)를 매 프레임 다시
+            // 재는 바람에, 비활성 상태에서 잰(원래) 크기로 되돌아가 다른 슬라이드를 침범하는
+            // 증상으로 관측됐다(실측 신고: "자기 차례일 땐 맞다가 다른 슬라이드로 넘어가면
+            // 원래 크기로 돌아가 옆 슬라이드에 영향을 줌"). 활성 상태에서만 리사이즈/드로우해,
+            // 비활성 동안은 마지막으로 맞춰둔 크기를 그대로 유지(freeze)한다.
+            const slide = canvas.closest('.hero-slide');
+            let isActive = !slide || slide.classList.contains('slick-active');
 
             // 자산 지수(시작=100)가 우상향하며 커가는 과정을 보여주기 위한 합성 데이터.
             // 실제 시세가 아니라 연출용 시뮬레이션이며, 매 페이지 로드마다 살짝 다른 곡선이 나오도록
@@ -650,6 +1177,7 @@
             }
 
             function draw(progressCount) {
+                if (!isActive) return;
                 const { w, h } = resizeCanvas();
                 ctx.clearRect(0, 0, w, h);
 
@@ -699,6 +1227,17 @@
                 ctx.fill();
 
                 if (valueEl) valueEl.textContent = visible[lastIdx].toFixed(1);
+            }
+
+            // slick이 슬라이드를 전환할 때마다 활성 여부를 다시 확인하고, 막 활성화된
+            // 순간에는 반드시 한 번 즉시 다시 그려 크기를 최신 상태로 맞춘다(비활성 동안
+            // freeze해뒀던 크기를 그대로 안 쓰고 그 자리에서 새로 잰다).
+            if (slide) {
+                $('.hero-slick').on('init afterChange', function () {
+                    const wasActive = isActive;
+                    isActive = slide.classList.contains('slick-active');
+                    if (isActive && !wasActive) draw(POINTS);
+                });
             }
 
             if (reduceMotion) {

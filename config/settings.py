@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # .env(또는 서버 환경변수)에 DEBUG를 명시하지 않으면 기본값은 False(운영 안전 기본값)로 동작합니다.
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189']
+ALLOWED_HOSTS = ['nextfinup.com', 'www.nextfinup.com', 'admin.nextfinup.com', 'localhost', '127.0.0.1', '168.110.100.189', '134.185.118.175', '10.0.0.2']
 
 # Application definition
 
@@ -44,12 +44,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sitemaps',
+    'django.contrib.humanize',
     'articles',
+    'literary',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'articles.middleware.KSTMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -73,6 +76,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'articles.context_processors.menu_items',
+                'articles.context_processors.theme_version',
             ],
         },
     },
@@ -157,6 +161,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic 결과물 (nginx가 이 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# 관리자 파일 업로드 도구(articles/views/admin_tools.py file_upload_view)가 쓰는 저장 경로 —
+# STATIC_ROOT/MEDIA_ROOT와 달리 nginx가 이 경로를 서빙하도록 설정돼 있지 않다(의도적).
+# FTP 없이 서버에 파일을 옮기는 용도라 공개 URL이 없어야 하므로, 반드시 스태프 전용
+# file_upload_download_view를 거쳐서만 내려받을 수 있게 별도 디렉터리로 둔다.
+ADMIN_UPLOAD_ROOT = BASE_DIR / 'admin_uploads'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -166,6 +176,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CSRF_TRUSTED_ORIGINS = [
     'https://nextfinup.com',
     'https://www.nextfinup.com',
+    'https://admin.nextfinup.com',
 ]
 
 # 관리 커맨드(cron)처럼 request 객체가 없는 곳에서 절대 URL(예: 뉴스레터 수신거부 링크)을 만들 때 사용
@@ -211,7 +222,20 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY_HERE')
 # https://apiportal.koreainvestment.com
 KIS_APP_KEY = os.environ.get('KIS_APP_KEY')
 KIS_APP_SECRET = os.environ.get('KIS_APP_SECRET')
+
+# BlogPostingAccount.credential(비밀번호/OAuth 리프레시 토큰) 암호화용 Fernet 키
+# (articles/fields.py의 EncryptedCharField 참고). 분실 시 기존 저장된 credential을 복호화할
+# 수 없게 되므로 안전하게 백업해둘 것.
+CREDENTIAL_ENCRYPTION_KEY = os.environ.get('CREDENTIAL_ENCRYPTION_KEY')
 KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"  # 실전투자 서버
+
+# 한국수출입은행(koreaexim.go.kr) OpenAPI - 환전 고시 환율(매매기준율). KIS API에는 은행 고시
+# 환율(하나은행 기준 등) 데이터가 없어 헤더 지수 티커의 "환전 고시 환율" 항목만 이 API를 쓴다.
+# https://www.koreaexim.go.kr/ir/HPHKIR019M01
+EXIM_AUTH_KEY = os.environ.get('EXIM_AUTH_KEY')
+
+# DART(전자공시시스템) Open API - 상장기업 공시 데이터. https://opendart.fss.or.kr
+DART_API_KEY = os.environ.get('DART_API_KEY')
 
 # Gmail SMTP (회원가입/마이페이지 이메일 인증 메일 발송용, articles/email_utils.py 참고)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -221,6 +245,42 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'NextFinUp <{EMAIL_HOST_USER}>'
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# deploy/run_job.sh(articles.management.commands.notify_failure)는 cron 파이프라인이 조용히
+# 실패했을 때(OOM kill 등) 여기로 이메일을 보낸다 — 이건 그대로 유지.
+ADMINS = [('NextFinUp Admin', 'banks@naver.com')]
+
+# DEBUG=False일 때 Django 기본 로깅 설정은 django 로거(500 에러, 잘못된 Host 헤더로 인한
+# DisallowedHost 등)를 ADMINS로 메일 발송한다(mail_admins 핸들러) — 그런데 봇이 임의의 Host
+# 헤더로 스캔할 때마다("Invalid HTTP_HOST header: 'testserver'" 같은) 관리자 메일함이 스팸으로
+# 도배되는 문제가 실제로 있어(2026-08-18), mail_admins를 DBErrorLogHandler로 바꿔 이메일 대신
+# SystemErrorLog 테이블에 쌓고 /admin/에서 조회하도록 했다. disable_existing_loggers=False로
+# 둬서 django.server(runserver 로그) 등 여기서 언급 안 한 다른 로거는 Django 기본값 그대로 둔다.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_true': {'()': 'django.utils.log.RequireDebugTrue'},
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+        },
+        'db_error': {
+            'level': 'ERROR',
+            'class': 'articles.logging_handlers.DBErrorLogHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'db_error'],
+            'level': 'INFO',
+        },
+    },
+}
 
 # 앞단 프록시(Cloudflare 등)가 X-Forwarded-Proto 헤더로 원 요청의 스킴을 전달해준다는 전제 하에,
 # request.build_absolute_uri() 등이 https로 올바르게 URL을 생성하도록 함

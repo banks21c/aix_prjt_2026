@@ -1,0 +1,548 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .result-preview img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border-light, #e9ecef); }
+    .result-meta { font-size: 13px; color: var(--text-muted, #6c757d); }
+    .result-meta code { font-size: 12px; }
+    .cost-summary { display: flex; gap: 24px; flex-wrap: wrap; }
+    .cost-summary .cost-figure { font-size: 22px; font-weight: 700; }
+    .cost-summary .cost-label { font-size: 12px; color: var(--text-muted, #6c757d); }
+    .history-table { font-size: 12.5px; }
+    .history-table td, .history-table th { vertical-align: middle; }
+    .history-table .prompt-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .history-table .prompt-cell:hover { color: #0d6efd; text-decoration: underline; }
+    /* Django admin 기본 CSS의 select 스타일(줄인 line-height/padding)이 Bootstrap
+       .form-select보다 우선 적용돼 글자가 위아래로 잘려 보이는 문제 — 이 페이지에서만 덮어쓴다. */
+    #content select.form-select {
+        height: auto;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        line-height: 1.5;
+    }
+    .spinner-border-sm { width: 1rem; height: 1rem; border-width: 0.15em; }
+    /* Django admin 기본 CSS의 `ul > li { list-style-type: square }`가 Bootstrap의
+       `.nav { list-style: none }`을 이겨서(ul에 걸린 상속값보다 li에 직접 걸린 규칙이 우선)
+       탭 버튼 옆에 검은 사각 점이 찍힌다 — 위 select 보정과 같은 취지로 여기서만 덮어쓴다. */
+    #content #gen-mode-tabs > li { list-style-type: none; padding: 0; }
+    .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+    .series-cell { border: 1px solid var(--border-light, #e9ecef); border-radius: 8px; overflow: hidden;
+                   position: relative; aspect-ratio: 9 / 16; background: #f8f9fa;
+                   display: flex; align-items: center; justify-content: center; }
+    .series-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .series-cell .cell-num { position: absolute; top: 4px; left: 6px; font-size: 11px; font-weight: 700;
+                             color: #fff; background: rgba(0,0,0,.55); border-radius: 4px; padding: 1px 5px; }
+    .series-cell.pending { color: var(--text-muted, #adb5bd); font-size: 12px; }
+    .series-cell.failed { border-color: #dc3545; color: #dc3545; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-4">
+    gpt-image(OpenAI) 또는 나노바나나(Gemini) 계열 모델로 프롬프트만 입력해 이미지를 생성합니다.
+    매 생성마다 실제 API 과금이 발생합니다. 생성된 파일은
+    <code>/media/generated_images/</code>에 저장됩니다.
+</p>
+
+<div class="card card-custom bg-white p-4 mb-4">
+    <div class="cost-summary">
+        <div>
+            <div class="cost-figure">${{ total_cost_usd|floatformat:4 }}</div>
+            <div class="cost-label">누적 예상 비용 (총 {{ total_count }}건)</div>
+        </div>
+        {% if total_cost_krw %}
+        <div>
+            <div class="cost-figure">₩{{ total_cost_krw|floatformat:0 }}</div>
+            <div class="cost-label">환산액 (최근 USD/KRW 고시환율 기준)</div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="cost-label mt-2">
+        비용은 API 응답의 실제 사용 토큰(usage)을 각 모델 공식 단가로 환산한 추정치이며, 실제
+        청구 금액과 반올림 수준의 차이가 있을 수 있습니다.
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-5">
+        <div class="card card-custom bg-white p-4 mb-4">
+            <ul class="nav nav-pills mb-3" id="gen-mode-tabs">
+                <li class="nav-item"><a href="#" class="nav-link" data-mode="single">단일 생성</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" data-mode="series">시리즈 생성</a></li>
+            </ul>
+
+            <form method="post" id="image-gen-form">
+                {% csrf_token %}
+                <div class="mb-3 mode-single">
+                    <label class="form-label fw-bold">프롬프트</label>
+                    <textarea name="prompt" class="form-control" rows="5"
+                              placeholder="예: flat editorial illustration of a rising stock market, navy/blue palette, no text">{{ form_values.prompt }}</textarea>
+                </div>
+                <div class="mb-3 mode-series d-none">
+                    <label class="form-label fw-bold">프롬프트 (여러 장)</label>
+                    <textarea name="series_prompts" class="form-control" rows="10" id="series-prompts"
+                              placeholder="#1 첫 장면 설명&#10;#2 두 번째 장면 설명&#10;#3 …">{{ series_prompts }}</textarea>
+                    <div class="form-text">
+                        각 장을 <code>#1</code>, <code>#2</code> … 로 시작하세요 (최대 {{ max_scenes }}장).
+                        앞 장으로 만든 <strong>이미지 자체</strong>를 다음 장에 레퍼런스로 넘겨,
+                        인물·의상·배경·조명이 장마다 흔들리지 않게 합니다.
+                        같은 프롬프트를 여러 번 돌리는 것과는 결과가 완전히 다릅니다.
+                    </div>
+                    <div class="form-text text-danger mt-1">
+                        비율·픽셀 지시(예: "9:16 vertical, 1080x1920")는 프롬프트에 쓰지 마세요.
+                        비율은 아래 해상도 콤보가 정합니다 — 프롬프트에 남기면 모델이 그 숫자를
+                        그림 안에 글자로 그려 넣을 수 있습니다.
+                    </div>
+                </div>
+                <div class="mb-3 mode-series d-none">
+                    <label class="form-label fw-bold">레퍼런스 방식</label>
+                    <select name="ref_mode" class="form-select" id="ref-mode-select">
+                        {% for value, label in ref_mode_labels %}
+                        <option value="{{ value }}" {% if value == default_ref_mode %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">모델</label>
+                    <select name="model" class="form-select" id="model-select">
+                        {% for value, label in model_options %}
+                        <option value="{{ value }}" {% if value == form_values.model %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">해상도</label>
+                    <select name="size" class="form-select" id="size-select">
+                        {% for opt in size_options %}
+                        <option value="{{ opt.value }}"
+                                data-nano-label="{{ opt.nano_label }}"
+                                data-gpt-label="{{ opt.gpt_label }}"
+                                data-preset-2k="{{ opt.is_preset_2k|yesno:'1,0' }}"
+                                {% if opt.value == form_values.size %}selected{% endif %}>{{ opt.nano_label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text nano-banana-only d-none">
+                        유튜브/쇼츠 항목은 비율과 생성 크기가 함께 정해져 있어, 고르면 아래 생성 크기가
+                        자동으로 맞춰집니다. 표기된 픽셀은 나노바나나가 실제로 내주는 크기입니다.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">품질</label>
+                    <select name="quality" class="form-select" id="quality-select">
+                        {% for q in qualities %}
+                        <option value="{{ q }}" {% if q == form_values.quality %}selected{% endif %}>{{ q }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text nano-banana-only d-none">
+                        품질 옵션은 gpt-image 계열에만 적용됩니다.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">생성 크기</label>
+                    <select name="image_size" class="form-select" id="image-size-select">
+                        {% for r in resolutions %}
+                        <option value="{{ r }}" {% if r == form_values.image_size %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text nano-banana-only d-none">
+                        1K는 긴 변 1024 안팎, 2K는 그 두 배 수준(16:9면 약 2304x1296)입니다.
+                        풀HD 썸네일이 필요하면 2K로 뽑아 줄이는 편이 확대보다 선명합니다 —
+                        대신 출력 토큰이 늘어 비용도 올라갑니다.
+                    </div>
+                    <div class="form-text gpt-image-only">
+                        생성 크기는 나노바나나 계열에만 적용됩니다 (gpt-image는 위 해상도로 지정).
+                    </div>
+                    <div class="form-text nano-banana-only d-none" id="image-size-locked-hint" hidden>
+                        위에서 고른 유튜브/쇼츠 항목이 생성 크기까지 정하고 있습니다.
+                    </div>
+                </div>
+                <div class="mode-single">
+                    <button type="submit" class="btn btn-primary px-4" id="image-gen-submit">이미지 생성</button>
+                    <span class="text-muted ms-2 d-none" id="image-gen-hint">보통 10~30초 정도 걸립니다.</span>
+                </div>
+                <div class="mode-series d-none">
+                    <button type="submit" class="btn btn-primary px-4" id="series-submit"
+                            formaction="{% url 'image_series_start' %}">시리즈 생성 시작</button>
+                    <div class="form-text mt-2" id="series-estimate"></div>
+                    <div class="form-text">
+                        백그라운드에서 한 장씩 순서대로 만듭니다. 이 화면을 닫아도 생성은 계속되고,
+                        완성된 장은 오른쪽에 바로 채워집니다.
+                    </div>
+                    <div class="form-text mode-series-gpt-warning text-danger d-none">
+                        시리즈 생성은 나노바나나(Gemini) 계열에서만 됩니다 — gpt-image 계열은
+                        레퍼런스 이미지를 입력으로 받는 경로가 없어 장끼리 인물을 맞출 수 없습니다.
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card card-custom bg-white p-4 mb-4 d-none" id="series-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">
+                    시리즈 생성
+                    <span class="text-muted fw-normal small ms-1" id="series-progress-text"></span>
+                </h6>
+                <span class="small" id="series-state-badge"></span>
+            </div>
+            <div class="progress mb-3" style="height: 6px;">
+                <div class="progress-bar" id="series-progress-bar" style="width: 0%"></div>
+            </div>
+            <div class="series-grid" id="series-grid"></div>
+            <div class="small text-danger mt-3 d-none" id="series-error"></div>
+            <div class="result-meta mt-3 d-none" id="series-done-meta"></div>
+        </div>
+
+        {% if result %}
+        <div class="card card-custom bg-white p-4 mb-4 result-preview">
+            <img src="{{ result.url }}" alt="생성된 이미지">
+            <div class="result-meta mt-3">
+                <div>모델: <code>{{ result.model }}</code> · 해상도: <code>{{ result.size }}</code>{% if result.source_size and result.source_size != result.size %} <span class="text-muted">(모델 원본 {{ result.source_size }})</span>{% endif %} · 품질: <code>{{ result.quality }}</code></div>
+                <div class="mt-1">
+                    비용:
+                    {% if result.cost_usd is not None %}
+                        <strong>${{ result.cost_usd|floatformat:4 }}</strong>
+                    {% else %}
+                        미상
+                    {% endif %}
+                    {% if result.output_tokens %}
+                    <span class="text-muted">
+                        (입력 {{ result.input_tokens }} / 출력 {{ result.output_tokens }} 토큰)
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="mt-1">URL: <a href="{{ result.url }}" target="_blank">{{ result.url }}</a></div>
+                <div class="mt-1">
+                    프롬프트: {{ result.prompt }}
+                    <a href="#" class="copy-prompt ms-1" data-prompt="{{ result.prompt }}" title="프롬프트 복사">📋</a>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <a href="{{ result.url }}" download class="btn btn-outline-primary btn-sm">⬇ PNG 다운로드</a>
+                    <a href="{% url 'generated_image_jpg' result.pk %}" class="btn btn-outline-secondary btn-sm">⬇ JPG로 받기</a>
+                </div>
+                <div class="form-text mt-1">
+                    유튜브 썸네일은 2MB까지만 올릴 수 있습니다. 2K PNG는 이를 넘기므로,
+                    해상도는 그대로 두고 용량만 줄인 JPG로 받으세요.
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card card-custom bg-white p-4 mb-4 text-muted">
+            아직 생성된 이미지가 없습니다. 왼쪽에서 프롬프트를 입력하고 생성해보세요.
+        </div>
+        {% endif %}
+
+        {% if recent_generations %}
+        <div class="card card-custom bg-white p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">최근 생성 내역</h6>
+                <a href="{% url 'generated_image_list' %}" class="small">전체 목록 보기 →</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm history-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>일시</th><th>모델</th><th>해상도</th><th>품질</th><th>비용</th>
+                            <th>프롬프트 <span class="text-muted fw-normal">(클릭 시 재사용)</span></th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in recent_generations %}
+                        <tr>
+                            <td>{{ g.created_at|date:"m-d H:i" }}</td>
+                            <td>{{ g.model_name }}</td>
+                            <td>{{ g.size }}{% if g.source_size and g.source_size != g.size %}<br><span class="text-muted small">원본 {{ g.source_size }}</span>{% endif %}</td>
+                            <td>{{ g.quality }}</td>
+                            <td class="text-nowrap"
+                                {% if g.output_tokens %}title="입력 {{ g.input_tokens }} / 출력 {{ g.output_tokens }} 토큰"{% endif %}>
+                                {% if g.cost_usd is not None %}${{ g.cost_usd|floatformat:4 }}{% else %}미상{% endif %}
+                                {% if g.output_tokens %}<br><span class="text-muted small">{{ g.output_tokens }}t</span>{% endif %}
+                            </td>
+                            <td class="prompt-cell" data-prompt="{{ g.prompt }}"
+                                title="클릭하면 위 프롬프트 칸에 넣습니다&#10;&#10;{{ g.prompt }}">{{ g.prompt }}</td>
+                            <td class="text-nowrap">
+                                <a href="{{ media_url }}{{ g.file_path }}" download title="PNG 원본">⬇PNG</a>
+                                <a href="{% url 'generated_image_jpg' g.pk %}" title="JPG로 변환해 받기">⬇JPG</a>
+                                <a href="#" class="copy-prompt" data-prompt="{{ g.prompt }}"
+                                   title="프롬프트 복사">📋</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{{ nano_banana_models|json_script:"nano-banana-models" }}
+{{ nano_banana_image_sizes|json_script:"nano-banana-image-sizes" }}
+{{ preset_image_sizes|json_script:"preset-image-sizes" }}
+{{ avg_cost_by_model|json_script:"avg-cost-by-model" }}
+<script>
+    // 나노바나나(Gemini) 계열은 품질 파라미터가 없고 해상도도 비율로만 지정되므로, 해당 모델을
+    // 고르면 품질 선택을 비활성화하고 안내 문구를 띄운다(비활성 select는 전송되지 않아 서버는
+    // 기본값 'auto'로 받고, 어차피 그 값을 무시한다).
+    var NANO_BANANA_MODELS = JSON.parse(document.getElementById('nano-banana-models').textContent);
+    // 생성 크기(1K/2K/4K)는 반대로 나노바나나 계열에만 있고, 그 안에서도 모델마다 받는 값이
+    // 다르다 — 모델별 지원 목록에 없는 옵션은 고르지 못하게 막고, 이미 고른 값이 막히면
+    // 그 모델이 지원하는 가장 큰 값으로 내려준다(서버도 같은 규칙으로 한 번 더 보정한다).
+    var NANO_BANANA_IMAGE_SIZES = JSON.parse(document.getElementById('nano-banana-image-sizes').textContent);
+    var modelSelect = document.getElementById('model-select');
+    var qualitySelect = document.getElementById('quality-select');
+    var imageSizeSelect = document.getElementById('image-size-select');
+    var sizeSelect = document.getElementById('size-select');
+    // 프리셋 키 -> 그 프리셋이 강제하는 생성 크기('1K'/'2K'). 프리셋이 아닌 항목은 값이 없다.
+    var PRESET_IMAGE_SIZES = JSON.parse(document.getElementById('preset-image-sizes').textContent);
+    var imageSizeLockedHint = document.getElementById('image-size-locked-hint');
+
+    function syncModelHints() {
+        var isNanoBanana = NANO_BANANA_MODELS.indexOf(modelSelect.value) !== -1;
+        qualitySelect.disabled = isNanoBanana;
+        imageSizeSelect.disabled = !isNanoBanana;
+        document.querySelectorAll('.nano-banana-only').forEach(function (el) {
+            el.classList.toggle('d-none', !isNanoBanana);
+        });
+        document.querySelectorAll('.gpt-image-only').forEach(function (el) {
+            el.classList.toggle('d-none', isNanoBanana);
+        });
+
+        var supported = NANO_BANANA_IMAGE_SIZES[modelSelect.value] || [];
+
+        // 해상도 항목의 이름과 노출은 고른 모델에 따라 달라진다:
+        //  - 이름: 나노바나나는 실제 픽셀 표기, gpt-image는 결과가 달라 자기 라벨을 쓴다.
+        //  - 'auto'는 gpt-image 전용(나노바나나에선 골라봐야 1:1과 같다).
+        //  - 2K 프리셋은 gpt-image에서, 또 2K를 못 내는 나노바나나 모델에서 감춘다.
+        Array.prototype.forEach.call(sizeSelect.options, function (opt) {
+            var presetSize = PRESET_IMAGE_SIZES[opt.value];
+            opt.textContent = isNanoBanana ? opt.dataset.nanoLabel : opt.dataset.gptLabel;
+            var hide = isNanoBanana
+                ? (opt.value === 'auto' || (presetSize && supported.indexOf(presetSize) === -1))
+                : opt.dataset.preset2k === '1';
+            opt.hidden = hide;
+            opt.disabled = hide;
+        });
+        // 고른 항목이 방금 감춰졌으면 대체 항목으로 옮긴다(2K 프리셋은 같은 비율의 1K로).
+        var selected = sizeSelect.options[sizeSelect.selectedIndex];
+        if (selected && selected.disabled) {
+            var fallback = selected.value.replace('_2k', '_1k');
+            sizeSelect.value = PRESET_IMAGE_SIZES[fallback] ? fallback : '1024x1024';
+        }
+
+        // 생성 크기: 프리셋이 정해주면 잠그고, 아니면 모델이 지원하는 값만 고르게 한다.
+        var lockedSize = PRESET_IMAGE_SIZES[sizeSelect.value];
+        Array.prototype.forEach.call(imageSizeSelect.options, function (opt) {
+            opt.disabled = isNanoBanana && supported.indexOf(opt.value) === -1;
+        });
+        if (isNanoBanana && lockedSize) {
+            imageSizeSelect.value = lockedSize;
+            imageSizeSelect.disabled = true;
+        } else if (isNanoBanana && supported.length && supported.indexOf(imageSizeSelect.value) === -1) {
+            imageSizeSelect.value = supported[supported.length - 1];
+        }
+        imageSizeLockedHint.hidden = !(isNanoBanana && lockedSize);
+    }
+    modelSelect.addEventListener('change', syncModelHints);
+    sizeSelect.addEventListener('change', syncModelHints);
+    syncModelHints();
+
+    // 지난 프롬프트 재사용: 표의 프롬프트를 누르면 입력칸에 그대로 넣고 거기로 스크롤한다
+    // (조금씩 고쳐가며 다시 뽑는 흐름이 많아서다). 📋는 클립보드로만 복사한다.
+    var promptInput = document.querySelector('textarea[name="prompt"]');
+
+    document.querySelectorAll('.prompt-cell').forEach(function (cell) {
+        cell.addEventListener('click', function () {
+            promptInput.value = cell.dataset.prompt;
+            promptInput.focus();
+            promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    });
+
+    document.querySelectorAll('.copy-prompt').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            navigator.clipboard.writeText(link.dataset.prompt).then(function () {
+                var original = link.textContent;
+                link.textContent = '✅';
+                setTimeout(function () { link.textContent = original; }, 1200);
+            });
+        });
+    });
+
+    // ===== 생성 모드 탭 (단일 / 시리즈) =====
+    // 두 모드가 모델·해상도·생성 크기 콤보를 그대로 공유하므로 폼은 하나로 두고, 제출 버튼의
+    // formaction으로 목적지만 갈라놓는다(시리즈는 image_series_start로 간다). textarea의
+    // required도 모드에 맞춰 옮겨야 한다 — 안 그러면 숨겨진 칸이 비어 제출이 막힌다.
+    var singlePrompt = document.querySelector('textarea[name="prompt"]');
+    var seriesPrompt = document.getElementById('series-prompts');
+    var seriesEstimate = document.getElementById('series-estimate');
+    var AVG_COST = JSON.parse(document.getElementById('avg-cost-by-model').textContent);
+    var currentMode = 'single';
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('#gen-mode-tabs .nav-link').forEach(function (a) {
+            a.classList.toggle('active', a.dataset.mode === mode);
+        });
+        document.querySelectorAll('.mode-single').forEach(function (el) {
+            el.classList.toggle('d-none', mode !== 'single');
+        });
+        document.querySelectorAll('.mode-series').forEach(function (el) {
+            el.classList.toggle('d-none', mode !== 'series');
+        });
+        singlePrompt.required = mode === 'single';
+        seriesPrompt.required = mode === 'series';
+        syncSeriesEstimate();
+    }
+
+    document.querySelectorAll('#gen-mode-tabs .nav-link').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            setMode(a.dataset.mode);
+        });
+    });
+
+    // 제출 전 "몇 장 × 장당 얼마" 를 보여준다. 장당 단가는 단가표 계산이 아니라 지금까지
+    // 실제로 나온 비용의 평균이다(같은 해상도에서도 출력 토큰이 달라 단가표만으로는 빗나감).
+    // 아직 그 조합으로 뽑은 기록이 없으면 금액 대신 "기록 없음"으로 솔직하게 표시한다.
+    function syncSeriesEstimate() {
+        if (currentMode !== 'series') { return; }
+        var isNanoBanana = NANO_BANANA_MODELS.indexOf(modelSelect.value) !== -1;
+        document.querySelectorAll('.mode-series-gpt-warning').forEach(function (el) {
+            el.classList.toggle('d-none', isNanoBanana);
+        });
+        document.getElementById('series-submit').disabled = !isNanoBanana;
+
+        var scenes = (seriesPrompt.value.match(/^\s*#\s*\d+/gm) || []).length;
+        if (!scenes) {
+            seriesEstimate.textContent = '아직 장 구분자(#1, #2 …)가 없습니다.';
+            return;
+        }
+        var perImage = (AVG_COST[modelSelect.value] || {})[imageSizeSelect.value];
+        if (perImage) {
+            seriesEstimate.innerHTML = '<strong>' + scenes + '장</strong> · 과거 평균 장당 $'
+                + perImage.toFixed(4) + ' → 예상 <strong>$'
+                + (perImage * scenes).toFixed(2) + '</strong> 내외';
+        } else {
+            seriesEstimate.innerHTML = '<strong>' + scenes + '장</strong> · 이 모델/생성 크기 조합은 '
+                + '과거 기록이 없어 비용을 추정할 수 없습니다.';
+        }
+    }
+    seriesPrompt.addEventListener('input', syncSeriesEstimate);
+    modelSelect.addEventListener('change', syncSeriesEstimate);
+    imageSizeSelect.addEventListener('change', syncSeriesEstimate);
+    sizeSelect.addEventListener('change', syncSeriesEstimate);
+
+    // ===== 진행률 폴링 =====
+    // 시리즈는 요청 안에서 끝낼 수 없어(5장 2K가 약 94초 — Cloudflare 무료 플랜의 100초
+    // 오리진 타임아웃에 걸린다) 백그라운드로 돌리고 여기서 상태만 받아 그린다.
+    var SERIES_KEY = '{{ active_series_key|escapejs }}';
+    var POLL_MS = 3000;
+
+    function renderSeries(data) {
+        var panel = document.getElementById('series-panel');
+        panel.classList.remove('d-none');
+
+        var total = data.total || 0;
+        var done = data.done || 0;
+        var failed = data.failed || [];
+        document.getElementById('series-progress-text').textContent =
+            total ? done + ' / ' + total + '장' : '준비 중…';
+        document.getElementById('series-progress-bar').style.width =
+            total ? Math.round((done + failed.length) / total * 100) + '%' : '0%';
+
+        var badge = document.getElementById('series-state-badge');
+        var labels = {
+            starting: '<span class="text-muted">시작 중…</span>',
+            running: '<span class="spinner-border spinner-border-sm me-1"></span>생성 중',
+            finished: '<span class="text-success fw-bold">완료</span>',
+            aborted: '<span class="text-danger fw-bold">중단됨</span>'
+        };
+        badge.innerHTML = labels[data.state] || '';
+
+        // 셀은 총 장 수만큼 미리 깔고, 완성된 장이 도착하는 대로 그 자리에 이미지를 넣는다.
+        var byIndex = {};
+        (data.images || []).forEach(function (img) { byIndex[img.index] = img; });
+        var grid = document.getElementById('series-grid');
+        var html = '';
+        for (var i = 1; i <= (total || (data.images || []).length); i++) {
+            var img = byIndex[i];
+            if (img) {
+                html += '<a class="series-cell" href="' + img.url + '" target="_blank" '
+                     + 'title="' + (img.source_size || '') + '">'
+                     + '<img src="' + img.url + '" alt="#' + i + '">'
+                     + '<span class="cell-num">#' + i + '</span></a>';
+            } else if (failed.indexOf(i) !== -1) {
+                html += '<div class="series-cell failed"><span class="cell-num">#' + i + '</span>실패</div>';
+            } else {
+                html += '<div class="series-cell pending"><span class="cell-num">#' + i + '</span>대기</div>';
+            }
+        }
+        grid.innerHTML = html;
+
+        var errBox = document.getElementById('series-error');
+        var msg = data.error || data.last_error;
+        if (msg) {
+            errBox.textContent = msg;
+            errBox.classList.remove('d-none');
+        } else {
+            errBox.classList.add('d-none');
+        }
+
+        var meta = document.getElementById('series-done-meta');
+        if (data.state === 'finished') {
+            var cost = data.total_cost != null ? ' · 합계 약 $' + data.total_cost.toFixed(4) : '';
+            meta.innerHTML = '완료: ' + done + '/' + total + '장' + cost
+                + ' · <a href="{% url "generated_image_list" %}">전체 목록에서 보기 →</a>';
+            meta.classList.remove('d-none');
+        } else if (data.state === 'aborted') {
+            meta.innerHTML = '생성 프로세스가 비정상 종료됐습니다. '
+                + '<code>logs/image_series_' + SERIES_KEY + '.log</code>를 확인하세요.';
+            meta.classList.remove('d-none');
+        }
+    }
+
+    function pollSeries() {
+        fetch('{% url "image_series_status" %}?key=' + encodeURIComponent(SERIES_KEY))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data) { return; }
+                renderSeries(data);
+                // 끝나지 않은 상태(starting/running)일 때만 다음 폴링을 예약한다.
+                if (data.state === 'starting' || data.state === 'running') {
+                    setTimeout(pollSeries, POLL_MS);
+                }
+            })
+            .catch(function () { setTimeout(pollSeries, POLL_MS); });
+    }
+
+    if (SERIES_KEY) {
+        setMode('series');
+        pollSeries();
+    } else {
+        setMode('single');
+    }
+
+    document.getElementById('image-gen-form').addEventListener('submit', function (e) {
+        // 시리즈는 즉시 리다이렉트되고(백그라운드 실행) 진행률은 폴링이 그리므로,
+        // 단일 생성용 스피너/버튼 잠금을 걸지 않는다.
+        var btn = document.getElementById(currentMode === 'series' ? 'series-submit' : 'image-gen-submit');
+        if (btn.disabled) {
+            e.preventDefault();
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+            + (currentMode === 'series' ? '시작 중...' : '생성 중...');
+        if (currentMode === 'single') {
+            document.getElementById('image-gen-hint').classList.remove('d-none');
+        }
+    });
+</script>
+{% endblock %}

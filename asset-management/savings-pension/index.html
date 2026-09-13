@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>연금저축 — 매달 찍히는 13월의 월급</title>
-<link rel="stylesheet" href="/asset-management/common.css">
+<link rel="stylesheet" href="/asset-management/common.css?v=202608072146">
 <style>
   /* NextFinUp 경제 동향(news_board.html)과 같은 배경/글자/폰트 팔레트로 통일. */
   :root{
@@ -273,6 +273,20 @@
 <link rel="stylesheet" href="/static/articles/vendor/fontawesome/css/solid.min.css">
 </head>
 <body>
+  <div id="tickerBannerRoot"></div>
+  <script>
+    fetch('/partials/ticker/').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function (html) {
+        var root = document.getElementById('tickerBannerRoot');
+        root.innerHTML = html;
+        root.querySelectorAll('script').forEach(function (oldScript) {
+          var s = document.createElement('script');
+          s.textContent = oldScript.textContent;
+          oldScript.replaceWith(s);
+        });
+      })
+      .catch(function () {});
+  </script>
   <nav class="app-navbar">
     <div class="container">
       <a class="navbar-brand" href="/">📈 NextFinUp <span style="font-size:14px;font-weight:400;color:#6c757d;">AI종합자산관리 허브</span></a>
@@ -287,13 +301,21 @@
         wrapper.innerHTML = html;
         var realMenu = wrapper.querySelector('#appNavMenu');
         var menuTarget = document.getElementById('appNavMenu');
-        if (realMenu && menuTarget) { menuTarget.innerHTML = realMenu.innerHTML; }
+       
+        if (realMenu && menuTarget) {
+          menuTarget.innerHTML = realMenu.innerHTML;
+          var path = window.location.pathname;
+          menuTarget.querySelectorAll('.nav-tab').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href !== '#' && path.indexOf(href) === 0) { a.classList.add('active'); }
+          });
+        }
       })
       .catch(function () {});
   </script>
 <div class="am-tabs">
   <div class="am-tabs-inner">
-    <a href="/asset-management/" class="am-tab">자산관리</a>
+    <a href="/asset-management/" class="am-tab">종합</a>
     <a href="/asset-management/national-pension/" class="am-tab">국민연금</a>
     <a href="/asset-management/savings-pension/" class="am-tab is-active">연금저축</a>
     <a href="/asset-management/irp/" class="am-tab">IRP</a>
@@ -483,7 +505,7 @@
       <h3>혼자 판단하기 어렵다면, 전문가에게 물어보세요</h3>
       <p>가입한 보험 목록만 알려주셔도 중복·공백을 함께 점검해드려요.</p>
     </div>
-    <a class="btn" href="/asset-management/#consult">💬 전문가 무료 상담 신청</a>
+    <a class="btn" href="/experts/apply/">💬 전문가 무료 상담 신청</a>
   </div>
 </section>
 
@@ -492,7 +514,7 @@
     <div class="footer-brand">연금저축 안내</div>
     <p style="opacity:.85; max-width:560px; font-size:.92rem;">이 페이지는 연금저축 제도를 쉽게 이해할 수 있도록 만든 정보성 페이지예요. 특정 금융회사나 상품을 권유하지 않아요.</p>
     <div class="disclaimer">
-      본 페이지의 세액공제 한도, 공제율, 수령 조건 등은 2026년 기준 일반적인 내용을 정리한 것으로, 세법 개정이나 개인의 소득·가입 이력에 따라 실제 적용 내용이 달라질 수 있어요. 정확한 공제 금액과 가입 상담은 국세청, 금융회사 창구 또는 세무사를 통해 확인하는 걸 권장해요. 이 페이지는 투자 자문이나 세무 자문을 대신하지 않아요.
+      본 페이지의 세액공제 한도, 공제율, 수령 조건 등은 2026년 기준 일반적인 내용을 정리한 것으로, 세법 개정이나 개인의 소득·가입 이력에 따라 실제 적용 내용이 달라질 수 있어요. 정확한 공제 금액과 가입 상담은 국세청, 금융회사 창구 또는 세무사를 통해 확인하는 걸 권장해요. 이 페이지는 투자 자문이나 세무 자문을 완전히 대신하지 않으며, 연금저축 가입에 대한 구체적인 상담은 NextFinUp 전문가 상담을 통해 받아보실 수 있습니다.
     </div>
   </div>
 </footer>

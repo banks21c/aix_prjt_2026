@@ -1,0 +1,120 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{% include "articles/_favicon.html" %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .meta-table th { width: 150px; font-weight: 600; color: var(--text-muted, #6c757d); font-size: 13px; }
+    .meta-table td { font-size: 13px; word-break: break-all; }
+    /* 네이버 본문을 그대로 렌더링하는 영역. 원본 HTML이 자기 폭/여백을 들고 오므로
+       넘치는 것만 잡아주고 나머지는 건드리지 않는다(이관 후 대상 블로그에서 보일 모습
+       그대로를 확인하는 게 목적이라, 여기서 예쁘게 손보면 오히려 확인이 안 된다). */
+    .naver-body { max-width: 100%; overflow-x: auto; line-height: 1.7; }
+    .naver-body img { max-width: 100%; height: auto; }
+    .naver-body table { max-width: 100%; }
+    .html-source { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 12px 14px; max-height: 400px;
+                   overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+                   white-space: pre-wrap; word-break: break-all; }
+    a.btn-primary, a.btn-primary:link, a.btn-primary:visited,
+    a.btn-primary:hover, a.btn-primary:focus { color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <a href="{% url 'naver_migration_list' %}?blog_id={{ post.blog_id|urlencode }}" class="btn btn-outline-secondary btn-sm">← 목록</a>
+    <div class="d-flex gap-2">
+        {% if prev_id %}<a href="{% url 'naver_migration_detail' prev_id %}" class="btn btn-outline-secondary btn-sm">← 이전 글</a>{% endif %}
+        {% if next_id %}<a href="{% url 'naver_migration_detail' next_id %}" class="btn btn-outline-secondary btn-sm">다음 글 →</a>{% endif %}
+        <a href="{{ post.source_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">네이버 원문 열기</a>
+    </div>
+</div>
+
+<div class="card card-custom bg-white p-4 mb-3">
+    <h4 class="mb-1">{{ post.title|default:"(제목 없음)" }}</h4>
+    <div class="small text-muted mb-3">
+        {{ post.blog_id }} · {{ post.posted_at|date:"Y-m-d H:i"|default:"작성일 미상" }}
+        {% if post.category_name %} · {{ post.category_name }}{% endif %}
+        {% if post.status == 'SCRAPED' %}<span class="badge bg-success ms-2">본문 수집</span>
+        {% elif post.status == 'FAILED' %}<span class="badge bg-danger ms-2">수집 실패</span>
+        {% else %}<span class="badge bg-secondary ms-2">목록만</span>{% endif %}
+    </div>
+    <table class="table table-sm meta-table mb-0">
+        <tr><th>네이버 글 번호</th><td>{{ post.log_no }}</td></tr>
+        <tr><th>원문 URL</th><td><a href="{{ post.source_url }}" target="_blank" rel="noopener">{{ post.source_url }}</a></td></tr>
+        <tr><th>소유 회원</th><td>{{ post.owner.username|default:"-" }}{% if post.owner.email %} ({{ post.owner.email }}){% endif %}</td></tr>
+        <tr><th>본문 이미지</th><td>{{ post.image_count }}장 (재호스팅 {{ image_items|length }}장)</td></tr>
+        <tr><th>본문 수집 일시</th><td>{{ post.scraped_at|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+        {% if post.error_message %}<tr><th class="text-danger">마지막 오류</th><td class="text-danger">{{ post.error_message }}</td></tr>{% endif %}
+    </table>
+</div>
+
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="fw-semibold mb-2">이관 발행 기록</div>
+    {% if migrations %}
+    <table class="table table-sm mb-0">
+        <thead class="table-light">
+            <tr><th>대상 블로그</th><th style="width:110px;">결과</th><th style="width:150px;">발행 일시</th><th>발행 URL / 사유</th></tr>
+        </thead>
+        <tbody>
+            {% for m in migrations %}
+            <tr>
+                <td class="small">{{ m.blog_account }}</td>
+                <td>{% if m.status == 'SUCCESS' %}<span class="badge bg-success">성공</span>{% else %}<span class="badge bg-danger">실패</span>{% endif %}</td>
+                <td class="small">{{ m.published_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                <td class="small">
+                    {% if m.target_url %}<a href="{{ m.target_url }}" target="_blank" rel="noopener">{{ m.target_url }}</a>{% endif %}
+                    {% if m.error_message %}<span class="text-danger">{{ m.error_message }}</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-muted small">아직 어느 블로그에도 발행되지 않았습니다.</div>
+    {% endif %}
+</div>
+
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="fw-semibold mb-3">본문 미리보기 (이관용 — 이미지 재호스팅 반영)</div>
+    {% if post.content_html %}
+    <div class="naver-body">{{ post.content_html|safe }}</div>
+    {% else %}
+    <div class="text-muted small">본문이 아직 수집되지 않았습니다. <code>collect_naver_blog_posts {{ post.blog_id }}</code>를 실행하세요.</div>
+    {% endif %}
+</div>
+
+{% if image_items %}
+<div class="card card-custom bg-white p-4 mb-3">
+    <div class="fw-semibold mb-2">재호스팅한 이미지 {{ image_items|length }}장</div>
+    <table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th style="width:110px;">미리보기</th><th>네이버 원본 URL</th><th style="width:38%;">서버 저장 경로</th></tr></thead>
+        <tbody>
+            {% for src, rel_path in image_items %}
+            <tr>
+                <td><img src="{{ media_url }}{{ rel_path }}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;" alt="" loading="lazy"></td>
+                <td class="small" style="word-break:break-all;">{{ src }}</td>
+                <td class="small" style="word-break:break-all;">{{ media_url }}{{ rel_path }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if post.content_html %}
+<div class="card card-custom bg-white p-4">
+    <details>
+        <summary class="fw-semibold">본문 HTML 원문 보기</summary>
+        <div class="mt-3 small text-muted mb-1">이관용(이미지 치환 완료)</div>
+        <div class="html-source">{{ post.content_html }}</div>
+        {% if post.original_content_html %}
+        <div class="mt-3 small text-muted mb-1">네이버 원본(치환 전)</div>
+        <div class="html-source">{{ post.original_content_html }}</div>
+        {% endif %}
+    </details>
+</div>
+{% endif %}
+{% endblock %}
