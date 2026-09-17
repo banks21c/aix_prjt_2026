@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models import Max
 
 from .models import (
-    AnalyzedArticle, MarketIndex, NewsKeyword, RankedMover, StockDailyPrice, StockItem,
+    AnalyzedArticle, ChatbotSetting, MarketIndex, NewsKeyword, RankedMover, StockDailyPrice, StockItem,
     StockPrediction, StockRealtimePrice,
 )
 
@@ -215,7 +215,8 @@ def _sanitize_history(history):
     return cleaned
 
 
-def ask(question, history=None):
+def ask(question, history=None, setting=None):
+    """setting은 ChatbotSetting — 뷰가 한도 검사에 쓴 걸 넘기면 다시 읽지 않는다."""
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
         return SIMULATION_ANSWER
 
@@ -227,12 +228,13 @@ def ask(question, history=None):
     try:
         from openai import OpenAI
 
+        setting = setting or ChatbotSetting.load()
         client = OpenAI(api_key=settings.OPENAI_API_KEY)
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=setting.model_name,
             messages=messages,
-            max_tokens=500,
-            temperature=0.3,
+            max_tokens=setting.max_tokens,
+            temperature=setting.temperature,
         )
         return response.choices[0].message.content.strip()
     except Exception:

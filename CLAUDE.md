@@ -185,7 +185,10 @@ venv/bin/pip freeze > requirements.txt   # after installing/upgrading a package,
     `post_articles_view` (manual publish).
   - **`stocks.py`**: `stock_detail_view` + `stock_minute_chart_view`/
     `market_index_minute_chart_view` on-demand chart APIs.
-  - **`chatbot.py`**: `chatbot_ask_view`.
+  - **`chatbot.py`**: `chatbot_ask_view` — enforces `ChatbotSetting.daily_chat_limit` (per account when
+    logged in, per session *and* per IP when anonymous; 0 or staff = unlimited) and returns 429 when hit.
+    `ChatbotSetting` is a pk=1 singleton edited in admin; `chatbot_client.ask` reads its
+    `model_name`/`max_tokens`/`temperature` instead of hardcoded values.
   - **`auth.py`**: signup/login/logout/delete-account/email-verify plus `kakao_*`/`google_*`/
     `naver_*` login+callback pairs, and the shared `_log_login`/`_get_or_create_social_user`
     helpers.
