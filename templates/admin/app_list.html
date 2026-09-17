@@ -5,13 +5,16 @@ articles/admin.py의 _get_categorized_app_list가 만드는 카테고리(시세�
 {{ app.app_url }}로 <a href>를 만들면 "None"이 그대로 href가 되어 깨진 링크(.../None)가 된다.
 여기서는 app.app_url이 있을 때만 링크로 감싸고, 없으면 텍스트만 보여준다(모델 행에서
 model.admin_url 있을 때만 링크 감싸는 것과 동일한 패턴).
+
+<caption>의 caption-side: top은 Bootstrap 5를 불러오는 admin-tools 화면(작가·작품 후보 선택, 크론 작업 현황 등)
+때문이다 — Bootstrap reboot의 caption { caption-side: bottom }이 카테고리 이름을 하위 메뉴 아래로 내려보낸다.
 {% endcomment %}
 
 {% if app_list %}
   {% for app in app_list %}
     <div class="app-{{ app.app_label }} module{% if app.app_url and app.app_url in request.path|urlencode %} current-app{% endif %}">
       <table>
-        <caption>
+        <caption style="caption-side: top;">
           {% if app.app_url %}
             <a href="{{ app.app_url }}" class="section" title="{% blocktranslate with name=app.name %}Models in the {{ name }} application{% endblocktranslate %}">{{ app.name }}</a>
           {% else %}
