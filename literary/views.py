@@ -73,12 +73,18 @@ def build_picker_context(request):
         works = works.filter(is_domestic=(filter_origin == 'domestic'))
         # 작가 콤보도 국내/국외에 맞는 작가만 남긴다.
         authors = list(Author.objects.filter(works__in=works).distinct().values_list('name', flat=True))
-        if filter_author not in authors:  # 국외 작가를 고른 채 '국내'로 바꾸면 작가·작품 조건은 푼다
+        # 국외 작가를 고른 채 '국내'로 바꾸면 작가·작품 조건은 푼다(입력한 글자가 남은 작가 누구에게도 없을 때)
+        if filter_author and not any(filter_author in a for a in authors):
             filter_author = filter_work = ''
-    if filter_author:
+    # 작가 칸은 콤보에서 고르거나 직접 입력한다 — 이름이 정확히 같으면 그 작가, 아니면 입력한 글자가 들어간 작가 전부.
+    # 작품 조건은 작가를 정확히 골랐을 때만 쓴다(작품 콤보가 그 작가의 작품으로 채워진다).
+    if filter_author in authors:
         works = works.filter(author__name=filter_author)
-    if filter_work:
-        works = works.filter(title=filter_work)
+        if filter_work:
+            works = works.filter(title=filter_work)
+    elif filter_author:
+        works = works.filter(author__name__icontains=filter_author)
+        filter_work = ''
     if filter_produced:
         works = works.filter(is_produced=(filter_produced == 'true'))
     if filter_kind:
