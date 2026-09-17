@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -309,6 +310,8 @@ class ChatMessage(models.Model):
         related_name="chat_messages", verbose_name="로그인 사용자(비로그인 시 null)"
     )
     session_key = models.CharField(max_length=40, verbose_name="세션 키(비로그인 사용자 구분용)")
+    # 비로그인 사용자는 쿠키(세션)를 지우면 새 세션이 되므로, 일일 한도는 IP로도 함께 센다.
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="접속 IP(일일 한도 IP 기준 집계용)")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, verbose_name="발화자")
     content = models.TextField(verbose_name="메시지 내용")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="전송 시각")
@@ -318,12 +321,55 @@ class ChatMessage(models.Model):
         indexes = [
             models.Index(fields=['session_key', 'created_at']),
             models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['ip_address', 'created_at'], name='articles_chatmsg_ip_idx'),
         ]
         verbose_name = "챗봇 대화 (ChatMessage)"
         verbose_name_plural = "챗봇 대화 (ChatMessage)"
 
     def __str__(self):
         return f"[{self.get_role_display()}] {self.content[:30]}"
+
+
+# ==========================================
+# 7-1. 챗봇 설정 (한 행만 쓰는 싱글톤)
+# ==========================================
+class ChatbotSetting(models.Model):
+    """챗봇의 일일 질문 한도와 OpenAI 호출 파라미터. 코드에 박혀 있던 값을 관리자 화면에서
+    바꿀 수 있게 DB로 옮긴 것 — 항상 pk=1 한 행만 쓰고, 없으면 load()가 기본값으로 만든다."""
+    daily_chat_limit = models.PositiveIntegerField(
+        default=100, verbose_name="일일 질문 가능 건수(로그인/세션/IP 공통 한도)",
+        help_text="로그인 회원은 계정별, 비로그인은 세션별·IP별로 오늘(한국 시간) 질문 수를 센다. "
+                  "0이면 무제한. 스태프 계정은 한도 없음.",
+    )
+    model_name = models.CharField(
+        max_length=50, default='gpt-4o-mini', verbose_name="OpenAI 모델명",
+        help_text="예: gpt-4o-mini, gpt-4o. OpenAI가 모델을 추가/폐기해도 여기 값만 바꾸면 됨.",
+    )
+    max_tokens = models.PositiveIntegerField(
+        default=500, validators=[MinValueValidator(50), MaxValueValidator(4000)],
+        verbose_name="답변 최대 토큰 수", help_text="너무 크게 잡으면 답변 1건당 비용/응답시간이 늘어남.",
+    )
+    temperature = models.FloatField(
+        default=0.3, validators=[MinValueValidator(0.0), MaxValueValidator(2.0)],
+        verbose_name="temperature(창의성, 0~2)", help_text="낮을수록 사실 기반으로 딱딱하게, 높을수록 다양하고 자유롭게 답변.",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정 일시")
+
+    class Meta:
+        verbose_name = "챗봇 설정"
+        verbose_name_plural = "챗봇 설정"
+
+    def __str__(self):
+        return "챗봇 설정"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
 
 
 # ==========================================

@@ -1,0 +1,32 @@
+<style>
+    .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    table.picker td, table.picker th { vertical-align: middle; padding: 8px 12px; }
+    table.picker thead th { position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: inset 0 -1px 0 #dee2e6; }
+    table.picker tbody tr.selected { background: #eaf6f0; }
+    table.picker tbody tr.selected td { font-weight: 600; color: #14705f; }
+    table.picker td.kind, table.picker td.nationality { color: #495057; white-space: nowrap; font-size: 12.5px; }
+    table.picker td.date { color: #6c757d; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12.5px; }
+    .selected-badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #14705f; color: #fff; white-space: nowrap; }
+    /* 행마다 배지와 선택 버튼을 둘 다 두고 tr.selected로 하나만 보이게 한다 — 선택을 바꾸면 이전 행이 버튼으로 돌아온다. */
+    /* !important: 선택 폼의 Bootstrap d-inline(display:inline !important)보다 우선해야 한다. */
+    table.picker tbody tr:not(.selected) .selected-badge,
+    table.picker tbody tr.selected .pick-form { display: none !important; }
+    table.picker th { white-space: nowrap; }
+    /* 제작 우선순위 — 1순위가 가장 진하고 5순위로 갈수록 옅어진다. */
+    table.picker td.priority { white-space: nowrap; color: #adb5bd; font-size: 12.5px; }
+    .priority-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+                      white-space: nowrap; font-weight: 600; }
+    .priority-badge.p1 { background: #b3261e; color: #fff; }
+    .priority-badge.p2 { background: #e8643c; color: #fff; }
+    .priority-badge.p3 { background: #f3c26b; color: #6b4b00; }
+    .priority-badge.p4 { background: #e4e7ea; color: #495057; }
+    .priority-badge.p5 { background: #f1f3f5; color: #868e96; }
+    .status-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; white-space: nowrap; }
+    .status-badge.produced { background: #f3e6c9; color: #8a5a00; }
+    .status-badge.unproduced { background: #e9ecef; color: #495057; }
+    .picker-scroll { overflow-x: auto; }
+    table.picker tr.work-row { cursor: pointer; }
+    table.picker a.work-link { color: inherit; text-decoration: none; }
+    table.picker a.work-link:hover { text-decoration: underline; }
+    .pagination, .pagination li { list-style: none; }
+</style>

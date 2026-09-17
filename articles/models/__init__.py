@@ -9,7 +9,7 @@ from .market import (
 )
 from .members import (
     UserSubscription, SubscriptionOrder, MemberGrade, UserPreference, BlogPostingAccount, LoginLog,
-    MenuAccessLog, SystemErrorLog, ChatMessage, SocialAccount, Watchlist,
+    MenuAccessLog, SystemErrorLog, ChatMessage, ChatbotSetting, SocialAccount, Watchlist,
 )
 from .news import NewsSource, NewsKeyword, AnalyzedArticle, PostedArticle, MediaOutlet
 from .content import (
@@ -23,7 +23,7 @@ __all__ = [
     'MarketIndex', 'StockDailyPrice', 'StockPrediction', 'GlobalMarketQuote', 'ExchangeRateSnapshot',
     'StockInvestorFlow', 'StockDisclosure', 'PredictionAccuracySnapshot',
     'UserSubscription', 'SubscriptionOrder', 'MemberGrade', 'UserPreference', 'BlogPostingAccount',
-    'LoginLog', 'MenuAccessLog', 'SystemErrorLog', 'ChatMessage', 'SocialAccount', 'Watchlist',
+    'LoginLog', 'MenuAccessLog', 'SystemErrorLog', 'ChatMessage', 'ChatbotSetting', 'SocialAccount', 'Watchlist',
     'NewsSource', 'NewsKeyword', 'AnalyzedArticle', 'PostedArticle', 'MediaOutlet',
     'NewsletterSubscriber', 'NewsletterIssue', 'Menu', 'ConsultRequest',
     'FinancialConsultSheet', 'Faq', 'ThemeColor', 'GeneratedImage', 'AdminUpload',
