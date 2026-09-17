@@ -2,6 +2,7 @@
 # 종목상세), 등급별 일일 한도 계산(utils.scraping_stats/blog_posting.posting_stats), 핵심 모델 제약.
 # 아직 커버하지 않음(외부 서비스 의존이라 별도 mocking 전략이 필요): yfinance/FinanceDataReader/KIS를
 # 부르는 관리 커맨드, 카카오/구글/네이버/블로거 OAuth 뷰, run_stock_prediction(모델 학습).
+import io
 import json
 from datetime import timedelta
 from types import SimpleNamespace
@@ -514,3 +515,46 @@ class ChatbotClientSettingTests(TestCase):
         ChatbotSetting(daily_chat_limit=7).save()
         self.assertEqual(ChatbotSetting.objects.count(), 1)
         self.assertEqual(ChatbotSetting.load().daily_chat_limit, 7)
+
+
+class WordPressFeaturedMediaTests(TestCase):
+    """대표 이미지는 WebP로 줄여서 올린다 — PNG 원본 그대로면 목록 화면이 수 MB가 된다."""
+
+    def _photo_png(self, width=1600, height=900):
+        """AI 썸네일처럼 잔무늬가 많아 PNG로는 무겁고 WebP로는 가벼워지는 그림."""
+        from PIL import Image
+        im = Image.effect_mandelbrot((width, height), (-3, -2.5, 2, 2.5), 100).convert('RGB')
+        buffer = io.BytesIO()
+        im.save(buffer, 'PNG')
+        return buffer.getvalue()
+
+    def test_png_is_converted_and_resized(self):
+        from PIL import Image
+        png = self._photo_png()
+        data, filename, content_type = blog_posting._webp_for_upload(png, 'thumbnail.png')
+
+        self.assertEqual((filename, content_type), ('thumbnail.webp', 'image/webp'))
+        self.assertLess(len(data), len(png) / 2)
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual(im.width, blog_posting.WP_MEDIA_MAX_WIDTH)
+            self.assertEqual(im.height, 675)  # 16:9 비율 유지
+
+    def test_keeps_original_when_webp_is_bigger(self):
+        from PIL import Image
+        # 부드러운 그라데이션은 PNG가 더 작다 — 이때는 변환하지 않고 원본을 올린다.
+        im = Image.new('RGB', (800, 600))
+        im.putdata([(x * 255 // 800, y * 255 // 600, (x + y) % 256) for y in range(600) for x in range(800)])
+        buffer = io.BytesIO()
+        im.save(buffer, 'PNG')
+        png = buffer.getvalue()
+        self.assertEqual(blog_posting._webp_for_upload(png, 'thumbnail.png'), (png, 'thumbnail.png', 'image/png'))
+
+    def test_broken_image_falls_back_to_original(self):
+        data, filename, content_type = blog_posting._webp_for_upload(b'not-an-image', 'thumbnail.png')
+        self.assertEqual((data, filename, content_type), (b'not-an-image', 'thumbnail.png', 'image/png'))
+
+    def test_small_image_keeps_its_size(self):
+        from PIL import Image
+        data, _, _ = blog_posting._webp_for_upload(self._photo_png(600, 400), 'thumbnail.png')
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual((im.width, im.height), (600, 400))
