@@ -1,0 +1,221 @@
+{% comment %}
+작가·작품 목록(필터 + 표 + 페이지 이동). 선택하면 트리거 문구를 클립보드에도 복사한다.
+{% endcomment %}
+{{ candidates_data|json_script:"candidates-data" }}
+<form method="get" id="filter-form">
+<div class="card card-custom bg-white p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-auto">
+            <label class="form-label mb-1">작가</label>
+            <select name="author" id="filter-author" class="form-select form-select-sm">
+                <option value="">--선택--</option>
+                {% for a in authors %}<option value="{{ a }}"{% if a == filter_author %} selected{% endif %}>{{ a }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1">작품</label>
+            <select name="work" id="filter-work" class="form-select form-select-sm"{% if not filter_author %} disabled{% endif %}>
+                <option value="">--선택--</option>
+            </select>
+        </div>
+        {% if show_priority %}
+        <div class="col-auto">
+            <label class="form-label mb-1">우선순위</label>
+            <select name="priority" id="filter-priority" class="form-select form-select-sm">
+                <option value="">--전체--</option>
+                {% for value, label in priority_choices %}<option value="{{ value }}"{% if value|stringformat:"s" == filter_priority %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                <option value="none"{% if filter_priority == "none" %} selected{% endif %}>정하지 않음</option>
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-auto">
+            <label class="form-label mb-1">분류</label>
+            <select name="kind" id="filter-kind" class="form-select form-select-sm">
+                <option value="">--선택--</option>
+                {% for group, options in kind_choices %}<optgroup label="{{ group }}">{% for value, label in options %}<option value="{{ value }}"{% if value == filter_kind %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1 d-block">제작 상태</label>
+            <div class="btn-group" role="group" aria-label="제작 상태 필터">
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-all" value=""{% if filter_produced == "" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-all">전체</label>
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-no" value="false"{% if filter_produced == "false" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-no">미제작</label>
+                <input type="radio" class="btn-check" name="produced" id="filter-produced-yes" value="true"{% if filter_produced == "true" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-produced-yes">제작완료</label>
+            </div>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-1 d-block">국내/국외</label>
+            <div class="btn-group" role="group" aria-label="국내/국외 필터">
+                <input type="radio" class="btn-check" name="origin" id="filter-origin-all" value=""{% if filter_origin == "" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-origin-all">전체</label>
+                <input type="radio" class="btn-check" name="origin" id="filter-origin-domestic" value="domestic"{% if filter_origin == "domestic" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-origin-domestic">국내</label>
+                <input type="radio" class="btn-check" name="origin" id="filter-origin-foreign" value="foreign"{% if filter_origin == "foreign" %} checked{% endif %}>
+                <label class="btn btn-outline-secondary btn-sm" for="filter-origin-foreign">국외</label>
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">검색</button>
+            <a href="{{ request.path }}" class="btn btn-outline-secondary btn-sm">전체보기</a>
+        </div>
+    </div>
+</div>
+</form>
+
+<div class="card card-custom bg-white p-0 mb-4">
+    <div class="picker-scroll">
+        <table class="picker table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>작가</th>
+                    <th>국적</th>
+                    <th>작품</th>
+                    {% if show_priority %}<th>우선</th>{% endif %}
+                    <th>분류</th>
+                    <th>제작일</th>
+                    <th>업로드일</th>
+                    <th class="text-end">선택</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in page_obj %}
+                {% url "work_detail" w.pk as detail_url %}
+                <tr class="work-row{% if w.is_selected %} selected{% endif %}" data-href="{{ detail_url }}?next={{ request.get_full_path|urlencode }}"
+                    data-work-id="{{ w.pk }}" data-author="{{ w.author.name }}" data-work="{{ w.title }}" data-produced="{{ w.is_produced|yesno:"true,false" }}">
+                    <td title="{{ w.author.summary }}">{{ w.author.name }}</td>
+                    <td class="nationality">{{ w.author.nationality|default:"—" }}</td>
+                    <td title="{{ w.summary|default:'요약 없음' }}"><a class="work-link" href="{{ detail_url }}?next={{ request.get_full_path|urlencode }}">『{{ w.title }}』</a>{% if w.is_produced %}<span class="status-badge produced">제작완료</span>{% else %}<span class="status-badge unproduced">미제작</span>{% endif %}</td>
+                    {% if show_priority %}<td class="priority">{% if w.priority %}<span class="priority-badge p{{ w.priority }}">{{ w.priority }}순위</span>{% else %}—{% endif %}</td>{% endif %}
+                    <td class="kind">{{ w.kind|default:"—" }}</td>
+                    <td class="date">{{ w.produced_at|date:"Y-m-d"|default:"—" }}</td>
+                    <td class="date">{{ w.uploaded_at|date:"Y-m-d"|default:"—" }}</td>
+                    <td class="text-end">
+                        <span class="selected-badge">선택됨</span>
+                        <form method="post" action="{% url "literary_picker" %}" class="pick-form d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="candidate_id" value="{{ w.pk }}">
+                            <button type="submit" class="btn btn-outline-success btn-sm">선택</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% comment %}쪽 링크는 지금 주소의 조건(필터)을 그대로 두고 page만 바꾼다.{% endcomment %}
+    <nav class="p-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="small text-muted ms-2">{{ page_obj.paginator.count }}건 · {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}쪽</span>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item{% if page_obj.number == 1 %} disabled{% endif %}">
+                <a class="page-link" href="{% querystring page=1 %}">&laquo;</a>
+            </li>
+            <li class="page-item{% if not prev_block_page %} disabled{% endif %}">
+                <a class="page-link" href="{% querystring page=prev_block_page|default:page_obj.number %}">&lsaquo;</a>
+            </li>
+            {% for n in page_range %}
+            <li class="page-item{% if n == page_obj.number %} active{% endif %}">
+                <a class="page-link" href="{% querystring page=n %}">{{ n }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item{% if not next_block_page %} disabled{% endif %}">
+                <a class="page-link" href="{% querystring page=next_block_page|default:page_obj.number %}">&rsaquo;</a>
+            </li>
+            <li class="page-item{% if page_obj.number == page_obj.paginator.num_pages %} disabled{% endif %}">
+                <a class="page-link" href="{% querystring page=page_obj.paginator.num_pages %}">&raquo;</a>
+            </li>
+        </ul>
+        {% endif %}
+    </nav>
+</div>
+
+<script>
+(function () {
+    document.querySelectorAll(".pick-form").forEach(function (form) {
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            const submitBtn = form.querySelector("button");
+            submitBtn.disabled = true;
+            try {
+                const resp = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                });
+                const data = await resp.json();
+                if (!data.ok) throw new Error(data.error || "선택 저장에 실패했습니다.");
+
+                const triggerText = document.getElementById("trigger-text");
+                if (triggerText) triggerText.textContent = data.trigger_text;
+                const copyBtn = document.getElementById("copy-btn");
+                if (copyBtn) copyBtn.disabled = false;
+                try {
+                    await navigator.clipboard.writeText(data.trigger_text);
+                    if (copyBtn) {
+                        copyBtn.textContent = "복사됨";
+                        setTimeout(function () { copyBtn.textContent = "복사"; }, 1500);
+                    }
+                } catch (clipErr) {
+                    // 클립보드 권한이 없어도 트리거 문구는 화면에 남아 수동 복사 가능.
+                }
+
+                document.querySelectorAll("table.picker tbody tr").forEach(function (tr) {
+                    tr.classList.remove("selected");
+                    tr.querySelector(".selected-badge").textContent = "선택됨";
+                });
+                const tr = form.closest("tr");
+                tr.classList.add("selected");
+                tr.querySelector(".selected-badge").textContent = "선택됨 · 복사됨";
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    });
+
+    // 행 아무 곳이나 클릭하면(선택 버튼·링크는 제외) 작품 상세 화면으로 간다.
+    document.querySelectorAll("table.picker tr.work-row").forEach(function (tr) {
+        tr.addEventListener("click", function (e) {
+            if (e.target.closest("form, a, button")) return;
+            window.location.href = tr.dataset.href;
+        });
+    });
+
+    const CANDIDATES = JSON.parse(document.getElementById("candidates-data").textContent);
+    const authorSelect = document.getElementById("filter-author");
+    const workSelect = document.getElementById("filter-work");
+    const currentWork = "{{ filter_work|escapejs }}";
+
+    function populateWorkOptions(author, preselectWork) {
+        workSelect.innerHTML = "<option value=\"\">--선택--</option>";
+        if (!author) {
+            workSelect.disabled = true;
+            return;
+        }
+        CANDIDATES.filter(function (c) { return c.author === author; }).forEach(function (c) {
+            const opt = document.createElement("option");
+            opt.value = c.work;
+            opt.textContent = c.work;
+            if (preselectWork && c.work === preselectWork) opt.selected = true;
+            workSelect.appendChild(opt);
+        });
+        workSelect.disabled = false;
+    }
+
+    if (authorSelect.value) {
+        populateWorkOptions(authorSelect.value, currentWork);
+    }
+    // 분류 콤보·제작 상태·국내/국외 토글은 바꾸는 즉시 검색한다(1쪽부터).
+    document.querySelectorAll("#filter-kind, #filter-priority, #filter-form input[name=produced], #filter-form input[name=origin]").forEach(function (el) {
+        el.addEventListener("change", function () { document.getElementById("filter-form").submit(); });
+    });
+    authorSelect.addEventListener("change", function () {
+        populateWorkOptions(authorSelect.value, null);
+    });
+})();
+</script>
