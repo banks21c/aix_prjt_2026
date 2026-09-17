@@ -4,12 +4,13 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from .models import (
     StockItem, StockDailyPrice, StockPrediction, AnalyzedArticle, UserSubscription, SocialAccount,
-    NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage,
+    NewsSource, NewsKeyword, MarketIndex, KisAccessToken, MarketHoliday, ChatMessage, ChatbotSetting,
     LoginLog, MenuAccessLog, SystemErrorLog, UserPreference, BlogPostingAccount, PostedArticle,
     StockRealtimePrice, NewsletterSubscriber, NewsletterIssue, Menu, ConsultRequest,
     FinancialConsultSheet, MemberGrade, MediaOutlet, RankedMover, GlobalMarketQuote,
@@ -425,9 +426,9 @@ class PredictionAccuracySnapshotAdmin(admin.ModelAdmin):
 # 6. 챗봇 대화 기록 관리 (읽기 전용 조회 용도)
 @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'session_key', 'role', 'short_content', 'created_at')
+    list_display = ('id', 'user', 'session_key', 'ip_address', 'role', 'short_content', 'created_at')
     list_filter = ('role',)
-    search_fields = ('content', 'user__username', 'session_key')
+    search_fields = ('content', 'user__username', 'session_key', 'ip_address')
     ordering = ('-created_at',)
 
     def short_content(self, obj):
@@ -436,6 +437,22 @@ class ChatMessageAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # 챗봇 API를 통해서만 생성됨
+
+# 6-1. 챗봇 설정 (한 행만 쓰는 싱글톤 — 목록 대신 바로 편집 화면으로)
+@admin.register(ChatbotSetting)
+class ChatbotSettingAdmin(admin.ModelAdmin):
+    fields = ('daily_chat_limit', 'model_name', 'max_tokens', 'temperature', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+    def changelist_view(self, request, extra_context=None):
+        setting = ChatbotSetting.load()
+        return redirect(reverse('admin:articles_chatbotsetting_change', args=[setting.pk]))
+
+    def has_add_permission(self, request):
+        return False  # ChatbotSetting.load()가 pk=1 한 행을 만든다
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # 7. 로그인 로그 관리 (읽기 전용 조회 용도)
 @admin.register(LoginLog)
@@ -739,7 +756,7 @@ _MODEL_CATEGORY = {
     # 회원 (articles/models/members.py + auth)
     'User': '회원', 'Group': '회원', 'MemberGrade': '회원', 'UserPreference': '회원',
     'BlogPostingAccount': '회원', 'UserSubscription': '회원', 'SocialAccount': '회원',
-    'LoginLog': '회원', 'MenuAccessLog': '회원', 'ChatMessage': '회원',
+    'LoginLog': '회원', 'MenuAccessLog': '회원', 'ChatMessage': '회원', 'ChatbotSetting': '회원',
     # 운영 도구
     'SystemErrorLog': '운영 도구',
     # 콘텐츠·상담 (articles/models/content.py)

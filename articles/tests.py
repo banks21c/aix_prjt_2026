@@ -3,19 +3,22 @@
 # 아직 커버하지 않음(외부 서비스 의존이라 별도 mocking 전략이 필요): yfinance/FinanceDataReader/KIS를
 # 부르는 관리 커맨드, 카카오/구글/네이버/블로거 OAuth 뷰, run_stock_prediction(모델 학습).
 import json
+from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core import mail
 from django.db import IntegrityError, transaction
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-from . import blog_posting, utils
+from . import blog_posting, chatbot_client, utils
 from .models import (
-    AnalyzedArticle, BlogPostingAccount, ConsultRequest, MemberGrade, Menu, PostedArticle,
+    AnalyzedArticle, BlogPostingAccount, ChatbotSetting, ChatMessage, ConsultRequest, MemberGrade, Menu, PostedArticle,
     StockDailyPrice, StockItem, StockPrediction, UserPreference, UserSubscription,
 )
 
@@ -428,3 +431,86 @@ class ExpertConsultTests(TestCase):
 
         self.assertContains(landing_response, '전문가 소개')
         self.assertContains(dashboard_response, '전문가 소개')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class ChatbotLimitTests(TestCase):
+    """챗봇 일일 질문 한도(ChatbotSetting.daily_chat_limit)와 관리자 설정값이 OpenAI 호출에
+    쓰이는지 — 로그인은 계정별, 비로그인은 세션·IP별로 세고, 0과 스태프는 무제한."""
+
+    def setUp(self):
+        patcher = patch('articles.chatbot_client.ask', return_value='답변')
+        self.ask = patcher.start()
+        self.addCleanup(patcher.stop)
+        setting = ChatbotSetting.load()
+        setting.daily_chat_limit = 2
+        setting.save()
+
+    def ask_bot(self, client=None, ip='203.0.113.1'):
+        return (client or self.client).post(
+            reverse('chatbot_ask'), data=json.dumps({'message': '삼성전자 어때?'}),
+            content_type='application/json', REMOTE_ADDR=ip,
+        )
+
+    def test_anonymous_session_is_blocked_after_limit(self):
+        self.assertEqual(self.ask_bot().status_code, 200)
+        self.assertEqual(self.ask_bot().status_code, 200)
+        resp = self.ask_bot()
+        self.assertEqual(resp.status_code, 429)
+        self.assertIn('2회', resp.json()['error'])
+        self.assertEqual(self.ask.call_count, 2)
+        self.assertEqual(ChatMessage.objects.filter(role='user').count(), 2)
+        self.assertEqual(ChatMessage.objects.first().ip_address, '203.0.113.1')
+
+    def test_new_session_on_same_ip_is_still_blocked(self):
+        self.ask_bot()
+        self.ask_bot()
+        self.assertEqual(self.ask_bot(client=Client()).status_code, 429)          # 쿠키를 지운 것과 같음
+        self.assertEqual(self.ask_bot(client=Client(), ip='203.0.113.9').status_code, 200)
+
+    def test_logged_in_user_counts_per_account_not_ip(self):
+        self.ask_bot()
+        self.ask_bot()  # 이 IP는 비로그인으로 한도를 다 썼다
+        user = User.objects.create_user(username='chatter', password='x')
+        member = Client()
+        member.force_login(user)
+        self.assertEqual(self.ask_bot(client=member).status_code, 200)
+        self.assertEqual(self.ask_bot(client=member).status_code, 200)
+        self.assertEqual(self.ask_bot(client=member).status_code, 429)
+
+    def test_yesterdays_questions_do_not_count(self):
+        self.ask_bot()
+        self.ask_bot()
+        ChatMessage.objects.update(created_at=timezone.now() - timedelta(days=1))
+        self.assertEqual(self.ask_bot().status_code, 200)
+
+    def test_zero_limit_and_staff_are_unlimited(self):
+        staff = Client()
+        staff.force_login(User.objects.create_user(username='ops', password='x', is_staff=True))
+        for _ in range(3):
+            self.assertEqual(self.ask_bot(client=staff).status_code, 200)
+        ChatbotSetting.objects.update(daily_chat_limit=0)
+        for _ in range(3):
+            self.assertEqual(self.ask_bot().status_code, 200)
+
+
+class ChatbotClientSettingTests(TestCase):
+    """OpenAI 호출이 코드에 박힌 값이 아니라 ChatbotSetting 값을 쓰는지."""
+
+    def test_openai_call_uses_admin_settings(self):
+        ChatbotSetting.load()
+        ChatbotSetting.objects.update(model_name='gpt-4o', max_tokens=900, temperature=1.1)
+        message = SimpleNamespace(message=SimpleNamespace(content=' 답변 '))
+        with patch.object(chatbot_client, '_build_context', return_value=''), \
+                override_settings(OPENAI_API_KEY='sk-test'), patch('openai.OpenAI') as openai_cls:
+            create = openai_cls.return_value.chat.completions.create
+            create.return_value = SimpleNamespace(choices=[message])
+            self.assertEqual(chatbot_client.ask('질문'), '답변')
+        kwargs = create.call_args.kwargs
+        self.assertEqual((kwargs['model'], kwargs['max_tokens'], kwargs['temperature']), ('gpt-4o', 900, 1.1))
+
+    def test_setting_is_a_single_row(self):
+        ChatbotSetting(daily_chat_limit=5).save()
+        ChatbotSetting(daily_chat_limit=7).save()
+        self.assertEqual(ChatbotSetting.objects.count(), 1)
+        self.assertEqual(ChatbotSetting.load().daily_chat_limit, 7)
