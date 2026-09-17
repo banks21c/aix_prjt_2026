@@ -108,8 +108,24 @@ DATABASES = {
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         }
-    }
+    },
+    # 작가·작품 카탈로그(literary 앱) — 로컬 autovi와 같이 쓰는 같은 MySQL 서버의 autovi_db.
+    # 어떤 앱이 어느 DB로 가는지는 config/db_routers.py. 계정은 autovi_db(와 test_autovi_db)에만 권한이 있다.
+    'autovi': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('AUTOVI_DB_NAME', 'autovi_db'),
+        'USER': os.environ.get('AUTOVI_DB_USER', os.environ.get('DB_USER', 'nextfinup_user')),
+        'PASSWORD': os.environ.get('AUTOVI_DB_PASSWORD', os.environ.get('DB_PASSWORD')),
+        'HOST': os.environ.get('AUTOVI_DB_HOST', os.environ.get('DB_HOST', '127.0.0.1')),
+        'PORT': os.environ.get('AUTOVI_DB_PORT', os.environ.get('DB_PORT', '3306')),
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+    },
 }
+DATABASE_ROUTERS = ['config.db_routers.AutoviRouter']
 
 
 # Password validation
