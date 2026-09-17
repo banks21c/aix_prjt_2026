@@ -35,6 +35,8 @@ jobs:
       DB_PASSWORD: root
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
+      # literary 앱은 config/db_routers.py가 두 번째 DB(autovi)로 보낸다 — 테스트 러너가 test_autovi_db를 따로 만든다.
+      AUTOVI_DB_NAME: autovi_db
 
     steps:
       - uses: actions/checkout@v4
