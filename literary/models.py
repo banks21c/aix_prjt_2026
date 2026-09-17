@@ -1,4 +1,4 @@
-from django.db import models, transaction
+from django.db import models, router, transaction
 from django.utils import timezone
 
 
@@ -87,10 +87,11 @@ class Work(models.Model):
     def trigger_text(self):
         return trigger_text_for(self.author.name, self.title)
 
-    @transaction.atomic
     def select(self):
-        """이 작품을 "다음 작품"으로 표시하고 다른 작품의 선택은 해제한다."""
-        Work.objects.filter(is_selected=True).exclude(pk=self.pk).update(is_selected=False, selected_at=None)
-        self.is_selected = True
-        self.selected_at = timezone.now()
-        self.save(update_fields=['is_selected', 'selected_at', 'updated_at'])
+        """이 작품을 "다음 작품"으로 표시하고 다른 작품의 선택은 해제한다.
+        트랜잭션은 이 모델이 저장되는 DB에 건다 — nextfinup에서는 라우터가 autovi_db로 보낸다."""
+        with transaction.atomic(using=router.db_for_write(Work)):
+            Work.objects.filter(is_selected=True).exclude(pk=self.pk).update(is_selected=False, selected_at=None)
+            self.is_selected = True
+            self.selected_at = timezone.now()
+            self.save(update_fields=['is_selected', 'selected_at', 'updated_at'])

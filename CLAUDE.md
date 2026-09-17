@@ -14,7 +14,13 @@ usage limits by member grade, a news board with manual scrape/edit, a stock deta
 day/minute charts, a KIS-powered realtime ranking/index feed, an OpenAI-backed chatbot widget,
 and a daily email newsletter.
 
-There is one Django app, `articles`, containing all models/views/commands. Dependencies are
+There is one Django app, `articles`, containing all models/views/commands.
+A second app, `literary` (author/work catalog for the classic-literature YouTube pipeline,
+`/admin-tools/literary-picker/`), is routed by `config/db_routers.py` to a **second database
+alias `autovi`** (`autovi_db` on the same MySQL server, `AUTOVI_DB_*` in `.env`). The local autovi
+project (`~/autovi`) reads/writes that same database over an SSH tunnel and owns its schema, so keep
+`literary` models/migrations identical in both repos; use `router.db_for_write(Work)` when opening
+transactions for literary models, and `databases = {'default', 'autovi'}` in tests that touch them. Dependencies are
 pinned in `requirements.txt` (generated via `pip freeze` from `venv/`).
 
 ## Commands

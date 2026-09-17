@@ -10,7 +10,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import router, transaction
 
 from literary.models import KIND_CHOICES, Author, Work
 
@@ -24,8 +24,12 @@ class Command(BaseCommand):
         parser.add_argument('path', nargs='?', default=str(DEFAULT_PATH))
         parser.add_argument('--overwrite', action='store_true', help="이미 있는 내용도 파일 내용으로 덮어쓴다")
 
-    @transaction.atomic
     def handle(self, *args, **options):
+        # 트랜잭션은 Work가 저장되는 DB에 건다(nextfinup에서는 라우터가 autovi_db로 보낸다).
+        with transaction.atomic(using=router.db_for_write(Work)):
+            return self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
         data = json.loads(Path(options['path']).read_text(encoding='utf-8'))
         overwrite = options['overwrite']
         filled = {'authors': 0, 'works': 0}

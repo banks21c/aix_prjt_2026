@@ -4,7 +4,7 @@ import re
 from datetime import date
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import router, transaction
 
 from literary.catalog_data import (
     CATALOG, FOLKTALES, FOLKTALES_SOURCE, FOREIGN_FOLKTALES, FOREIGN_FOLKTALES_SOURCE,
@@ -20,8 +20,12 @@ def _norm(title):
 class Command(BaseCommand):
     help = "작가·작품 카탈로그(literary/catalog_data.py)를 DB에 넣는다."
 
-    @transaction.atomic
     def handle(self, *args, **options):
+        # 트랜잭션은 Work가 저장되는 DB에 건다(nextfinup에서는 라우터가 autovi_db로 보낸다).
+        with transaction.atomic(using=router.db_for_write(Work)):
+            return self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
         catalog_keys = {(a, w) for _, authors in CATALOG for a, works in authors for w in works}
         unknown = (set(PRODUCED) | set(NOTES)) - catalog_keys
         if unknown:

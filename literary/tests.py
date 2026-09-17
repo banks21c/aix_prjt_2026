@@ -13,6 +13,7 @@ from .models import Author, Work
 # articles/tests.py와 같은 이유 — 테스트 러너가 DEBUG=False로 돌려 SECURE_SSL_REDIRECT가 켜지면 모든 요청이 301이 된다.
 @override_settings(SECURE_SSL_REDIRECT=False)
 class WorkSummaryAndDetailTests(TestCase):
+    databases = {'default', 'autovi'}  # 로그인 계정은 default, 작가·작품은 autovi_db(config/db_routers.py)
     def setUp(self):
         # 테스트 DB에도 0002~0006 데이터 마이그레이션이 넣은 작가·작품이 있다 — 빈 상태에서 시작한다.
         Work.objects.all().delete()
@@ -165,3 +166,9 @@ class WorkSummaryAndDetailTests(TestCase):
         out = StringIO()
         call_command('get_selected_candidate', stdout=out)
         self.assertEqual(out.getvalue().strip(), "기 드 모파상|벨아미")
+
+    def test_literary_lives_in_autovi_db(self):
+        # config/db_routers.py — 작가·작품은 autovi_db, 로그인 계정 등은 nextfinup_db
+        self.assertEqual(Work.objects.db, 'autovi')
+        self.assertEqual(Author.objects.db, 'autovi')
+        self.assertEqual(get_user_model().objects.db, 'default')
