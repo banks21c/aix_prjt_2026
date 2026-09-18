@@ -13,8 +13,7 @@
     <div class="tool-cards">
         {% for tool in category.tools %}
             <a href="{% url tool.url_name %}" class="tool-card card-custom">
-                <div class="tool-card-icon"><i class="fa-solid {{ tool.icon }}"></i></div>
-                <h3>{{ tool.title }}</h3>
+                <h3><i class="fa-solid {{ tool.icon }}"></i>{{ tool.title }}</h3>
                 <p>{{ tool.desc }}</p>
             </a>
         {% endfor %}
