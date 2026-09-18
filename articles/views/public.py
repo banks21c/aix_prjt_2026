@@ -375,6 +375,22 @@ def annual_leave_calculator_view(request):
     })
 
 
+def loan_calculator_view(request):
+    # 대출 이자 계산기 — 원리금균등/원금균등/만기일시 + 거치기간, 회차별 상환 스케줄.
+    # 월이율 = 연이율/12의 월복리를 가정한 표준 상환식이라 세법처럼 매년 바뀌는 고시값이 없고,
+    # 금리는 사용자가 직접 넣는 값이므로 다른 계산기와 달리 갱신해야 할 상수가 없다.
+    # 급여 계산기들과 마찬가지로 금액이 서버로 전송되지 않도록 계산은 클라이언트에서 한다.
+    return render(request, 'articles/loan_calculator.html', {'site_title': 'NextFinUp - 대출 이자 계산기'})
+
+
+def savings_calculator_view(request):
+    # 예금·적금 이자 계산기 — 단리/월복리, 이자소득세 공제 후 만기 수령액.
+    # 이자소득세 15.4%(소득세 14% + 지방소득세 1.4%)는 바뀔 수 있는 고시값이라 실업급여/급여
+    # 계산기와 같은 방식으로 화면에서 수정 가능한 입력 필드로 두고, 과세 유형 선택으로 기본값만
+    # 채워준다. 계산은 클라이언트에서 한다.
+    return render(request, 'articles/savings_calculator.html', {'site_title': 'NextFinUp - 예금·적금 이자 계산기'})
+
+
 def json_formatter_view(request):
     # JSON 예쁘게 출력/압축/검증 도구. 개발용 텍스트(API 응답, 설정값 등)가 서버로 전송/저장되지
     # 않도록 다른 유틸과 마찬가지로 파싱·포맷팅 전부 브라우저(JS 내장 JSON.parse/stringify)에서만

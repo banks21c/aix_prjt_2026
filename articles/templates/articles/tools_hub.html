@@ -77,6 +77,16 @@
                 <h3>연차수당 계산기</h3>
                 <p>입사일과 통상임금을 넣으면 근로기준법 기준 발생 연차일수와 미사용 연차수당을 계산해요.</p>
             </a>
+            <a href="{% url 'loan_calculator' %}" class="tool-card card-custom">
+                <div class="tool-card-icon"><i class="fa-solid fa-building-columns"></i></div>
+                <h3>대출 이자 계산기</h3>
+                <p>원리금균등·원금균등·만기일시의 월 상환액과 총 이자를 비교하고 회차별 상환 스케줄까지 볼 수 있어요.</p>
+            </a>
+            <a href="{% url 'savings_calculator' %}" class="tool-card card-custom">
+                <div class="tool-card-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                <h3>예금·적금 이자 계산기</h3>
+                <p>정기예금·적금의 만기 수령액을 이자소득세 15.4%까지 공제해 계산하고 실제 수익률을 알려드려요.</p>
+            </a>
             <a href="{% url 'json_formatter' %}" class="tool-card card-custom">
                 <div class="tool-card-icon"><i class="fa-solid fa-code"></i></div>
                 <h3>JSON 포맷터</h3>
