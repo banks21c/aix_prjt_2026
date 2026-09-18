@@ -10,7 +10,7 @@ from .public import (
     subscribe_view, subscribe_apply_view, faq_board_view, tools_hub_view, char_counter_view,
     currency_converter_view, severance_calculator_view, unemployment_benefit_calculator_view,
     net_pay_calculator_view, annual_leave_calculator_view, json_formatter_view, image_resizer_view,
-    qrcode_generator_view, background_remover_view, unit_converter_view,
+    image_converter_view, qrcode_generator_view, background_remover_view, unit_converter_view,
     spell_checker_view, spell_check_api_view,
 )
 from .admin_tools import (
@@ -55,7 +55,7 @@ __all__ = [
     'faq_board_view', 'tools_hub_view', 'char_counter_view', 'currency_converter_view',
     'severance_calculator_view', 'unemployment_benefit_calculator_view', 'net_pay_calculator_view',
     'annual_leave_calculator_view', 'json_formatter_view', 'image_resizer_view',
-    'qrcode_generator_view', 'background_remover_view', 'unit_converter_view',
+    'image_converter_view', 'qrcode_generator_view', 'background_remover_view', 'unit_converter_view',
     'spell_checker_view', 'spell_check_api_view',
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',

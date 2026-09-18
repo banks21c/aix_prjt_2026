@@ -1,0 +1,487 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .ic-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .ic-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .ic-field .form-text { font-size: 12px; }
+
+        .ic-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .ic-dropzone:hover, .ic-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .ic-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .ic-item { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .ic-item:first-child { border-top: none; }
+        .ic-thumb { width: 64px; height: 64px; flex: 0 0 64px; object-fit: contain; border-radius: 8px; border: 1px solid var(--bg-subtle-2, #eee);
+                    background: repeating-conic-gradient(#f1f3f5 0% 25%, #fff 0% 50%) 50% / 12px 12px; }
+        .ic-item-body { flex: 1 1 auto; min-width: 0; }
+        .ic-item-name { font-size: 14px; font-weight: 700; color: var(--text-primary, #212529); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ic-item-meta { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 3px; line-height: 1.7; }
+        .ic-item-meta .ic-out { color: var(--brand-primary, #0d47a1); font-weight: 700; }
+        .ic-item-meta .ic-down { color: #2f9e44; font-weight: 700; }
+        .ic-item-meta .ic-up { color: #e03131; font-weight: 700; }
+        .ic-item-actions { flex: 0 0 auto; }
+        .ic-item.is-error .ic-item-meta { color: #e03131; }
+
+        .ic-quality-row { display: none; }
+        .ic-bg-row { display: none; }
+        .ic-progress { display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% include "articles/_tools_tabs.html" with active_tool='image_converter' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">이미지 확장자 변환기</h2>
+                <p class="text-muted mb-0">아이폰 HEIC 사진이나 PNG·JPG·WEBP·GIF·BMP를 원하는 확장자로 한 번에 바꿔드려요. 여러 장을 올려도 되고, 변환한 이미지는 ZIP으로 한꺼번에 받을 수 있어요. 업로드한 이미지는 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="ic-section-title">이미지 업로드 (여러 장 가능)</div>
+            <div class="ic-dropzone" id="ic-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                클릭하거나 이미지를 여기로 끌어다 놓으세요 (HEIC · JPG · PNG · WEBP · GIF · BMP · SVG)
+                <input type="file" id="ic-file" accept="image/*,.heic,.heif" multiple class="d-none">
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="ic-section-title">변환 설정</div>
+            <div class="row g-3">
+                <div class="col-md-4 ic-field">
+                    <label for="ic-format">바꿀 확장자</label>
+                    <select id="ic-format" class="form-select">
+                        <option value="image/jpeg">JPG (JPEG)</option>
+                        <option value="image/png">PNG</option>
+                        <option value="image/webp">WEBP</option>
+                        <option value="image/bmp">BMP</option>
+                    </select>
+                </div>
+                <div class="col-md-4 ic-field ic-quality-row">
+                    <label for="ic-quality">화질 (<span id="ic-quality-value">90</span>%)</label>
+                    <input type="range" id="ic-quality" class="form-range" min="10" max="100" value="90">
+                    <div class="form-text text-muted">낮출수록 용량이 줄어듭니다</div>
+                </div>
+                <div class="col-md-4 ic-field ic-bg-row">
+                    <label for="ic-bgcolor">배경색 (투명 영역 채움)</label>
+                    <input type="color" id="ic-bgcolor" class="form-control form-control-color" value="#ffffff">
+                    <div class="form-text text-muted">JPG·BMP는 투명을 지원하지 않아요</div>
+                </div>
+            </div>
+            <div class="form-text text-muted mt-2">
+                <i class="fa-solid fa-circle-info"></i>
+                <b>불러오기</b>: HEIC · JPG · PNG · WEBP · BMP · GIF · SVG(+브라우저가 지원하면 AVIF) →
+                <b>저장</b>: JPG · PNG · WEBP · BMP — 어느 쪽으로든 서로 바꿀 수 있어요(webp→png, png→jpg, bmp→jpg …).
+                크기까지 함께 바꾸려면 <a href="{% url 'image_resizer' %}">이미지 리사이저</a>를 이용하세요. 움직이는 GIF는 첫 장면만 변환됩니다.
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4" id="ic-result-card" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="ic-section-title mb-0">변환 결과 (<span id="ic-count">0</span>장)</div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="ic-zip-btn" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-zipper"></i> ZIP으로 전체 받기</button>
+                    <button type="button" id="ic-clear-btn" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-trash-can"></i> 목록 비우기</button>
+                </div>
+            </div>
+            <div class="ic-progress alert alert-light border py-2 px-3 mb-3" id="ic-progress">
+                <i class="fa-solid fa-spinner fa-spin"></i> <span id="ic-progress-text">변환 중…</span>
+            </div>
+            <div id="ic-list"></div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var fileInput = document.getElementById('ic-file');
+    var dropzone = document.getElementById('ic-dropzone');
+    var formatEl = document.getElementById('ic-format');
+    var qualityRow = document.querySelector('.ic-quality-row');
+    var qualityEl = document.getElementById('ic-quality');
+    var qualityValueEl = document.getElementById('ic-quality-value');
+    var bgRow = document.querySelector('.ic-bg-row');
+    var bgColorEl = document.getElementById('ic-bgcolor');
+    var resultCard = document.getElementById('ic-result-card');
+    var listEl = document.getElementById('ic-list');
+    var countEl = document.getElementById('ic-count');
+    var zipBtn = document.getElementById('ic-zip-btn');
+    var clearBtn = document.getElementById('ic-clear-btn');
+    var progressEl = document.getElementById('ic-progress');
+    var progressTextEl = document.getElementById('ic-progress-text');
+
+    // 변환 완료된 결과들 — ZIP 묶기/재변환에 쓰려고 원본 File까지 같이 들고 있는다.
+    var results = [];
+    var heic2anyPromise = null;
+    var jszipPromise = null;
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function extFor(mime) {
+        if (mime === 'image/jpeg') return 'jpg';
+        if (mime === 'image/webp') return 'webp';
+        if (mime === 'image/bmp') return 'bmp';
+        return 'png';
+    }
+
+    function labelFor(mime) {
+        if (mime === 'image/jpeg') return 'JPG';
+        if (mime === 'image/webp') return 'WEBP';
+        if (mime === 'image/bmp') return 'BMP';
+        return 'PNG';
+    }
+
+    function isOpaqueFormat(mime) {
+        // 투명도를 담지 못하는 형식 — 투명 픽셀을 배경색으로 미리 칠해줘야 검게 나오지 않는다.
+        return mime === 'image/jpeg' || mime === 'image/bmp';
+    }
+
+    function baseName(name) {
+        var idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    function isHeic(file) {
+        // HEIC는 브라우저/OS에 따라 file.type이 빈 문자열로 들어오는 경우가 많아 확장자도 같이 본다.
+        var name = (file.name || '').toLowerCase();
+        return file.type === 'image/heic' || file.type === 'image/heif'
+            || name.endsWith('.heic') || name.endsWith('.heif');
+    }
+
+    // CDN 라이브러리는 배경 제거 도구와 같은 이유로(광고차단 확장·사내망 차단 등) 필요한
+    // 순간에만 지연 로드하고, 실패하면 해당 파일만 오류로 표시한다.
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = function () { reject(new Error('스크립트 로드 실패: ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    function loadHeic2any() {
+        if (!heic2anyPromise) {
+            heic2anyPromise = loadScript('https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js')
+                .then(function () {
+                    if (typeof window.heic2any !== 'function') throw new Error('heic2any 로드 실패');
+                    return window.heic2any;
+                })
+                .catch(function (e) { heic2anyPromise = null; throw e; });
+        }
+        return heic2anyPromise;
+    }
+
+    function loadJSZip() {
+        if (!jszipPromise) {
+            jszipPromise = loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js')
+                .then(function () {
+                    if (typeof window.JSZip !== 'function') throw new Error('JSZip 로드 실패');
+                    return window.JSZip;
+                })
+                .catch(function (e) { jszipPromise = null; throw e; });
+        }
+        return jszipPromise;
+    }
+
+    function updateFormatUI() {
+        var mime = formatEl.value;
+        // 화질(손실 압축) 옵션이 의미 있는 건 JPG·WEBP뿐 — PNG·BMP는 무손실이라 숨긴다.
+        qualityRow.style.display = (mime === 'image/jpeg' || mime === 'image/webp') ? 'block' : 'none';
+        bgRow.style.display = isOpaqueFormat(mime) ? 'block' : 'none';
+    }
+
+    function loadImage(blob) {
+        return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(blob);
+            var img = new Image();
+            img.onload = function () { resolve({ img: img, url: url }); };
+            img.onerror = function () {
+                URL.revokeObjectURL(url);
+                reject(new Error('이미지를 읽을 수 없는 형식입니다'));
+            };
+            img.src = url;
+        });
+    }
+
+    // canvas.toBlob은 BMP 인코딩을 지원하는 브라우저가 없어서(요청해도 PNG가 돌아온다)
+    // 24비트 BMP는 픽셀 데이터를 직접 써서 만든다. 헤더 14+40바이트(BITMAPINFOHEADER),
+    // 픽셀은 아래에서 위로·BGR 순서·각 행을 4바이트 배수로 패딩하는 게 규격.
+    function encodeBmp(canvas) {
+        var w = canvas.width, h = canvas.height;
+        var data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+        var rowSize = Math.floor((24 * w + 31) / 32) * 4;
+        var pixelSize = rowSize * h;
+        var buffer = new ArrayBuffer(54 + pixelSize);
+        var view = new DataView(buffer);
+
+        view.setUint8(0, 0x42); view.setUint8(1, 0x4D);       // 'BM'
+        view.setUint32(2, 54 + pixelSize, true);              // 파일 크기
+        view.setUint32(10, 54, true);                         // 픽셀 데이터 시작 위치
+        view.setUint32(14, 40, true);                         // DIB 헤더 크기
+        view.setInt32(18, w, true);
+        view.setInt32(22, h, true);                           // 양수 = bottom-up
+        view.setUint16(26, 1, true);                          // 플레인 수
+        view.setUint16(28, 24, true);                         // 픽셀당 비트 수
+        view.setUint32(34, pixelSize, true);
+        view.setInt32(38, 2835, true);                        // 96 DPI
+        view.setInt32(42, 2835, true);
+
+        var bytes = new Uint8Array(buffer);
+        for (var y = 0; y < h; y++) {
+            var srcRow = (h - 1 - y) * w * 4;
+            var dstRow = 54 + y * rowSize;
+            for (var x = 0; x < w; x++) {
+                var s = srcRow + x * 4, d = dstRow + x * 3;
+                bytes[d] = data[s + 2];      // B
+                bytes[d + 1] = data[s + 1];  // G
+                bytes[d + 2] = data[s];      // R
+            }
+        }
+        return new Blob([buffer], { type: 'image/bmp' });
+    }
+
+    function toBlob(canvas, mime, quality) {
+        if (mime === 'image/bmp') {
+            return new Promise(function (resolve) { resolve(encodeBmp(canvas)); });
+        }
+        return new Promise(function (resolve, reject) {
+            canvas.toBlob(function (blob) {
+                if (!blob) { reject(new Error('변환에 실패했습니다')); return; }
+                // 브라우저가 해당 형식 인코딩을 지원하지 않으면 조용히 PNG를 돌려준다 —
+                // 사용자가 고른 확장자와 실제 내용이 어긋나면 안 되므로 여기서 걸러 알린다.
+                if (blob.type !== mime) { reject(new Error('이 브라우저는 ' + labelFor(mime) + ' 저장을 지원하지 않습니다')); return; }
+                resolve(blob);
+            }, mime, mime === 'image/png' ? undefined : quality);
+        });
+    }
+
+    function convertFile(file) {
+        var mime = formatEl.value;
+        var quality = parseInt(qualityEl.value, 10) / 100;
+        var bgColor = bgColorEl.value;
+
+        var sourcePromise = isHeic(file)
+            ? loadHeic2any().then(function (heic2any) {
+                  // HEIC는 <img>로 못 여는 브라우저가 대부분이라 먼저 PNG로 디코딩한 뒤
+                  // 아래 캔버스 경로를 똑같이 탄다.
+                  return heic2any({ blob: file, toType: 'image/png' });
+              }).then(function (out) { return Array.isArray(out) ? out[0] : out; })
+            : Promise.resolve(file);
+
+        return sourcePromise.then(loadImage).then(function (loaded) {
+            var img = loaded.img;
+            var w = img.naturalWidth || img.width;
+            var h = img.naturalHeight || img.height;
+            if (!w || !h) throw new Error('이미지 크기를 알 수 없습니다');
+
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            if (isOpaqueFormat(mime)) {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, w, h);
+            }
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(loaded.url);
+
+            return toBlob(canvas, mime, quality).then(function (blob) {
+                return { blob: blob, width: w, height: h, mime: mime };
+            });
+        });
+    }
+
+    function renderItem(entry) {
+        var row = document.createElement('div');
+        row.className = 'ic-item';
+
+        var thumb = document.createElement('img');
+        thumb.className = 'ic-thumb';
+        thumb.alt = entry.name;
+
+        var body = document.createElement('div');
+        body.className = 'ic-item-body';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'ic-item-name';
+        nameEl.textContent = entry.name;
+        var metaEl = document.createElement('div');
+        metaEl.className = 'ic-item-meta';
+        body.appendChild(nameEl);
+        body.appendChild(metaEl);
+
+        var actions = document.createElement('div');
+        actions.className = 'ic-item-actions';
+
+        row.appendChild(thumb);
+        row.appendChild(body);
+        row.appendChild(actions);
+        listEl.appendChild(row);
+
+        if (entry.error) {
+            row.classList.add('is-error');
+            metaEl.textContent = entry.error;
+            thumb.remove();
+            return;
+        }
+
+        var url = URL.createObjectURL(entry.blob);
+        thumb.src = url;
+
+        var diff = entry.originalSize ? (entry.blob.size - entry.originalSize) / entry.originalSize * 100 : 0;
+        var diffClass = diff <= 0 ? 'ic-down' : 'ic-up';
+        var diffText = (diff <= 0 ? '▼ ' : '▲ ') + Math.abs(diff).toFixed(0) + '%';
+        metaEl.innerHTML = entry.width + ' × ' + entry.height + 'px · '
+            + fmtBytes(entry.originalSize) + ' → <span class="ic-out">' + fmtBytes(entry.blob.size) + '</span> '
+            + '<span class="' + diffClass + '">' + diffText + '</span> · ' + labelFor(entry.mime);
+
+        var a = document.createElement('a');
+        a.className = 'btn btn-outline-primary btn-sm';
+        a.href = url;
+        a.download = entry.outName;
+        a.innerHTML = '<i class="fa-solid fa-download"></i> 받기';
+        actions.appendChild(a);
+    }
+
+    function uniqueName(name) {
+        // ZIP 안에서 이름이 겹치면 한쪽이 덮어써지므로(예: a.png / a.webp → 둘 다 a.jpg) 번호를 붙인다.
+        var used = results.filter(function (r) { return !r.error; }).map(function (r) { return r.outName; });
+        if (used.indexOf(name) === -1) return name;
+        var base = baseName(name), ext = name.slice(base.length);
+        var i = 2;
+        while (used.indexOf(base + '(' + i + ')' + ext) !== -1) i += 1;
+        return base + '(' + i + ')' + ext;
+    }
+
+    function handleFiles(files) {
+        var list = Array.prototype.slice.call(files).filter(function (f) {
+            return f && (f.type.indexOf('image/') === 0 || isHeic(f));
+        });
+        if (!list.length) return;
+
+        resultCard.style.display = 'block';
+        progressEl.style.display = 'block';
+
+        var done = 0;
+        function step(i) {
+            if (i >= list.length) {
+                progressEl.style.display = 'none';
+                countEl.textContent = results.filter(function (r) { return !r.error; }).length;
+                return;
+            }
+            var file = list[i];
+            progressTextEl.textContent = '변환 중… (' + (done + 1) + '/' + list.length + ') ' + file.name;
+
+            convertFile(file).then(function (out) {
+                var entry = {
+                    name: file.name,
+                    originalSize: file.size,
+                    blob: out.blob,
+                    width: out.width,
+                    height: out.height,
+                    mime: out.mime,
+                };
+                entry.outName = uniqueName(baseName(file.name) + '.' + extFor(out.mime));
+                results.push(entry);
+                renderItem(entry);
+            }).catch(function (e) {
+                var entry = { name: file.name, error: (e && e.message) || '변환에 실패했습니다' };
+                results.push(entry);
+                renderItem(entry);
+            }).then(function () {
+                done += 1;
+                step(i + 1);   // 한 장씩 순차 처리 — 수십 장을 동시에 디코딩하면 모바일에서 메모리가 터진다
+            });
+        }
+        step(0);
+    }
+
+    fileInput.addEventListener('change', function () {
+        handleFiles(fileInput.files);
+        fileInput.value = '';   // 같은 파일을 다시 골라도 change가 뜨도록
+    });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
+
+    formatEl.addEventListener('change', updateFormatUI);
+    qualityEl.addEventListener('input', function () { qualityValueEl.textContent = qualityEl.value; });
+
+    clearBtn.addEventListener('click', function () {
+        results = [];
+        listEl.innerHTML = '';
+        countEl.textContent = '0';
+        resultCard.style.display = 'none';
+    });
+
+    zipBtn.addEventListener('click', function () {
+        var ok = results.filter(function (r) { return !r.error; });
+        if (!ok.length) return;
+
+        var original = zipBtn.innerHTML;
+        zipBtn.disabled = true;
+        zipBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ZIP 만드는 중…';
+
+        loadJSZip().then(function (JSZip) {
+            var zip = new JSZip();
+            ok.forEach(function (r) { zip.file(r.outName, r.blob); });
+            return zip.generateAsync({ type: 'blob' });
+        }).then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'converted_images.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        }).catch(function (e) {
+            alert('ZIP을 만들지 못했습니다: ' + ((e && e.message) || e) + '\n각 이미지의 "받기" 버튼으로 하나씩 내려받을 수 있어요.');
+        }).then(function () {
+            zipBtn.disabled = false;
+            zipBtn.innerHTML = original;
+        });
+    });
+
+    updateFormatUI();
+})();
+</script>
+</body>
+</html>

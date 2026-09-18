@@ -389,6 +389,15 @@ def image_resizer_view(request):
     return render(request, 'articles/image_resizer.html', {'site_title': 'NextFinUp - 이미지 리사이저'})
 
 
+def image_converter_view(request):
+    # 이미지 확장자 상호 변환 도구(JPG·PNG·WEBP·BMP 어느 쪽으로든, HEIC/GIF/SVG는 입력만).
+    # 리사이저(image_resizer_view)에도 형식 변환이 딸려 있지만 그건 "한 장 크기 조정"이 주 용도라,
+    # 확장자만 바꾸려는 사람이 훨씬 많이 쓰는 여러 장 일괄 변환 + ZIP 묶음 다운로드를 따로 뺐다.
+    # 다른 유틸과 마찬가지로 이미지가 서버로 전송되지 않도록 <canvas>로 브라우저에서만 처리한다
+    # (BMP만은 canvas.toBlob이 인코딩을 지원하지 않아 템플릿 JS에서 직접 바이트를 쓴다).
+    return render(request, 'articles/image_converter.html', {'site_title': 'NextFinUp - 이미지 확장자 변환기'})
+
+
 def qrcode_generator_view(request):
     # 텍스트/URL → QR코드 생성기. 입력값이 서버로 전송되지 않도록(연락처, 와이파이 비번 등 민감할
     # 수 있음) qrcode.js(CDN)로 브라우저에서 바로 <canvas>에 렌더링하고 PNG로 다운로드시킨다.
