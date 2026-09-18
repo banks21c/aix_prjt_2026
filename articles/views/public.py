@@ -414,6 +414,14 @@ def image_converter_view(request):
     return render(request, 'articles/image_converter.html', {'site_title': 'NextFinUp - 이미지 확장자 변환기'})
 
 
+def pdf_tools_view(request):
+    # PDF 병합 / 페이지 추출·분할 / 이미지→PDF 를 한 화면에서 내부 탭으로 전환하는 도구.
+    # 세 기능 모두 pdf-lib(CDN) 하나로 처리되고 파일이 서버로 전송되지 않는다 — 계약서·신분증
+    # 스캔처럼 민감한 문서를 다루는 용도라 서버 업로드가 없어야 한다는 점이 특히 중요하다.
+    # PDF→이미지는 렌더링이 필요해(pdf.js) 이번 범위에서 제외했고, 화면 하단에 그 사실을 밝힌다.
+    return render(request, 'articles/pdf_tools.html', {'site_title': 'NextFinUp - PDF 도구'})
+
+
 def qrcode_generator_view(request):
     # 텍스트/URL → QR코드 생성기. 입력값이 서버로 전송되지 않도록(연락처, 와이파이 비번 등 민감할
     # 수 있음) qrcode.js(CDN)로 브라우저에서 바로 <canvas>에 렌더링하고 PNG로 다운로드시킨다.
