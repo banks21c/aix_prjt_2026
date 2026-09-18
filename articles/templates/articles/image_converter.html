@@ -66,21 +66,27 @@
         <div class="card card-custom bg-white p-3 p-md-4 mb-3">
             <div class="ic-section-title">변환 설정</div>
             <div class="row g-3">
-                <div class="col-md-4 ic-field">
+                <div class="col-md-5 ic-field">
                     <label for="ic-format">바꿀 확장자</label>
-                    <select id="ic-format" class="form-select">
-                        <option value="image/jpeg">JPG (JPEG)</option>
-                        <option value="image/png">PNG</option>
-                        <option value="image/webp">WEBP</option>
-                        <option value="image/bmp">BMP</option>
-                    </select>
+                    <div class="input-group">
+                        <select id="ic-format" class="form-select">
+                            <option value="image/jpeg">JPG (JPEG)</option>
+                            <option value="image/png">PNG</option>
+                            <option value="image/webp">WEBP</option>
+                            <option value="image/bmp">BMP</option>
+                        </select>
+                        <button type="button" id="ic-convert-btn" class="btn btn-primary" disabled>
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 변환
+                        </button>
+                    </div>
+                    <div class="form-text text-muted">이미지를 올린 뒤 변환 버튼을 누르세요</div>
                 </div>
                 <div class="col-md-4 ic-field ic-quality-row">
                     <label for="ic-quality">화질 (<span id="ic-quality-value">90</span>%)</label>
                     <input type="range" id="ic-quality" class="form-range" min="10" max="100" value="90">
                     <div class="form-text text-muted">낮출수록 용량이 줄어듭니다</div>
                 </div>
-                <div class="col-md-4 ic-field ic-bg-row">
+                <div class="col-md-3 ic-field ic-bg-row">
                     <label for="ic-bgcolor">배경색 (투명 영역 채움)</label>
                     <input type="color" id="ic-bgcolor" class="form-control form-control-color" value="#ffffff">
                     <div class="form-text text-muted">JPG·BMP는 투명을 지원하지 않아요</div>
@@ -91,7 +97,7 @@
                 <b>불러오기</b>: HEIC · JPG · PNG · WEBP · BMP · GIF · SVG(+브라우저가 지원하면 AVIF) →
                 <b>저장</b>: JPG · PNG · WEBP · BMP — 어느 쪽으로든 서로 바꿀 수 있어요(webp→png, png→jpg, bmp→jpg …).
                 크기까지 함께 바꾸려면 <a href="{% url 'image_resizer' %}">이미지 리사이저</a>를 이용하세요. 움직이는 GIF는 첫 장면만 변환됩니다.
-                이미지를 올린 뒤에 설정을 바꿔도 자동으로 다시 변환됩니다.
+                설정을 바꾸면 변환 버튼을 다시 눌러주세요 — 설정과 다른 결과가 남지 않도록 이전 결과는 지워집니다.
             </div>
         </div>
 
@@ -106,7 +112,7 @@
 
         <div class="card card-custom bg-white p-3 p-md-4" id="ic-result-card" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <div class="ic-section-title mb-0">변환 결과 (<span id="ic-count">0</span>장)</div>
+                <div class="ic-section-title mb-0" id="ic-list-title">올린 이미지</div>
                 <div class="d-flex gap-2">
                     <button type="button" id="ic-zip-btn" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-zipper"></i> ZIP으로 전체 받기</button>
                     <button type="button" id="ic-clear-btn" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-trash-can"></i> 목록 비우기</button>
@@ -115,6 +121,7 @@
             <div class="ic-progress alert alert-light border py-2 px-3 mb-3" id="ic-progress">
                 <i class="fa-solid fa-spinner fa-spin"></i> <span id="ic-progress-text">변환 중…</span>
             </div>
+            <div id="ic-hint" class="form-text text-muted mb-2"></div>
             <div id="ic-list"></div>
         </div>
     </div>
@@ -133,14 +140,17 @@
     var bgColorEl = document.getElementById('ic-bgcolor');
     var resultCard = document.getElementById('ic-result-card');
     var listEl = document.getElementById('ic-list');
-    var countEl = document.getElementById('ic-count');
+    var listTitleEl = document.getElementById('ic-list-title');
+    var hintEl = document.getElementById('ic-hint');
+    var convertBtn = document.getElementById('ic-convert-btn');
     var zipBtn = document.getElementById('ic-zip-btn');
     var clearBtn = document.getElementById('ic-clear-btn');
     var progressEl = document.getElementById('ic-progress');
     var progressTextEl = document.getElementById('ic-progress-text');
 
-    var sourceFiles = [];   // 올린 원본 — 설정이 바뀌면 이걸로 전부 다시 변환한다
+    var sourceFiles = [];   // 올린 원본 — 변환 버튼을 누르면 이걸로 변환한다
     var results = [];       // 변환 결과(ZIP 묶기·다운로드용)
+    var pendingUrls = [];   // 변환 전 미리보기용 blob URL
     var heic2anyPromise = null;
     var jszipPromise = null;
 
@@ -393,36 +403,85 @@
         });
         if (!list.length) return;
         sourceFiles = sourceFiles.concat(list);
-        runConversion(list, false);   // 새로 올린 것만 변환해서 목록에 덧붙인다
+        showPending('변환 버튼을 누르면 ' + sourceFiles.length + '장을 ' + labelFor(formatEl.value) + '로 바꿉니다.');
     }
 
-    // 설정(확장자·화질·배경색)이 바뀌면 이미 올린 원본으로 전부 다시 변환한다.
-    // 예전에는 업로드 시점에 한 번만 변환해서, 올린 뒤 확장자를 바꾸면 처음 만들어진 파일이
-    // 그대로 받아졌다(PNG로 바꿨는데 JPG가 받아지는 문제).
-    function reconvertAll() {
-        if (!sourceFiles.length) return;
+    function releaseUrls() {
         results.forEach(function (r) { if (r.url) URL.revokeObjectURL(r.url); });
+        pendingUrls.forEach(function (u) { URL.revokeObjectURL(u); });
         results = [];
-        listEl.innerHTML = '';
-        runConversion(sourceFiles, true);
+        pendingUrls = [];
     }
 
-    function runConversion(list, isReconvert) {
+    // 변환 전(또는 설정이 바뀌어 결과를 버린 뒤) 올린 이미지 목록을 보여주는 상태.
+    // 설정을 바꾸면 이전 결과를 지우기 때문에, 화면에 보이는 확장자와 실제로 받아지는 파일이
+    // 어긋날 수 없다.
+    function showPending(message) {
+        releaseUrls();
+        listEl.innerHTML = '';
+        if (!sourceFiles.length) {
+            resultCard.style.display = 'none';
+            convertBtn.disabled = true;
+            zipBtn.disabled = true;
+            return;
+        }
+        resultCard.style.display = 'block';
+        listTitleEl.textContent = '올린 이미지 (' + sourceFiles.length + '장)';
+        hintEl.textContent = message || '';
+        sourceFiles.forEach(function (file) {
+            var row = document.createElement('div');
+            row.className = 'ic-item';
+
+            var thumb = document.createElement('img');
+            thumb.className = 'ic-thumb';
+            thumb.alt = '';
+            var url = URL.createObjectURL(file);
+            pendingUrls.push(url);
+            thumb.src = url;   // HEIC처럼 브라우저가 못 읽는 형식은 빈 칸으로 보인다
+
+            var body = document.createElement('div');
+            body.className = 'ic-item-body';
+            var nameEl = document.createElement('div');
+            nameEl.className = 'ic-item-name';
+            nameEl.textContent = file.name;
+            var metaEl = document.createElement('div');
+            metaEl.className = 'ic-item-meta';
+            metaEl.textContent = fmtBytes(file.size) + ' · 변환 대기 중';
+            body.appendChild(nameEl);
+            body.appendChild(metaEl);
+
+            row.appendChild(thumb);
+            row.appendChild(body);
+            listEl.appendChild(row);
+        });
+        convertBtn.disabled = false;
+        zipBtn.disabled = true;
+    }
+
+    function runConversion() {
+        if (!sourceFiles.length) return;
+        releaseUrls();
+        listEl.innerHTML = '';
+        hintEl.textContent = '';
+        listTitleEl.textContent = '변환 결과';
         resultCard.style.display = 'block';
         progressEl.style.display = 'block';
+        convertBtn.disabled = true;
         zipBtn.disabled = true;
 
+        var list = sourceFiles;
         var done = 0;
         function step(i) {
             if (i >= list.length) {
                 progressEl.style.display = 'none';
-                zipBtn.disabled = false;
-                countEl.textContent = results.filter(function (r) { return !r.error; }).length;
+                var okCount = results.filter(function (r) { return !r.error; }).length;
+                listTitleEl.textContent = '변환 결과 (' + okCount + '장)';
+                convertBtn.disabled = false;
+                zipBtn.disabled = okCount === 0;
                 return;
             }
             var file = list[i];
-            progressTextEl.textContent = (isReconvert ? '다시 변환 중… (' : '변환 중… (')
-                + (done + 1) + '/' + list.length + ') ' + file.name;
+            progressTextEl.textContent = '변환 중… (' + (done + 1) + '/' + list.length + ') ' + file.name;
 
             convertFile(file).then(function (out) {
                 var entry = {
@@ -461,22 +520,30 @@
         if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
     });
 
+    convertBtn.addEventListener('click', runConversion);
+
+    // 설정이 바뀌면 이전 결과를 버리고 대기 상태로 되돌린다 — 화면에 뜬 확장자와 다른 파일이
+    // 받아지지 않게 하는 게 핵심이다.
+    function onSettingChanged() {
+        if (!sourceFiles.length) return;
+        showPending('설정이 바뀌었습니다. 변환 버튼을 눌러 ' + labelFor(formatEl.value) + '로 변환하세요.');
+    }
     formatEl.addEventListener('change', function () {
         updateFormatUI();
-        reconvertAll();
+        onSettingChanged();
     });
-    // 화질·배경색은 슬라이더를 끄는 동안 매번 다시 변환하면 무거우므로 change(조작을 마친 시점)에만
     qualityEl.addEventListener('input', function () { qualityValueEl.textContent = qualityEl.value; });
-    qualityEl.addEventListener('change', reconvertAll);
-    bgColorEl.addEventListener('change', reconvertAll);
+    qualityEl.addEventListener('change', onSettingChanged);
+    bgColorEl.addEventListener('change', onSettingChanged);
 
     clearBtn.addEventListener('click', function () {
-        results.forEach(function (r) { if (r.url) URL.revokeObjectURL(r.url); });
+        releaseUrls();
         sourceFiles = [];
-        results = [];
         listEl.innerHTML = '';
-        countEl.textContent = '0';
+        hintEl.textContent = '';
         resultCard.style.display = 'none';
+        convertBtn.disabled = true;
+        zipBtn.disabled = true;
     });
 
     zipBtn.addEventListener('click', function () {
