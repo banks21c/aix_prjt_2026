@@ -1,24 +1,61 @@
-<!-- /tools/ 계열 페이지 공통 상단 탭. asset-management/index.html의 .am-tabs(종합/국민연금/…)와
-     같은 역할 — 부모 템플릿이 active_tool(예: 'hub', 'char_counter')을 넘겨 현재 탭을 표시한다.
-     새 유틸을 추가할 때는 이 파일에 <a class="tools-tab"> 한 줄만 늘리면 된다. -->
-<div class="tools-tabs">
-    <div class="tools-tabs-inner">
-        <a href="{% url 'tools_hub' %}" class="tools-tab{% if active_tool == 'hub' %} is-active{% endif %}">유틸 Main</a>
-        <a href="{% url 'char_counter' %}" class="tools-tab{% if active_tool == 'char_counter' %} is-active{% endif %}">글자수세기</a>
-        <a href="{% url 'currency_converter' %}" class="tools-tab{% if active_tool == 'currency_converter' %} is-active{% endif %}">환율 계산기</a>
-        <a href="{% url 'severance_calculator' %}" class="tools-tab{% if active_tool == 'severance_calculator' %} is-active{% endif %}">퇴직금 계산기</a>
-        <a href="{% url 'unemployment_benefit_calculator' %}" class="tools-tab{% if active_tool == 'unemployment_benefit_calculator' %} is-active{% endif %}">실업급여 계산기</a>
-        <a href="{% url 'net_pay_calculator' %}" class="tools-tab{% if active_tool == 'net_pay_calculator' %} is-active{% endif %}">급여 실수령액 계산기</a>
-        <a href="{% url 'annual_leave_calculator' %}" class="tools-tab{% if active_tool == 'annual_leave_calculator' %} is-active{% endif %}">연차수당 계산기</a>
-        <a href="{% url 'loan_calculator' %}" class="tools-tab{% if active_tool == 'loan_calculator' %} is-active{% endif %}">대출 이자 계산기</a>
-        <a href="{% url 'savings_calculator' %}" class="tools-tab{% if active_tool == 'savings_calculator' %} is-active{% endif %}">예적금 계산기</a>
-        <a href="{% url 'json_formatter' %}" class="tools-tab{% if active_tool == 'json_formatter' %} is-active{% endif %}">JSON 포맷터</a>
-        <a href="{% url 'image_resizer' %}" class="tools-tab{% if active_tool == 'image_resizer' %} is-active{% endif %}">이미지 리사이저</a>
-        <a href="{% url 'image_converter' %}" class="tools-tab{% if active_tool == 'image_converter' %} is-active{% endif %}">이미지 확장자 변환</a>
-        <a href="{% url 'pdf_tools' %}" class="tools-tab{% if active_tool == 'pdf_tools' %} is-active{% endif %}">PDF 도구</a>
-        <a href="{% url 'qrcode_generator' %}" class="tools-tab{% if active_tool == 'qrcode_generator' %} is-active{% endif %}">QR코드 생성기</a>
-        <a href="{% url 'background_remover' %}" class="tools-tab{% if active_tool == 'background_remover' %} is-active{% endif %}">배경 제거</a>
-        <a href="{% url 'unit_converter' %}" class="tools-tab{% if active_tool == 'unit_converter' %} is-active{% endif %}">단위 변환기</a>
-        <a href="{% url 'spell_checker' %}" class="tools-tab{% if active_tool == 'spell_checker' %} is-active{% endif %}">맞춤법 검사기</a>
+{% comment %}
+/tools/ 계열 페이지 공통 상단 탭. 유틸이 16개가 되면서 한 줄 가로 스크롤로는 뭐가 있는지
+훑을 수 없어 2단으로 바꿨다 — 윗줄에서 카테고리를 고르면 아랫줄이 그 카테고리의 유틸로 바뀐다.
+
+목록은 articles/tools_catalog.py 한 곳에 있고 templatetags/tools_tags.py의 tools_tabs 태그가 넘겨준다
+(그래서 include가 아니라 inclusion_tag다). 새 유틸은 tools_catalog.py에만 추가하면 된다.
+
+아랫줄의 .tools-tabs/.tools-tab CSS는 각 유틸 템플릿의 <style>에 이미 있는 것을 그대로 쓰고,
+새로 생긴 카테고리 줄(.tools-cats)의 CSS만 여기서 함께 내보낸다 — 17개 템플릿의 <style>을
+일일이 고치지 않기 위해서다.
+
+카테고리 전환은 JS로 아랫줄만 바꾼다(페이지 이동 없음). JS가 없으면 모든 카테고리의 유틸이
+한 줄에 다 보이는데, 이는 2단으로 바꾸기 전과 같은 모습이라 기능상 문제가 없다.
+{% endcomment %}
+<style>
+    .tools-cats { background: var(--bg-page, #f4f6f9); border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+    .tools-cats-inner { max-width: 900px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 6px; overflow-x: auto; align-items: center; }
+    .tools-cat { padding: 7px 15px; border-radius: 999px; border: 1px solid transparent; background: transparent; font-size: 13.5px; font-weight: 700;
+                 color: var(--text-secondary, #868e96); white-space: nowrap; text-decoration: none; cursor: pointer; }
+    .tools-cat:hover { color: var(--brand-primary, #0d47a1); }
+    .tools-cat.is-active { background: #fff; border-color: var(--bg-subtle-2, #dee2e6); color: var(--brand-primary, #0d47a1); }
+    .tools-cat-home { border-right: 1px solid var(--bg-subtle-2, #dee2e6); border-radius: 0; margin-right: 6px; padding-right: 15px; }
+    .tools-cat-home.is-active { background: transparent; border-color: transparent; border-right: 1px solid var(--bg-subtle-2, #dee2e6); }
+    .tools-group { display: flex; gap: 4px; }
+</style>
+<div class="tools-cats">
+    <div class="tools-cats-inner" id="tools-cats" data-active="{{ active_category }}">
+        <a href="{% url 'tools_hub' %}" class="tools-cat tools-cat-home{% if active_tool == 'hub' %} is-active{% endif %}">유틸 Main</a>
+        {% for category in categories %}
+            <button type="button" class="tools-cat{% if category.key == active_category %} is-active{% endif %}" data-cat="{{ category.key }}">{{ category.label }}</button>
+        {% endfor %}
     </div>
 </div>
+<div class="tools-tabs">
+    <div class="tools-tabs-inner">
+        {% for category in categories %}
+            <div class="tools-group" data-cat="{{ category.key }}">
+                {% for tool in category.tools %}
+                    <a href="{% url tool.url_name %}" class="tools-tab{% if tool.url_name == active_tool %} is-active{% endif %}">{{ tool.tab }}</a>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+<script>
+(function () {
+    var bar = document.getElementById('tools-cats');
+    if (!bar) return;
+    var buttons = bar.querySelectorAll('.tools-cat[data-cat]');
+    var groups = document.querySelectorAll('.tools-group');
+
+    function show(key) {
+        buttons.forEach(function (b) { b.classList.toggle('is-active', b.dataset.cat === key); });
+        groups.forEach(function (g) { g.style.display = (g.dataset.cat === key) ? 'flex' : 'none'; });
+    }
+    buttons.forEach(function (b) {
+        b.addEventListener('click', function () { show(b.dataset.cat); });
+    });
+    show(bar.dataset.active);   // 열릴 때는 현재 보고 있는 유틸의 카테고리만 펼친다
+})();
+</script>
