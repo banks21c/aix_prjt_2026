@@ -46,6 +46,7 @@
         .ic-quality-row { display: none; }
         .ic-bg-row { display: none; }
         .ic-progress { display: none; }
+        .ic-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     </style>
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
 <link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
@@ -64,8 +65,17 @@
         </div>
 
         <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="ic-section-title">이미지 업로드 (여러 장 가능)</div>
+            <div class="ic-dropzone" id="ic-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                클릭하거나 이미지를 여기로 끌어다 놓으세요 (HEIC · JPG · PNG · WEBP · GIF · BMP · SVG)
+                <input type="file" id="ic-file" accept="image/*,.heic,.heif" multiple class="d-none">
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
             <div class="ic-section-title">변환 설정</div>
-            <div class="row g-3">
+            <div class="row g-3 align-items-end">
                 <div class="col-md-5 ic-field">
                     <label for="ic-format">바꿀 확장자</label>
                     <div class="input-group">
@@ -79,8 +89,14 @@
                             <i class="fa-solid fa-wand-magic-sparkles"></i> 변환
                         </button>
                     </div>
-                    <div class="form-text text-muted">이미지를 올린 뒤 변환 버튼을 누르세요</div>
                 </div>
+                <div class="col-md-7 ic-actions">
+                    <button type="button" id="ic-download-btn" class="btn btn-outline-primary" disabled><i class="fa-solid fa-download"></i> 받기</button>
+                    <button type="button" id="ic-zip-btn" class="btn btn-outline-primary" disabled><i class="fa-solid fa-file-zipper"></i> ZIP으로 전체 받기</button>
+                    <button type="button" id="ic-clear-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-trash-can"></i> 목록 비우기</button>
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
                 <div class="col-md-4 ic-field ic-quality-row">
                     <label for="ic-quality">화질 (<span id="ic-quality-value">90</span>%)</label>
                     <input type="range" id="ic-quality" class="form-range" min="10" max="100" value="90">
@@ -97,27 +113,13 @@
                 <b>불러오기</b>: HEIC · JPG · PNG · WEBP · BMP · GIF · SVG(+브라우저가 지원하면 AVIF) →
                 <b>저장</b>: JPG · PNG · WEBP · BMP — 어느 쪽으로든 서로 바꿀 수 있어요(webp→png, png→jpg, bmp→jpg …).
                 크기까지 함께 바꾸려면 <a href="{% url 'image_resizer' %}">이미지 리사이저</a>를 이용하세요. 움직이는 GIF는 첫 장면만 변환됩니다.
-                설정을 바꾸면 변환 버튼을 다시 눌러주세요 — 설정과 다른 결과가 남지 않도록 이전 결과는 지워집니다.
-            </div>
-        </div>
-
-        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
-            <div class="ic-section-title">이미지 업로드 (여러 장 가능)</div>
-            <div class="ic-dropzone" id="ic-dropzone">
-                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
-                클릭하거나 이미지를 여기로 끌어다 놓으세요 (HEIC · JPG · PNG · WEBP · GIF · BMP · SVG)
-                <input type="file" id="ic-file" accept="image/*,.heic,.heif" multiple class="d-none">
+                이미지를 올리고 <b>변환</b>을 누른 뒤 <b>받기</b>(한 장씩) 또는 <b>ZIP으로 전체 받기</b>로 내려받으세요.
+                설정을 바꾸면 변환을 다시 눌러야 합니다 — 설정과 다른 결과가 남지 않도록 이전 결과는 지워집니다.
             </div>
         </div>
 
         <div class="card card-custom bg-white p-3 p-md-4" id="ic-result-card" style="display:none;">
-            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <div class="ic-section-title mb-0" id="ic-list-title">올린 이미지</div>
-                <div class="d-flex gap-2">
-                    <button type="button" id="ic-zip-btn" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-zipper"></i> ZIP으로 전체 받기</button>
-                    <button type="button" id="ic-clear-btn" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-trash-can"></i> 목록 비우기</button>
-                </div>
-            </div>
+            <div class="ic-section-title" id="ic-list-title">올린 이미지</div>
             <div class="ic-progress alert alert-light border py-2 px-3 mb-3" id="ic-progress">
                 <i class="fa-solid fa-spinner fa-spin"></i> <span id="ic-progress-text">변환 중…</span>
             </div>
@@ -143,6 +145,7 @@
     var listTitleEl = document.getElementById('ic-list-title');
     var hintEl = document.getElementById('ic-hint');
     var convertBtn = document.getElementById('ic-convert-btn');
+    var downloadBtn = document.getElementById('ic-download-btn');
     var zipBtn = document.getElementById('ic-zip-btn');
     var clearBtn = document.getElementById('ic-clear-btn');
     var progressEl = document.getElementById('ic-progress');
@@ -406,6 +409,18 @@
         showPending('변환 버튼을 누르면 ' + sourceFiles.length + '장을 ' + labelFor(formatEl.value) + '로 바꿉니다.');
     }
 
+    function okResults() {
+        return results.filter(function (r) { return !r.error; });
+    }
+
+    // 받기·ZIP은 변환 결과가 있을 때만 — 결과가 없는데 눌러서 아무 일도 안 일어나는 상황을 막는다
+    function syncActionButtons() {
+        var n = okResults().length;
+        downloadBtn.disabled = n === 0;
+        zipBtn.disabled = n === 0;
+        downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i> 받기' + (n > 1 ? ' (' + n + '장)' : '');
+    }
+
     function releaseUrls() {
         results.forEach(function (r) { if (r.url) URL.revokeObjectURL(r.url); });
         pendingUrls.forEach(function (u) { URL.revokeObjectURL(u); });
@@ -422,7 +437,7 @@
         if (!sourceFiles.length) {
             resultCard.style.display = 'none';
             convertBtn.disabled = true;
-            zipBtn.disabled = true;
+            syncActionButtons();
             return;
         }
         resultCard.style.display = 'block';
@@ -455,7 +470,7 @@
             listEl.appendChild(row);
         });
         convertBtn.disabled = false;
-        zipBtn.disabled = true;
+        syncActionButtons();
     }
 
     function runConversion() {
@@ -467,17 +482,16 @@
         resultCard.style.display = 'block';
         progressEl.style.display = 'block';
         convertBtn.disabled = true;
-        zipBtn.disabled = true;
+        syncActionButtons();
 
         var list = sourceFiles;
         var done = 0;
         function step(i) {
             if (i >= list.length) {
                 progressEl.style.display = 'none';
-                var okCount = results.filter(function (r) { return !r.error; }).length;
-                listTitleEl.textContent = '변환 결과 (' + okCount + '장)';
+                listTitleEl.textContent = '변환 결과 (' + okResults().length + '장)';
                 convertBtn.disabled = false;
-                zipBtn.disabled = okCount === 0;
+                syncActionButtons();
                 return;
             }
             var file = list[i];
@@ -543,11 +557,28 @@
         hintEl.textContent = '';
         resultCard.style.display = 'none';
         convertBtn.disabled = true;
-        zipBtn.disabled = true;
+        syncActionButtons();
+    });
+
+    // 여러 장일 때는 브라우저가 "여러 파일 다운로드"를 한 번 물어볼 수 있다. 간격을 두지 않고
+    // 연속으로 click()하면 일부를 조용히 무시하는 브라우저가 있어 400ms씩 띄운다.
+    downloadBtn.addEventListener('click', function () {
+        var ok = okResults();
+        if (!ok.length) return;
+        ok.forEach(function (r, i) {
+            setTimeout(function () {
+                var a = document.createElement('a');
+                a.href = r.url || URL.createObjectURL(r.blob);
+                a.download = r.outName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, i * 400);
+        });
     });
 
     zipBtn.addEventListener('click', function () {
-        var ok = results.filter(function (r) { return !r.error; });
+        var ok = okResults();
         if (!ok.length) return;
 
         var original = zipBtn.innerHTML;
@@ -570,12 +601,13 @@
         }).catch(function (e) {
             alert('ZIP을 만들지 못했습니다: ' + ((e && e.message) || e) + '\n각 이미지의 "받기" 버튼으로 하나씩 내려받을 수 있어요.');
         }).then(function () {
-            zipBtn.disabled = false;
             zipBtn.innerHTML = original;
+            syncActionButtons();
         });
     });
 
     updateFormatUI();
+    syncActionButtons();
 })();
 </script>
 </body>
