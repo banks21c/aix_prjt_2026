@@ -4,6 +4,7 @@
 공유하는 "발행 대상 기사 선정", "포스팅용 콘텐츠 빌드", "실제 플랫폼별 발행 API 호출"을
 한 곳에 모아, 자동/수동 두 경로에서 발행 로직이 서로 다르게 갈라지지 않도록 한다.
 """
+import io
 import logging
 import os
 import re
@@ -463,6 +464,34 @@ def _get_or_create_wp_category(account):
         return None
 
 
+# 워드프레스에 올리는 대표 이미지 — 썸네일 원본은 AI가 그린 사진 같은 PNG라 1장에 1MB를 넘는다.
+# 그대로 올리면 목록 화면이 통째로 무거워진다(deepsleepway.com 첫 화면 이미지 10MB, LCP 9.5초 —
+# 같은 그림을 WebP로 줄이면 1/10 수준). 올리기 전에 폭을 줄이고 WebP로 바꾼다.
+WP_MEDIA_MAX_WIDTH = 1200
+WP_MEDIA_WEBP_QUALITY = 82
+
+
+def _webp_for_upload(image_bytes, filename):
+    """(바이트, 파일명, 콘텐츠 타입). 변환이 안 되거나 오히려 커지면 원본 그대로 올린다 —
+    대표 이미지 한 장 때문에 발행이 막히면 안 된다."""
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image_bytes)) as im:
+            im = im.convert('RGB')
+            if im.width > WP_MEDIA_MAX_WIDTH:
+                height = round(im.height * WP_MEDIA_MAX_WIDTH / im.width)
+                im = im.resize((WP_MEDIA_MAX_WIDTH, height), Image.LANCZOS)
+            buffer = io.BytesIO()
+            im.save(buffer, 'WEBP', quality=WP_MEDIA_WEBP_QUALITY, method=6)
+        converted = buffer.getvalue()
+        if converted and len(converted) < len(image_bytes):
+            return converted, f"{os.path.splitext(filename)[0]}.webp", 'image/webp'
+    except Exception:
+        logger.exception("대표 이미지 WebP 변환 실패 — 원본 그대로 올린다 (filename=%s)", filename)
+    return image_bytes, filename, 'image/png'
+
+
 def _upload_wp_featured_media(account, article):
     """article.thumbnail을 워드프레스 미디어 라이브러리에 업로드하고 미디어 ID를 반환한다.
     Astra 등 대부분의 테마는 블로그 목록/아카이브 그리드에 본문 속 <img>가 아니라 이 '대표
@@ -477,12 +506,13 @@ def _upload_wp_featured_media(account, article):
         with article.thumbnail.open('rb') as f:
             image_bytes = f.read()
         filename = os.path.basename(article.thumbnail.name) or f"thumbnail-{article.pk}.png"
+        image_bytes, filename, content_type = _webp_for_upload(image_bytes, filename)
         res = requests.post(
             f"{account.site_url}/wp-json/wp/v2/media",
             auth=(account.account_id, account.credential),
             headers={
                 'Content-Disposition': f'attachment; filename="{filename}"',
-                'Content-Type': 'image/png',
+                'Content-Type': content_type,
             },
             data=image_bytes,
             timeout=20,

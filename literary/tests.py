@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -8,6 +9,12 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from .models import Author, Work
+
+
+def combo_authors(response):
+    """작가 콤보(입력칸 아래 목록)에 들어간 작가 이름 — 화면이 JS에 넘기는 author-options JSON."""
+    return json.loads(re.search(r'<script id="author-options"[^>]*>(.*?)</script>',
+                                response.content.decode(), re.S).group(1))
 
 
 # articles/tests.py와 같은 이유 — 테스트 러너가 DEBUG=False로 돌려 SECURE_SSL_REDIRECT가 켜지면 모든 요청이 301이 된다.
@@ -96,7 +103,7 @@ class WorkSummaryAndDetailTests(TestCase):
             self.assertContains(resp, "『봄봄』")
             self.assertNotContains(resp, "『벨아미』")
             self.assertContains(resp, 'id="filter-origin-domestic" value="domestic" checked')
-            self.assertNotContains(resp, '<option value="기 드 모파상"')  # 작가 콤보도 국내 작가만
+            self.assertNotIn("기 드 모파상", combo_authors(resp))          # 작가 콤보도 국내 작가만
             resp = self.get(url + '?origin=foreign')
             self.assertContains(resp, "『벨아미』")
             self.assertNotContains(resp, "『봄봄』")
@@ -172,3 +179,20 @@ class WorkSummaryAndDetailTests(TestCase):
         self.assertEqual(Work.objects.db, 'autovi')
         self.assertEqual(Author.objects.db, 'autovi')
         self.assertEqual(get_user_model().objects.db, 'default')
+
+    def test_author_filter_accepts_typed_text(self):
+        Work.objects.create(author=Author.objects.create(name="에밀 졸라"), title="목로주점")
+        # 정확한 이름이면 그 작가만, 작품 콤보도 켜진다
+        resp = self.get('/admin-tools/literary-picker/?author=에밀 졸라')
+        self.assertContains(resp, "『목로주점』")
+        self.assertNotContains(resp, "『벨아미』")
+        self.assertContains(resp, 'id="filter-author" value="에밀 졸라"')
+        self.assertNotContains(resp, 'id="filter-work" class="form-select form-select-sm" disabled')
+        # 일부만 입력하면 그 글자가 든 작가 전부, 작품 조건은 쓰지 않는다
+        resp = self.get('/admin-tools/literary-picker/?author=모파&work=목로주점')
+        self.assertContains(resp, "『벨아미』")
+        self.assertContains(resp, "『여자의 일생』")
+        self.assertNotContains(resp, "『목로주점』")
+        self.assertContains(resp, 'id="filter-work" class="form-select form-select-sm" disabled')
+        # 아무 작가에도 없는 글자면 결과 없음
+        self.assertContains(self.get('/admin-tools/literary-picker/?author=없는작가'), "0건")

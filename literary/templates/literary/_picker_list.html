@@ -2,19 +2,24 @@
 작가·작품 목록(필터 + 표 + 페이지 이동). 선택하면 트리거 문구를 클립보드에도 복사한다.
 {% endcomment %}
 {{ candidates_data|json_script:"candidates-data" }}
+{{ authors|json_script:"author-options" }}
 <form method="get" id="filter-form">
 <div class="card card-custom bg-white p-3 mb-3">
     <div class="row g-2 align-items-end">
         <div class="col-auto">
-            <label class="form-label mb-1">작가</label>
-            <select name="author" id="filter-author" class="form-select form-select-sm">
-                <option value="">--선택--</option>
-                {% for a in authors %}<option value="{{ a }}"{% if a == filter_author %} selected{% endif %}>{{ a }}</option>{% endfor %}
-            </select>
+            <label class="form-label mb-1" for="filter-author">작가</label>
+            {% comment %}고르거나 직접 입력 — 입력하면 이름에 그 글자가 든 작가가 목록에 뜨고, 일부만 입력한 채 검색하면 그 작가들 작품 전부.
+            목록은 datalist 대신 직접 그린다 — Chrome의 datalist 팝업은 입력칸 가운데쯤에 말풍선으로 떠서 위치를 바꿀 수 없다.{% endcomment %}
+            <div class="author-combo-wrap">
+                <input type="search" name="author" id="filter-author" value="{{ filter_author }}"
+                       class="form-control form-control-sm author-combo" placeholder="작가 입력 또는 선택" autocomplete="off"
+                       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="filter-author-list">
+                <ul id="filter-author-list" class="author-combo-list" role="listbox" hidden></ul>
+            </div>
         </div>
         <div class="col-auto">
             <label class="form-label mb-1">작품</label>
-            <select name="work" id="filter-work" class="form-select form-select-sm"{% if not filter_author %} disabled{% endif %}>
+            <select name="work" id="filter-work" class="form-select form-select-sm"{% if filter_author not in authors %} disabled{% endif %}>
                 <option value="">--선택--</option>
             </select>
         </div>
@@ -207,15 +212,71 @@
         workSelect.disabled = false;
     }
 
-    if (authorSelect.value) {
-        populateWorkOptions(authorSelect.value, currentWork);
+    const AUTHORS = new Set(CANDIDATES.map(function (c) { return c.author; }));
+    // 작품 콤보는 작가 이름이 목록의 작가와 정확히 같을 때만 채운다(입력 중인 일부 글자로는 비워 둔다).
+    function syncWorkOptions(preselectWork) {
+        const name = authorSelect.value.trim();
+        populateWorkOptions(AUTHORS.has(name) ? name : "", preselectWork);
     }
+    syncWorkOptions(currentWork);
     // 분류 콤보·제작 상태·국내/국외 토글은 바꾸는 즉시 검색한다(1쪽부터).
     document.querySelectorAll("#filter-kind, #filter-priority, #filter-form input[name=produced], #filter-form input[name=origin]").forEach(function (el) {
         el.addEventListener("change", function () { document.getElementById("filter-form").submit(); });
     });
-    authorSelect.addEventListener("change", function () {
-        populateWorkOptions(authorSelect.value, null);
+    // 작가 목록 — 입력칸 바로 아래 왼쪽에 붙여 띄우고, 입력한 글자가 든 작가만 남긴다.
+    const AUTHOR_OPTIONS = JSON.parse(document.getElementById("author-options").textContent);
+    const authorList = document.getElementById("filter-author-list");
+    let activeIndex = -1;
+
+    function setListOpen(open) {
+        authorList.hidden = !open;
+        authorSelect.setAttribute("aria-expanded", open ? "true" : "false");
+        if (!open) authorSelect.removeAttribute("aria-activedescendant");
+    }
+    function renderAuthorList() {
+        const q = authorSelect.value.trim().toLowerCase();
+        const matches = q ? AUTHOR_OPTIONS.filter(function (a) { return a.toLowerCase().includes(q); }) : AUTHOR_OPTIONS;
+        authorList.innerHTML = "";
+        matches.forEach(function (name, i) {
+            const li = document.createElement("li");
+            li.id = "filter-author-option-" + i;
+            li.setAttribute("role", "option");
+            li.textContent = name;
+            // mousedown에서 고르고 기본 동작을 막아 입력칸 포커스(blur로 닫힘)를 잃지 않게 한다.
+            li.addEventListener("mousedown", function (e) { e.preventDefault(); pickAuthor(name); });
+            authorList.appendChild(li);
+        });
+        activeIndex = -1;
+        setListOpen(matches.length > 0);
+    }
+    function pickAuthor(name) {
+        authorSelect.value = name;
+        setListOpen(false);
+        syncWorkOptions(null);
+    }
+    function moveActive(step) {
+        if (authorList.hidden) renderAuthorList();
+        const items = authorList.children;
+        if (!items.length) return;
+        if (activeIndex >= 0) items[activeIndex].classList.remove("active");
+        activeIndex = (activeIndex + step + items.length) % items.length;
+        items[activeIndex].classList.add("active");
+        items[activeIndex].scrollIntoView({ block: "nearest" });
+        authorSelect.setAttribute("aria-activedescendant", items[activeIndex].id);
+    }
+
+    authorSelect.addEventListener("focus", renderAuthorList);
+    authorSelect.addEventListener("click", function () { if (authorList.hidden) renderAuthorList(); });
+    authorSelect.addEventListener("input", function () { renderAuthorList(); syncWorkOptions(null); });
+    authorSelect.addEventListener("blur", function () { setListOpen(false); });
+    authorSelect.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { e.preventDefault(); moveActive(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); moveActive(-1); }
+        else if (e.key === "Escape" && !authorList.hidden) { e.preventDefault(); setListOpen(false); }  // 목록만 닫고 입력은 남긴다
+        else if (e.key === "Enter" && !authorList.hidden && activeIndex >= 0) {
+            e.preventDefault();  // 목록에서 고르는 Enter는 검색하지 않는다(한 번 더 Enter면 검색)
+            pickAuthor(authorList.children[activeIndex].textContent);
+        }
     });
 })();
 </script>

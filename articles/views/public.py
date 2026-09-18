@@ -375,6 +375,22 @@ def annual_leave_calculator_view(request):
     })
 
 
+def loan_calculator_view(request):
+    # 대출 이자 계산기 — 원리금균등/원금균등/만기일시 + 거치기간, 회차별 상환 스케줄.
+    # 월이율 = 연이율/12의 월복리를 가정한 표준 상환식이라 세법처럼 매년 바뀌는 고시값이 없고,
+    # 금리는 사용자가 직접 넣는 값이므로 다른 계산기와 달리 갱신해야 할 상수가 없다.
+    # 급여 계산기들과 마찬가지로 금액이 서버로 전송되지 않도록 계산은 클라이언트에서 한다.
+    return render(request, 'articles/loan_calculator.html', {'site_title': 'NextFinUp - 대출 이자 계산기'})
+
+
+def savings_calculator_view(request):
+    # 예금·적금 이자 계산기 — 단리/월복리, 이자소득세 공제 후 만기 수령액.
+    # 이자소득세 15.4%(소득세 14% + 지방소득세 1.4%)는 바뀔 수 있는 고시값이라 실업급여/급여
+    # 계산기와 같은 방식으로 화면에서 수정 가능한 입력 필드로 두고, 과세 유형 선택으로 기본값만
+    # 채워준다. 계산은 클라이언트에서 한다.
+    return render(request, 'articles/savings_calculator.html', {'site_title': 'NextFinUp - 예금·적금 이자 계산기'})
+
+
 def json_formatter_view(request):
     # JSON 예쁘게 출력/압축/검증 도구. 개발용 텍스트(API 응답, 설정값 등)가 서버로 전송/저장되지
     # 않도록 다른 유틸과 마찬가지로 파싱·포맷팅 전부 브라우저(JS 내장 JSON.parse/stringify)에서만
@@ -387,6 +403,23 @@ def image_resizer_view(request):
     # <canvas>.toBlob으로 리사이즈/포맷 변환을 전부 브라우저에서 처리하고, 결과물도 브라우저가
     # 바로 다운로드시킨다(서버 저장 없음).
     return render(request, 'articles/image_resizer.html', {'site_title': 'NextFinUp - 이미지 리사이저'})
+
+
+def image_converter_view(request):
+    # 이미지 확장자 상호 변환 도구(JPG·PNG·WEBP·BMP 어느 쪽으로든, HEIC/GIF/SVG는 입력만).
+    # 리사이저(image_resizer_view)에도 형식 변환이 딸려 있지만 그건 "한 장 크기 조정"이 주 용도라,
+    # 확장자만 바꾸려는 사람이 훨씬 많이 쓰는 여러 장 일괄 변환 + ZIP 묶음 다운로드를 따로 뺐다.
+    # 다른 유틸과 마찬가지로 이미지가 서버로 전송되지 않도록 <canvas>로 브라우저에서만 처리한다
+    # (BMP만은 canvas.toBlob이 인코딩을 지원하지 않아 템플릿 JS에서 직접 바이트를 쓴다).
+    return render(request, 'articles/image_converter.html', {'site_title': 'NextFinUp - 이미지 확장자 변환기'})
+
+
+def pdf_tools_view(request):
+    # PDF 병합 / 페이지 추출·분할 / 이미지→PDF 를 한 화면에서 내부 탭으로 전환하는 도구.
+    # 세 기능 모두 pdf-lib(CDN) 하나로 처리되고 파일이 서버로 전송되지 않는다 — 계약서·신분증
+    # 스캔처럼 민감한 문서를 다루는 용도라 서버 업로드가 없어야 한다는 점이 특히 중요하다.
+    # PDF→이미지는 렌더링이 필요해(pdf.js) 이번 범위에서 제외했고, 화면 하단에 그 사실을 밝힌다.
+    return render(request, 'articles/pdf_tools.html', {'site_title': 'NextFinUp - PDF 도구'})
 
 
 def qrcode_generator_view(request):
