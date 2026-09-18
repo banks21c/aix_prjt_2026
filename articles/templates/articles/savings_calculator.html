@@ -1,0 +1,328 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .sv-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .sv-field .form-text { font-size: 12px; }
+
+        .sv-result { background: var(--brand-primary, #0d47a1); color: #fff; border-radius: 12px; padding: 28px 30px; }
+        .sv-result .label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+        .sv-result .amount { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .sv-result .sub { font-size: 13px; opacity: .85; margin-top: 10px; line-height: 1.7; }
+
+        .sv-table { width: 100%; font-size: 13.5px; }
+        .sv-table th { color: var(--text-secondary, #6c757d); font-weight: 700; font-size: 12px; text-align: left; }
+        .sv-table td, .sv-table th { padding: 8px 6px; border-bottom: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .sv-table tr:last-child td { border-bottom: none; }
+        .sv-table td.amt, .sv-table th.amt { text-align: right; font-variant-numeric: tabular-nums; }
+        .sv-table tr.total td { font-weight: 800; border-top: 2px solid var(--bg-subtle-2, #dee2e6); }
+        .sv-table td.minus { color: #e03131; }
+
+        .sv-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); letter-spacing: .03em; margin-bottom: 12px; }
+        .sv-schedule-wrap { max-height: 420px; overflow-y: auto; }
+        .sv-schedule-wrap thead th { position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: inset 0 -1px 0 var(--bg-subtle-2, #e9ecef); }
+        .sv-hint { background: var(--bg-page, #f4f6f9); border-left: 3px solid var(--brand-primary, #0d47a1); border-radius: 6px;
+                   padding: 12px 14px; font-size: 13px; color: var(--text-secondary, #495057); line-height: 1.7; }
+        .sv-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'savings_calculator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">예금·적금 이자 계산기</h2>
+                <p class="text-muted mb-0">정기예금·정기적금의 만기 수령액을 이자소득세(15.4%)까지 공제해 계산해드려요. 단리/월복리와 월별 내역도 확인할 수 있어요. 입력한 금액은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="row g-3">
+                <div class="col-md-6 sv-field">
+                    <label for="sv-type">상품 유형</label>
+                    <select id="sv-type" class="form-select">
+                        <option value="deposit" selected>정기예금 — 목돈을 한 번에 예치</option>
+                        <option value="installment">정기적금 — 매월 일정액 납입</option>
+                    </select>
+                </div>
+                <div class="col-md-6 sv-field">
+                    <label for="sv-amount" id="sv-amount-label">예치금액 (원)</label>
+                    <input type="text" id="sv-amount" inputmode="numeric" class="form-control" value="10,000,000">
+                </div>
+                <div class="col-md-6 sv-field">
+                    <label for="sv-rate">연이자율 (%)</label>
+                    <input type="text" id="sv-rate" inputmode="decimal" class="form-control" value="3.5">
+                </div>
+                <div class="col-md-6 sv-field">
+                    <label for="sv-term">기간</label>
+                    <div class="input-group">
+                        <input type="text" id="sv-term" inputmode="numeric" class="form-control" value="12">
+                        <select id="sv-term-unit" class="form-select" style="max-width: 90px;">
+                            <option value="1" selected>개월</option>
+                            <option value="12">년</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6 sv-field">
+                    <label for="sv-compound">이자 계산 방식</label>
+                    <select id="sv-compound" class="form-select">
+                        <option value="simple" selected>단리 — 원금에만 이자(대부분의 은행 상품)</option>
+                        <option value="monthly">월복리 — 붙은 이자에 다시 이자</option>
+                    </select>
+                </div>
+                <div class="col-md-3 sv-field">
+                    <label for="sv-taxtype">과세 유형</label>
+                    <select id="sv-taxtype" class="form-select">
+                        <option value="15.4" selected>일반과세 15.4%</option>
+                        <option value="1.4">농특세만 1.4%</option>
+                        <option value="0">비과세 0%</option>
+                    </select>
+                    <div class="form-text text-muted">조합예탁금(새마을금고·신협 등)은 한도 내 농특세만</div>
+                </div>
+                <div class="col-md-3 sv-field">
+                    <label for="sv-taxrate">적용 세율 (%)</label>
+                    <input type="text" id="sv-taxrate" inputmode="decimal" class="form-control" value="15.4">
+                    <div class="form-text text-muted">직접 수정 가능</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sv-result mb-3">
+            <div class="label">만기 수령액 (세후)</div>
+            <div class="amount" id="sv-result-amount">0원</div>
+            <div class="sub" id="sv-result-detail"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <table class="sv-table">
+                <tbody id="sv-summary"></tbody>
+            </table>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3" id="sv-hint-card" style="display:none;">
+            <div class="sv-hint" id="sv-hint"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="sv-section-title mb-0">월별 내역</div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="sv-toggle-btn" class="btn btn-outline-secondary btn-sm">펼치기</button>
+                    <button type="button" id="sv-csv-btn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-csv"></i> CSV 받기</button>
+                </div>
+            </div>
+            <div id="sv-schedule-box" style="display:none;">
+                <div class="sv-schedule-wrap">
+                    <table class="sv-table">
+                        <thead>
+                            <tr>
+                                <th>회차</th>
+                                <th class="amt">납입원금 누계</th>
+                                <th class="amt">세전이자 누계</th>
+                                <th class="amt">평가금액 (세전)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sv-schedule"></tbody>
+                    </table>
+                </div>
+                <div class="form-text text-muted mt-2">이자소득세는 만기에 한 번에 공제되므로 위 표는 세전 기준입니다.</div>
+            </div>
+        </div>
+
+        <p class="sv-note">
+            이자소득세 15.4%는 소득세 14% + 지방소득세 1.4%입니다. 실제 은행 상품은 이자를 일할(예치일수/365)로 계산하고 우대금리 조건·중도해지 이율·만기 후 이율이 따로
+            적용되므로 이 계산값과 차이가 날 수 있습니다. 또한 연간 금융소득이 2,000만원을 넘으면 금융소득종합과세 대상이 되어 세금이 달라집니다. 정확한 금액은 가입 금융기관에서 확인해주세요.
+        </p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var typeEl = document.getElementById('sv-type');
+    var amountLabelEl = document.getElementById('sv-amount-label');
+    var amountEl = document.getElementById('sv-amount');
+    var rateEl = document.getElementById('sv-rate');
+    var termEl = document.getElementById('sv-term');
+    var termUnitEl = document.getElementById('sv-term-unit');
+    var compoundEl = document.getElementById('sv-compound');
+    var taxTypeEl = document.getElementById('sv-taxtype');
+    var taxRateEl = document.getElementById('sv-taxrate');
+    var resultAmountEl = document.getElementById('sv-result-amount');
+    var resultDetailEl = document.getElementById('sv-result-detail');
+    var summaryEl = document.getElementById('sv-summary');
+    var hintCard = document.getElementById('sv-hint-card');
+    var hintEl = document.getElementById('sv-hint');
+    var scheduleEl = document.getElementById('sv-schedule');
+    var scheduleBox = document.getElementById('sv-schedule-box');
+    var toggleBtn = document.getElementById('sv-toggle-btn');
+    var csvBtn = document.getElementById('sv-csv-btn');
+
+    var lastRows = [];
+
+    function parseNum(str) {
+        var n = parseFloat(String(str || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtWon(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+    function bindThousandsFormat(el) {
+        el.addEventListener('input', function () {
+            var n = parseNum(el.value);
+            var pos = el.selectionStart;
+            var before = el.value.length;
+            el.value = n ? n.toLocaleString('ko-KR') : '';
+            var after = el.value.length;
+            el.selectionStart = el.selectionEnd = Math.max(0, pos + (after - before));
+            update();
+        });
+    }
+
+    // 월별 원금/이자 누계를 만든다. 예금은 첫 달에 목돈(initial)을 넣고 끝,
+    // 적금은 매달 monthly를 넣는다 — 둘 다 같은 루프로 처리한다.
+    //   단리:  이자가 원금에만 붙으므로 매달 "그때까지의 납입원금 × 월이율"을 더한다
+    //   월복리: 이자가 원금에 합쳐져 다시 이자를 낳으므로 평가금액 전체에 월이율을 곱한다
+    function buildRows(initial, monthly, annualPct, n, compound) {
+        var i = annualPct / 100 / 12;
+        var rows = [];
+        var principal = initial;
+        var balance = initial;
+        var interest = 0;
+        for (var k = 1; k <= n; k++) {
+            principal += monthly;
+            if (compound === 'monthly') {
+                balance = (balance + monthly) * (1 + i);
+                interest = balance - principal;
+            } else {
+                interest += principal * i;
+                balance = principal + interest;
+            }
+            rows.push({ no: k, principal: principal, interest: interest, balance: balance });
+        }
+        return rows;
+    }
+
+    function syncTypeUI() {
+        var isInstallment = typeEl.value === 'installment';
+        amountLabelEl.textContent = isInstallment ? '월 납입액 (원)' : '예치금액 (원)';
+    }
+
+    function update() {
+        syncTypeUI();
+        var isInstallment = typeEl.value === 'installment';
+        var amount = parseNum(amountEl.value);
+        var annualPct = parseNum(rateEl.value);
+        var n = Math.round(parseNum(termEl.value) * parseNum(termUnitEl.value));
+        var taxPct = parseNum(taxRateEl.value);
+
+        if (amount <= 0 || n <= 0) {
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '금액과 기간을 입력해주세요.';
+            summaryEl.innerHTML = '';
+            scheduleEl.innerHTML = '';
+            hintCard.style.display = 'none';
+            lastRows = [];
+            return;
+        }
+
+        var rows = buildRows(isInstallment ? 0 : amount, isInstallment ? amount : 0, annualPct, n, compoundEl.value);
+        lastRows = rows;
+        var last = rows[rows.length - 1];
+        var principal = last.principal;
+        var grossInterest = last.interest;
+        var tax = grossInterest * taxPct / 100;
+        var netInterest = grossInterest - tax;
+        var netTotal = principal + netInterest;
+
+        resultAmountEl.textContent = fmtWon(netTotal);
+        resultDetailEl.textContent = '납입원금 ' + fmtWon(principal) + ' + 세후이자 ' + fmtWon(netInterest);
+
+        // 적금은 매달 조금씩 넣으므로 돈이 은행에 머무는 평균 기간이 절반 남짓이다.
+        // 그래서 "표면금리 3.5%인데 왜 이자가 3.5%가 아니냐"는 착시가 생기는데,
+        // 납입원금 대비 실제 수익률을 같이 보여주면 그 차이가 바로 드러난다.
+        var effectiveAnnual = principal > 0 ? (netInterest / principal) / (n / 12) * 100 : 0;
+        summaryEl.innerHTML =
+            '<tr><td>' + (isInstallment ? '월 납입액' : '예치금액') + '</td><td class="amt">' + fmtWon(amount) + '</td></tr>' +
+            '<tr><td>납입원금 합계</td><td class="amt">' + fmtWon(principal) + '</td></tr>' +
+            '<tr><td>기간 · 금리</td><td class="amt">' + n + '개월 · 연 ' + annualPct + '% (' + (compoundEl.value === 'monthly' ? '월복리' : '단리') + ')</td></tr>' +
+            '<tr><td>세전 이자</td><td class="amt">' + fmtWon(grossInterest) + '</td></tr>' +
+            '<tr><td>이자과세 (' + taxPct + '%)</td><td class="amt minus">− ' + fmtWon(tax) + '</td></tr>' +
+            '<tr><td>세후 이자</td><td class="amt">' + fmtWon(netInterest) + '</td></tr>' +
+            '<tr class="total"><td>만기 수령액</td><td class="amt">' + fmtWon(netTotal) + '</td></tr>' +
+            '<tr><td>납입원금 대비 세후 수익률 (연환산)</td><td class="amt">' + effectiveAnnual.toFixed(2) + '%</td></tr>';
+
+        if (isInstallment) {
+            hintCard.style.display = 'block';
+            hintEl.innerHTML = '<b>적금 금리의 착시</b> — 연 ' + annualPct + '% 적금이라도 납입원금(' + fmtWon(principal) + ') 대비 세후 수익률은 연 <b>'
+                + effectiveAnnual.toFixed(2) + '%</b>입니다. 첫 달 납입금만 ' + n + '개월치 이자를 받고 마지막 달 납입금은 한 달치만 받기 때문입니다. '
+                + '같은 금리라면 목돈을 한 번에 넣는 정기예금이 이자가 훨씬 많습니다.';
+        } else {
+            hintCard.style.display = 'none';
+        }
+
+        scheduleEl.innerHTML = rows.map(function (r) {
+            return '<tr><td>' + r.no + '</td>' +
+                '<td class="amt">' + fmtWon(r.principal) + '</td>' +
+                '<td class="amt">' + fmtWon(r.interest) + '</td>' +
+                '<td class="amt">' + fmtWon(r.balance) + '</td></tr>';
+        }).join('');
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        var hidden = scheduleBox.style.display === 'none';
+        scheduleBox.style.display = hidden ? 'block' : 'none';
+        toggleBtn.textContent = hidden ? '접기' : '펼치기';
+    });
+
+    csvBtn.addEventListener('click', function () {
+        if (!lastRows.length) return;
+        var lines = ['회차,납입원금누계,세전이자누계,평가금액'];
+        lastRows.forEach(function (r) {
+            lines.push([r.no, Math.round(r.principal), Math.round(r.interest), Math.round(r.balance)].join(','));
+        });
+        // 엑셀이 UTF-8 CSV를 한글로 제대로 열게 하려면 BOM이 필요하다
+        var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = '예적금내역.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    });
+
+    taxTypeEl.addEventListener('change', function () {
+        taxRateEl.value = taxTypeEl.value;
+        update();
+    });
+
+    bindThousandsFormat(amountEl);
+    [rateEl, termEl, taxRateEl].forEach(function (el) { el.addEventListener('input', update); });
+    [typeEl, termUnitEl, compoundEl].forEach(function (el) { el.addEventListener('change', update); });
+    update();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{% comment %}
+허브(/tools/)의 유틸 카드 그리드. 상단 탭과 같은 articles/tools_catalog.py를 쓰기 때문에
+탭에는 있는데 카드에는 없는(또는 설명이 서로 다른) 상태가 생기지 않는다.
+카드/그리드 CSS(.tool-cards, a.tool-card)는 tools_hub.html의 <style>에 이미 있다.
+{% endcomment %}
+<style>
+    .tool-cat-heading { font-size: 15px; font-weight: 800; color: var(--text-primary, #212529); margin: 32px 0 14px; display: flex; align-items: center; gap: 8px; }
+    .tool-cat-heading:first-of-type { margin-top: 0; }
+    .tool-cat-heading .count { font-size: 12px; font-weight: 700; color: var(--text-secondary, #868e96); background: var(--bg-subtle-2, #eee); border-radius: 999px; padding: 2px 9px; }
+</style>
+{% for category in categories %}
+    <div class="tool-cat-heading">{{ category.label }} <span class="count">{{ category.tools|length }}</span></div>
+    <div class="tool-cards">
+        {% for tool in category.tools %}
+            <a href="{% url tool.url_name %}" class="tool-card card-custom">
+                <h3><i class="fa-solid {{ tool.icon }}"></i>{{ tool.title }}</h3>
+                <p>{{ tool.desc }}</p>
+            </a>
+        {% endfor %}
+    </div>
+{% endfor %}

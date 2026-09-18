@@ -9,8 +9,9 @@ from .public import (
     consult_request_view, header_fragment_view, cookie_banner_fragment_view, ticker_fragment_view, expert_consult_view, expert_consult_apply_view, ticker_data_view, ticker_stocks_view,
     subscribe_view, subscribe_apply_view, faq_board_view, tools_hub_view, char_counter_view,
     currency_converter_view, severance_calculator_view, unemployment_benefit_calculator_view,
-    net_pay_calculator_view, annual_leave_calculator_view, json_formatter_view, image_resizer_view,
-    qrcode_generator_view, background_remover_view, unit_converter_view,
+    net_pay_calculator_view, annual_leave_calculator_view,
+    loan_calculator_view, savings_calculator_view, json_formatter_view, image_resizer_view,
+    image_converter_view, pdf_tools_view, qrcode_generator_view, background_remover_view, unit_converter_view,
     spell_checker_view, spell_check_api_view,
 )
 from .admin_tools import (
@@ -54,8 +55,9 @@ __all__ = [
     'header_fragment_view', 'cookie_banner_fragment_view', 'ticker_fragment_view', 'expert_consult_view', 'expert_consult_apply_view', 'subscribe_view', 'subscribe_apply_view',
     'faq_board_view', 'tools_hub_view', 'char_counter_view', 'currency_converter_view',
     'severance_calculator_view', 'unemployment_benefit_calculator_view', 'net_pay_calculator_view',
-    'annual_leave_calculator_view', 'json_formatter_view', 'image_resizer_view',
-    'qrcode_generator_view', 'background_remover_view', 'unit_converter_view',
+    'annual_leave_calculator_view', 'loan_calculator_view', 'savings_calculator_view',
+    'json_formatter_view', 'image_resizer_view',
+    'image_converter_view', 'pdf_tools_view', 'qrcode_generator_view', 'background_remover_view', 'unit_converter_view',
     'spell_checker_view', 'spell_check_api_view',
     'financial_consult_sheet_view', 'financial_consult_sheet_save_view',
     'financial_consult_sheet_search_view',

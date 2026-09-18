@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tools_tags %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -57,7 +57,7 @@
     {% csrf_token %}
 
     {% include "articles/_header.html" %}
-    {% include "articles/_tools_tabs.html" with active_tool='spell_checker' %}
+    {% tools_tabs 'spell_checker' %}
 
     <div class="container my-5" style="max-width: 900px;">
         <div class="row mb-4">

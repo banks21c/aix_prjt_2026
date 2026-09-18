@@ -1,0 +1,372 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .lc-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .lc-field .form-text { font-size: 12px; }
+
+        .lc-result { background: var(--brand-primary, #0d47a1); color: #fff; border-radius: 12px; padding: 28px 30px; }
+        .lc-result .label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+        .lc-result .amount { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .lc-result .sub { font-size: 13px; opacity: .85; margin-top: 10px; line-height: 1.7; }
+
+        .lc-table { width: 100%; font-size: 13.5px; }
+        .lc-table th { color: var(--text-secondary, #6c757d); font-weight: 700; font-size: 12px; text-align: left; }
+        .lc-table td, .lc-table th { padding: 8px 6px; border-bottom: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .lc-table tr:last-child td { border-bottom: none; }
+        .lc-table td.amt, .lc-table th.amt { text-align: right; font-variant-numeric: tabular-nums; }
+        .lc-table tr.total td { font-weight: 800; border-top: 2px solid var(--bg-subtle-2, #dee2e6); }
+        .lc-table tr.is-current td { background: var(--bg-page, #f4f6f9); }
+
+        .lc-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); letter-spacing: .03em; margin-bottom: 12px; }
+        .lc-schedule-wrap { max-height: 420px; overflow-y: auto; }
+        .lc-schedule-wrap thead th { position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: inset 0 -1px 0 var(--bg-subtle-2, #e9ecef); }
+        .lc-cmp-best { color: #2f9e44; font-weight: 800; }
+        .lc-note { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 14px; line-height: 1.7; }
+        .lc-warn { font-size: 13px; color: #e03131; font-weight: 700; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'loan_calculator' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">대출 이자 계산기</h2>
+                <p class="text-muted mb-0">원리금균등·원금균등·만기일시 상환의 월 상환액과 총 이자를 계산하고, 회차별 상환 스케줄까지 확인할 수 있어요. 입력한 금액은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="row g-3">
+                <div class="col-md-6 lc-field">
+                    <label for="lc-amount">대출금액 (원)</label>
+                    <input type="text" id="lc-amount" inputmode="numeric" class="form-control" value="100,000,000">
+                </div>
+                <div class="col-md-6 lc-field">
+                    <label for="lc-rate">연이자율 (%)</label>
+                    <input type="text" id="lc-rate" inputmode="decimal" class="form-control" value="4.5">
+                </div>
+                <div class="col-md-6 lc-field">
+                    <label for="lc-term">대출기간</label>
+                    <div class="input-group">
+                        <input type="text" id="lc-term" inputmode="numeric" class="form-control" value="30">
+                        <select id="lc-term-unit" class="form-select" style="max-width: 90px;">
+                            <option value="12" selected>년</option>
+                            <option value="1">개월</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6 lc-field">
+                    <label for="lc-grace">거치기간 (개월)</label>
+                    <input type="text" id="lc-grace" inputmode="numeric" class="form-control" value="0">
+                    <div class="form-text text-muted">거치기간에는 이자만 내고 원금은 갚지 않습니다</div>
+                </div>
+                <div class="col-12 lc-field">
+                    <label for="lc-method">상환방식</label>
+                    <select id="lc-method" class="form-select">
+                        <option value="equal_payment" selected>원리금균등상환 — 매월 같은 금액을 냄(가장 일반적)</option>
+                        <option value="equal_principal">원금균등상환 — 원금을 n분의 1로 나눠 내고 이자는 줄어듦</option>
+                        <option value="bullet">만기일시상환 — 매월 이자만 내고 만기에 원금 전액</option>
+                    </select>
+                </div>
+            </div>
+            <div id="lc-warning" class="lc-warn mt-3" style="display:none;"></div>
+        </div>
+
+        <div class="lc-result mb-3">
+            <div class="label" id="lc-result-label">월 상환액</div>
+            <div class="amount" id="lc-result-amount">0원</div>
+            <div class="sub" id="lc-result-detail"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <table class="lc-table">
+                <tbody id="lc-summary"></tbody>
+            </table>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="lc-section-title">상환방식별 총 이자 비교 (같은 조건)</div>
+            <table class="lc-table">
+                <thead>
+                    <tr>
+                        <th>상환방식</th>
+                        <th class="amt">첫 회 상환액</th>
+                        <th class="amt">총 이자</th>
+                        <th class="amt">총 상환액</th>
+                    </tr>
+                </thead>
+                <tbody id="lc-compare"></tbody>
+            </table>
+            <div class="form-text text-muted mt-2">총 이자만 보면 원금균등이 가장 적지만 초기 부담이 큽니다. 상환방식은 월 납입 여력까지 함께 보고 고르세요.</div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="lc-section-title mb-0">회차별 상환 스케줄</div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="lc-toggle-btn" class="btn btn-outline-secondary btn-sm">펼치기</button>
+                    <button type="button" id="lc-csv-btn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-csv"></i> CSV 받기</button>
+                </div>
+            </div>
+            <div id="lc-schedule-box" style="display:none;">
+                <div class="lc-schedule-wrap">
+                    <table class="lc-table">
+                        <thead>
+                            <tr>
+                                <th>회차</th>
+                                <th class="amt">납입원금</th>
+                                <th class="amt">이자</th>
+                                <th class="amt">월 상환액</th>
+                                <th class="amt">남은 원금</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lc-schedule"></tbody>
+                    </table>
+                </div>
+                <div class="form-text text-muted mt-2">회색으로 표시된 행은 거치기간(이자만 납입)입니다.</div>
+            </div>
+        </div>
+
+        <p class="lc-note">
+            실제 대출은 금리 변동(변동금리), 중도상환수수료, 인지세·근저당 설정비 등 부대비용, 이자 계산 기준일(일할 계산) 때문에 이 계산값과 차이가 납니다.
+            이 계산기는 월 단위 복리(연이자율 ÷ 12)를 가정한 예상치이며, 정확한 금액은 대출 취급 금융기관의 상환 스케줄을 확인해주세요.
+        </p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var amountEl = document.getElementById('lc-amount');
+    var rateEl = document.getElementById('lc-rate');
+    var termEl = document.getElementById('lc-term');
+    var termUnitEl = document.getElementById('lc-term-unit');
+    var graceEl = document.getElementById('lc-grace');
+    var methodEl = document.getElementById('lc-method');
+    var warningEl = document.getElementById('lc-warning');
+    var resultLabelEl = document.getElementById('lc-result-label');
+    var resultAmountEl = document.getElementById('lc-result-amount');
+    var resultDetailEl = document.getElementById('lc-result-detail');
+    var summaryEl = document.getElementById('lc-summary');
+    var compareEl = document.getElementById('lc-compare');
+    var scheduleEl = document.getElementById('lc-schedule');
+    var scheduleBox = document.getElementById('lc-schedule-box');
+    var toggleBtn = document.getElementById('lc-toggle-btn');
+    var csvBtn = document.getElementById('lc-csv-btn');
+
+    var METHOD_NAMES = {
+        equal_payment: '원리금균등상환',
+        equal_principal: '원금균등상환',
+        bullet: '만기일시상환',
+    };
+    var lastSchedule = [];
+
+    function parseNum(str) {
+        var n = parseFloat(String(str || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtWon(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+    function bindThousandsFormat(el) {
+        el.addEventListener('input', function () {
+            var n = parseNum(el.value);
+            var pos = el.selectionStart;
+            var before = el.value.length;
+            el.value = n ? n.toLocaleString('ko-KR') : '';
+            var after = el.value.length;
+            el.selectionStart = el.selectionEnd = Math.max(0, pos + (after - before));
+            update();
+        });
+    }
+
+    // 회차별 상환 스케줄을 만든다. 원금(P), 월이율(i = 연이율/12), 총 회차(n), 거치기간(grace).
+    // 거치기간에는 이자만 내므로 원금은 그대로 남고, 남은 (n - grace)회에 걸쳐 원금을 갚는다.
+    function buildSchedule(P, annualPct, n, grace, method) {
+        var i = annualPct / 100 / 12;
+        var rows = [];
+        var balance = P;
+        var k;
+
+        for (k = 1; k <= grace; k++) {
+            var gi = balance * i;
+            rows.push({ no: k, principal: 0, interest: gi, payment: gi, balance: balance, grace: true });
+        }
+
+        var m = n - grace;   // 원금을 갚는 회차 수
+        if (method === 'equal_payment') {
+            // 원리금균등: 매달 같은 금액 A = P·i·(1+i)^m / ((1+i)^m − 1)
+            var pay = (i === 0) ? balance / m : balance * i * Math.pow(1 + i, m) / (Math.pow(1 + i, m) - 1);
+            for (k = 1; k <= m; k++) {
+                var pi = balance * i;
+                var pp = pay - pi;
+                if (k === m) pp = balance;   // 마지막 회차는 반올림 오차를 원금에 흡수시켜 잔액을 정확히 0으로
+                balance -= pp;
+                rows.push({ no: grace + k, principal: pp, interest: pi, payment: pp + pi, balance: Math.max(0, balance), grace: false });
+            }
+        } else if (method === 'equal_principal') {
+            // 원금균등: 매달 원금은 P/m으로 고정, 이자는 남은 원금에 붙으므로 상환액이 매달 줄어든다
+            var unit = balance / m;
+            for (k = 1; k <= m; k++) {
+                var epi = balance * i;
+                var epp = (k === m) ? balance : unit;
+                balance -= epp;
+                rows.push({ no: grace + k, principal: epp, interest: epi, payment: epp + epi, balance: Math.max(0, balance), grace: false });
+            }
+        } else {
+            // 만기일시: 매달 이자만 내고 마지막 회차에 원금 전액
+            for (k = 1; k <= m; k++) {
+                var bi = balance * i;
+                var bp = (k === m) ? balance : 0;
+                rows.push({ no: grace + k, principal: bp, interest: bi, payment: bp + bi, balance: (k === m) ? 0 : balance, grace: false });
+            }
+        }
+        return rows;
+    }
+
+    function totalsOf(rows) {
+        var interest = 0, payment = 0;
+        rows.forEach(function (r) { interest += r.interest; payment += r.payment; });
+        return { interest: interest, payment: payment, first: rows.length ? rows[0].payment : 0 };
+    }
+
+    function update() {
+        var P = parseNum(amountEl.value);
+        var annualPct = parseNum(rateEl.value);
+        var n = Math.round(parseNum(termEl.value) * parseNum(termUnitEl.value));
+        var grace = Math.round(parseNum(graceEl.value));
+        var method = methodEl.value;
+
+        warningEl.style.display = 'none';
+        if (P <= 0 || n <= 0) {
+            resultAmountEl.textContent = '0원';
+            resultDetailEl.textContent = '대출금액과 대출기간을 입력해주세요.';
+            summaryEl.innerHTML = '';
+            compareEl.innerHTML = '';
+            scheduleEl.innerHTML = '';
+            lastSchedule = [];
+            return;
+        }
+        if (grace < 0) grace = 0;
+        if (grace >= n) {
+            // 거치기간이 대출기간 이상이면 원금 갚을 회차가 없어진다 — 마지막 1회는 남겨둔다
+            grace = n - 1;
+            warningEl.style.display = 'block';
+            warningEl.textContent = '거치기간은 대출기간보다 짧아야 합니다. 거치 ' + grace + '개월로 계산했습니다.';
+        }
+
+        var rows = buildSchedule(P, annualPct, n, grace, method);
+        lastSchedule = rows;
+        var t = totalsOf(rows);
+        var repayRows = rows.filter(function (r) { return !r.grace; });
+
+        // 히어로 영역 — 상환방식마다 "월 상환액"의 의미가 달라서 라벨과 보조설명을 따로 만든다
+        if (method === 'equal_payment') {
+            resultLabelEl.textContent = '월 상환액 (매월 동일)';
+            resultAmountEl.textContent = fmtWon(repayRows[0].payment);
+        } else if (method === 'equal_principal') {
+            resultLabelEl.textContent = '첫 회 상환액 (매월 줄어듦)';
+            resultAmountEl.textContent = fmtWon(repayRows[0].payment);
+        } else {
+            resultLabelEl.textContent = '월 상환액 (이자만)';
+            resultAmountEl.textContent = fmtWon(repayRows[0].interest);
+        }
+
+        var detail = [];
+        if (method === 'equal_principal') {
+            detail.push('마지막 회 ' + fmtWon(repayRows[repayRows.length - 1].payment) + '까지 매월 감소');
+        } else if (method === 'bullet') {
+            detail.push('만기에 원금 ' + fmtWon(P) + ' 일시 상환');
+        }
+        if (grace > 0) detail.push('거치기간 ' + grace + '개월 동안은 월 ' + fmtWon(rows[0].interest) + '(이자만)');
+        detail.push('총 이자 ' + fmtWon(t.interest));
+        resultDetailEl.textContent = detail.join(' · ');
+
+        var years = Math.floor(n / 12), rest = n % 12;
+        var termText = (years ? years + '년 ' : '') + (rest ? rest + '개월' : (years ? '' : n + '개월'));
+        summaryEl.innerHTML =
+            '<tr><td>대출원금</td><td class="amt">' + fmtWon(P) + '</td></tr>' +
+            '<tr><td>대출기간</td><td class="amt">' + termText.trim() + ' (' + n + '회)' + (grace ? ' · 거치 ' + grace + '개월' : '') + '</td></tr>' +
+            '<tr><td>연이자율</td><td class="amt">' + annualPct + '%</td></tr>' +
+            '<tr><td>총 이자</td><td class="amt">' + fmtWon(t.interest) + '</td></tr>' +
+            '<tr class="total"><td>총 상환액 (원금+이자)</td><td class="amt">' + fmtWon(t.payment) + '</td></tr>';
+
+        // 상환방식 비교 — 총 이자가 가장 적은 방식을 초록색으로 표시
+        var cmp = ['equal_payment', 'equal_principal', 'bullet'].map(function (mk) {
+            var r = buildSchedule(P, annualPct, n, grace, mk);
+            var ct = totalsOf(r);
+            return { key: mk, first: r[0].payment, interest: ct.interest, payment: ct.payment };
+        });
+        var minInterest = Math.min.apply(null, cmp.map(function (c) { return c.interest; }));
+        compareEl.innerHTML = cmp.map(function (c) {
+            var best = Math.abs(c.interest - minInterest) < 1;
+            return '<tr' + (c.key === method ? ' class="is-current"' : '') + '>' +
+                '<td>' + METHOD_NAMES[c.key] + (c.key === method ? ' <span class="text-muted">(선택됨)</span>' : '') + '</td>' +
+                '<td class="amt">' + fmtWon(c.first) + '</td>' +
+                '<td class="amt' + (best ? ' lc-cmp-best' : '') + '">' + fmtWon(c.interest) + '</td>' +
+                '<td class="amt">' + fmtWon(c.payment) + '</td></tr>';
+        }).join('');
+
+        // 360회(30년)까지 나올 수 있어 DOM 조작 대신 문자열을 한 번에 넣는다
+        scheduleEl.innerHTML = rows.map(function (r) {
+            return '<tr' + (r.grace ? ' class="is-current"' : '') + '><td>' + r.no + '</td>' +
+                '<td class="amt">' + fmtWon(r.principal) + '</td>' +
+                '<td class="amt">' + fmtWon(r.interest) + '</td>' +
+                '<td class="amt">' + fmtWon(r.payment) + '</td>' +
+                '<td class="amt">' + fmtWon(r.balance) + '</td></tr>';
+        }).join('');
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        var hidden = scheduleBox.style.display === 'none';
+        scheduleBox.style.display = hidden ? 'block' : 'none';
+        toggleBtn.textContent = hidden ? '접기' : '펼치기';
+    });
+
+    csvBtn.addEventListener('click', function () {
+        if (!lastSchedule.length) return;
+        var lines = ['회차,납입원금,이자,월상환액,남은원금'];
+        lastSchedule.forEach(function (r) {
+            lines.push([r.no, Math.round(r.principal), Math.round(r.interest), Math.round(r.payment), Math.round(r.balance)].join(','));
+        });
+        // 엑셀이 UTF-8 CSV를 한글로 제대로 열게 하려면 BOM이 필요하다
+        var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = '대출상환스케줄.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    });
+
+    bindThousandsFormat(amountEl);
+    [rateEl, termEl, graceEl].forEach(function (el) { el.addEventListener('input', update); });
+    [termUnitEl, methodEl].forEach(function (el) { el.addEventListener('change', update); });
+    update();
+})();
+</script>
+</body>
+</html>

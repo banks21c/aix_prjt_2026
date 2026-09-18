@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tools_tags %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -41,7 +41,7 @@
 <body>
 
     {% include "articles/_header.html" %}
-    {% include "articles/_tools_tabs.html" with active_tool='unit_converter' %}
+    {% tools_tabs 'unit_converter' %}
 
     <div class="container my-5" style="max-width: 900px;">
         <div class="row mb-4">
