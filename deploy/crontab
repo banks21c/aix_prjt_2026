@@ -23,18 +23,18 @@
 # 재보기 위한 임시 실험 플래그다 — 오늘 확인 끝나면 이 플래그를 떼서 원래 is_major_index
 # 350종목 범위로 되돌릴 것.
 */5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_keyword_news.log venv/bin/python manage.py collect_keyword_news --full-universe
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_market_index.log venv/bin/python manage.py collect_market_index
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
+1-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_market_index.log venv/bin/python manage.py collect_market_index
+2-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_kis_news.log venv/bin/python manage.py collect_kis_news
+3-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_stock_realtime_price.log venv/bin/python manage.py collect_stock_realtime_price
+4-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_fluctuation_ranking.log venv/bin/python manage.py collect_fluctuation_ranking
+2-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_global_market_data.log venv/bin/python manage.py collect_global_market_data
 # DART 공시(주요사항보고, B유형)는 인자 없이 돌리면 오늘 하루치만 조회해 API 호출 1회로 끝나므로
 # (일일 한도 대비 여유 충분) 다른 5분 주기 작업들과 같은 빈도로 둔다. 대시보드 "특징종목"(등락+
 # 뉴스·공시 동시 매칭)이 이 데이터가 없으면 공시 쪽 매칭이 하루 종일 0건으로 비어 있었다.
-*/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_dart_disclosures.log venv/bin/python manage.py collect_dart_disclosures
+4-59/5 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_dart_disclosures.log venv/bin/python manage.py collect_dart_disclosures
 # 하나은행 고시 환율은 하루 단위로만 갱신되는 값이라(당일 내내 동일) 5분 주기는 낭비 — 30분마다
 # 확인해 그날 첫 고시가 뜨는 대로 반영한다.
-*/30 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_exchange_rate_fixing.log venv/bin/python manage.py collect_exchange_rate_fixing
+7,37 * * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/collect_exchange_rate_fixing.log venv/bin/python manage.py collect_exchange_rate_fixing
 
 # 02:00 KST — 전종목 시세 증분 수집(collect_stock_data --all, 이미 저장된 최신 날짜 이후만 받아옴).
 # 장 시작(09:00 KST) 전 여유 있게 끝나도록 새벽 시간대에 배치. 평일에만 새 거래일 데이터가
@@ -122,3 +122,8 @@
 # 토요일 10:05 KST — 주간 시황 정리 발행
 5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_wordpress.log venv/bin/python manage.py post_to_wordpress --limit 1
 5 1 * * 6 cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/post_to_blogger.log venv/bin/python manage.py post_to_blogger --limit 1
+
+# 만료된 세션 row 정리 — 이 작업이 없어 django_session에 만료분 31,332건이 쌓여 있었다
+# (전체 50,632건 중 62%). Django는 만료 세션을 자동으로 지우지 않는다.
+# KST 03:50 — 다른 작업과 겹치지 않는 시각.
+50 18 * * * cd /home/ubuntu/nextfinup && deploy/run_job.sh logs/clearsessions.log venv/bin/python manage.py clearsessions

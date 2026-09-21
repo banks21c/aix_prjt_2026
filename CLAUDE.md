@@ -74,14 +74,22 @@ to sync in either direction). Also viewable read-only at `/admin-tools/cron/` vi
 `cron_status_view`. **The server's system clock and Django's `TIME_ZONE` are both UTC, and cron
 has no per-job TZ override, so every hour below is UTC — the comment on each line gives the
 actual Korea-time (KST = UTC+9) equivalent that the hour was chosen to hit:**
+
+**The 5-minute collectors are deliberately staggered across minute offsets 0–4.** They all used
+to fire at the same instant (`*/5`), which put 7 jobs on the box simultaneously — measured on
+2026-09-21 as 7 concurrent processes for ~8s every 5 minutes, competing with the 3 gunicorn
+workers. `collect_keyword_news` is the longest (~25s) so it keeps offset 0 to itself; the rest
+pair up at most two to a slot. Keep new 5-minute jobs off offset 0.
 ```
-*/5 * * * *  collect_keyword_news            # RSS scrape by NewsKeyword, AI-summarize, create AnalyzedArticle rows
-*/5 * * * *  collect_market_index            # KOSPI/KOSDAQ index snapshot (MarketIndex)
-*/5 * * * *  collect_kis_news                # 종합 시황/공시 headlines via KIS API
-*/5 * * * *  collect_stock_realtime_price    # KIS realtime price (StockRealtimePrice)
-*/5 * * * *  collect_fluctuation_ranking     # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
-*/5 * * * *  collect_global_market_data      # KIS 해외지수/국제환율/금리 (GlobalMarketQuote; feeds header index ticker)
-*/30 * * * * collect_exchange_rate_fixing    # 한국수출입은행 API 환전 고시 환율 (daily-quoted, so 30min not 5min)
+*/5 * * * *    collect_keyword_news          # RSS scrape by NewsKeyword, AI-summarize, create AnalyzedArticle rows
+1-59/5 * * * * collect_market_index          # KOSPI/KOSDAQ index snapshot (MarketIndex)
+2-59/5 * * * * collect_kis_news              # 종합 시황/공시 headlines via KIS API
+3-59/5 * * * * collect_stock_realtime_price  # KIS realtime price (StockRealtimePrice)
+4-59/5 * * * * collect_fluctuation_ranking   # KIS 등락률 순위 (RankedMover; feeds dashboard 특징종목)
+2-59/5 * * * * collect_global_market_data    # KIS 해외지수/국제환율/금리 (GlobalMarketQuote; feeds header index ticker)
+4-59/5 * * * * collect_dart_disclosures      # DART 주요사항보고(B유형), 당일치 1회 호출
+7,37 * * * *   collect_exchange_rate_fixing  # 한국수출입은행 API 환전 고시 환율 (daily-quoted, so 30min not 5min)
+50 18 * * *    clearsessions                 # KST 03:50 — expired django_session rows (Django never clears them itself)
 0 17 * * *   collect_stock_data --all        # KST 02:00 — incremental (only new trading days) full-universe OHLCV pull
 30 19 * * *  run_stock_prediction --all      # KST 04:30 — full-universe ensemble retrain, ~30min after collect_stock_data starts
 0 4 * * 1-5  generate_featured_stock_briefing --session=midday  # KST 13:00 — AI 특징주 브리핑 (AnalyzedArticle, source_type=AI_BRIEFING)

@@ -517,8 +517,17 @@ def theme_css_view(request):
 
 
 def _describe_cron_schedule(minute, hour, day, month, weekday):
-    if minute.startswith('*/') and hour == day == month == weekday == '*':
+    every_hour = hour == day == month == weekday == '*'
+    if minute.startswith('*/') and every_hour:
         return f"{minute[2:]}분마다"
+    # 5분 주기 수집 작업들은 동시 실행을 피하려고 분 오프셋을 줘서 "1-59/5" 같은 형태가 된다
+    # (deploy/crontab 참고). 이 형식을 못 읽으면 표에 크론 원문이 그대로 노출된다.
+    offset_match = re.fullmatch(r'(\d+)-59/(\d+)', minute)
+    if offset_match and every_hour:
+        start, step = offset_match.groups()
+        return f"{step}분마다 (매시 {start}분부터)"
+    if every_hour and re.fullmatch(r'\d+(,\d+)+', minute):
+        return "매시 " + ', '.join(f"{int(m)}분" for m in minute.split(','))
     if minute.isdigit() and hour.isdigit() and day == month == weekday == '*':
         return f"매일 {int(hour):02d}:{int(minute):02d}"
     return f"{minute} {hour} {day} {month} {weekday}"
