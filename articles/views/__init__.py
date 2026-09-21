@@ -14,6 +14,7 @@ from .public import (
     loan_calculator_view, savings_calculator_view, json_formatter_view, image_resizer_view,
     image_converter_view, pdf_tools_view, qrcode_generator_view, background_remover_view, unit_converter_view,
     spell_checker_view, spell_check_api_view,
+    robots_txt_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,

@@ -10,7 +10,7 @@ from django.core import signing
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -904,3 +904,40 @@ def main_dashboard_view(request):
         'sell_signals': sell_signals,
     }
     return render(request, 'articles/dashboard.html', context)
+
+
+# robots.txt에 넣을 크롤링 차단 경로. 검색 결과에 나올 이유가 없는 회원 전용·관리·기능성
+# 엔드포인트만 막는다. 실제로 SemrushBot 한 곳이 /login/?next=... 를 훑느라 전체 요청의
+# 9%(18,826건)를 쓰고 있었고, /api/ 요청의 72%도 봇이었다.
+#
+# /theme-style은 <link rel=stylesheet>로 걸리는 실제 스타일시트라 일부러 열어둔다 —
+# CSS를 막으면 Googlebot이 페이지를 제대로 렌더링하지 못해 평가에 불리하다.
+ROBOTS_DISALLOWED_PATHS = [
+    '/login/',
+    '/logout/',
+    '/signup/',
+    '/accounts/',
+    '/find-password/',
+    '/verify-email/',
+    '/mypage/',
+    '/admin/',
+    '/staff/',
+    '/admin-tools/',
+    '/api/',
+    '/partials/',
+    '/newsletter/',
+    '/subscribe/',
+]
+
+
+def robots_txt_view(request):
+    """robots.txt — 사이트맵 위치를 알리고 비공개 경로의 크롤링을 막는다.
+
+    Sitemap 경로는 요청 호스트로 만든다. nextfinup.com과 www.nextfinup.com이 둘 다
+    서빙되고 있어(정규화 미적용), 어느 쪽으로 들어온 크롤러든 같은 호스트의 사이트맵을
+    보도록 해야 호스트가 섞이지 않는다.
+    """
+    lines = ['User-agent: *']
+    lines += [f'Disallow: {path}' for path in ROBOTS_DISALLOWED_PATHS]
+    lines += ['', f"Sitemap: {request.build_absolute_uri(reverse('sitemap'))}", '']
+    return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')

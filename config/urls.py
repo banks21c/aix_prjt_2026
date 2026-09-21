@@ -17,7 +17,7 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.contrib.sitemaps.views import sitemap
+from django.contrib.sitemaps.views import index as sitemap_index, sitemap
 from django.urls import path
 from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
 from literary.views import literary_picker_view, work_detail_view
@@ -55,6 +55,7 @@ from articles.views import (
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
+    robots_txt_view,
     blogger_connect_view, blogger_callback_view,
     my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view, change_password_view,
 )  # ◀ 우리가 만든 뷰 임포트
@@ -68,7 +69,13 @@ sitemaps = {
 urlpatterns = [
     path('admin/', admin.site.urls),  # ◀ 시스템 관리 — 슈퍼유저 전용(articles/admin.py에서 제한)
     path('staff/', business_admin_site.urls),  # ◀ 업무 관리(상담 신청/재무상담 시트/구독 신청/프리미엄 구독) — is_staff면 접근 가능
-    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap'),
+    path('robots.txt', robots_txt_view, name='robots_txt'),
+    # sitemap.xml은 인덱스만 내려주고(수 KB), 실제 URL 목록은 섹션별로 쪼개 서빙한다.
+    # 예전에는 한 파일에 7.2MB/52,771 URL을 담느라 응답에 5초가 걸려 gunicorn 워커
+    # 3개 중 1개를 그동안 붙잡았고, 규격 상한(파일당 50,000)을 넘겨 기사 일부가 누락됐다.
+    path('sitemap.xml', sitemap_index,
+         {'sitemaps': sitemaps, 'sitemap_url_name': 'sitemap_section'}, name='sitemap'),
+    path('sitemap-<section>.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap_section'),
     path('', landing_page_view, name='landing_page'),  # ◀ 메인 홈페이지(랜딩 페이지)
     path('newsletter/subscribe/', newsletter_subscribe_view, name='newsletter_subscribe'),
     path('newsletter/unsubscribe/<str:token>/', newsletter_unsubscribe_view, name='newsletter_unsubscribe'),

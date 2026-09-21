@@ -419,7 +419,12 @@ class ExpertConsultTests(TestCase):
             self.assertEqual(menu.get_url(), reverse('expert_consult'))
 
     def test_expert_consult_page_is_in_sitemap(self):
-        response = self.client.get(reverse('sitemap'))
+        # sitemap.xml은 섹션 목록만 담은 인덱스이므로, 개별 URL은 static 섹션에서 확인한다.
+        index_response = self.client.get(reverse('sitemap'))
+        self.assertEqual(index_response.status_code, 200)
+        self.assertContains(index_response, 'sitemap-static.xml')
+
+        response = self.client.get(reverse('sitemap_section', kwargs={'section': 'static'}))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse('expert_consult'))
