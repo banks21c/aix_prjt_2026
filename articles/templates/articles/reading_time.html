@@ -1,0 +1,264 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        #rt-text {
+            width: 100%;
+            min-height: 280px;
+            resize: vertical;
+            border: 1px solid var(--bg-subtle-2, #dee2e6);
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text-primary, #212529);
+            background: #fff;
+        }
+        #rt-text:focus {
+            outline: none;
+            border-color: var(--brand-primary, #0d47a1);
+            box-shadow: 0 0 0 0.2rem rgba(13,71,161,0.12);
+        }
+
+        /* 이 유틸의 결과는 "몇 분 걸린다" 하나뿐이라, 통계 칸과 따로 크게 보여준다. */
+        .rt-result {
+            background: #fff; border: 1px solid var(--bg-subtle-2, #eee); border-radius: 12px;
+            padding: 22px 20px; text-align: center;
+        }
+        .rt-result .time { font-size: 40px; font-weight: 800; color: var(--brand-primary, #0d47a1); font-variant-numeric: tabular-nums; line-height: 1.2; }
+        .rt-result .time.over { color: #dc3545; }
+        .rt-result .formula { font-size: 13px; color: var(--text-secondary, #6c757d); margin-top: 6px; }
+        .rt-result .target { font-size: 13.5px; font-weight: 700; margin-top: 8px; }
+        .rt-result .target.ok { color: #198754; }
+        .rt-result .target.over { color: #dc3545; }
+
+        .rt-speed-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .rt-speed-row .form-control, .rt-speed-row .form-select { max-width: 150px; }
+        .rt-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+        .rt-presets .btn { font-size: 12.5px; }
+
+        .rt-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .rt-stat {
+            background: #fff; border-radius: 10px; padding: 14px 16px;
+            border: 1px solid var(--bg-subtle-2, #eee); text-align: center;
+        }
+        .rt-stat .num { font-size: 24px; font-weight: 800; color: var(--brand-primary, #0d47a1); font-variant-numeric: tabular-nums; }
+        .rt-stat .label { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 2px; }
+
+        .rt-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .rt-tip { font-size: 13px; color: var(--text-secondary, #6c757d); }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'reading_time' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">낭독·발표 시간 계산기</h2>
+                <p class="text-muted mb-0">원고를 붙여넣고 말하기 속도(1분에 몇 자)를 정하면 낭독에 몇 분이 걸리는지 알려드립니다. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <textarea id="rt-text" placeholder="낭독할 원고나 발표 대본을 입력하거나 붙여넣으세요."></textarea>
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
+                <div class="rt-toolbar">
+                    <button type="button" id="rt-copy" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-copy"></i> 복사</button>
+                    <button type="button" id="rt-clear" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-trash"></i> 지우기</button>
+                </div>
+                <div class="rt-presets">
+                    <button type="button" class="btn btn-sm btn-outline-secondary rt-preset" data-speed="250">느리게 250자/분</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rt-preset" data-speed="300">보통 300자/분</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rt-preset" data-speed="350">빠르게 350자/분</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="rt-speed-row">
+                <label for="rt-speed" class="mb-0 fw-bold" style="font-size: 14px;">말하기 속도</label>
+                <div class="input-group input-group-sm" style="max-width: 150px;">
+                    <input type="number" id="rt-speed" class="form-control" min="1" max="2000" value="300">
+                    <span class="input-group-text">자/분</span>
+                </div>
+                <label for="rt-basis" class="mb-0 text-muted" style="font-size: 13px;">기준</label>
+                <select id="rt-basis" class="form-select form-select-sm">
+                    <option value="with">공백 포함 글자수</option>
+                    <option value="no">공백 제외 글자수</option>
+                </select>
+                <label for="rt-target" class="mb-0 text-muted ms-md-3" style="font-size: 13px;">목표 시간</label>
+                <div class="input-group input-group-sm" style="max-width: 130px;">
+                    <input type="number" id="rt-target" class="form-control" min="0" step="0.5" placeholder="예: 15">
+                    <span class="input-group-text">분</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="rt-result mb-3">
+            <div class="time" id="rt-time">0분 0초</div>
+            <div class="formula" id="rt-formula">원고를 입력하면 예상 시간이 나옵니다.</div>
+            <div class="target" id="rt-target-badge"></div>
+        </div>
+
+        <div class="rt-stats mb-3">
+            <div class="rt-stat"><div class="num" id="rt-with-space">0</div><div class="label">공백 포함 글자수</div></div>
+            <div class="rt-stat"><div class="num" id="rt-no-space">0</div><div class="label">공백 제외 글자수</div></div>
+            <div class="rt-stat"><div class="num" id="rt-words">0</div><div class="label">단어수</div></div>
+            <div class="rt-stat"><div class="num" id="rt-sentences">0</div><div class="label">문장 수</div></div>
+            <div class="rt-stat"><div class="num" id="rt-lines">0</div><div class="label">줄 수</div></div>
+            <div class="rt-stat"><div class="num" id="rt-fit">0</div><div class="label">목표 시간에 맞는 글자수</div></div>
+        </div>
+
+        <p class="rt-tip">Tip: 속도는 사람마다 다릅니다. 이미 녹음해 둔 원고가 있다면 <strong>그 원고 글자수 ÷ 녹음 길이(분)</strong>를 계산해 "말하기 속도"에 넣으면 내 속도로 정확히 맞출 수 있어요. 아나운서·뉴스 낭독은 대략 분당 350자, 또박또박 읽는 오디오북은 250자 안팎입니다.</p>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var textEl = document.getElementById('rt-text');
+    var speedEl = document.getElementById('rt-speed');
+    var basisEl = document.getElementById('rt-basis');
+    var targetEl = document.getElementById('rt-target');
+    var timeEl = document.getElementById('rt-time');
+    var formulaEl = document.getElementById('rt-formula');
+    var targetBadge = document.getElementById('rt-target-badge');
+    var withSpaceEl = document.getElementById('rt-with-space');
+    var noSpaceEl = document.getElementById('rt-no-space');
+    var wordsEl = document.getElementById('rt-words');
+    var sentencesEl = document.getElementById('rt-sentences');
+    var linesEl = document.getElementById('rt-lines');
+    var fitEl = document.getElementById('rt-fit');
+
+    function countWords(str) {
+        var trimmed = str.trim();
+        if (!trimmed) return 0;
+        return trimmed.split(/\s+/).length;
+    }
+
+    function countLines(str) {
+        if (!str) return 0;
+        return str.split(/\n/).length;
+    }
+
+    function countSentences(str) {
+        var trimmed = str.trim();
+        if (!trimmed) return 0;
+        // 마침표·물음표·느낌표(반각/전각)로 끊고, 문장부호 없이 줄만 바뀐 대본도 한 문장으로 센다.
+        var blocks = trimmed.split(/[.!?。！？\n]+/).filter(function (s) { return s.trim().length > 0; });
+        return blocks.length;
+    }
+
+    function formatDuration(seconds) {
+        var total = Math.round(seconds);
+        var h = Math.floor(total / 3600);
+        var m = Math.floor((total % 3600) / 60);
+        var s = total % 60;
+        if (h > 0) return h + '시간 ' + m + '분 ' + s + '초';
+        return m + '분 ' + s + '초';
+    }
+
+    function update() {
+        var text = textEl.value;
+        var withSpace = text.length;
+        var noSpace = text.replace(/\s/g, '').length;
+
+        withSpaceEl.textContent = withSpace.toLocaleString();
+        noSpaceEl.textContent = noSpace.toLocaleString();
+        wordsEl.textContent = countWords(text).toLocaleString();
+        sentencesEl.textContent = countSentences(text).toLocaleString();
+        linesEl.textContent = countLines(text).toLocaleString();
+
+        var basis = basisEl.value === 'no' ? noSpace : withSpace;
+        var basisLabel = basisEl.value === 'no' ? '공백 제외' : '공백 포함';
+        var speed = parseFloat(speedEl.value);
+        timeEl.classList.remove('over');
+
+        if (!(speed > 0)) {
+            timeEl.textContent = '—';
+            formulaEl.textContent = '말하기 속도를 1자/분 이상으로 넣어주세요.';
+            targetBadge.textContent = '';
+            fitEl.textContent = '0';
+            return;
+        }
+
+        var seconds = basis / speed * 60;
+        timeEl.textContent = formatDuration(seconds);
+        formulaEl.textContent = basis
+            ? basisLabel + ' ' + basis.toLocaleString() + '자 ÷ ' + speed.toLocaleString() + '자/분'
+            : '원고를 입력하면 예상 시간이 나옵니다.';
+
+        var target = parseFloat(targetEl.value);
+        if (target > 0) {
+            fitEl.textContent = Math.round(target * speed).toLocaleString();
+            var diff = seconds - target * 60;
+            if (diff > 0) {
+                targetBadge.textContent = '목표보다 ' + formatDuration(diff) + ' 깁니다';
+                targetBadge.className = 'target over';
+                timeEl.classList.add('over');
+            } else {
+                targetBadge.textContent = '목표까지 ' + formatDuration(-diff) + ' 남았습니다';
+                targetBadge.className = 'target ok';
+            }
+        } else {
+            targetBadge.textContent = '';
+            fitEl.textContent = '0';
+        }
+    }
+
+    textEl.addEventListener('input', update);
+    speedEl.addEventListener('input', update);
+    basisEl.addEventListener('change', update);
+    targetEl.addEventListener('input', update);
+
+    Array.prototype.forEach.call(document.querySelectorAll('.rt-preset'), function (btn) {
+        btn.addEventListener('click', function () {
+            speedEl.value = btn.dataset.speed;
+            update();
+        });
+    });
+
+    document.getElementById('rt-clear').addEventListener('click', function () {
+        textEl.value = '';
+        textEl.focus();
+        update();
+    });
+
+    document.getElementById('rt-copy').addEventListener('click', function () {
+        if (!textEl.value) return;
+        navigator.clipboard.writeText(textEl.value).then(function () {
+            var btn = document.getElementById('rt-copy');
+            var original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사됨';
+            setTimeout(function () { btn.innerHTML = original; }, 1200);
+        });
+    });
+
+    update();
+})();
+</script>
+</body>
+</html>

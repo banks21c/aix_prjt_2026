@@ -305,6 +305,12 @@ def char_counter_view(request):
     return render(request, 'articles/char_counter.html', {'site_title': 'NextFinUp - 글자수 세기'})
 
 
+def reading_time_view(request):
+    # 낭독/발표 시간 계산기. 글자수 세기와 같은 컨셉으로, 원고 글자수를 말하기 속도(자/분)로 나눠
+    # 예상 시간을 보여 준다. 원고가 서버로 가지 않도록 계산은 전부 클라이언트 사이드 JS로 한다.
+    return render(request, 'articles/reading_time.html', {'site_title': 'NextFinUp - 낭독·발표 시간 계산기'})
+
+
 def currency_converter_view(request):
     # 여행/송금/직구 수요가 큰 11개국(exim_client.FX_CONVERTER_ITEMS) 환율 계산기. 매매기준율은
     # collect_exchange_rate_fixing(30분 주기)이 쌓아둔 ExchangeRateSnapshot 최신값을 그대로
