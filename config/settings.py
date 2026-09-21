@@ -195,8 +195,11 @@ CSRF_TRUSTED_ORIGINS = [
     'https://admin.nextfinup.com',
 ]
 
-# 관리 커맨드(cron)처럼 request 객체가 없는 곳에서 절대 URL(예: 뉴스레터 수신거부 링크)을 만들 때 사용
-SITE_URL = 'https://www.nextfinup.com'
+# 관리 커맨드(cron)처럼 request 객체가 없는 곳에서 절대 URL(예: 뉴스레터 수신거부 링크)을 만들 때 사용.
+# nginx가 www → 비-www로 301 정규화하므로 여기도 비-www로 맞춘다 — www로 두면 메일 링크와
+# 블로그 발행 본문의 이미지 URL이 전부 리다이렉트를 한 번씩 더 타게 된다.
+# (이미 발행된 글에는 www가 박혀 있지만, 301을 따라가므로 계속 열린다)
+SITE_URL = 'https://nextfinup.com'
 
 # 로그인/로그아웃 후 이동할 기본 경로
 LOGIN_URL = '/login/'
@@ -308,6 +311,14 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # 인식되므로, 세션/CSRF 쿠키를 https에서만 전송하고 http 요청은 https로 리다이렉트해도 안전하다.
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+# nextfinup.com과 www.nextfinup.com이 둘 다 서빙되는데(nginx에 정규화 리다이렉트가 없다)
+# 쿠키 도메인을 지정하지 않으면 쿠키가 호스트 전용이 되어, 한쪽에서 로그인한 뒤 다른 쪽으로
+# 넘어가면 로그아웃 상태로 보인다. SITE_URL(뉴스레터·인증메일 링크)은 www인데 사용자는 주로
+# 비-www로 들어오므로 실제로 갈릴 수 있는 조합이다. 두 호스트가 세션을 공유하도록 한다.
+SESSION_COOKIE_DOMAIN = None if DEBUG else '.nextfinup.com'
+CSRF_COOKIE_DOMAIN = None if DEBUG else '.nextfinup.com'
+
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
