@@ -18,6 +18,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from . import blog_posting, chatbot_client, utils
+from .tools_catalog import CATEGORIES
 from .models import (
     AnalyzedArticle, BlogPostingAccount, ChatbotSetting, ChatMessage, ConsultRequest, MemberGrade, Menu, PostedArticle,
     StockDailyPrice, StockItem, StockPrediction, UserPreference, UserSubscription,
@@ -136,6 +137,27 @@ class PublicViewSmokeTests(TestCase):
     def test_stock_detail_unknown_ticker_404s(self):
         response = self.client.get(reverse('stock_detail', args=['999999']))
         self.assertEqual(response.status_code, 404)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class ToolsCatalogTests(TestCase):
+    """/tools/ 유틸은 tools_catalog.CATEGORIES 한 곳에만 등록하고 뷰·URL을 따로 만드는 구조라,
+    셋 중 하나를 빠뜨리면 탭/카드의 {% url %}에서 터진다. 목록 전체를 실제로 열어보며 그 어긋남을
+    막는다(유틸 본체는 전부 브라우저 JS라 여기서는 페이지가 뜨는지까지만 본다)."""
+
+    def test_every_catalog_tool_page_renders(self):
+        for category in CATEGORIES:
+            for tool in category['tools']:
+                with self.subTest(tool=tool['url_name']):
+                    response = self.client.get(reverse(tool['url_name']))
+                    self.assertEqual(response.status_code, 200)
+
+    def test_hub_lists_every_tool(self):
+        response = self.client.get(reverse('tools_hub'))
+        self.assertEqual(response.status_code, 200)
+        for category in CATEGORIES:
+            for tool in category['tools']:
+                self.assertContains(response, tool['title'])
 
 
 class GradeLimitTests(TestCase):

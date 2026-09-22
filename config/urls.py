@@ -21,7 +21,7 @@ from django.contrib.sitemaps.views import index as sitemap_index, sitemap
 from django.urls import path
 from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
 from literary.views import literary_picker_view, work_detail_view
-from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap
+from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap, ToolsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
     newsletter_sample_view, cron_status_view,
@@ -33,8 +33,8 @@ from articles.views import (
     tools_hub_view, char_counter_view, reading_time_view, currency_converter_view, severance_calculator_view,
     unemployment_benefit_calculator_view, net_pay_calculator_view, annual_leave_calculator_view,
     loan_calculator_view, savings_calculator_view,
-    json_formatter_view, image_resizer_view, image_converter_view, pdf_tools_view, qrcode_generator_view, background_remover_view,
-    unit_converter_view, spell_checker_view, spell_check_api_view,
+    json_formatter_view, korean_amount_view, world_clock_view, image_resizer_view, image_converter_view, image_compressor_view, image_mosaic_view, screen_recorder_view, pdf_tools_view, qrcode_generator_view, background_remover_view,
+    unit_converter_view, text_diff_view, spell_checker_view, spell_check_api_view,
     subscribe_view,
     subscribe_apply_view,
     financial_consult_sheet_view, financial_consult_sheet_save_view, financial_consult_sheet_search_view,
@@ -62,6 +62,7 @@ from articles.views import (
 
 sitemaps = {
     'static': StaticViewSitemap,
+    'tools': ToolsSitemap,
     'stocks': StockSitemap,
     'news': NewsSitemap,
 }
@@ -138,13 +139,19 @@ urlpatterns = [
     path('tools/annual-leave-calculator/', annual_leave_calculator_view, name='annual_leave_calculator'),
     path('tools/loan-calculator/', loan_calculator_view, name='loan_calculator'),
     path('tools/savings-calculator/', savings_calculator_view, name='savings_calculator'),
+    path('tools/korean-amount/', korean_amount_view, name='korean_amount'),
+    path('tools/world-clock/', world_clock_view, name='world_clock'),
     path('tools/json-formatter/', json_formatter_view, name='json_formatter'),
     path('tools/image-resizer/', image_resizer_view, name='image_resizer'),
     path('tools/image-converter/', image_converter_view, name='image_converter'),
+    path('tools/image-compressor/', image_compressor_view, name='image_compressor'),
+    path('tools/image-mosaic/', image_mosaic_view, name='image_mosaic'),
+    path('tools/screen-recorder/', screen_recorder_view, name='screen_recorder'),
     path('tools/pdf-tools/', pdf_tools_view, name='pdf_tools'),
     path('tools/qrcode-generator/', qrcode_generator_view, name='qrcode_generator'),
     path('tools/background-remover/', background_remover_view, name='background_remover'),
     path('tools/unit-converter/', unit_converter_view, name='unit_converter'),
+    path('tools/text-diff/', text_diff_view, name='text_diff'),
     path('tools/spell-checker/', spell_checker_view, name='spell_checker'),
     path('api/spell-check/', spell_check_api_view, name='spell_check_api'),
     path('partials/header/', header_fragment_view, name='header_fragment'),

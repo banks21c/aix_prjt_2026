@@ -3,6 +3,7 @@ from django.db.models import Max
 from django.urls import reverse
 
 from .models import AnalyzedArticle, StockItem
+from .tools_catalog import CATEGORIES
 
 
 class StaticViewSitemap(Sitemap):
@@ -31,6 +32,28 @@ class StaticViewSitemap(Sitemap):
 
     def priority(self, item):
         return item[1]
+
+
+class ToolsSitemap(Sitemap):
+    """/tools/ 유틸 페이지들. 이 페이지들은 애초에 검색 유입을 노리고 만든 것인데
+    StaticViewSitemap에는 들어 있지 않았다. 목록은 tools_catalog 한 곳만 보므로,
+    유틸을 추가하면 사이트맵에도 자동으로 따라 들어간다."""
+
+    changefreq = 'monthly'
+    protocol = 'https'
+
+    def items(self):
+        names = ['tools_hub']
+        for category in CATEGORIES:
+            for tool in category['tools']:
+                names.append(tool['url_name'])
+        return names
+
+    def location(self, item):
+        return reverse(item)
+
+    def priority(self, item):
+        return 0.8 if item == 'tools_hub' else 0.7
 
 
 class StockSitemap(Sitemap):

@@ -1,0 +1,455 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .wc-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .wc-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+
+        .wc-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .wc-row:first-child { border-top: none; }
+        .wc-city { flex: 1 1 auto; min-width: 0; }
+        .wc-city-name { font-size: 15px; font-weight: 800; color: var(--text-primary, #212529); }
+        .wc-city-sub { font-size: 12px; color: var(--text-secondary, #868e96); margin-top: 2px; }
+        .wc-time { flex: 0 0 auto; text-align: right; }
+        .wc-time-main { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-primary, #212529); font-variant-numeric: tabular-nums; }
+        .wc-time-sub { font-size: 12px; color: var(--text-secondary, #868e96); margin-top: 2px; }
+        .wc-badge { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: 6px; }
+        .wc-badge.is-work { background: #e6f4ea; color: #1e7e34; }
+        .wc-badge.is-night { background: #eceef1; color: #6c757d; }
+        .wc-badge.is-base { background: #e7f5ff; color: #1864ab; }
+        .wc-badge.is-diff { background: var(--bg-subtle-2, #f1f3f5); color: #495057; }
+        .wc-remove { flex: 0 0 auto; border: none; background: none; color: var(--text-secondary, #ced4da); font-size: 14px; }
+        .wc-remove:hover { color: #e03131; }
+
+        .wc-market-table { width: 100%; font-size: 13.5px; }
+        .wc-market-table th { font-size: 12px; font-weight: 700; color: var(--text-secondary, #868e96); padding: 6px 8px; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); white-space: nowrap; }
+        .wc-market-table td { padding: 9px 8px; border-bottom: 1px solid var(--bg-subtle-2, #f8f9fa); vertical-align: middle; }
+        .wc-market-table td.wc-m-name { font-weight: 700; color: var(--text-primary, #212529); }
+        .wc-market-table td.wc-m-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .wc-open { color: #1e7e34; font-weight: 800; }
+        .wc-closed { color: var(--text-secondary, #adb5bd); font-weight: 700; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'world_clock' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">세계 시간 변환기</h2>
+                <p class="text-muted mb-0">해외 회의·통화 시간을 잡을 때 도시별 현지 시각을 한눈에 비교해요. 서머타임(DST)은 브라우저의 시간대 정보로 자동 반영되고, 주요 증시 개장·마감 시각도 함께 보여드립니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="wc-section-title">기준 시각</div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4 wc-field">
+                    <label for="wc-base-zone">기준 도시</label>
+                    <select id="wc-base-zone" class="form-select"></select>
+                </div>
+                <div class="col-md-3 wc-field">
+                    <label for="wc-date">날짜</label>
+                    <input type="date" id="wc-date" class="form-control">
+                </div>
+                <div class="col-md-2 wc-field">
+                    <label for="wc-time">시각</label>
+                    <input type="time" id="wc-time" class="form-control">
+                </div>
+                <div class="col-md-3 wc-field d-flex gap-2">
+                    <button type="button" id="wc-now-btn" class="btn btn-primary w-100"><i class="fa-solid fa-clock"></i> 지금</button>
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
+                <div class="col-12 wc-field">
+                    <label for="wc-shift">기준 시각에서 옮겨보기 (<span id="wc-shift-value">0시간</span>)</label>
+                    <input type="range" id="wc-shift" class="form-range" min="-24" max="24" step="0.5" value="0">
+                    <div class="form-text text-muted">슬라이더를 움직이면 모든 도시 시각이 함께 움직여, 서로 업무시간인 구간을 찾기 쉬워요</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="wc-section-title mb-0">도시별 현지 시각</div>
+                <div class="d-flex gap-2">
+                    <input list="wc-zone-list" id="wc-add-zone" class="form-control form-control-sm" style="width: 230px;" placeholder="도시·시간대 검색 후 추가">
+                    <datalist id="wc-zone-list"></datalist>
+                    <button type="button" id="wc-add-btn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-plus"></i> 추가</button>
+                    <button type="button" id="wc-reset-btn" class="btn btn-outline-secondary btn-sm" title="기본 도시 목록으로"><i class="fa-solid fa-arrows-rotate"></i></button>
+                </div>
+            </div>
+            <div id="wc-list"></div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4">
+            <div class="wc-section-title">주요 증시 개장 시각 (기준 도시 시간)</div>
+            <div class="table-responsive">
+                <table class="wc-market-table">
+                    <thead>
+                        <tr>
+                            <th>거래소</th>
+                            <th>현지 시각 기준</th>
+                            <th id="wc-market-basehead">기준 도시 기준</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wc-market-body"></tbody>
+                </table>
+            </div>
+            <div class="form-text text-muted mt-2">
+                <i class="fa-solid fa-circle-info"></i>
+                정규장 기준이며 공휴일·임시 휴장은 반영하지 않습니다. 서머타임이 있는 시장(뉴욕·런던·프랑크푸르트)은
+                한국 시간 기준 개장 시각이 계절에 따라 1시간 달라지는데, 이 표는 선택한 날짜의 시간대 규칙으로 계산합니다.
+            </div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var baseZoneEl = document.getElementById('wc-base-zone');
+    var dateEl = document.getElementById('wc-date');
+    var timeEl = document.getElementById('wc-time');
+    var nowBtn = document.getElementById('wc-now-btn');
+    var shiftEl = document.getElementById('wc-shift');
+    var shiftValueEl = document.getElementById('wc-shift-value');
+    var listEl = document.getElementById('wc-list');
+    var addZoneEl = document.getElementById('wc-add-zone');
+    var zoneListEl = document.getElementById('wc-zone-list');
+    var addBtn = document.getElementById('wc-add-btn');
+    var resetBtn = document.getElementById('wc-reset-btn');
+    var marketBodyEl = document.getElementById('wc-market-body');
+    var marketBaseHeadEl = document.getElementById('wc-market-basehead');
+
+    // 한국에서 많이 찾는 도시들 — 여기 없는 시간대는 아래 검색창(전체 IANA 목록)에서 고른다
+    var KNOWN = [
+        ['Asia/Seoul', '서울'], ['Asia/Tokyo', '도쿄'], ['Asia/Shanghai', '상하이·베이징'], ['Asia/Hong_Kong', '홍콩'],
+        ['Asia/Singapore', '싱가포르'], ['Asia/Bangkok', '방콕'], ['Asia/Ho_Chi_Minh', '호찌민'], ['Asia/Jakarta', '자카르타'],
+        ['Asia/Kolkata', '뉴델리·뭄바이'], ['Asia/Dubai', '두바이'], ['Europe/Moscow', '모스크바'], ['Europe/Istanbul', '이스탄불'],
+        ['Europe/London', '런던'], ['Europe/Paris', '파리'], ['Europe/Berlin', '베를린·프랑크푸르트'], ['Europe/Rome', '로마'],
+        ['Europe/Madrid', '마드리드'], ['Europe/Amsterdam', '암스테르담'], ['Europe/Zurich', '취리히'], ['Europe/Prague', '프라하'],
+        ['America/New_York', '뉴욕'], ['America/Chicago', '시카고'], ['America/Denver', '덴버'], ['America/Los_Angeles', '로스앤젤레스'],
+        ['America/Toronto', '토론토'], ['America/Vancouver', '밴쿠버'], ['America/Mexico_City', '멕시코시티'],
+        ['America/Sao_Paulo', '상파울루'], ['Australia/Sydney', '시드니'], ['Australia/Melbourne', '멜버른'],
+        ['Pacific/Auckland', '오클랜드'], ['Pacific/Honolulu', '호놀룰루'], ['Asia/Manila', '마닐라'], ['Asia/Taipei', '타이베이'],
+        ['Africa/Cairo', '카이로'], ['Africa/Johannesburg', '요하네스버그'], ['UTC', '협정세계시(UTC)'],
+    ];
+    var KNOWN_MAP = {};
+    KNOWN.forEach(function (pair) { KNOWN_MAP[pair[0]] = pair[1]; });
+
+    var DEFAULT_CITIES = ['Asia/Seoul', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'];
+    var STORAGE_KEY = 'nfu_world_clock_cities';
+
+    var MARKETS = [
+        { name: '한국 (KRX)', zone: 'Asia/Seoul', open: [9, 0], close: [15, 30] },
+        { name: '뉴욕 (NYSE·나스닥)', zone: 'America/New_York', open: [9, 30], close: [16, 0] },
+        { name: '도쿄 (TSE)', zone: 'Asia/Tokyo', open: [9, 0], close: [15, 30] },
+        { name: '홍콩 (HKEX)', zone: 'Asia/Hong_Kong', open: [9, 30], close: [16, 0] },
+        { name: '상하이 (SSE)', zone: 'Asia/Shanghai', open: [9, 30], close: [15, 0] },
+        { name: '런던 (LSE)', zone: 'Europe/London', open: [8, 0], close: [16, 30] },
+        { name: '프랑크푸르트 (XETRA)', zone: 'Europe/Berlin', open: [9, 0], close: [17, 30] },
+    ];
+
+    var cities = loadCities();
+
+    function loadCities() {
+        try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (Array.isArray(saved) && saved.length) return saved;
+        } catch (e) { /* 사생활 보호 모드 등에서 막히면 기본값을 쓴다 */ }
+        return DEFAULT_CITIES.slice();
+    }
+
+    function saveCities() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cities)); } catch (e) { /* 저장 못 해도 동작에는 지장 없다 */ }
+    }
+
+    function labelFor(zone) {
+        return KNOWN_MAP[zone] || zone.split('/').pop().replace(/_/g, ' ');
+    }
+
+    // 어떤 순간(instant)에 그 시간대가 UTC와 몇 ms 차이 나는지 — Intl로 뽑은 현지 시각을
+    // UTC인 척 다시 만들어 차이를 재는, 시간대 계산의 표준적인 방법이다.
+    function tzOffsetMs(date, zone) {
+        var dtf = new Intl.DateTimeFormat('en-US', {
+            timeZone: zone, hour12: false,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+        });
+        var parts = {};
+        dtf.formatToParts(date).forEach(function (p) { parts[p.type] = p.value; });
+        var asUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+        return asUTC - date.getTime();
+    }
+
+    // "그 도시의 벽시계로 몇 시" → 실제 순간(Date). 서머타임 경계에서 어긋나지 않도록 두 번 보정한다.
+    function zonedToInstant(y, mo, d, h, mi, zone) {
+        var guess = Date.UTC(y, mo - 1, d, h, mi);
+        var off = tzOffsetMs(new Date(guess), zone);
+        off = tzOffsetMs(new Date(guess - off), zone);
+        return new Date(guess - off);
+    }
+
+    function partsIn(date, zone) {
+        var dtf = new Intl.DateTimeFormat('ko-KR', {
+            timeZone: zone, hour12: false, weekday: 'short',
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+        });
+        var out = {};
+        dtf.formatToParts(date).forEach(function (p) { out[p.type] = p.value; });
+        out.hour = String(+out.hour % 24).padStart(2, '0');
+        return out;
+    }
+
+    function zoneAbbr(date, zone) {
+        try {
+            var dtf = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' });
+            var found = dtf.formatToParts(date).filter(function (p) { return p.type === 'timeZoneName'; });
+            return found.length ? found[0].value : '';
+        } catch (e) { return ''; }
+    }
+
+    function fmtOffsetDiff(ms) {
+        var mins = Math.round(ms / 60000);
+        if (mins === 0) return '시차 없음';
+        var sign = mins > 0 ? '+' : '-';
+        mins = Math.abs(mins);
+        var h = Math.floor(mins / 60), m = mins % 60;
+        return sign + h + '시간' + (m ? ' ' + m + '분' : '');
+    }
+
+    function baseZone() { return baseZoneEl.value || 'Asia/Seoul'; }
+
+    function currentInstant() {
+        var dateStr = dateEl.value, timeStr = timeEl.value;
+        if (!dateStr || !timeStr) return new Date();
+        var dparts = dateStr.split('-').map(Number);
+        var tparts = timeStr.split(':').map(Number);
+        var base = zonedToInstant(dparts[0], dparts[1], dparts[2], tparts[0], tparts[1], baseZone());
+        var shiftHours = parseFloat(shiftEl.value) || 0;
+        return new Date(base.getTime() + shiftHours * 3600000);
+    }
+
+    function setToNow() {
+        var now = new Date();
+        var p = partsIn(now, baseZone());
+        dateEl.value = p.year + '-' + p.month + '-' + p.day;
+        timeEl.value = p.hour + ':' + p.minute;
+        shiftEl.value = 0;
+        shiftValueEl.textContent = '0시간';
+        render();
+    }
+
+    function renderCities(instant) {
+        var baseOffset = tzOffsetMs(instant, baseZone());
+        listEl.innerHTML = '';
+        cities.forEach(function (zone) {
+            var p = partsIn(instant, zone);
+            var hour = +p.hour;
+            var isBase = zone === baseZone();
+            var isWork = hour >= 9 && hour < 18;
+
+            var row = document.createElement('div');
+            row.className = 'wc-row';
+            row.setAttribute('data-zone', zone);
+
+            var city = document.createElement('div');
+            city.className = 'wc-city';
+            var name = document.createElement('div');
+            name.className = 'wc-city-name';
+            name.textContent = labelFor(zone);
+            var badge = document.createElement('span');
+            badge.className = 'wc-badge ' + (isBase ? 'is-base' : (isWork ? 'is-work' : 'is-night'));
+            badge.textContent = isBase ? '기준' : (isWork ? '업무시간' : '업무시간 외');
+            name.appendChild(badge);
+            var sub = document.createElement('div');
+            sub.className = 'wc-city-sub';
+            var diff = fmtOffsetDiff(tzOffsetMs(instant, zone) - baseOffset);
+            sub.textContent = zone + ' · ' + (zoneAbbr(instant, zone) || '') + ' · ' + (isBase ? '기준 도시' : diff);
+            city.appendChild(name);
+            city.appendChild(sub);
+
+            var time = document.createElement('div');
+            time.className = 'wc-time';
+            var main = document.createElement('div');
+            main.className = 'wc-time-main';
+            main.textContent = p.hour + ':' + p.minute;
+            var tsub = document.createElement('div');
+            tsub.className = 'wc-time-sub';
+            tsub.textContent = p.year + '.' + p.month + '.' + p.day + ' (' + (p.weekday || '') + ')';
+            time.appendChild(main);
+            time.appendChild(tsub);
+
+            var remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'wc-remove';
+            remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            remove.title = '목록에서 빼기';
+            remove.addEventListener('click', function () {
+                cities = cities.filter(function (z) { return z !== zone; });
+                saveCities();
+                render();
+            });
+
+            row.appendChild(city);
+            row.appendChild(time);
+            row.appendChild(remove);
+            listEl.appendChild(row);
+        });
+        listEl.setAttribute('data-count', String(cities.length));
+    }
+
+    function renderMarkets(instant) {
+        var zone = baseZone();
+        marketBaseHeadEl.textContent = labelFor(zone) + ' 기준';
+        marketBodyEl.innerHTML = '';
+
+        MARKETS.forEach(function (market) {
+            // 기준 시각이 놓인 '그 시장의 날짜'로 개장/마감 순간을 만든다
+            var mp = partsIn(instant, market.zone);
+            var openAt = zonedToInstant(+mp.year, +mp.month, +mp.day, market.open[0], market.open[1], market.zone);
+            var closeAt = zonedToInstant(+mp.year, +mp.month, +mp.day, market.close[0], market.close[1], market.zone);
+            var weekday = new Date(Date.UTC(+mp.year, +mp.month - 1, +mp.day)).getUTCDay();
+            var isWeekend = weekday === 0 || weekday === 6;
+            var isOpen = !isWeekend && instant >= openAt && instant < closeAt;
+
+            // 기준 도시에서 보면 개장·마감이 전날/다음날로 넘어가는 시장이 많다(뉴욕·런던).
+            // 시각만 적어두면 "런던 17:00~01:30"이 같은 날로 읽히므로 날짜 넘김을 표시한다.
+            var bp = partsIn(instant, zone);
+            var op = partsIn(openAt, zone), cp = partsIn(closeAt, zone);
+            var openShift = dayShift(bp, op);
+            var closeShift = dayShift(op, cp);
+
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-market', market.zone);
+            tr.innerHTML =
+                '<td class="wc-m-name">' + market.name + '</td>' +
+                '<td class="wc-m-time">' + pad(market.open) + ' ~ ' + pad(market.close) + '</td>' +
+                '<td class="wc-m-time">' + op.hour + ':' + op.minute + shiftLabel(openShift) +
+                    ' ~ ' + cp.hour + ':' + cp.minute + shiftLabel(closeShift) + '</td>' +
+                '<td class="' + (isOpen ? 'wc-open' : 'wc-closed') + '">' + (isWeekend ? '주말 휴장' : (isOpen ? '개장 중' : '장 마감')) + '</td>';
+            marketBodyEl.appendChild(tr);
+        });
+
+        function pad(hm) {
+            return String(hm[0]).padStart(2, '0') + ':' + String(hm[1]).padStart(2, '0');
+        }
+
+        function dayShift(from, to) {
+            var a = Date.UTC(+from.year, +from.month - 1, +from.day);
+            var b = Date.UTC(+to.year, +to.month - 1, +to.day);
+            return Math.round((b - a) / 86400000);
+        }
+
+        function shiftLabel(days) {
+            if (!days) return '';
+            return ' <span class="text-muted">(' + (days > 0 ? '+' : '') + days + '일)</span>';
+        }
+    }
+
+    function render() {
+        var instant = currentInstant();
+        renderCities(instant);
+        renderMarkets(instant);
+        listEl.setAttribute('data-instant', String(instant.getTime()));
+    }
+
+    function buildZoneOptions() {
+        var all = [];
+        try {
+            if (typeof Intl.supportedValuesOf === 'function') all = Intl.supportedValuesOf('timeZone');
+        } catch (e) { /* 구형 브라우저 — 아래 KNOWN 목록만 쓴다 */ }
+        if (!all.length) all = KNOWN.map(function (pair) { return pair[0]; });
+
+        // 기준 도시 선택은 잘 쓰는 도시만(길면 고르기 어렵다)
+        KNOWN.forEach(function (pair) {
+            var opt = document.createElement('option');
+            opt.value = pair[0];
+            opt.textContent = pair[1] + ' (' + pair[0] + ')';
+            baseZoneEl.appendChild(opt);
+        });
+        // 추가 검색창은 브라우저가 아는 전체 시간대
+        all.forEach(function (zone) {
+            var opt = document.createElement('option');
+            opt.value = zone;
+            opt.label = KNOWN_MAP[zone] ? KNOWN_MAP[zone] + ' (' + zone + ')' : zone;
+            zoneListEl.appendChild(opt);
+        });
+        var guessed = 'Asia/Seoul';
+        try { guessed = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul'; } catch (e) { /* 기본값 유지 */ }
+        baseZoneEl.value = KNOWN_MAP[guessed] ? guessed : 'Asia/Seoul';
+    }
+
+    addBtn.addEventListener('click', function () {
+        var zone = (addZoneEl.value || '').trim();
+        if (!zone) return;
+        try {
+            // 잘못된 시간대 이름이면 여기서 예외가 난다
+            new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(new Date());
+        } catch (e) {
+            alert('알 수 없는 시간대입니다: ' + zone);
+            return;
+        }
+        if (cities.indexOf(zone) === -1) {
+            cities.push(zone);
+            saveCities();
+            render();
+        }
+        addZoneEl.value = '';
+    });
+    addZoneEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+
+    resetBtn.addEventListener('click', function () {
+        cities = DEFAULT_CITIES.slice();
+        saveCities();
+        render();
+    });
+
+    nowBtn.addEventListener('click', setToNow);
+    [dateEl, timeEl, baseZoneEl].forEach(function (el) { el.addEventListener('change', render); });
+    shiftEl.addEventListener('input', function () {
+        var v = parseFloat(shiftEl.value) || 0;
+        shiftValueEl.textContent = (v > 0 ? '+' : '') + v + '시간';
+        render();
+    });
+
+    buildZoneOptions();
+    setToNow();
+
+    // 기준 시각을 '지금'으로 둔 채 보고 있을 때만 1분마다 따라 움직인다
+    setInterval(function () {
+        if (parseFloat(shiftEl.value) === 0 && document.activeElement !== dateEl && document.activeElement !== timeEl) {
+            var p = partsIn(new Date(), baseZone());
+            if (dateEl.value === p.year + '-' + p.month + '-' + p.day && timeEl.value !== p.hour + ':' + p.minute) {
+                timeEl.value = p.hour + ':' + p.minute;
+                render();
+            }
+        }
+    }, 30000);
+})();
+</script>
+</body>
+</html>

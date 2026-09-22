@@ -1,0 +1,587 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .td-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .td-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        /* Bootstrap의 textarea.form-control{min-height}가 .td-input보다 우선하므로 선택자를 맞춰준다 */
+        textarea.td-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; min-height: 240px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+        .td-pane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+        .td-pane-head .td-meta { font-size: 12px; color: var(--text-secondary, #868e96); }
+
+        .td-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+        .td-stat { font-size: 13px; font-weight: 700; border-radius: 999px; padding: 4px 12px; background: var(--bg-subtle-2, #f1f3f5); color: var(--text-secondary, #495057); }
+        .td-stat.is-ins { background: #e6f4ea; color: #1e7e34; }
+        .td-stat.is-del { background: #fdecea; color: #c92a2a; }
+        .td-stat.is-chg { background: #fff4e6; color: #d9480f; }
+        .td-stat.is-same { background: #e7f5ff; color: #1864ab; }
+
+        .td-view { border: 1px solid var(--bg-subtle-2, #e9ecef); border-radius: 10px; overflow: auto; background: #fff; max-height: 70vh; }
+        table.td-table { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; }
+        table.td-table td { vertical-align: top; padding: 1px 8px; }
+        td.td-num { width: 1%; min-width: 44px; text-align: right; color: var(--text-secondary, #adb5bd); background: var(--bg-subtle, #f8f9fa); user-select: none;
+                    border-right: 1px solid var(--bg-subtle-2, #eee); font-size: 12px; }
+        td.td-line { white-space: pre-wrap; word-break: break-all; width: 50%; }
+        tr.is-del td.td-line.td-left, tr.is-chg td.td-line.td-left { background: #fdecea; }
+        tr.is-ins td.td-line.td-right, tr.is-chg td.td-line.td-right { background: #e6f4ea; }
+        tr.is-del td.td-line.td-right, tr.is-ins td.td-line.td-left { background: repeating-linear-gradient(45deg, #fafafa, #fafafa 6px, #f1f3f5 6px, #f1f3f5 12px); }
+        .td-line mark { padding: 0 1px; border-radius: 3px; }
+        tr.is-chg td.td-left mark, tr.is-del td.td-left mark { background: #ffc9c9; color: inherit; }
+        tr.is-chg td.td-right mark, tr.is-ins td.td-right mark { background: #b2f2bb; color: inherit; }
+        tr.td-gap td { background: var(--bg-subtle, #f8f9fa); color: var(--text-secondary, #adb5bd); text-align: center; font-size: 12px; padding: 4px; }
+
+        /* 한 줄로 보기(inline)에서는 오른쪽 칸을 접고 +/- 부호를 앞에 붙인다 */
+        .td-view.is-inline td.td-right, .td-view.is-inline td.td-num-right { display: none; }
+        .td-view.is-inline tr.is-del td.td-line.td-left { background: #fdecea; }
+        .td-view.is-inline tr.is-ins td.td-line.td-left { background: #e6f4ea; }
+
+        .td-empty { padding: 28px; text-align: center; color: var(--text-secondary, #868e96); font-size: 14px; }
+        .td-notice { display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'text_diff' %}
+
+    <div class="container my-5" style="max-width: 1100px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">텍스트 비교 (Diff)</h2>
+                <p class="text-muted mb-0">두 글을 나란히 놓고 달라진 줄과 그 안에서 바뀐 단어까지 짚어드려요. 계약서·원고 수정본 대조, 코드·설정 파일 비교에 쓰세요. 입력한 내용은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="row g-3">
+                <div class="col-md-6 td-field">
+                    <div class="td-pane-head">
+                        <label for="td-left" class="mb-0">원본 (이전 글)</label>
+                        <span class="td-meta" id="td-left-meta">0자 · 0줄</span>
+                    </div>
+                    <textarea id="td-left" class="form-control td-input" placeholder="원본 텍스트를 붙여넣으세요"></textarea>
+                </div>
+                <div class="col-md-6 td-field">
+                    <div class="td-pane-head">
+                        <label for="td-right" class="mb-0">비교본 (수정한 글)</label>
+                        <span class="td-meta" id="td-right-meta">0자 · 0줄</span>
+                    </div>
+                    <textarea id="td-right" class="form-control td-input" placeholder="비교할 텍스트를 붙여넣으세요"></textarea>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <button type="button" id="td-run-btn" class="btn btn-primary"><i class="fa-solid fa-code-compare"></i> 비교하기</button>
+                <button type="button" id="td-swap-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-right-left"></i> 좌우 바꾸기</button>
+                <button type="button" id="td-clear-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-eraser"></i> 지우기</button>
+                <button type="button" id="td-copy-btn" class="btn btn-outline-primary" disabled><i class="fa-solid fa-copy"></i> 결과 복사</button>
+                <label class="btn btn-outline-secondary mb-0">
+                    <i class="fa-solid fa-file-arrow-up"></i> 원본 파일
+                    <input type="file" id="td-left-file" accept=".txt,.md,.csv,.json,.html,.css,.js,.py,text/*" class="d-none">
+                </label>
+                <label class="btn btn-outline-secondary mb-0">
+                    <i class="fa-solid fa-file-arrow-up"></i> 비교본 파일
+                    <input type="file" id="td-right-file" accept=".txt,.md,.csv,.json,.html,.css,.js,.py,text/*" class="d-none">
+                </label>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="td-section-title">비교 설정</div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3 td-field">
+                    <label for="td-detail">줄 안의 변경 표시</label>
+                    <select id="td-detail" class="form-select">
+                        <option value="word">단어 단위</option>
+                        <option value="char">글자 단위</option>
+                        <option value="none">표시 안 함</option>
+                    </select>
+                </div>
+                <div class="col-md-3 td-field">
+                    <label for="td-viewmode">보기</label>
+                    <select id="td-viewmode" class="form-select">
+                        <option value="side">나란히 보기</option>
+                        <option value="inline">한 줄로 보기</option>
+                    </select>
+                </div>
+                <div class="col-md-6 td-field">
+                    <label>옵션</label>
+                    <div class="d-flex gap-3 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="td-ignore-space">
+                            <label class="form-check-label" for="td-ignore-space" style="font-size:13px;">공백 차이 무시</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="td-ignore-case">
+                            <label class="form-check-label" for="td-ignore-case" style="font-size:13px;">대소문자 무시</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="td-only-changed">
+                            <label class="form-check-label" for="td-only-changed" style="font-size:13px;">달라진 곳만 보기</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-text text-muted mt-2">
+                <i class="fa-solid fa-circle-info"></i>
+                줄 단위로 맞춰본 뒤, 바뀐 줄 안에서 실제로 달라진 부분만 색으로 짚어줍니다.
+                <b>공백 차이 무시</b>는 들여쓰기·연속 공백만 다른 줄을 같은 줄로 봅니다(글자는 원문 그대로 보여줍니다).
+                <b>결과 복사</b>를 누르면 <code>-</code>/<code>+</code> 부호가 붙은 텍스트로 복사돼 메일·메신저에 그대로 붙여넣을 수 있어요.
+            </div>
+        </div>
+
+        <div class="alert alert-warning td-notice" id="td-notice"></div>
+
+        <div class="card card-custom bg-white p-3 p-md-4" id="td-result-card" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="td-section-title mb-0">비교 결과</div>
+                <div class="td-stats" id="td-stats"></div>
+            </div>
+            <div class="alert alert-success py-2 px-3" id="td-same-notice" style="display:none;">
+                <i class="fa-solid fa-circle-check"></i> 두 텍스트에 다른 곳이 없습니다.
+            </div>
+            <div class="td-view" id="td-view"></div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var leftEl = document.getElementById('td-left');
+    var rightEl = document.getElementById('td-right');
+    var leftMetaEl = document.getElementById('td-left-meta');
+    var rightMetaEl = document.getElementById('td-right-meta');
+    var leftFileEl = document.getElementById('td-left-file');
+    var rightFileEl = document.getElementById('td-right-file');
+    var runBtn = document.getElementById('td-run-btn');
+    var swapBtn = document.getElementById('td-swap-btn');
+    var clearBtn = document.getElementById('td-clear-btn');
+    var copyBtn = document.getElementById('td-copy-btn');
+    var detailEl = document.getElementById('td-detail');
+    var viewModeEl = document.getElementById('td-viewmode');
+    var ignoreSpaceEl = document.getElementById('td-ignore-space');
+    var ignoreCaseEl = document.getElementById('td-ignore-case');
+    var onlyChangedEl = document.getElementById('td-only-changed');
+    var noticeEl = document.getElementById('td-notice');
+    var resultCard = document.getElementById('td-result-card');
+    var viewEl = document.getElementById('td-view');
+    var statsEl = document.getElementById('td-stats');
+    var sameNoticeEl = document.getElementById('td-same-notice');
+
+    var lastRows = null;   // 결과 복사용
+
+    var MAX_CHARS = 400000;      // 이보다 크면 브라우저가 버티기 힘들다
+    var CONTEXT_LINES = 3;       // "달라진 곳만 보기"에서 앞뒤로 남겨두는 줄 수
+    var MAX_EDIT_DISTANCE = 2000;   // Myers 탐색 상한 — 넘으면 그 구간은 통째로 교체로 본다
+                                    // (trace가 상한 × 배열크기만큼 쌓이므로 메모리 상한이기도 하다)
+
+    function splitLines(text) {
+        return text.replace(/\r\n?/g, '\n').split('\n');
+    }
+
+    function normalize(line) {
+        var s = line;
+        if (ignoreSpaceEl.checked) s = s.replace(/\s+/g, ' ').trim();
+        if (ignoreCaseEl.checked) s = s.toLowerCase();
+        return s;
+    }
+
+    // Myers의 O(ND) diff. 두 배열의 편집 스크립트(eq/del/ins)를 돌려준다.
+    // d(편집 횟수)가 MAX_EDIT_DISTANCE를 넘으면 탐색을 포기하고 "전부 삭제 후 전부 추가"로
+    // 떨어뜨린다 — 완전히 다른 두 글을 비교할 때 trace 메모리가 폭발하는 것을 막기 위한 것.
+    function diffSequences(a, b) {
+        var N = a.length, M = b.length;
+        var ops = [];
+        // 앞뒤로 같은 부분은 먼저 떼어낸다(대부분의 실제 비교에서 탐색량을 크게 줄여준다)
+        var start = 0;
+        while (start < N && start < M && a[start] === b[start]) start += 1;
+        var endA = N, endB = M;
+        while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA -= 1; endB -= 1; }
+
+        for (var i = 0; i < start; i += 1) ops.push({ type: 'eq', a: i, b: i });
+
+        var midA = a.slice(start, endA), midB = b.slice(start, endB);
+        var mid = myers(midA, midB);
+        if (!mid) {
+            // 탐색 포기 — 가운데 구간을 통째로 교체로 표시한다
+            for (var da = 0; da < midA.length; da += 1) ops.push({ type: 'del', a: start + da });
+            for (var db = 0; db < midB.length; db += 1) ops.push({ type: 'ins', b: start + db });
+            noticeEl.style.display = 'block';
+            noticeEl.textContent = '두 글의 차이가 너무 커서 줄 단위로 맞춰보지 않고 전체를 바뀐 것으로 표시했습니다.';
+        } else {
+            mid.forEach(function (op) {
+                ops.push({
+                    type: op.type,
+                    a: op.a === undefined ? undefined : op.a + start,
+                    b: op.b === undefined ? undefined : op.b + start,
+                });
+            });
+        }
+
+        for (var t = 0; t < N - endA; t += 1) ops.push({ type: 'eq', a: endA + t, b: endB + t });
+        return ops;
+    }
+
+    function myers(a, b) {
+        var N = a.length, M = b.length;
+        if (!N && !M) return [];
+        if (!N || !M) {
+            var out = [];
+            for (var i = 0; i < N; i += 1) out.push({ type: 'del', a: i });
+            for (var j = 0; j < M; j += 1) out.push({ type: 'ins', b: j });
+            return out;
+        }
+        var MAX = Math.min(N + M, MAX_EDIT_DISTANCE);
+        // k는 -d~d 범위만 쓰므로 배열을 N+M이 아니라 상한(MAX) 기준으로 잡는다 — 수천 줄짜리
+        // 글을 비교할 때 trace(깊이마다 배열 사본)가 수십 MB씩 불어나는 것을 막는다.
+        var offset = MAX + 1;
+        var v = new Int32Array(2 * MAX + 3);
+        var trace = [];
+        for (var d = 0; d <= MAX; d += 1) {
+            trace.push(v.slice());
+            for (var k = -d; k <= d; k += 2) {
+                var idx = k + offset, x;
+                if (k === -d || (k !== d && v[idx - 1] < v[idx + 1])) x = v[idx + 1];
+                else x = v[idx - 1] + 1;
+                var y = x - k;
+                while (x < N && y < M && a[x] === b[y]) { x += 1; y += 1; }
+                v[idx] = x;
+                if (x >= N && y >= M) return backtrack(trace, a, b, d, offset);
+            }
+        }
+        return null;   // 편집 거리가 상한을 넘었다
+    }
+
+    function backtrack(trace, a, b, d, offset) {
+        var ops = [];
+        var x = a.length, y = b.length;
+        for (var depth = d; depth > 0; depth -= 1) {
+            var v = trace[depth];
+            var k = x - y;
+            var idx = k + offset;
+            var prevK = (k === -depth || (k !== depth && v[idx - 1] < v[idx + 1])) ? k + 1 : k - 1;
+            var prevX = v[prevK + offset];
+            var prevY = prevX - prevK;
+            while (x > prevX && y > prevY) { x -= 1; y -= 1; ops.push({ type: 'eq', a: x, b: y }); }
+            if (x > prevX) { x -= 1; ops.push({ type: 'del', a: x }); }
+            else if (y > prevY) { y -= 1; ops.push({ type: 'ins', b: y }); }
+        }
+        while (x > 0 && y > 0) { x -= 1; y -= 1; ops.push({ type: 'eq', a: x, b: y }); }
+        return ops.reverse();
+    }
+
+    // 삭제 줄 바로 뒤에 추가 줄이 오면 "바뀐 줄"로 묶어 한 행에 나란히 보여준다.
+    function buildRows(ops, leftLines, rightLines) {
+        var rows = [];
+        var i = 0;
+        while (i < ops.length) {
+            var op = ops[i];
+            if (op.type === 'eq') {
+                rows.push({ type: 'eq', left: leftLines[op.a], right: rightLines[op.b], aNum: op.a + 1, bNum: op.b + 1 });
+                i += 1;
+                continue;
+            }
+            var dels = [], inss = [];
+            while (i < ops.length && ops[i].type === 'del') { dels.push(ops[i].a); i += 1; }
+            while (i < ops.length && ops[i].type === 'ins') { inss.push(ops[i].b); i += 1; }
+            var n = Math.max(dels.length, inss.length);
+            for (var j = 0; j < n; j += 1) {
+                var hasDel = j < dels.length, hasIns = j < inss.length;
+                rows.push({
+                    type: hasDel && hasIns ? 'chg' : (hasDel ? 'del' : 'ins'),
+                    left: hasDel ? leftLines[dels[j]] : null,
+                    right: hasIns ? rightLines[inss[j]] : null,
+                    aNum: hasDel ? dels[j] + 1 : null,
+                    bNum: hasIns ? inss[j] + 1 : null,
+                });
+            }
+        }
+        return rows;
+    }
+
+    function tokenize(line, mode) {
+        if (mode === 'char') return Array.from(line);
+        // 단어 단위 — 공백/문장부호를 경계로 쪼개되 구분자도 토큰으로 남겨 위치가 어긋나지 않게 한다
+        return line.match(/[\s]+|[^\s]+/g) || [];
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // 바뀐 줄 한 쌍 안에서 실제로 달라진 토큰만 <mark>로 감싼 HTML을 돌려준다.
+    function inlineHighlight(leftLine, rightLine, mode) {
+        var a = tokenize(leftLine, mode), b = tokenize(rightLine, mode);
+        var ops = diffSequences(a, b);
+        var leftHtml = '', rightHtml = '';
+        var leftBuf = '', rightBuf = '';
+        function flush() {
+            if (leftBuf) { leftHtml += '<mark>' + escapeHtml(leftBuf) + '</mark>'; leftBuf = ''; }
+            if (rightBuf) { rightHtml += '<mark>' + escapeHtml(rightBuf) + '</mark>'; rightBuf = ''; }
+        }
+        ops.forEach(function (op) {
+            if (op.type === 'eq') {
+                flush();
+                leftHtml += escapeHtml(a[op.a]);
+                rightHtml += escapeHtml(b[op.b]);
+            } else if (op.type === 'del') {
+                leftBuf += a[op.a];
+            } else {
+                rightBuf += b[op.b];
+            }
+        });
+        flush();
+        return { left: leftHtml, right: rightHtml };
+    }
+
+    function visibleFlags(rows) {
+        // "달라진 곳만 보기" — 변경 행 주위 CONTEXT_LINES줄만 남긴다
+        var keep = rows.map(function (r) { return r.type !== 'eq'; });
+        var out = keep.slice();
+        keep.forEach(function (changed, i) {
+            if (!changed) return;
+            for (var j = Math.max(0, i - CONTEXT_LINES); j <= Math.min(rows.length - 1, i + CONTEXT_LINES); j += 1) out[j] = true;
+        });
+        return out;
+    }
+
+    function render(rows) {
+        var mode = detailEl.value;
+        var inline = viewModeEl.value === 'inline';
+        viewEl.className = 'td-view' + (inline ? ' is-inline' : '');
+
+        var table = document.createElement('table');
+        table.className = 'td-table';
+        var tbody = document.createElement('tbody');
+        var flags = onlyChangedEl.checked ? visibleFlags(rows) : null;
+        var hiddenRun = 0;
+
+        function flushGap() {
+            if (!hiddenRun) return;
+            var tr = document.createElement('tr');
+            tr.className = 'td-gap';
+            var td = document.createElement('td');
+            td.colSpan = 4;
+            td.textContent = '⋯ 같은 내용 ' + hiddenRun + '줄 생략 ⋯';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            hiddenRun = 0;
+        }
+
+        rows.forEach(function (row, i) {
+            if (flags && !flags[i]) { hiddenRun += 1; return; }
+            flushGap();
+
+            var tr = document.createElement('tr');
+            tr.className = 'is-' + row.type;
+
+            var leftHtml = row.left === null ? '' : escapeHtml(row.left);
+            var rightHtml = row.right === null ? '' : escapeHtml(row.right);
+            if (row.type === 'chg' && mode !== 'none') {
+                var hl = inlineHighlight(row.left, row.right, mode);
+                leftHtml = hl.left;
+                rightHtml = hl.right;
+            }
+            if (inline) {
+                // 한 줄로 보기에서는 삭제/추가를 각각 한 행으로 펼치고 부호를 붙인다
+                if (row.type === 'chg') {
+                    tbody.appendChild(makeRow('del', row.aNum, null, '- ' + leftHtml, ''));
+                    tbody.appendChild(makeRow('ins', null, row.bNum, '+ ' + rightHtml, ''));
+                    return;
+                }
+                var sign = row.type === 'del' ? '- ' : (row.type === 'ins' ? '+ ' : '  ');
+                var body = row.type === 'ins' ? rightHtml : leftHtml;
+                tbody.appendChild(makeRow(row.type, row.aNum, row.bNum, sign + body, ''));
+                return;
+            }
+            tr.appendChild(cell('td-num', row.aNum === null ? '' : String(row.aNum)));
+            tr.appendChild(cell('td-line td-left', null, leftHtml));
+            tr.appendChild(cell('td-num td-num-right', row.bNum === null ? '' : String(row.bNum)));
+            tr.appendChild(cell('td-line td-right', null, rightHtml));
+            tbody.appendChild(tr);
+        });
+        flushGap();
+
+        function cell(cls, text, html) {
+            var td = document.createElement('td');
+            td.className = cls;
+            if (html !== undefined && html !== null) td.innerHTML = html;
+            else td.textContent = text;
+            return td;
+        }
+        function makeRow(type, aNum, bNum, html) {
+            var tr = document.createElement('tr');
+            tr.className = 'is-' + type;
+            tr.appendChild(cell('td-num', aNum === null || aNum === undefined ? '' : String(aNum)));
+            tr.appendChild(cell('td-line td-left', null, html));
+            tr.appendChild(cell('td-num td-num-right', bNum === null || bNum === undefined ? '' : String(bNum)));
+            tr.appendChild(cell('td-line td-right', null, ''));
+            return tr;
+        }
+
+        table.appendChild(tbody);
+        viewEl.innerHTML = '';
+        if (!tbody.children.length) {
+            var empty = document.createElement('div');
+            empty.className = 'td-empty';
+            empty.textContent = '두 텍스트가 완전히 같습니다.';
+            viewEl.appendChild(empty);
+        } else {
+            viewEl.appendChild(table);
+        }
+    }
+
+    function renderStats(rows) {
+        var counts = { eq: 0, ins: 0, del: 0, chg: 0 };
+        rows.forEach(function (r) { counts[r.type] += 1; });
+        statsEl.innerHTML = '';
+        [['is-chg', '바뀐 줄 ' + counts.chg], ['is-ins', '추가된 줄 ' + counts.ins],
+         ['is-del', '삭제된 줄 ' + counts.del], ['is-same', '같은 줄 ' + counts.eq]].forEach(function (pair) {
+            var span = document.createElement('span');
+            span.className = 'td-stat ' + pair[0];
+            span.textContent = pair[1];
+            statsEl.appendChild(span);
+        });
+        statsEl.setAttribute('data-counts', JSON.stringify(counts));
+        return counts;
+    }
+
+    function updateMeta() {
+        function describe(el, target) {
+            var text = el.value;
+            var lines = text === '' ? 0 : splitLines(text).length;
+            target.textContent = text.length.toLocaleString() + '자 · ' + lines.toLocaleString() + '줄';
+        }
+        describe(leftEl, leftMetaEl);
+        describe(rightEl, rightMetaEl);
+    }
+
+    function compare() {
+        noticeEl.style.display = 'none';
+        var leftText = leftEl.value, rightText = rightEl.value;
+        if (!leftText && !rightText) {
+            resultCard.style.display = 'none';
+            copyBtn.disabled = true;
+            return;
+        }
+        if (leftText.length > MAX_CHARS || rightText.length > MAX_CHARS) {
+            noticeEl.style.display = 'block';
+            noticeEl.textContent = '한 쪽당 ' + MAX_CHARS.toLocaleString() + '자까지만 비교할 수 있습니다. 긴 글은 나눠서 비교해주세요.';
+            return;
+        }
+
+        var leftLines = splitLines(leftText), rightLines = splitLines(rightText);
+        var ops = diffSequences(leftLines.map(normalize), rightLines.map(normalize));
+        var rows = buildRows(ops, leftLines, rightLines);
+        lastRows = rows;
+
+        resultCard.style.display = 'block';
+        var counts = renderStats(rows);
+        // 옵션(공백·대소문자 무시)을 켠 채 비교하면 글자는 달라도 "다른 곳 없음"이 될 수 있어,
+        // 표만 보고 헷갈리지 않도록 결과 위에 한 줄로 못 박아 둔다.
+        sameNoticeEl.style.display = (counts.chg + counts.ins + counts.del) === 0 ? 'block' : 'none';
+        render(rows);
+        copyBtn.disabled = false;
+        viewEl.setAttribute('data-done', '1');
+    }
+
+    function toUnifiedText(rows) {
+        var out = [];
+        rows.forEach(function (r) {
+            if (r.type === 'eq') out.push('  ' + r.left);
+            else if (r.type === 'del') out.push('- ' + r.left);
+            else if (r.type === 'ins') out.push('+ ' + r.right);
+            else { out.push('- ' + r.left); out.push('+ ' + r.right); }
+        });
+        return out.join('\n');
+    }
+
+    function readFileInto(input, target) {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+            target.value = String(reader.result || '');
+            updateMeta();
+            compare();
+        };
+        reader.readAsText(file);
+        input.value = '';
+    }
+
+    runBtn.addEventListener('click', compare);
+    swapBtn.addEventListener('click', function () {
+        var tmp = leftEl.value;
+        leftEl.value = rightEl.value;
+        rightEl.value = tmp;
+        updateMeta();
+        if (resultCard.style.display === 'block') compare();
+    });
+    clearBtn.addEventListener('click', function () {
+        leftEl.value = '';
+        rightEl.value = '';
+        lastRows = null;
+        updateMeta();
+        resultCard.style.display = 'none';
+        noticeEl.style.display = 'none';
+        copyBtn.disabled = true;
+    });
+    copyBtn.addEventListener('click', function () {
+        if (!lastRows) return;
+        var text = toUnifiedText(lastRows);
+        var done = function () {
+            var original = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> 복사했습니다';
+            setTimeout(function () { copyBtn.innerHTML = original; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(fallbackCopy);
+        } else {
+            fallbackCopy();
+        }
+        function fallbackCopy() {
+            // HTTPS가 아니거나 권한이 없는 환경 — 보이지 않는 textarea + execCommand로 떨어뜨린다
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('복사에 실패했습니다. 결과를 직접 선택해 복사해주세요.'); }
+            document.body.removeChild(ta);
+        }
+    });
+
+    [detailEl, viewModeEl, ignoreSpaceEl, ignoreCaseEl, onlyChangedEl].forEach(function (el) {
+        el.addEventListener('change', function () { if (lastRows) compare(); });
+    });
+    leftEl.addEventListener('input', updateMeta);
+    rightEl.addEventListener('input', updateMeta);
+    leftFileEl.addEventListener('change', function () { readFileInto(leftFileEl, leftEl); });
+    rightFileEl.addEventListener('change', function () { readFileInto(rightFileEl, rightEl); });
+
+    updateMeta();
+})();
+</script>
+</body>
+</html>

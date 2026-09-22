@@ -1,0 +1,736 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .icp-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .icp-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .icp-field .form-text { font-size: 12px; }
+
+        .icp-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .icp-dropzone:hover, .icp-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .icp-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .icp-item { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .icp-item:first-child { border-top: none; }
+        .icp-thumb { width: 64px; height: 64px; flex: 0 0 64px; object-fit: contain; border-radius: 8px; border: 1px solid var(--bg-subtle-2, #eee);
+                     background: repeating-conic-gradient(#f1f3f5 0% 25%, #fff 0% 50%) 50% / 12px 12px; }
+        .icp-item-body { flex: 1 1 auto; min-width: 0; }
+        .icp-item-name { font-size: 14px; font-weight: 700; color: var(--text-primary, #212529); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .icp-item-meta { font-size: 12.5px; color: var(--text-secondary, #6c757d); margin-top: 3px; line-height: 1.7; }
+        .icp-item-meta .icp-out { color: var(--brand-primary, #0d47a1); font-weight: 700; }
+        .icp-item-meta .icp-down { color: #2f9e44; font-weight: 700; }
+        .icp-item-meta .icp-up { color: #e03131; font-weight: 700; }
+        .icp-item-actions { flex: 0 0 auto; }
+        .icp-item.is-error .icp-item-meta { color: #e03131; }
+        .icp-item.is-missed .icp-item-meta .icp-out { color: #e8590c; }
+
+        .icp-target-row .btn { min-width: 62px; }
+        .icp-quality-row { display: none; }
+        .icp-progress { display: none; }
+        .icp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .icp-summary { display: none; font-size: 14px; font-weight: 700; color: var(--text-primary, #212529); }
+        .icp-summary .icp-down { color: #2f9e44; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'image_compressor' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">이미지 용량 줄이기</h2>
+                <p class="text-muted mb-0">"500KB 이하로" 같은 목표 용량만 정하면 화질을 자동으로 맞춰 그 아래로 줄여드려요. 여러 장을 한 번에 줄이고 ZIP으로 받을 수 있어요. 업로드한 이미지는 서버로 전송되지 않고 브라우저에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="icp-section-title">이미지 업로드 (여러 장 가능)</div>
+            <div class="icp-dropzone" id="icp-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                클릭하거나 이미지를 여기로 끌어다 놓으세요 (JPG · PNG · WEBP · GIF · BMP)
+                <input type="file" id="icp-file" accept="image/*" multiple class="d-none">
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="icp-section-title">줄이기 설정</div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5 icp-field">
+                    <label for="icp-mode">방식</label>
+                    <select id="icp-mode" class="form-select">
+                        <option value="target">목표 용량에 맞추기 (화질 자동)</option>
+                        <option value="quality">화질을 직접 지정</option>
+                    </select>
+                </div>
+                <div class="col-md-7 icp-actions">
+                    <button type="button" id="icp-run-btn" class="btn btn-primary" disabled><i class="fa-solid fa-compress"></i> 용량 줄이기</button>
+                    <button type="button" id="icp-download-btn" class="btn btn-outline-primary" disabled><i class="fa-solid fa-download"></i> 받기</button>
+                    <button type="button" id="icp-zip-btn" class="btn btn-outline-primary" disabled><i class="fa-solid fa-file-zipper"></i> ZIP으로 전체 받기</button>
+                    <button type="button" id="icp-clear-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-trash-can"></i> 목록 비우기</button>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-0 icp-target-row" id="icp-target-row">
+                <div class="col-md-5 icp-field">
+                    <label for="icp-target">목표 용량 (KB 이하)</label>
+                    <input type="number" id="icp-target" class="form-control" min="5" step="10" value="500">
+                    <div class="form-text text-muted">이 용량 아래로 떨어질 때까지 화질을 자동으로 낮춥니다</div>
+                </div>
+                <div class="col-md-7 icp-field">
+                    <label>자주 쓰는 용량</label>
+                    <div class="btn-group btn-group-sm d-flex flex-wrap" role="group">
+                        <button type="button" class="btn btn-outline-secondary icp-preset" data-kb="100">100KB</button>
+                        <button type="button" class="btn btn-outline-secondary icp-preset" data-kb="200">200KB</button>
+                        <button type="button" class="btn btn-outline-secondary icp-preset" data-kb="500">500KB</button>
+                        <button type="button" class="btn btn-outline-secondary icp-preset" data-kb="1024">1MB</button>
+                        <button type="button" class="btn btn-outline-secondary icp-preset" data-kb="2048">2MB</button>
+                    </div>
+                    <div class="form-text text-muted">이력서 사진·온라인 서류 첨부는 보통 100~500KB, 블로그 업로드는 500KB~1MB면 충분해요</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-0 icp-quality-row" id="icp-quality-row">
+                <div class="col-md-5 icp-field">
+                    <label for="icp-quality">화질 (<span id="icp-quality-value">70</span>%)</label>
+                    <input type="range" id="icp-quality" class="form-range" min="10" max="100" value="70">
+                    <div class="form-text text-muted">70% 안팎이 눈으로 차이를 느끼기 어려우면서 용량은 크게 줄어드는 구간이에요</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-0">
+                <div class="col-md-5 icp-field">
+                    <label for="icp-format">저장 형식</label>
+                    <select id="icp-format" class="form-select">
+                        <option value="image/jpeg">JPG (가장 무난)</option>
+                        <option value="image/webp">WEBP (같은 화질에 더 작음)</option>
+                        <option value="keep">원본 형식 유지</option>
+                    </select>
+                </div>
+                <div class="col-md-4 icp-field">
+                    <label for="icp-maxedge">가로·세로 최대 (px)</label>
+                    <select id="icp-maxedge" class="form-select">
+                        <option value="0">원본 크기 그대로</option>
+                        <option value="4000">4000px</option>
+                        <option value="2560">2560px</option>
+                        <option value="1920" selected>1920px (풀HD)</option>
+                        <option value="1280">1280px</option>
+                        <option value="1024">1024px</option>
+                        <option value="800">800px</option>
+                    </select>
+                    <div class="form-text text-muted">긴 변 기준으로 줄입니다</div>
+                </div>
+                <div class="col-md-3 icp-field">
+                    <label>&nbsp;</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="icp-allow-downscale" checked>
+                        <label class="form-check-label" for="icp-allow-downscale" style="font-size:13px;">목표에 못 미치면 크기도 줄이기</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-text text-muted mt-2">
+                <i class="fa-solid fa-circle-info"></i>
+                화질을 낮춰도 목표 용량에 닿지 않으면 이미지 크기를 단계적으로 줄여 맞춥니다(체크 해제 시 화질만 조절).
+                <b>원본 형식 유지</b>로 PNG를 고르면 PNG는 화질 조절이 없는 무손실 형식이라 크기 축소로만 줄어들어요 —
+                사진이라면 JPG나 WEBP가 훨씬 많이 줄어듭니다. 변환 과정에서 사진의 <b>위치정보(EXIF)도 함께 지워집니다</b>.
+                크기만 바꾸려면 <a href="{% url 'image_resizer' %}">이미지 리사이저</a>, 확장자만 바꾸려면
+                <a href="{% url 'image_converter' %}">확장자 변환기</a>를 이용하세요.
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4" id="icp-result-card" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="icp-section-title mb-0" id="icp-list-title">올린 이미지</div>
+                <div class="icp-summary" id="icp-summary"></div>
+            </div>
+            <div class="icp-progress alert alert-light border py-2 px-3 mb-3" id="icp-progress">
+                <i class="fa-solid fa-spinner fa-spin"></i> <span id="icp-progress-text">줄이는 중…</span>
+            </div>
+            <div id="icp-hint" class="form-text text-muted mb-2"></div>
+            <div id="icp-list"></div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var fileInput = document.getElementById('icp-file');
+    var dropzone = document.getElementById('icp-dropzone');
+    var modeEl = document.getElementById('icp-mode');
+    var targetRow = document.getElementById('icp-target-row');
+    var targetEl = document.getElementById('icp-target');
+    var qualityRow = document.getElementById('icp-quality-row');
+    var qualityEl = document.getElementById('icp-quality');
+    var qualityValueEl = document.getElementById('icp-quality-value');
+    var formatEl = document.getElementById('icp-format');
+    var maxEdgeEl = document.getElementById('icp-maxedge');
+    var allowDownscaleEl = document.getElementById('icp-allow-downscale');
+    var runBtn = document.getElementById('icp-run-btn');
+    var downloadBtn = document.getElementById('icp-download-btn');
+    var zipBtn = document.getElementById('icp-zip-btn');
+    var clearBtn = document.getElementById('icp-clear-btn');
+    var resultCard = document.getElementById('icp-result-card');
+    var listEl = document.getElementById('icp-list');
+    var listTitleEl = document.getElementById('icp-list-title');
+    var summaryEl = document.getElementById('icp-summary');
+    var hintEl = document.getElementById('icp-hint');
+    var progressEl = document.getElementById('icp-progress');
+    var progressTextEl = document.getElementById('icp-progress-text');
+
+    var sourceFiles = [];
+    var results = [];
+    var pendingUrls = [];
+    var jszipPromise = null;
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function extFor(mime) {
+        if (mime === 'image/jpeg') return 'jpg';
+        if (mime === 'image/webp') return 'webp';
+        if (mime === 'image/png') return 'png';
+        return 'jpg';
+    }
+
+    function labelFor(mime) {
+        if (mime === 'image/jpeg') return 'JPG';
+        if (mime === 'image/webp') return 'WEBP';
+        if (mime === 'image/png') return 'PNG';
+        return mime;
+    }
+
+    function baseName(name) {
+        var idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    // "원본 형식 유지"에서 브라우저가 인코딩할 수 없는 입력(GIF·BMP·SVG 등)은 JPG로 떨군다 —
+    // canvas.toBlob은 지원하지 않는 MIME을 넘기면 조용히 PNG를 돌려줘, 용량이 오히려 커진다.
+    function outputMimeFor(file) {
+        var chosen = formatEl.value;
+        if (chosen !== 'keep') return chosen;
+        if (file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/jpeg') return file.type;
+        return 'image/jpeg';
+    }
+
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = function () { reject(new Error('스크립트 로드 실패: ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    // 확장자 변환기·PDF 도구와 같은 이유(광고차단 확장·사내망 차단)로 ZIP 라이브러리는
+    // 버튼을 누른 순간에만 지연 로드한다.
+    function loadJSZip() {
+        if (!jszipPromise) {
+            jszipPromise = loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js')
+                .then(function () {
+                    if (typeof window.JSZip !== 'function') throw new Error('JSZip 로드 실패');
+                    return window.JSZip;
+                })
+                .catch(function (e) { jszipPromise = null; throw e; });
+        }
+        return jszipPromise;
+    }
+
+    function loadImage(blob) {
+        return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(blob);
+            var img = new Image();
+            img.onload = function () { resolve({ img: img, url: url }); };
+            img.onerror = function () {
+                URL.revokeObjectURL(url);
+                reject(new Error('이미지를 읽을 수 없는 형식입니다'));
+            };
+            img.src = url;
+        });
+    }
+
+    function encode(img, scale, mime, quality) {
+        var w = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+        var h = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        if (mime === 'image/jpeg') {
+            // JPG는 투명을 담지 못해 투명 픽셀이 검게 나온다 — 흰색으로 깔아준다.
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        return new Promise(function (resolve, reject) {
+            canvas.toBlob(function (blob) {
+                if (!blob) { reject(new Error('이미지를 저장하지 못했습니다')); return; }
+                resolve({ blob: blob, width: w, height: h, quality: quality });
+            }, mime, mime === 'image/png' ? undefined : quality);
+        });
+    }
+
+    var SCALE_STEP = 0.85;          // 목표에 못 미칠 때 한 번에 줄이는 비율
+    var MAX_SCALE_ROUNDS = 12;
+    var MIN_GOOD_QUALITY = 0.45;    // 이 아래로 떨어지면 사진이 눈에 띄게 뭉개진다
+    var MIN_LONG_EDGE = 200;        // 목표를 맞추자고 썸네일만 해지는 것은 막는다
+
+    // 목표 용량 맞추기. 같은 용량이라면 "화질을 바닥까지 떨어뜨린 큰 이미지"보다 "적당한 화질의
+    // 조금 작은 이미지"가 훨씬 낫기 때문에, 먼저 화질 45~95% 안에서만 이분탐색하고 그래도
+    // 넘치면 크기를 한 단계 줄여 같은 탐색을 반복한다. 더 줄일 수 없을 때(크기 축소 끔,
+    // 라운드 소진, 최소 크기 도달) 비로소 화질 5%까지 내려가는 마지막 탐색을 한다.
+    function compressToTarget(img, mime, targetBytes, startScale, allowDownscale) {
+        var lossless = (mime === 'image/png');   // PNG는 화질 인자가 없어 크기 축소만이 유일한 수단
+        var srcLongEdge = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+        var scale = startScale;
+        var rounds = 0;
+        var fallback = null;   // 목표를 못 맞췄을 때 내놓을, 지금까지 가장 작은 결과
+
+        function remember(out) {
+            if (out && (!fallback || out.blob.size < fallback.blob.size)) fallback = out;
+        }
+
+        // 화질 [minQ, 0.95] 구간 이분탐색 7회 — 목표 아래인 것 중 가장 화질이 높은 결과를 찾는다.
+        function searchQuality(scale, minQ) {
+            if (lossless) {
+                return encode(img, scale, mime, undefined).then(function (out) {
+                    remember(out);
+                    return out.blob.size <= targetBytes ? out : null;
+                });
+            }
+            var lo = minQ, hi = 0.95;
+            var found = null;
+            var i = 0;
+            function step() {
+                if (i >= 7) return Promise.resolve(found);
+                i += 1;
+                var q = (lo + hi) / 2;
+                return encode(img, scale, mime, q).then(function (out) {
+                    remember(out);
+                    if (out.blob.size <= targetBytes) {
+                        if (!found || out.blob.size > found.blob.size) found = out;
+                        lo = q;   // 여유가 있으니 화질을 더 올려본다
+                    } else {
+                        hi = q;
+                    }
+                    return step();
+                });
+            }
+            return step();
+        }
+
+        function canShrinkMore() {
+            return allowDownscale && rounds < MAX_SCALE_ROUNDS && srcLongEdge * scale * SCALE_STEP >= MIN_LONG_EDGE;
+        }
+
+        function nextRound() {
+            rounds += 1;
+            return searchQuality(scale, lossless ? 0 : MIN_GOOD_QUALITY).then(function (found) {
+                if (found) return { out: found, missed: false };
+                if (canShrinkMore()) {
+                    scale *= SCALE_STEP;
+                    return nextRound();
+                }
+                if (lossless) return { out: fallback, missed: true };
+                // 마지막 수단 — 화질을 5%까지 열어 목표에 닿는지 본다
+                return searchQuality(scale, 0.05).then(function (low) {
+                    return low ? { out: low, missed: false } : { out: fallback, missed: true };
+                });
+            });
+        }
+
+        return nextRound();
+    }
+
+    function startScaleFor(img) {
+        var maxEdge = parseInt(maxEdgeEl.value, 10) || 0;
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        if (!maxEdge) return 1;
+        var longest = Math.max(w, h);
+        return longest > maxEdge ? maxEdge / longest : 1;
+    }
+
+    function compressFile(file) {
+        var mime = outputMimeFor(file);
+        return loadImage(file).then(function (loaded) {
+            var img = loaded.img;
+            if (!(img.naturalWidth || img.width)) throw new Error('이미지 크기를 알 수 없습니다');
+            var scale = startScaleFor(img);
+            var finish = function (res) {
+                URL.revokeObjectURL(loaded.url);
+                return {
+                    blob: res.out.blob,
+                    width: res.out.width,
+                    height: res.out.height,
+                    quality: res.out.quality,
+                    mime: mime,
+                    missed: !!res.missed,
+                    srcWidth: img.naturalWidth || img.width,
+                    srcHeight: img.naturalHeight || img.height,
+                };
+            };
+
+            if (modeEl.value === 'quality') {
+                var q = parseInt(qualityEl.value, 10) / 100;
+                return encode(img, scale, mime, q).then(function (out) { return finish({ out: out, missed: false }); });
+            }
+            var targetBytes = Math.max(5, parseFloat(targetEl.value) || 500) * 1024;
+            return compressToTarget(img, mime, targetBytes, scale, allowDownscaleEl.checked)
+                .then(function (res) {
+                    if (!res.out) throw new Error('이미지를 줄이지 못했습니다');
+                    return finish(res);
+                });
+        });
+    }
+
+    function renderItem(entry) {
+        var row = document.createElement('div');
+        row.className = 'icp-item';
+
+        var thumb = document.createElement('img');
+        thumb.className = 'icp-thumb';
+        thumb.alt = entry.name;
+
+        var body = document.createElement('div');
+        body.className = 'icp-item-body';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'icp-item-name';
+        nameEl.textContent = entry.name;
+        var metaEl = document.createElement('div');
+        metaEl.className = 'icp-item-meta';
+        body.appendChild(nameEl);
+        body.appendChild(metaEl);
+
+        var actions = document.createElement('div');
+        actions.className = 'icp-item-actions';
+
+        row.appendChild(thumb);
+        row.appendChild(body);
+        row.appendChild(actions);
+        listEl.appendChild(row);
+
+        if (entry.error) {
+            row.classList.add('is-error');
+            metaEl.textContent = entry.error;
+            thumb.remove();
+            return;
+        }
+
+        var url = URL.createObjectURL(entry.blob);
+        entry.url = url;
+        thumb.src = url;
+
+        var diff = entry.originalSize ? (entry.blob.size - entry.originalSize) / entry.originalSize * 100 : 0;
+        var diffClass = diff <= 0 ? 'icp-down' : 'icp-up';
+        var diffText = (diff <= 0 ? '▼ ' : '▲ ') + Math.abs(diff).toFixed(0) + '%';
+        var sizeText = entry.srcWidth + ' × ' + entry.srcHeight + 'px';
+        if (entry.width !== entry.srcWidth || entry.height !== entry.srcHeight) {
+            sizeText += ' → ' + entry.width + ' × ' + entry.height + 'px';
+        }
+        var qualityText = entry.quality ? ' · 화질 ' + Math.round(entry.quality * 100) + '%' : '';
+        metaEl.innerHTML = sizeText + ' · '
+            + fmtBytes(entry.originalSize) + ' → <span class="icp-out">' + fmtBytes(entry.blob.size) + '</span> '
+            + '<span class="' + diffClass + '">' + diffText + '</span> · ' + labelFor(entry.mime) + qualityText;
+
+        if (entry.missed) {
+            row.classList.add('is-missed');
+            var warn = document.createElement('div');
+            warn.className = 'icp-item-meta';
+            warn.innerHTML = '<span class="icp-up">목표 용량까지는 줄이지 못했습니다</span> — '
+                + (allowDownscaleEl.checked ? '더 줄이려면 목표 용량을 조금 올리거나 WEBP로 저장해보세요.'
+                                            : '"목표에 못 미치면 크기도 줄이기"를 켜면 더 줄일 수 있어요.');
+            body.appendChild(warn);
+        }
+
+        var a = document.createElement('a');
+        a.className = 'btn btn-outline-primary btn-sm';
+        a.href = url;
+        a.download = entry.outName;
+        a.innerHTML = '<i class="fa-solid fa-download"></i> 받기';
+        actions.appendChild(a);
+    }
+
+    function uniqueName(name) {
+        var used = okResults().map(function (r) { return r.outName; });
+        if (used.indexOf(name) === -1) return name;
+        var base = baseName(name), ext = name.slice(base.length);
+        var i = 2;
+        while (used.indexOf(base + '(' + i + ')' + ext) !== -1) i += 1;
+        return base + '(' + i + ')' + ext;
+    }
+
+    function okResults() {
+        return results.filter(function (r) { return !r.error; });
+    }
+
+    function syncActionButtons() {
+        var n = okResults().length;
+        downloadBtn.disabled = n === 0;
+        zipBtn.disabled = n === 0;
+        downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i> 받기' + (n > 1 ? ' (' + n + '장)' : '');
+    }
+
+    function releaseUrls() {
+        results.forEach(function (r) { if (r.url) URL.revokeObjectURL(r.url); });
+        pendingUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+        results = [];
+        pendingUrls = [];
+    }
+
+    function updateModeUI() {
+        var isTarget = modeEl.value === 'target';
+        targetRow.style.display = isTarget ? 'flex' : 'none';
+        qualityRow.style.display = isTarget ? 'none' : 'flex';
+    }
+
+    function settingSummary() {
+        if (modeEl.value === 'target') return (parseFloat(targetEl.value) || 500) + 'KB 이하';
+        return '화질 ' + qualityEl.value + '%';
+    }
+
+    // 설정이 바뀌면 이전 결과를 버리고 대기 상태로 되돌린다 — 화면에 뜬 수치와 다른 파일이
+    // 받아지지 않게 하려는 것(확장자 변환기와 같은 규칙).
+    function showPending(message) {
+        releaseUrls();
+        listEl.innerHTML = '';
+        summaryEl.style.display = 'none';
+        if (!sourceFiles.length) {
+            resultCard.style.display = 'none';
+            runBtn.disabled = true;
+            syncActionButtons();
+            return;
+        }
+        resultCard.style.display = 'block';
+        listTitleEl.textContent = '올린 이미지 (' + sourceFiles.length + '장)';
+        hintEl.textContent = message || '';
+        sourceFiles.forEach(function (file) {
+            var row = document.createElement('div');
+            row.className = 'icp-item';
+
+            var thumb = document.createElement('img');
+            thumb.className = 'icp-thumb';
+            thumb.alt = '';
+            var url = URL.createObjectURL(file);
+            pendingUrls.push(url);
+            thumb.src = url;
+
+            var body = document.createElement('div');
+            body.className = 'icp-item-body';
+            var nameEl = document.createElement('div');
+            nameEl.className = 'icp-item-name';
+            nameEl.textContent = file.name;
+            var metaEl = document.createElement('div');
+            metaEl.className = 'icp-item-meta';
+            metaEl.textContent = fmtBytes(file.size) + ' · 대기 중';
+            body.appendChild(nameEl);
+            body.appendChild(metaEl);
+
+            row.appendChild(thumb);
+            row.appendChild(body);
+            listEl.appendChild(row);
+        });
+        runBtn.disabled = false;
+        syncActionButtons();
+    }
+
+    function handleFiles(files) {
+        var list = Array.prototype.slice.call(files).filter(function (f) {
+            return f && f.type.indexOf('image/') === 0;
+        });
+        if (!list.length) return;
+        sourceFiles = sourceFiles.concat(list);
+        showPending('"용량 줄이기"를 누르면 ' + sourceFiles.length + '장을 ' + settingSummary() + '로 줄입니다.');
+    }
+
+    function renderSummary() {
+        var ok = okResults();
+        if (!ok.length) { summaryEl.style.display = 'none'; return; }
+        var before = 0, after = 0;
+        ok.forEach(function (r) { before += r.originalSize; after += r.blob.size; });
+        var pct = before ? (before - after) / before * 100 : 0;
+        summaryEl.style.display = 'block';
+        summaryEl.innerHTML = '전체 ' + fmtBytes(before) + ' → ' + fmtBytes(after)
+            + ' <span class="icp-down">(' + (pct >= 0 ? '▼ ' : '▲ ') + Math.abs(pct).toFixed(0) + '%)</span>';
+    }
+
+    function runCompression() {
+        if (!sourceFiles.length) return;
+        releaseUrls();
+        listEl.innerHTML = '';
+        hintEl.textContent = '';
+        summaryEl.style.display = 'none';
+        listTitleEl.textContent = '줄인 결과';
+        resultCard.style.display = 'block';
+        progressEl.style.display = 'block';
+        runBtn.disabled = true;
+        syncActionButtons();
+
+        var list = sourceFiles;
+        function step(i) {
+            if (i >= list.length) {
+                progressEl.style.display = 'none';
+                listTitleEl.textContent = '줄인 결과 (' + okResults().length + '장)';
+                runBtn.disabled = false;
+                renderSummary();
+                syncActionButtons();
+                listEl.setAttribute('data-done', '1');
+                return;
+            }
+            var file = list[i];
+            progressTextEl.textContent = '줄이는 중… (' + (i + 1) + '/' + list.length + ') ' + file.name;
+
+            compressFile(file).then(function (out) {
+                var entry = {
+                    name: file.name,
+                    originalSize: file.size,
+                    blob: out.blob,
+                    width: out.width,
+                    height: out.height,
+                    srcWidth: out.srcWidth,
+                    srcHeight: out.srcHeight,
+                    quality: out.quality,
+                    mime: out.mime,
+                    missed: out.missed,
+                };
+                entry.outName = uniqueName(baseName(file.name) + '_compressed.' + extFor(out.mime));
+                results.push(entry);
+                renderItem(entry);
+            }).catch(function (e) {
+                var entry = { name: file.name, error: (e && e.message) || '줄이기에 실패했습니다' };
+                results.push(entry);
+                renderItem(entry);
+            }).then(function () {
+                // 한 장씩 순차 처리 — 여러 장을 동시에 디코딩하면 모바일에서 메모리가 터진다
+                setTimeout(function () { step(i + 1); }, 0);
+            });
+        }
+        listEl.removeAttribute('data-done');
+        step(0);
+    }
+
+    fileInput.addEventListener('change', function () {
+        handleFiles(fileInput.files);
+        fileInput.value = '';
+    });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
+
+    runBtn.addEventListener('click', runCompression);
+
+    function onSettingChanged() {
+        if (!sourceFiles.length) return;
+        showPending('설정이 바뀌었습니다. "용량 줄이기"를 눌러 ' + settingSummary() + '로 다시 줄이세요.');
+    }
+    modeEl.addEventListener('change', function () { updateModeUI(); onSettingChanged(); });
+    targetEl.addEventListener('change', onSettingChanged);
+    formatEl.addEventListener('change', onSettingChanged);
+    maxEdgeEl.addEventListener('change', onSettingChanged);
+    allowDownscaleEl.addEventListener('change', onSettingChanged);
+    qualityEl.addEventListener('input', function () { qualityValueEl.textContent = qualityEl.value; });
+    qualityEl.addEventListener('change', onSettingChanged);
+
+    document.querySelectorAll('.icp-preset').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            targetEl.value = btn.dataset.kb;
+            onSettingChanged();
+        });
+    });
+
+    clearBtn.addEventListener('click', function () {
+        releaseUrls();
+        sourceFiles = [];
+        listEl.innerHTML = '';
+        hintEl.textContent = '';
+        summaryEl.style.display = 'none';
+        resultCard.style.display = 'none';
+        runBtn.disabled = true;
+        syncActionButtons();
+    });
+
+    downloadBtn.addEventListener('click', function () {
+        var ok = okResults();
+        if (!ok.length) return;
+        ok.forEach(function (r, i) {
+            // 연속 click()을 브라우저가 일부 무시하는 문제 때문에 400ms씩 띄운다(확장자 변환기와 동일)
+            setTimeout(function () {
+                var a = document.createElement('a');
+                a.href = r.url || URL.createObjectURL(r.blob);
+                a.download = r.outName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, i * 400);
+        });
+    });
+
+    zipBtn.addEventListener('click', function () {
+        var ok = okResults();
+        if (!ok.length) return;
+        var original = zipBtn.innerHTML;
+        zipBtn.disabled = true;
+        zipBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ZIP 만드는 중…';
+        loadJSZip().then(function (JSZip) {
+            var zip = new JSZip();
+            ok.forEach(function (r) { zip.file(r.outName, r.blob); });
+            return zip.generateAsync({ type: 'blob' });
+        }).then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'compressed_images.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        }).catch(function (e) {
+            alert('ZIP을 만들지 못했습니다: ' + ((e && e.message) || e) + '\n각 이미지의 "받기" 버튼으로 하나씩 내려받을 수 있어요.');
+        }).then(function () {
+            zipBtn.innerHTML = original;
+            syncActionButtons();
+        });
+    });
+
+    updateModeUI();
+    syncActionButtons();
+})();
+</script>
+</body>
+</html>

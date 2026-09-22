@@ -64,6 +64,13 @@ CATEGORIES = [
                 'desc': '나이·가입기간·최근 급여를 넣으면 고용보험법 기준 구직급여 일액과 총 예상 수급액을 계산해요.',
             },
             {
+                'url_name': 'korean_amount',
+                'tab': '한글 금액',
+                'title': '한글 금액 변환기',
+                'icon': 'fa-won-sign',
+                'desc': '숫자를 계약서용 ‘일금 삼천오백만원정’ 표기로 바꿔드려요. 갖은자 한자·영문 표기와 반대 변환도 됩니다.',
+            },
+            {
                 'url_name': 'annual_leave_calculator',
                 'tab': '연차수당',
                 'title': '연차수당 계산기',
@@ -91,11 +98,32 @@ CATEGORIES = [
                 'desc': 'HEIC·JPG·PNG·WEBP·BMP를 서로 바꿔드려요. 여러 장을 한 번에 변환하고 ZIP으로 받을 수 있어요.',
             },
             {
+                'url_name': 'image_compressor',
+                'tab': '용량 줄이기',
+                'title': '이미지 용량 줄이기',
+                'icon': 'fa-compress',
+                'desc': '"500KB 이하로" 목표 용량만 정하면 화질을 자동으로 맞춰 사진 용량을 줄여드려요. 여러 장을 한 번에 줄이고 ZIP으로 받을 수 있어요.',
+            },
+            {
+                'url_name': 'image_mosaic',
+                'tab': '모자이크',
+                'title': '모자이크 · 가리기',
+                'icon': 'fa-eye-slash',
+                'desc': '사진에서 가릴 곳을 드래그하면 모자이크·블러·단색 칠로 지워드려요. 주민번호·계좌번호·얼굴 가리기에 쓰세요.',
+            },
+            {
                 'url_name': 'background_remover',
                 'tab': '배경 제거',
                 'title': '배경 제거',
                 'icon': 'fa-eraser',
                 'desc': 'AI가 브라우저에서 바로 배경을 지워 투명 PNG(누끼)로 만들어드려요. 첫 사용 시 모델 다운로드로 다소 시간이 걸려요.',
+            },
+            {
+                'url_name': 'screen_recorder',
+                'tab': '화면 녹화',
+                'title': '화면 녹화기',
+                'icon': 'fa-video',
+                'desc': '프로그램 설치 없이 브라우저만으로 화면을 녹화해요. 시스템 소리·마이크도 함께 담을 수 있어요.',
             },
             {
                 'url_name': 'pdf_tools',
@@ -139,11 +167,25 @@ CATEGORIES = [
                 'desc': 'AI가 맞춤법·띄어쓰기 오류를 찾아 교정해드려요. 다른 유틸과 달리 텍스트가 서버로 전송됩니다.',
             },
             {
+                'url_name': 'text_diff',
+                'tab': '텍스트 비교',
+                'title': '텍스트 비교 (Diff)',
+                'icon': 'fa-code-compare',
+                'desc': '두 글을 나란히 놓고 달라진 줄과 그 안에서 바뀐 단어까지 짚어드려요. 계약서·원고 수정본 대조에 좋아요.',
+            },
+            {
                 'url_name': 'json_formatter',
                 'tab': 'JSON 포맷터',
                 'title': 'JSON 포맷터',
                 'icon': 'fa-code',
                 'desc': 'JSON 텍스트를 예쁘게 정렬하거나 한 줄로 압축하고, 문법 오류가 있으면 바로 알려드려요.',
+            },
+            {
+                'url_name': 'world_clock',
+                'tab': '세계 시간',
+                'title': '세계 시간 변환기',
+                'icon': 'fa-globe',
+                'desc': '해외 회의·통화 시간을 도시별로 비교하고, 주요 증시 개장·마감 시각을 한국 시간으로 확인할 수 있어요.',
             },
             {
                 'url_name': 'unit_converter',

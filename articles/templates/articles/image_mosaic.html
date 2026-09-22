@@ -1,0 +1,480 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .im-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .im-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        .im-field .form-text { font-size: 12px; }
+
+        .im-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .im-dropzone:hover, .im-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .im-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .im-stage { position: relative; display: inline-block; max-width: 100%; line-height: 0;
+                    background: repeating-conic-gradient(#f1f3f5 0% 25%, #fff 0% 50%) 50% / 16px 16px; border-radius: 8px; overflow: hidden; }
+        .im-stage canvas { max-width: 100%; height: auto; display: block; touch-action: none; }
+        #im-overlay { position: absolute; left: 0; top: 0; cursor: crosshair; }
+        .im-stage.is-brush #im-overlay { cursor: cell; }
+
+        .im-meta { font-size: 12.5px; color: var(--text-secondary, #6c757d); line-height: 1.7; }
+        .im-meta strong { color: var(--text-primary, #212529); }
+        .im-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .im-fillcolor-row { display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'image_mosaic' %}
+
+    <div class="container my-5" style="max-width: 1000px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">모자이크 · 가리기</h2>
+                <p class="text-muted mb-0">사진에서 가리고 싶은 곳을 드래그하면 모자이크·블러·검은 칠로 지워드려요. 주민번호·계좌번호·얼굴이 담긴 사진이라도 <b>서버로 전송되지 않고 브라우저에서만</b> 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3" id="im-upload-card">
+            <div class="im-section-title">이미지 업로드</div>
+            <div class="im-dropzone" id="im-dropzone">
+                <i class="fa-solid fa-cloud-arrow-up d-block"></i>
+                클릭하거나 이미지를 끌어다 놓으세요 · 캡처한 화면은 <b>Ctrl+V</b>로 바로 붙여넣을 수 있어요
+                <input type="file" id="im-file" accept="image/*" class="d-none">
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3" id="im-tool-card" style="display:none;">
+            <div class="im-section-title">가리기 도구</div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3 im-field">
+                    <label for="im-effect">효과</label>
+                    <select id="im-effect" class="form-select">
+                        <option value="mosaic">모자이크 (픽셀화)</option>
+                        <option value="blur">블러 (흐리게)</option>
+                        <option value="fill">단색으로 칠하기</option>
+                    </select>
+                </div>
+                <div class="col-md-3 im-field">
+                    <label for="im-shape">선택 방식</label>
+                    <select id="im-shape" class="form-select">
+                        <option value="rect">사각형 드래그</option>
+                        <option value="brush">브러시로 문지르기</option>
+                    </select>
+                </div>
+                {% comment %}
+                강도/칠할 색은 한 칸을 나눠 쓰고 브러시 굵기 칸은 늘 자리를 지킨다 — 효과를 바꿀
+                때마다 칸이 생겼다 사라지면 아래 캔버스가 위아래로 움직여, 가리는 중에 드래그
+                위치가 어긋난다.
+                {% endcomment %}
+                <div class="col-md-3 im-field" id="im-strength-col">
+                    <label for="im-strength">강도 (<span id="im-strength-value">14</span>)</label>
+                    <input type="range" id="im-strength" class="form-range" min="4" max="60" value="14">
+                    <div class="form-text text-muted">클수록 더 알아보기 어렵게 지워집니다</div>
+                </div>
+                <div class="col-md-3 im-field im-fillcolor-row" id="im-fillcolor-row">
+                    <label for="im-fillcolor">칠할 색</label>
+                    <input type="color" id="im-fillcolor" class="form-control form-control-color" value="#000000">
+                    <div class="form-text text-muted">보통 검정으로 칠합니다</div>
+                </div>
+                <div class="col-md-3 im-field" id="im-brushsize-row">
+                    <label for="im-brushsize">브러시 굵기 (<span id="im-brushsize-value">40</span>px)</label>
+                    <input type="range" id="im-brushsize" class="form-range" min="10" max="200" value="40">
+                    <div class="form-text text-muted" id="im-brushsize-hint">'브러시로 문지르기'일 때 적용돼요</div>
+                </div>
+            </div>
+
+            <div class="im-toolbar mt-3">
+                <button type="button" id="im-undo-btn" class="btn btn-outline-secondary" disabled><i class="fa-solid fa-rotate-left"></i> 되돌리기</button>
+                <button type="button" id="im-reset-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-arrows-rotate"></i> 처음 상태로</button>
+                <select id="im-savefmt" class="form-select" style="width:auto;">
+                    <option value="image/png">PNG로 저장</option>
+                    <option value="image/jpeg">JPG로 저장</option>
+                </select>
+                <button type="button" id="im-download-btn" class="btn btn-primary"><i class="fa-solid fa-download"></i> 저장하기</button>
+                <button type="button" id="im-new-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-image"></i> 다른 이미지</button>
+            </div>
+            <div class="form-text text-muted mt-2">
+                <i class="fa-solid fa-circle-info"></i>
+                가린 부분은 픽셀 자체를 덮어쓰기 때문에 되살릴 수 없습니다(원본 파일은 그대로 남아 있어요).
+                저장 과정에서 사진의 <b>위치정보(EXIF)도 함께 지워집니다</b>.
+                <b id="im-blur-warning" style="display:none; color:#d9480f;">이 브라우저는 블러를 지원하지 않아 모자이크로 대신 처리합니다.</b>
+            </div>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4" id="im-canvas-card" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div class="im-section-title mb-0">가릴 곳을 드래그하세요</div>
+                <div class="im-meta" id="im-info"></div>
+            </div>
+            <div class="im-stage" id="im-stage">
+                <canvas id="im-canvas"></canvas>
+                <canvas id="im-overlay"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var fileInput = document.getElementById('im-file');
+    var dropzone = document.getElementById('im-dropzone');
+    var uploadCard = document.getElementById('im-upload-card');
+    var toolCard = document.getElementById('im-tool-card');
+    var canvasCard = document.getElementById('im-canvas-card');
+    var stage = document.getElementById('im-stage');
+    var canvas = document.getElementById('im-canvas');
+    var overlay = document.getElementById('im-overlay');
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var octx = overlay.getContext('2d');
+    var effectEl = document.getElementById('im-effect');
+    var shapeEl = document.getElementById('im-shape');
+    var strengthEl = document.getElementById('im-strength');
+    var strengthValueEl = document.getElementById('im-strength-value');
+    var fillColorRow = document.getElementById('im-fillcolor-row');
+    var fillColorEl = document.getElementById('im-fillcolor');
+    var brushSizeRow = document.getElementById('im-brushsize-row');
+    var strengthCol = document.getElementById('im-strength-col');
+    var brushSizeEl = document.getElementById('im-brushsize');
+    var brushSizeValueEl = document.getElementById('im-brushsize-value');
+    var undoBtn = document.getElementById('im-undo-btn');
+    var resetBtn = document.getElementById('im-reset-btn');
+    var saveFmtEl = document.getElementById('im-savefmt');
+    var downloadBtn = document.getElementById('im-download-btn');
+    var newBtn = document.getElementById('im-new-btn');
+    var infoEl = document.getElementById('im-info');
+    var blurWarningEl = document.getElementById('im-blur-warning');
+
+    var originalImage = null;
+    var originalName = 'image.png';
+    var undoStack = [];      // [{patches:[{x,y,data}], }]
+    var strokePatches = null;
+    var dragStart = null;
+    var MAX_UNDO = 30;
+
+    // ctx.filter는 구형 사파리에 없다 — 없으면 블러를 모자이크로 대체한다.
+    var supportsFilter = (function () {
+        var c = document.createElement('canvas').getContext('2d');
+        return typeof c.filter === 'string';
+    })();
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function baseName(name) {
+        var idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    function loadImageFile(file) {
+        if (!file || file.type.indexOf('image/') !== 0) return;
+        originalName = file.name || 'image.png';
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+            originalImage = img;
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            overlay.width = img.naturalWidth;
+            overlay.height = img.naturalHeight;
+            ctx.drawImage(img, 0, 0);
+            undoStack = [];
+            syncUndo();
+            uploadCard.style.display = 'none';
+            toolCard.style.display = 'block';
+            canvasCard.style.display = 'block';
+            infoEl.innerHTML = '<strong>' + originalName + '</strong> · ' + img.naturalWidth + ' × ' + img.naturalHeight + 'px · ' + fmtBytes(file.size);
+            // 기본 강도를 이미지 크기에 맞춰 잡아준다 — 작은 사진에 블록 14px는 너무 굵다
+            var suggested = Math.max(6, Math.min(40, Math.round(Math.min(img.naturalWidth, img.naturalHeight) / 40)));
+            strengthEl.value = suggested;
+            strengthValueEl.textContent = suggested;
+            canvas.setAttribute('data-loaded', '1');
+            URL.revokeObjectURL(url);
+        };
+        img.onerror = function () {
+            URL.revokeObjectURL(url);
+            alert('이미지를 읽을 수 없는 형식입니다.');
+        };
+        img.src = url;
+    }
+
+    // 화면에 축소되어 표시되므로 클릭 좌표를 원본 픽셀 좌표로 환산한다
+    function toCanvasPoint(e) {
+        var rect = overlay.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (canvas.width / rect.width),
+            y: (e.clientY - rect.top) * (canvas.height / rect.height),
+        };
+    }
+
+    function clampRect(x, y, w, h) {
+        if (w < 0) { x += w; w = -w; }
+        if (h < 0) { y += h; h = -h; }
+        x = Math.max(0, Math.round(x));
+        y = Math.max(0, Math.round(y));
+        w = Math.min(canvas.width - x, Math.round(w));
+        h = Math.min(canvas.height - y, Math.round(h));
+        return { x: x, y: y, w: w, h: h };
+    }
+
+    function savePatch(r) {
+        if (r.w <= 0 || r.h <= 0) return;
+        strokePatches.push({ x: r.x, y: r.y, data: ctx.getImageData(r.x, r.y, r.w, r.h) });
+    }
+
+    function applyMosaic(r, block) {
+        var sw = Math.max(1, Math.round(r.w / block));
+        var sh = Math.max(1, Math.round(r.h / block));
+        var tmp = document.createElement('canvas');
+        tmp.width = sw; tmp.height = sh;
+        var tctx = tmp.getContext('2d');
+        tctx.imageSmoothingEnabled = false;
+        // 영역을 블록 수만큼 줄였다가 그대로 다시 키우면 각 블록이 평균색 한 덩어리가 된다
+        tctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, sw, sh);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, 0, 0, sw, sh, r.x, r.y, r.w, r.h);
+        ctx.imageSmoothingEnabled = true;
+    }
+
+    function applyBlur(r, radius) {
+        if (!supportsFilter) { applyMosaic(r, Math.max(4, radius)); return; }
+        // 가장자리가 투명하게 번지지 않도록 주변까지 넉넉히 떠서 흐린 뒤, 지정 영역만 오려 덮는다
+        var pad = radius * 3;
+        var sx = Math.max(0, r.x - pad), sy = Math.max(0, r.y - pad);
+        var sw = Math.min(canvas.width, r.x + r.w + pad) - sx;
+        var sh = Math.min(canvas.height, r.y + r.h + pad) - sy;
+        var tmp = document.createElement('canvas');
+        tmp.width = sw; tmp.height = sh;
+        var tctx = tmp.getContext('2d');
+        tctx.filter = 'blur(' + radius + 'px)';
+        tctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(r.x, r.y, r.w, r.h);
+        ctx.clip();
+        ctx.drawImage(tmp, sx, sy);
+        ctx.restore();
+    }
+
+    function applyEffect(r) {
+        if (r.w <= 0 || r.h <= 0) return;
+        var strength = parseInt(strengthEl.value, 10) || 14;
+        var effect = effectEl.value;
+        if (effect === 'fill') {
+            ctx.fillStyle = fillColorEl.value;
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+        } else if (effect === 'blur') {
+            applyBlur(r, strength);
+        } else {
+            applyMosaic(r, strength);
+        }
+    }
+
+    function syncUndo() {
+        undoBtn.disabled = undoStack.length === 0;
+        undoBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 되돌리기' + (undoStack.length ? ' (' + undoStack.length + ')' : '');
+    }
+
+    function pushStroke() {
+        if (!strokePatches || !strokePatches.length) return;
+        undoStack.push(strokePatches);
+        if (undoStack.length > MAX_UNDO) undoStack.shift();
+        strokePatches = null;
+        syncUndo();
+    }
+
+    function drawOverlayRect(r) {
+        octx.clearRect(0, 0, overlay.width, overlay.height);
+        if (!r) return;
+        octx.save();
+        octx.strokeStyle = '#0d47a1';
+        octx.lineWidth = Math.max(2, canvas.width / 400);
+        octx.setLineDash([octx.lineWidth * 3, octx.lineWidth * 2]);
+        octx.strokeRect(r.x, r.y, r.w, r.h);
+        octx.fillStyle = 'rgba(13, 71, 161, 0.12)';
+        octx.fillRect(r.x, r.y, r.w, r.h);
+        octx.restore();
+    }
+
+    function brushRectAt(p) {
+        var size = parseInt(brushSizeEl.value, 10) || 40;
+        return clampRect(p.x - size / 2, p.y - size / 2, size, size);
+    }
+
+    overlay.addEventListener('pointerdown', function (e) {
+        if (!originalImage) return;
+        overlay.setPointerCapture(e.pointerId);
+        strokePatches = [];
+        var p = toCanvasPoint(e);
+        if (shapeEl.value === 'brush') {
+            var r = brushRectAt(p);
+            savePatch(r);
+            applyEffect(r);
+        } else {
+            dragStart = p;
+        }
+    });
+
+    overlay.addEventListener('pointermove', function (e) {
+        if (!strokePatches) return;
+        var p = toCanvasPoint(e);
+        if (shapeEl.value === 'brush') {
+            var r = brushRectAt(p);
+            savePatch(r);
+            applyEffect(r);
+        } else if (dragStart) {
+            drawOverlayRect(clampRect(dragStart.x, dragStart.y, p.x - dragStart.x, p.y - dragStart.y));
+        }
+    });
+
+    function endStroke(e) {
+        if (!strokePatches) return;
+        if (shapeEl.value !== 'brush' && dragStart) {
+            var p = toCanvasPoint(e);
+            var r = clampRect(dragStart.x, dragStart.y, p.x - dragStart.x, p.y - dragStart.y);
+            drawOverlayRect(null);
+            // 클릭만 하고 끝난 경우(드래그 없음)는 아무 것도 하지 않는다
+            if (r.w >= 2 && r.h >= 2) {
+                savePatch(r);
+                applyEffect(r);
+            }
+        }
+        dragStart = null;
+        pushStroke();
+    }
+    overlay.addEventListener('pointerup', endStroke);
+    overlay.addEventListener('pointercancel', function () { drawOverlayRect(null); dragStart = null; strokePatches = null; });
+
+    undoBtn.addEventListener('click', function () {
+        var patches = undoStack.pop();
+        if (!patches) return;
+        for (var i = patches.length - 1; i >= 0; i -= 1) {
+            ctx.putImageData(patches[i].data, patches[i].x, patches[i].y);
+        }
+        syncUndo();
+    });
+
+    resetBtn.addEventListener('click', function () {
+        if (!originalImage) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(originalImage, 0, 0);
+        undoStack = [];
+        syncUndo();
+    });
+
+    downloadBtn.addEventListener('click', function () {
+        if (!originalImage) return;
+        var mime = saveFmtEl.value;
+        var out = canvas;
+        if (mime === 'image/jpeg') {
+            // JPG는 투명을 담지 못해 투명 배경이 검게 나온다 — 흰색을 깔고 저장한다
+            out = document.createElement('canvas');
+            out.width = canvas.width;
+            out.height = canvas.height;
+            var c = out.getContext('2d');
+            c.fillStyle = '#ffffff';
+            c.fillRect(0, 0, out.width, out.height);
+            c.drawImage(canvas, 0, 0);
+        }
+        out.toBlob(function (blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = baseName(originalName) + '_masked.' + (mime === 'image/jpeg' ? 'jpg' : 'png');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        }, mime, mime === 'image/jpeg' ? 0.92 : undefined);
+    });
+
+    newBtn.addEventListener('click', function () {
+        originalImage = null;
+        undoStack = [];
+        syncUndo();
+        canvas.removeAttribute('data-loaded');
+        uploadCard.style.display = 'block';
+        toolCard.style.display = 'none';
+        canvasCard.style.display = 'none';
+    });
+
+    function updateEffectUI() {
+        // 칸을 없애지 않고 '강도 ↔ 칠할 색'만 맞바꾸고, 브러시 굵기는 비활성화만 한다
+        // (칸 수가 바뀌면 아래 캔버스가 움직인다 — 위 템플릿 주석 참고).
+        var isFill = effectEl.value === 'fill';
+        strengthCol.style.display = isFill ? 'none' : 'block';
+        fillColorRow.style.display = isFill ? 'block' : 'none';
+        var isBrush = shapeEl.value === 'brush';
+        brushSizeEl.disabled = !isBrush;
+        brushSizeRow.classList.toggle('opacity-50', !isBrush);
+        stage.classList.toggle('is-brush', isBrush);
+        blurWarningEl.style.display = (effectEl.value === 'blur' && !supportsFilter) ? 'inline' : 'none';
+    }
+
+    effectEl.addEventListener('change', updateEffectUI);
+    shapeEl.addEventListener('change', updateEffectUI);
+    strengthEl.addEventListener('input', function () { strengthValueEl.textContent = strengthEl.value; });
+    brushSizeEl.addEventListener('input', function () { brushSizeValueEl.textContent = brushSizeEl.value; });
+
+    fileInput.addEventListener('change', function () {
+        loadImageFile(fileInput.files[0]);
+        fileInput.value = '';
+    });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) loadImageFile(e.dataTransfer.files[0]);
+    });
+
+    // 캡처한 화면을 바로 가릴 수 있도록 붙여넣기를 받는다 — 이 도구에서 가장 흔한 사용 흐름이다
+    document.addEventListener('paste', function (e) {
+        var items = (e.clipboardData && e.clipboardData.items) || [];
+        for (var i = 0; i < items.length; i += 1) {
+            if (items[i].type.indexOf('image/') === 0) {
+                var file = items[i].getAsFile();
+                if (file) {
+                    if (!file.name) try { Object.defineProperty(file, 'name', { value: 'clipboard.png' }); } catch (err) { /* 읽기 전용이면 그냥 둔다 */ }
+                    loadImageFile(file);
+                    e.preventDefault();
+                }
+                return;
+            }
+        }
+    });
+
+    updateEffectUI();
+    syncUndo();
+})();
+</script>
+</body>
+</html>

@@ -397,6 +397,20 @@ def savings_calculator_view(request):
     return render(request, 'articles/savings_calculator.html', {'site_title': 'NextFinUp - 예금·적금 이자 계산기'})
 
 
+def korean_amount_view(request):
+    # 한글 금액 변환기 — 계약서·영수증에 쓰는 "일금 삼천오백만원정" 표기와 갖은자(壹貳參) 한자,
+    # 영문 표기를 함께 만들고 역방향(한글→숫자) 파싱도 한다. 금액이 커도 정확해야 해서 계산은
+    # BigInt로 하고, 다른 유틸과 마찬가지로 서버 전송 없이 브라우저에서만 처리한다.
+    return render(request, 'articles/korean_amount.html', {'site_title': 'NextFinUp - 한글 금액 변환기'})
+
+
+def world_clock_view(request):
+    # 세계 시간 변환기 — 시간대 변환/서머타임 판정은 전부 브라우저 Intl(IANA 시간대 DB)에 맡긴다.
+    # 서버에서 pytz로 계산해 내려주면 사용자의 실제 브라우저 시간대 규칙과 어긋날 수 있고, 무엇보다
+    # 이 페이지 하나 때문에 시간대 DB를 서버에서 최신으로 유지할 이유가 없다.
+    return render(request, 'articles/world_clock.html', {'site_title': 'NextFinUp - 세계 시간 변환기'})
+
+
 def json_formatter_view(request):
     # JSON 예쁘게 출력/압축/검증 도구. 개발용 텍스트(API 응답, 설정값 등)가 서버로 전송/저장되지
     # 않도록 다른 유틸과 마찬가지로 파싱·포맷팅 전부 브라우저(JS 내장 JSON.parse/stringify)에서만
@@ -420,6 +434,29 @@ def image_converter_view(request):
     return render(request, 'articles/image_converter.html', {'site_title': 'NextFinUp - 이미지 확장자 변환기'})
 
 
+def image_compressor_view(request):
+    # 이미지 용량 줄이기 도구 — "500KB 이하로" 같은 목표 용량을 주면 canvas.toBlob의 품질 인자를
+    # 이분탐색해 그 아래로 떨어지는 가장 높은 화질을 찾고, 최저 화질로도 넘치면 크기를 단계적으로
+    # 줄인다. 리사이저(크기 지정)·확장자 변환기(형식 지정)와 목적이 달라 따로 뺀 화면이다.
+    # 다른 유틸과 마찬가지로 이미지가 서버로 전송되지 않도록 전부 브라우저에서 처리한다.
+    return render(request, 'articles/image_compressor.html', {'site_title': 'NextFinUp - 이미지 용량 줄이기'})
+
+
+def image_mosaic_view(request):
+    # 모자이크·가리기 도구 — 주민번호·계좌번호·얼굴처럼 가려야 하는 사진을 다루므로 서버 업로드가
+    # 없어야 한다는 점이 다른 유틸보다 특히 중요하다. <canvas>에 그려 드래그한 영역만 축소→확대
+    # (모자이크)·ctx.filter blur·단색 칠로 픽셀 자체를 덮어쓰고, 되돌리기용으로 덮기 전 영역의
+    # ImageData만 쌓아둔다(이미지 전체 스냅샷을 쌓으면 큰 사진에서 메모리가 감당이 안 된다).
+    return render(request, 'articles/image_mosaic.html', {'site_title': 'NextFinUp - 모자이크·가리기'})
+
+
+def screen_recorder_view(request):
+    # 화면 녹화기 — getDisplayMedia + MediaRecorder로 브라우저 안에서만 녹화하고, 결과 Blob을
+    # 그대로 다운로드시킨다(서버 업로드/변환 없음: 긴 영상을 서버로 받으면 대역폭·저장 비용이
+    # 감당이 안 되고, 그럴 이유도 없다). 지원하지 않는 브라우저(iOS 사파리)에는 안내를 띄운다.
+    return render(request, 'articles/screen_recorder.html', {'site_title': 'NextFinUp - 화면 녹화기'})
+
+
 def pdf_tools_view(request):
     # PDF 병합 / 페이지 추출·분할 / 이미지→PDF 를 한 화면에서 내부 탭으로 전환하는 도구.
     # 세 기능 모두 pdf-lib(CDN) 하나로 처리되고 파일이 서버로 전송되지 않는다 — 계약서·신분증
@@ -439,6 +476,14 @@ def background_remover_view(request):
     # WASM으로 직접 실행)을 써서 이미지가 서버로 전송되지 않는다 — 첫 사용 시 AI 모델(수십MB)을
     # 내려받아 시간이 좀 걸리지만, 이후에는 브라우저 캐시로 빨라진다.
     return render(request, 'articles/background_remover.html', {'site_title': 'NextFinUp - 배경 제거'})
+
+
+def text_diff_view(request):
+    # 두 텍스트 비교(diff) 도구 — Myers O(ND) 알고리즘을 템플릿 JS에 직접 구현해 줄 단위로 맞춘 뒤,
+    # 바뀐 줄 쌍 안에서 다시 단어/글자 단위 diff를 돌려 달라진 부분만 강조한다. 계약서·원고
+    # 수정본처럼 민감한 글을 다루는 용도라 다른 유틸과 마찬가지로 서버 전송 없이 브라우저에서만
+    # 처리한다(라이브러리 CDN도 쓰지 않는다 — 사내망에서 막히면 도구 자체가 무용지물이라).
+    return render(request, 'articles/text_diff.html', {'site_title': 'NextFinUp - 텍스트 비교'})
 
 
 def unit_converter_view(request):

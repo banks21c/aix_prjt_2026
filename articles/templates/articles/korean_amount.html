@@ -1,0 +1,451 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .ka-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .ka-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+
+        #ka-amount { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; text-align: right; }
+        .ka-hint { font-size: 13px; color: var(--text-secondary, #868e96); margin-top: 6px; min-height: 20px; }
+        .ka-presets .btn { font-size: 12.5px; }
+
+        .ka-out { border-top: 1px solid var(--bg-subtle-2, #f1f3f5); padding: 14px 0; display: flex; gap: 14px; align-items: flex-start; }
+        .ka-out:first-of-type { border-top: none; padding-top: 0; }
+        .ka-out-label { flex: 0 0 116px; font-size: 12.5px; font-weight: 700; color: var(--text-secondary, #868e96); padding-top: 4px; }
+        .ka-out-body { flex: 1 1 auto; min-width: 0; }
+        .ka-out-value { font-size: 18px; font-weight: 700; color: var(--text-primary, #212529); word-break: break-all; line-height: 1.6; }
+        .ka-out-value.is-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; }
+        .ka-out-desc { font-size: 12px; color: var(--text-secondary, #adb5bd); margin-top: 3px; }
+        .ka-copy { flex: 0 0 auto; }
+
+        .ka-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .ka-tabs .btn { font-weight: 700; }
+        .ka-pane { display: none; }
+        .ka-pane.is-active { display: block; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'korean_amount' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">한글 금액 변환기</h2>
+                <p class="text-muted mb-0">계약서·영수증·견적서에 쓰는 <b>일금 삼천오백만원정</b> 형식으로 바꿔드려요. 갖은자(壹貳參) 한자 표기와 영문 표기도 함께 만들고, 반대로 한글 금액을 숫자로 되돌릴 수도 있어요.</p>
+            </div>
+        </div>
+
+        <div class="ka-tabs">
+            <button type="button" class="btn btn-primary" data-pane="to-korean">숫자 → 한글 금액</button>
+            <button type="button" class="btn btn-outline-secondary" data-pane="to-number">한글 금액 → 숫자</button>
+        </div>
+
+        <div class="ka-pane is-active" id="ka-pane-to-korean">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="ka-section-title">금액 입력</div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-8 ka-field">
+                        <label for="ka-amount">금액 (숫자)</label>
+                        <input type="text" id="ka-amount" class="form-control" inputmode="numeric" placeholder="35000000" autocomplete="off">
+                    </div>
+                    <div class="col-md-4 ka-field">
+                        <label for="ka-currency">화폐 단위</label>
+                        <select id="ka-currency" class="form-select">
+                            <option value="원">원 (KRW)</option>
+                            <option value="달러">달러 (USD)</option>
+                            <option value="엔">엔 (JPY)</option>
+                            <option value="위안">위안 (CNY)</option>
+                            <option value="유로">유로 (EUR)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="ka-hint" id="ka-hint"></div>
+                <div class="ka-presets d-flex gap-2 flex-wrap mt-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm ka-preset" data-value="1000000">100만</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm ka-preset" data-value="35000000">3,500만</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm ka-preset" data-value="123456789">1억 2,345만…</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm ka-preset" data-value="1000000000">10억</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="ka-clear-btn"><i class="fa-solid fa-eraser"></i> 지우기</button>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-12">
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ka-explicit-one">
+                                <label class="form-check-label" for="ka-explicit-one" style="font-size:13px;">십·백·천 앞에 '일' 붙이기 (일십, 일백)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ka-spacing">
+                                <label class="form-check-label" for="ka-spacing" style="font-size:13px;">만·억 단위로 띄어쓰기</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-custom bg-white p-3 p-md-4" id="ka-result-card" style="display:none;">
+                <div class="ka-section-title">변환 결과</div>
+                <div id="ka-outputs"></div>
+                <div class="form-text text-muted mt-3">
+                    <i class="fa-solid fa-circle-info"></i>
+                    계약서·수표에 금액을 한글로 적는 것은 숫자를 고쳐 쓰는 위·변조를 막기 위해서예요. 그래서 <b>'일금 ~원정'</b>처럼
+                    앞뒤를 막아 적고, 한자는 획을 덧그리기 어려운 갖은자(壹貳參)를 씁니다. 원 단위 미만(소수점)은 다루지 않습니다.
+                </div>
+            </div>
+        </div>
+
+        <div class="ka-pane" id="ka-pane-to-number">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="ka-section-title">한글 금액 입력</div>
+                <div class="ka-field">
+                    <label for="ka-korean">한글(또는 한글+숫자) 금액</label>
+                    <input type="text" id="ka-korean" class="form-control" placeholder="예) 일금 삼천오백만원정 · 3억5천만 · 이천사백육십만원" autocomplete="off">
+                </div>
+                <div class="ka-hint" id="ka-korean-hint">‘일금’, ‘원정’, 공백은 무시하고 읽습니다. 숫자와 한글을 섞어 써도 됩니다.</div>
+            </div>
+            <div class="card card-custom bg-white p-3 p-md-4" id="ka-number-card" style="display:none;">
+                <div class="ka-section-title">변환 결과</div>
+                <div id="ka-number-outputs"></div>
+            </div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var amountEl = document.getElementById('ka-amount');
+    var currencyEl = document.getElementById('ka-currency');
+    var hintEl = document.getElementById('ka-hint');
+    var explicitOneEl = document.getElementById('ka-explicit-one');
+    var spacingEl = document.getElementById('ka-spacing');
+    var resultCard = document.getElementById('ka-result-card');
+    var outputsEl = document.getElementById('ka-outputs');
+    var koreanEl = document.getElementById('ka-korean');
+    var koreanHintEl = document.getElementById('ka-korean-hint');
+    var numberCard = document.getElementById('ka-number-card');
+    var numberOutputsEl = document.getElementById('ka-number-outputs');
+
+    var DIGITS_KO = ['영', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+    var DIGITS_HANJA = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
+    var SMALL_KO = ['', '십', '백', '천'];
+    var SMALL_HANJA = ['', '拾', '佰', '仟'];
+    var BIG_KO = ['', '만', '억', '조', '경'];
+    var BIG_HANJA = ['', '萬', '億', '兆', '京'];
+    var MAX_DIGITS = 20;   // 경(10^16) 위까지 — 그 이상은 화폐 금액으로 의미가 없다
+
+    var CURRENCY_EN = { '원': 'KOREAN WON', '달러': 'US DOLLARS', '엔': 'JAPANESE YEN', '위안': 'CHINESE YUAN', '유로': 'EURO' };
+
+    function onlyDigits(s) {
+        return (s || '').replace(/[^0-9]/g, '');
+    }
+
+    function withCommas(digits) {
+        return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    // 4자리 묶음 하나(0~9999)를 한글/한자로. explicitOne이 꺼져 있으면 십·백·천 앞의 '일'을 생략한다.
+    function groupToText(group, digitSet, smallSet, explicitOne) {
+        var text = '';
+        var str = String(group);
+        for (var i = 0; i < str.length; i += 1) {
+            var digit = parseInt(str[i], 10);
+            var pos = str.length - 1 - i;   // 0=일, 1=십, 2=백, 3=천
+            if (digit === 0) continue;
+            if (digit === 1 && pos > 0 && !explicitOne) text += smallSet[pos];
+            else text += digitSet[digit] + smallSet[pos];
+        }
+        return text;
+    }
+
+    // BigInt 금액을 한글/한자 표기로. 만·억·조 단위로 4자리씩 끊어 읽는 한국식 수 읽기.
+    function amountToText(value, hanja, explicitOne, spacing) {
+        var digitSet = hanja ? DIGITS_HANJA : DIGITS_KO;
+        var smallSet = hanja ? SMALL_HANJA : SMALL_KO;
+        var bigSet = hanja ? BIG_HANJA : BIG_KO;
+        if (value === 0n) return digitSet[0];
+
+        var groups = [];
+        var rest = value;
+        while (rest > 0n) {
+            groups.push(Number(rest % 10000n));
+            rest = rest / 10000n;
+        }
+        var parts = [];
+        for (var i = groups.length - 1; i >= 0; i -= 1) {
+            if (groups[i] === 0) continue;
+            // '일만'은 '만'으로 줄이지 않는다 — 금액 표기에서는 '일만원'처럼 적는 것이 관행이다
+            parts.push(groupToText(groups[i], digitSet, smallSet, explicitOne) + bigSet[i]);
+        }
+        return parts.join(spacing ? ' ' : '');
+    }
+
+    // 영문 금액 표기(계약서·송장용) — 세 자리씩 끊어 읽는 영어식.
+    var EN_ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN',
+                   'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+    var EN_TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+    var EN_SCALE = ['', 'THOUSAND', 'MILLION', 'BILLION', 'TRILLION', 'QUADRILLION', 'QUINTILLION'];
+
+    function enThree(n) {
+        var out = [];
+        if (n >= 100) { out.push(EN_ONES[Math.floor(n / 100)] + ' HUNDRED'); n %= 100; }
+        if (n >= 20) { out.push(EN_TENS[Math.floor(n / 10)] + (n % 10 ? '-' + EN_ONES[n % 10] : '')); }
+        else if (n > 0) out.push(EN_ONES[n]);
+        return out.join(' ');
+    }
+
+    function amountToEnglish(value) {
+        if (value === 0n) return 'ZERO';
+        var groups = [];
+        var rest = value;
+        while (rest > 0n) {
+            groups.push(Number(rest % 1000n));
+            rest = rest / 1000n;
+        }
+        var parts = [];
+        for (var i = groups.length - 1; i >= 0; i -= 1) {
+            if (!groups[i]) continue;
+            parts.push(enThree(groups[i]) + (EN_SCALE[i] ? ' ' + EN_SCALE[i] : ''));
+        }
+        return parts.join(' ');
+    }
+
+    // 1억 2,345만 처럼 만·억 단위를 섞은 읽기 쉬운 표기
+    function shortNumeric(value) {
+        if (value === 0n) return '0';
+        var units = [[1000000000000n, '조'], [100000000n, '억'], [10000n, '만']];
+        var rest = value;
+        var parts = [];
+        units.forEach(function (pair) {
+            var q = rest / pair[0];
+            if (q > 0n) {
+                parts.push(withCommas(String(q)) + pair[1]);
+                rest = rest % pair[0];
+            }
+        });
+        if (rest > 0n) parts.push(withCommas(String(rest)));
+        return parts.join(' ');
+    }
+
+    function copyText(text, btn) {
+        var done = function () {
+            var original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+            setTimeout(function () { btn.innerHTML = original; }, 1200);
+        };
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('복사에 실패했습니다.'); }
+            document.body.removeChild(ta);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+        else fallback();
+    }
+
+    function renderOutputs(container, rows) {
+        container.innerHTML = '';
+        rows.forEach(function (row) {
+            var wrap = document.createElement('div');
+            wrap.className = 'ka-out';
+            wrap.setAttribute('data-key', row.key);
+
+            var label = document.createElement('div');
+            label.className = 'ka-out-label';
+            label.textContent = row.label;
+
+            var body = document.createElement('div');
+            body.className = 'ka-out-body';
+            var value = document.createElement('div');
+            value.className = 'ka-out-value' + (row.mono ? ' is-mono' : '');
+            value.textContent = row.value;
+            body.appendChild(value);
+            if (row.desc) {
+                var desc = document.createElement('div');
+                desc.className = 'ka-out-desc';
+                desc.textContent = row.desc;
+                body.appendChild(desc);
+            }
+
+            var copy = document.createElement('button');
+            copy.type = 'button';
+            copy.className = 'btn btn-outline-secondary btn-sm ka-copy';
+            copy.innerHTML = '<i class="fa-solid fa-copy"></i>';
+            copy.title = '복사';
+            copy.addEventListener('click', function () { copyText(row.value, copy); });
+
+            wrap.appendChild(label);
+            wrap.appendChild(body);
+            wrap.appendChild(copy);
+            container.appendChild(wrap);
+        });
+    }
+
+    function convert() {
+        var digits = onlyDigits(amountEl.value);
+        if (digits.length > 1) digits = digits.replace(/^0+/, '') || '0';
+        if (!digits) {
+            hintEl.textContent = '';
+            resultCard.style.display = 'none';
+            return;
+        }
+        if (digits.length > MAX_DIGITS) {
+            hintEl.textContent = '금액이 너무 큽니다 (' + MAX_DIGITS + '자리까지).';
+            resultCard.style.display = 'none';
+            return;
+        }
+        amountEl.value = withCommas(digits);
+
+        var value = BigInt(digits);
+        var currency = currencyEl.value;
+        var explicitOne = explicitOneEl.checked;
+        var spacing = spacingEl.checked;
+
+        var korean = amountToText(value, false, explicitOne, spacing);
+        var hanja = amountToText(value, true, explicitOne, spacing);
+        var english = amountToEnglish(value);
+
+        hintEl.textContent = shortNumeric(value) + ' ' + currency;
+        renderOutputs(outputsEl, [
+            { key: 'formal', label: '계약서 형식', value: '일금 ' + korean + currency + '정',
+              desc: '금액 앞뒤를 막아 적는 정식 표기 — 계약서·영수증에 이 형태로 씁니다.' },
+            { key: 'korean', label: '한글', value: korean + currency },
+            { key: 'hanja', label: '한자 (갖은자)', value: '金 ' + hanja + currency + '整',
+              desc: '획을 덧그려 고치기 어려운 갖은자 표기' },
+            { key: 'english', label: '영문', value: english + ' ' + (CURRENCY_EN[currency] || '') + ' ONLY', mono: true },
+            { key: 'numeric', label: '숫자', value: withCommas(digits) + currency, mono: true },
+            { key: 'short', label: '읽기 쉬운 표기', value: shortNumeric(value) + ' ' + currency },
+        ]);
+        resultCard.style.display = 'block';
+    }
+
+    // ── 한글 금액 → 숫자 ─────────────────────────────────────────────
+    // 갖은자(壹貳參)뿐 아니라 보통 한자(一二三)도 받는다 — 옛 계약서·중국어 금액을 그대로 붙여넣는 경우가 있다
+    var KO_DIGIT_MAP = { '영': 0n, '공': 0n, '일': 1n, '이': 2n, '삼': 3n, '사': 4n, '오': 5n, '육': 6n, '륙': 6n, '칠': 7n, '팔': 8n, '구': 9n,
+                         '壹': 1n, '貳': 2n, '參': 3n, '肆': 4n, '伍': 5n, '陸': 6n, '柒': 7n, '捌': 8n, '玖': 9n,
+                         '零': 0n, '一': 1n, '二': 2n, '三': 3n, '四': 4n, '五': 5n, '六': 6n, '七': 7n, '八': 8n, '九': 9n };
+    var KO_SMALL_MAP = { '십': 10n, '拾': 10n, '十': 10n, '백': 100n, '佰': 100n, '百': 100n, '천': 1000n, '仟': 1000n, '千': 1000n };
+    var KO_BIG_MAP = { '만': 10000n, '萬': 10000n, '억': 100000000n, '億': 100000000n,
+                       '조': 1000000000000n, '兆': 1000000000000n, '경': 10000000000000000n, '京': 10000000000000000n };
+    var IGNORE = /[\s,원정금整圓￦$元¥€\-]/;
+
+    function parseKoreanAmount(text) {
+        var total = 0n, group = 0n, current = 0n;
+        var sawSomething = false;
+        var i = 0;
+        while (i < text.length) {
+            var ch = text[i];
+            if (ch >= '0' && ch <= '9') {
+                var run = '';
+                while (i < text.length && text[i] >= '0' && text[i] <= '9') { run += text[i]; i += 1; }
+                current = BigInt(run);
+                sawSomething = true;
+                continue;
+            }
+            i += 1;
+            if (IGNORE.test(ch)) continue;
+            if (ch in KO_DIGIT_MAP) { current = KO_DIGIT_MAP[ch]; sawSomething = true; continue; }
+            if (ch in KO_SMALL_MAP) {
+                // '십'만 쓰면 10, '삼십'이면 30 — 앞 숫자가 없으면 1로 본다
+                group += (current === 0n ? 1n : current) * KO_SMALL_MAP[ch];
+                current = 0n;
+                sawSomething = true;
+                continue;
+            }
+            if (ch in KO_BIG_MAP) {
+                var sub = group + current;
+                group = (sub === 0n ? 1n : sub) * KO_BIG_MAP[ch];
+                total += group;
+                group = 0n;
+                current = 0n;
+                sawSomething = true;
+                continue;
+            }
+            return null;   // 금액으로 읽을 수 없는 글자
+        }
+        if (!sawSomething) return null;
+        return total + group + current;
+    }
+
+    function convertKorean() {
+        var text = (koreanEl.value || '').trim();
+        if (!text) {
+            koreanHintEl.textContent = '‘일금’, ‘원정’, 공백은 무시하고 읽습니다. 숫자와 한글을 섞어 써도 됩니다.';
+            numberCard.style.display = 'none';
+            return;
+        }
+        var value = parseKoreanAmount(text.replace(/일금|금액|金/g, ''));
+        if (value === null) {
+            koreanHintEl.textContent = '금액으로 읽을 수 없는 글자가 있어요. 예) 삼천오백만원, 3억5천만';
+            numberCard.style.display = 'none';
+            numberCard.removeAttribute('data-value');   // 이전 결과가 남아 있지 않게 한다
+            return;
+        }
+        koreanHintEl.textContent = '';
+        renderOutputs(numberOutputsEl, [
+            { key: 'numeric', label: '숫자', value: withCommas(String(value)), mono: true },
+            { key: 'short', label: '읽기 쉬운 표기', value: shortNumeric(value) },
+            { key: 'korean', label: '한글(정규화)', value: amountToText(value, false, false, false) },
+        ]);
+        numberCard.style.display = 'block';
+        numberCard.setAttribute('data-value', String(value));
+    }
+
+    amountEl.addEventListener('input', convert);
+    currencyEl.addEventListener('change', convert);
+    explicitOneEl.addEventListener('change', convert);
+    spacingEl.addEventListener('change', convert);
+    koreanEl.addEventListener('input', convertKorean);
+
+    document.querySelectorAll('.ka-preset').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            amountEl.value = btn.dataset.value;
+            convert();
+        });
+    });
+    document.getElementById('ka-clear-btn').addEventListener('click', function () {
+        amountEl.value = '';
+        convert();
+    });
+
+    document.querySelectorAll('.ka-tabs .btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.ka-tabs .btn').forEach(function (b) {
+                b.classList.toggle('btn-primary', b === btn);
+                b.classList.toggle('btn-outline-secondary', b !== btn);
+            });
+            document.querySelectorAll('.ka-pane').forEach(function (pane) {
+                pane.classList.toggle('is-active', pane.id === 'ka-pane-' + btn.dataset.pane);
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>
