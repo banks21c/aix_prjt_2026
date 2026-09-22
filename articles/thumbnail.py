@@ -10,6 +10,17 @@ from .utils import format_signed_pct, format_signed_won, format_trading_value, f
 
 CANVAS_SIZE = (1200, 630)  # 소셜 공유용 표준 OG 이미지 비율
 
+# 카드 안쪽 여백 — 제목/날짜/뱃지/시세 패널 등 "잘리면 안 되는 것"은 전부 이 여백 안에만 그린다.
+# 캔버스는 OG 표준 1200x630(1.91:1)을 유지해야 카카오/페이스북 공유 미리보기가 안 깨지는데,
+# 정작 이 카드를 대표 이미지로 받는 워드프레스 테마들은 목록 카드용으로 제 비율에 맞춰 가운데를
+# 잘라 쓴다(deepsleepway.com의 blog-bee 테마는 600x400=3:2로 하드 크롭, 다른 자리는 4:3으로
+# object-fit: cover). 4:3 크롭이 가장 심해서 가운데 630*4/3 = 840px만 남고 좌우 180px씩이
+# 통째로 날아간다 — 실제로 제목 "비만 — 관리와 생활수칙"의 첫 글자와 우상단 날짜/카테고리
+# 뱃지가 잘려나갔다(2026-09-21 확인). 그래서 여백을 그 잘려나가는 폭(180px)으로 잡는다.
+# 1.91:1 / 3:2 / 4:3 어느 비율로 잘려도 글자는 살아남고, 잘리는 건 배경 그림뿐이다.
+CROP_SAFE_MARGIN = (CANVAS_SIZE[0] - round(CANVAS_SIZE[1] * 4 / 3)) // 2  # = 180, 잘려나가는 폭
+SAFE_MARGIN = CROP_SAFE_MARGIN + 20  # 잘리는 선에 글자가 딱 붙으면 그것대로 잘린 것처럼 보여 20px 더 띄운다
+
 UPLOAD_MAX_DIMENSIONS = CANVAS_SIZE  # 회원이 직접 올리는 썸네일도 이 크기 안으로 눌러 담는다
 UPLOAD_JPEG_QUALITY = 85
 
@@ -284,6 +295,7 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
     words = list(text)  # 한글은 띄어쓰기 단위보다 글자 단위 줄바꿈이 잘림이 자연스럽다
     lines = []
     current = ""
+    truncated = False
     for ch in words:
         trial = current + ch
         if draw.textlength(trial, font=font) <= max_width:
@@ -292,6 +304,7 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
             lines.append(current)
             current = ch
             if len(lines) == max_lines:
+                truncated = True  # 아직 안 그린 글자가 남은 채로 멈췄다
                 break
     else:
         if current:
@@ -299,8 +312,11 @@ def _wrap_by_width(draw, text, font, max_width, max_lines):
 
     if len(lines) > max_lines:
         lines = lines[:max_lines]
+        truncated = True
 
-    if len(lines) == max_lines:
+    # 제목이 마침 max_lines 줄에 딱 맞게 다 들어갔는데도 "…"을 붙이던 버그가 있었다 —
+    # 줄 수만 보고 판단했기 때문. 실제로 잘라낸 글자가 있을 때만 붙인다.
+    if truncated and lines:
         last = lines[-1]
         while draw.textlength(last + "…", font=font) > max_width and len(last) > 1:
             last = last[:-1]
@@ -360,7 +376,7 @@ def _render_ai_hero_card(title, category_label, ai_image_bytes, show_meta=True):
     show_meta=False면 날짜/카테고리 태그를 그리지 않는다 — 회원이 직접 쓴 자유 포스팅은
     '리포트' 성격이 아니라 이 표시가 어색하다."""
     img = _compose_ai_image_background(ai_image_bytes)
-    margin = 70
+    margin = SAFE_MARGIN
 
     # 그라데이션을 제목 자리에 맞추려면 줄 수를 먼저 알아야 해서, 줄바꿈을 그라데이션보다 먼저 한다.
     title_font = _font(FONT_BOLD, 44)
@@ -435,7 +451,7 @@ def generate_thumbnail_image(title, subject_label, ticker=None, signal_color_key
     # 상단 액센트 바
     draw.rectangle([0, 0, CANVAS_SIZE[0], 10], fill=accent)
 
-    margin = 70
+    margin = SAFE_MARGIN
 
     # 우측 상단: 날짜
     date_text = date.today().strftime("%Y.%m.%d")
