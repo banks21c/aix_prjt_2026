@@ -975,6 +975,21 @@ ROBOTS_DISALLOWED_PATHS = [
 ]
 
 
+# 네이버 서치어드바이저 소유확인 — 네이버는 구글과 달리 DNS TXT 방식이 없고 HTML 파일 업로드
+# 또는 메타 태그만 받는다. 정적 파일을 도메인 루트에 둘 수 없는 구조라 robots.txt와 같은 방식으로
+# 뷰가 내려준다. 파일명/내용 모두 공개되는 값이라 .env가 아니라 여기 둔다 — 재발급받으면 이
+# 상수만 바꾸면 된다.
+NAVER_VERIFICATION_FILE = 'naverc4affab310485e01180a148e41e1ffc6.html'
+
+
+def naver_site_verification_view(request):
+    """네이버가 내려준 소유확인 파일. 내용은 'naver-site-verification: <파일명>' 한 줄이다."""
+    return HttpResponse(
+        f'naver-site-verification: {NAVER_VERIFICATION_FILE}',
+        content_type='text/html; charset=utf-8',
+    )
+
+
 def robots_txt_view(request):
     """robots.txt — 사이트맵 위치를 알리고 비공개 경로의 크롤링을 막는다.
 

@@ -55,7 +55,7 @@ from articles.views import (
     kakao_login_view, kakao_callback_view,
     google_login_view, google_callback_view,
     naver_login_view, naver_callback_view,
-    robots_txt_view,
+    robots_txt_view, naver_site_verification_view,
     blogger_connect_view, blogger_callback_view,
     my_page_view, my_posted_articles_view, blog_account_disconnect_view, verify_email_view, change_password_view,
 )  # ◀ 우리가 만든 뷰 임포트
@@ -71,6 +71,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),  # ◀ 시스템 관리 — 슈퍼유저 전용(articles/admin.py에서 제한)
     path('staff/', business_admin_site.urls),  # ◀ 업무 관리(상담 신청/재무상담 시트/구독 신청/프리미엄 구독) — is_staff면 접근 가능
     path('robots.txt', robots_txt_view, name='robots_txt'),
+    path('naverc4affab310485e01180a148e41e1ffc6.html', naver_site_verification_view, name='naver_site_verification'),  # ◀ 네이버 서치어드바이저 소유확인
     # sitemap.xml은 인덱스만 내려주고(수 KB), 실제 URL 목록은 섹션별로 쪼개 서빙한다.
     # 예전에는 한 파일에 7.2MB/52,771 URL을 담느라 응답에 5초가 걸려 gunicorn 워커
     # 3개 중 1개를 그동안 붙잡았고, 규격 상한(파일당 50,000)을 넘겨 기사 일부가 누락됐다.

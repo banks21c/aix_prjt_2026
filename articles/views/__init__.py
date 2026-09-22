@@ -15,7 +15,7 @@ from .public import (
     image_converter_view, image_compressor_view, image_mosaic_view, screen_recorder_view, pdf_tools_view, qrcode_generator_view, background_remover_view, unit_converter_view,
     text_diff_view,
     spell_checker_view, spell_check_api_view,
-    robots_txt_view,
+    robots_txt_view, naver_site_verification_view,
 )
 from .admin_tools import (
     cron_status_view, financial_consult_sheet_view, financial_consult_sheet_save_view,
@@ -83,5 +83,5 @@ __all__ = [
     'naver_login_view', 'naver_callback_view',
     'blogger_connect_view', 'blogger_callback_view',
     'my_page_view', 'my_posted_articles_view', 'blog_account_disconnect_view', 'verify_email_view',
-    'find_password_view', 'change_password_view',
+    'find_password_view', 'change_password_view', 'naver_site_verification_view',
 ]

@@ -140,6 +140,29 @@ class PublicViewSmokeTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
+class SearchEngineFileTests(TestCase):
+    """robots.txt와 네이버 소유확인 파일은 검색엔진만 읽는 탓에 깨져도 한참 모른다.
+    소유확인이 풀리면 네이버 웹마스터 도구의 사이트맵·수집 요청이 통째로 멎으므로,
+    경로와 내용 형식을 테스트로 묶어둔다."""
+
+    def test_robots_txt_points_at_sitemap(self):
+        response = self.client.get('/robots.txt')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Sitemap:', response.content.decode())
+
+    def test_naver_verification_file(self):
+        from .views.public import NAVER_VERIFICATION_FILE
+
+        response = self.client.get('/' + NAVER_VERIFICATION_FILE)
+        self.assertEqual(response.status_code, 200)
+        # 네이버는 파일 안에서 'naver-site-verification: <파일명>' 한 줄을 확인한다
+        self.assertEqual(
+            response.content.decode().strip(),
+            f'naver-site-verification: {NAVER_VERIFICATION_FILE}',
+        )
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
 class ToolsCatalogTests(TestCase):
     """/tools/ 유틸은 tools_catalog.CATEGORIES 한 곳에만 등록하고 뷰·URL을 따로 만드는 구조라,
     셋 중 하나를 빠뜨리면 탭/카드의 {% url %}에서 터진다. 목록 전체를 실제로 열어보며 그 어긋남을
