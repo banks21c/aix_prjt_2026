@@ -140,6 +140,52 @@ class PublicViewSmokeTests(TestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
+class RssFeedTests(TestCase):
+    """/rss.xml — 네이버 서치어드바이저에 제출하는 피드. 본문 없는 글(KIS 헤드라인)과
+    유료 전용 글이 새어 나가지 않는 것이 핵심이라 그 두 가지를 지킨다."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.normal = AnalyzedArticle.objects.create(
+            title='본문 있는 기사', original_url='https://example.com/rss/1', source_media='테스트뉴스',
+            original_content='원문 본문입니다. ' * 30, ai_summary='세 줄 요약',
+        )
+        cls.no_body = AnalyzedArticle.objects.create(
+            title='본문 없는 헤드라인', original_url='https://example.com/rss/2', source_media='KIS',
+            original_content='',
+        )
+        cls.premium = AnalyzedArticle.objects.create(
+            title='유료 전용 기사', original_url='https://example.com/rss/3', source_media='테스트뉴스',
+            original_content='유료 본문', is_premium=True,
+        )
+        cls.no_summary = AnalyzedArticle.objects.create(
+            title='요약 없는 기사', original_url='https://example.com/rss/4', source_media='테스트뉴스',
+            original_content='줄바꿈\n\n  많은   원문 ' * 40,
+        )
+
+    def test_feed_serves_rss(self):
+        response = self.client.get(reverse('rss_feed'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('application/rss+xml', response['Content-Type'])
+
+    def test_feed_includes_and_excludes_the_right_articles(self):
+        body = self.client.get(reverse('rss_feed')).content.decode()
+        self.assertIn('본문 있는 기사', body)
+        self.assertNotIn('본문 없는 헤드라인', body)
+        self.assertNotIn('유료 전용 기사', body)
+
+    def test_description_falls_back_to_cleaned_body(self):
+        body = self.client.get(reverse('rss_feed')).content.decode()
+        self.assertIn('세 줄 요약', body)   # 요약이 있으면 그것을 쓴다
+        # 요약이 없으면 원문 앞부분을 쓰되 줄바꿈/연속 공백은 한 칸으로 눌러 담는다
+        self.assertIn('줄바꿈 많은 원문', body)
+
+    def test_news_board_links_the_feed(self):
+        response = self.client.get(reverse('news_board'))
+        self.assertContains(response, 'application/rss+xml')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
 class SearchEngineFileTests(TestCase):
     """robots.txt와 네이버 소유확인 파일은 검색엔진만 읽는 탓에 깨져도 한참 모른다.
     소유확인이 풀리면 네이버 웹마스터 도구의 사이트맵·수집 요청이 통째로 멎으므로,
@@ -174,6 +220,17 @@ class ToolsCatalogTests(TestCase):
                 with self.subTest(tool=tool['url_name']):
                     response = self.client.get(reverse(tool['url_name']))
                     self.assertEqual(response.status_code, 200)
+
+    def test_every_tool_page_has_meta_description_and_canonical(self):
+        """검색 결과에 노출되는 설명 문구와 중복 색인을 막는 canonical. 둘 다 tools_catalog의
+        desc 한 곳에서 오므로, 유틸을 추가하며 카탈로그만 채우면 자동으로 따라온다."""
+        for category in CATEGORIES:
+            for tool in category['tools']:
+                with self.subTest(tool=tool['url_name']):
+                    response = self.client.get(reverse(tool['url_name']))
+                    html = response.content.decode()
+                    self.assertIn('<meta name="description"', html)
+                    self.assertIn(f'<link rel="canonical" href="https://nextfinup.com{reverse(tool["url_name"])}">', html)
 
     def test_hub_lists_every_tool(self):
         response = self.client.get(reverse('tools_hub'))

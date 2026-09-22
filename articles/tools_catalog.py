@@ -199,6 +199,27 @@ CATEGORIES = [
 ]
 
 
+# 허브(/tools/) 자체도 검색 대상이라 같은 자리에서 제목/설명을 관리한다.
+HUB = {
+    'url_name': 'tools_hub',
+    'title': '무료 온라인 유틸 모음',
+    'desc': '환율·대출·퇴직금 계산기부터 이미지 용량 줄이기·PDF·모자이크·텍스트 비교까지, 설치 없이 브라우저에서 바로 쓰는 무료 도구 모음입니다.',
+}
+
+
+def tool_by_url_name(url_name):
+    """url_name으로 유틸 항목을 찾는다(허브는 'hub'/'tools_hub' 둘 다 받는다).
+    <meta name="description">·canonical을 만드는 tool_meta 태그가 쓴다 — 설명 문구를
+    카드/탭과 한 곳에서 관리하려는 것."""
+    if url_name in ('hub', 'tools_hub'):
+        return HUB
+    for category in CATEGORIES:
+        for tool in category['tools']:
+            if tool['url_name'] == url_name:
+                return tool
+    return None
+
+
 def category_of(url_name):
     """활성 유틸이 속한 카테고리 key를 돌려준다(없으면 None) — 탭이 열릴 때 그 카테고리 줄을
     펼쳐 보여주기 위한 것."""

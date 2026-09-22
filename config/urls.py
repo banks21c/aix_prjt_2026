@@ -21,6 +21,7 @@ from django.contrib.sitemaps.views import index as sitemap_index, sitemap
 from django.urls import path
 from articles.business_admin import business_admin_site  # ◀ 업무(상담·구독) 전용 어드민, /staff/
 from literary.views import literary_picker_view, work_detail_view
+from articles.feeds import LatestArticlesFeed
 from articles.sitemaps import StaticViewSitemap, StockSitemap, NewsSitemap, ToolsSitemap
 from articles.views import (
     landing_page_view, main_dashboard_view, newsletter_subscribe_view, newsletter_unsubscribe_view,
@@ -71,6 +72,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),  # ◀ 시스템 관리 — 슈퍼유저 전용(articles/admin.py에서 제한)
     path('staff/', business_admin_site.urls),  # ◀ 업무 관리(상담 신청/재무상담 시트/구독 신청/프리미엄 구독) — is_staff면 접근 가능
     path('robots.txt', robots_txt_view, name='robots_txt'),
+    path('rss.xml', LatestArticlesFeed(), name='rss_feed'),  # ◀ 네이버 서치어드바이저 RSS 제출용(새 글 수집을 사이트맵보다 빨리 돌린다)
     path('naverc4affab310485e01180a148e41e1ffc6.html', naver_site_verification_view, name='naver_site_verification'),  # ◀ 네이버 서치어드바이저 소유확인
     # sitemap.xml은 인덱스만 내려주고(수 KB), 실제 URL 목록은 섹션별로 쪼개 서빙한다.
     # 예전에는 한 파일에 7.2MB/52,771 URL을 담느라 응답에 5초가 걸려 gunicorn 워커

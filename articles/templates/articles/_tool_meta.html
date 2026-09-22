@@ -1,0 +1,12 @@
+{% comment %}
+유틸 페이지 <head>용 메타 태그. 각 유틸 템플릿이 <title> 다음 줄에서 {% tool_meta 'url_name' %}로 부른다.
+설명 문구는 tools_catalog 한 곳에서 오므로 허브 카드/탭과 어긋나지 않는다.
+og:image는 아직 사이트에 1200x630 대표 이미지가 없어 넣지 않았다 — 넣게 되면 여기 한 줄이면 된다.
+{% endcomment %}
+{% if tool %}<meta name="description" content="{{ tool.desc }}">
+    <link rel="canonical" href="{{ canonical }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NextFinUp">
+    <meta property="og:title" content="{{ tool.title }}">
+    <meta property="og:description" content="{{ tool.desc }}">
+    <meta property="og:url" content="{{ canonical }}">{% endif %}

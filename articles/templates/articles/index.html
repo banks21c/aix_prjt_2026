@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_title }}</title>
+    <link rel="alternate" type="application/rss+xml" title="NextFinUp 경제 동향" href="{% url 'rss_feed' %}">
     {% include "articles/_favicon.html" %}
     <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
     <meta name="description" content="LightGBM·RandomForest 앙상블 머신러닝 모델과 실시간 경제 뉴스를 결합한 AI 주가 예측·투자 정보 서비스, NextFinUp.">

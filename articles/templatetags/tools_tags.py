@@ -1,6 +1,8 @@
 from django import template
+from django.conf import settings
+from django.urls import reverse
 
-from ..tools_catalog import CATEGORIES, category_of
+from ..tools_catalog import CATEGORIES, category_of, tool_by_url_name
 
 register = template.Library()
 
@@ -21,3 +23,20 @@ def tools_tabs(active_tool=''):
 def tools_cards():
     """허브(/tools/)의 카테고리별 카드 그리드 — 탭과 같은 tools_catalog를 쓴다."""
     return {'categories': CATEGORIES}
+
+
+@register.inclusion_tag('articles/_tool_meta.html')
+def tool_meta(url_name):
+    """유틸 페이지의 <meta name="description">·canonical·og 태그. 설명 문구는 허브 카드와
+    같은 tools_catalog를 쓰므로 둘이 어긋날 수 없다.
+
+    canonical을 넣는 이유: nextfinup.com과 www.nextfinup.com이 둘 다 서빙돼(robots_txt_view
+    주석 참고) 같은 페이지가 두 주소로 색인될 수 있다. settings.SITE_URL(비-www) 한쪽으로 모은다.
+    """
+    tool = tool_by_url_name(url_name)
+    if not tool:
+        return {'tool': None}
+    return {
+        'tool': tool,
+        'canonical': settings.SITE_URL.rstrip('/') + reverse(tool['url_name']),
+    }
