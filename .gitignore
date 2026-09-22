@@ -1,7 +1,6 @@
 venv/
 __pycache__/
 *.pyc
-logs/*.log
 .DS_Store
 .claude/settings.local.json
 .env
@@ -9,3 +8,13 @@ staticfiles/
 media/
 admin_uploads/
 환율API.txt
+
+# 크론/관리 커맨드 로그와 이미지 시리즈 진행상황 파일. logs/*.log만 막아두니
+# image_series_*.json 같은 산출물이 새어 나왔고, 디렉터리 자체가 135MB까지 자란다.
+logs/
+
+# 저장소 루트에 두는 발표·보고 문서(개발계획서/결과보고서/메뉴구조도). 내보낼 때마다
+# 수 MB짜리 새 파일이 생기는 성격이라 저장소에 쌓지 않는다 — API 명세서(kis_api/, DART_API/)는
+# 코드가 참고하는 자료라서 반대로 커밋한다.
+/*.pptx
+/*.docx
