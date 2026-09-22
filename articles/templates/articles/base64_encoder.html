@@ -1,0 +1,294 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% tool_meta 'base64_encoder' %}
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .be-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .be-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+        textarea.be-area { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; min-height: 180px; word-break: break-all; }
+
+        .be-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .be-pane { display: none; }
+        .be-pane.is-active { display: block; }
+        .be-status { font-size: 13px; font-weight: 700; min-height: 20px; margin-top: 8px; }
+        .be-status.is-error { color: #e03131; }
+        .be-status.is-ok { color: var(--text-secondary, #868e96); font-weight: 400; }
+
+        .be-dropzone { border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 28px; text-align: center;
+                       cursor: pointer; color: var(--text-secondary, #6c757d); }
+        .be-dropzone:hover, .be-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .be-dropzone i { font-size: 24px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); display: block; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'base64_encoder' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">Base64 · URL 인코더</h2>
+                <p class="text-muted mb-0">텍스트를 Base64로 바꾸거나 되돌리고, URL에 넣을 수 있게 인코딩해요. 이미지·파일을 Base64(data URL)로 바꿔 HTML·CSS에 바로 심을 수도 있습니다. 전부 브라우저에서 처리됩니다.</p>
+            </div>
+        </div>
+
+        <div class="be-tabs">
+            <button type="button" class="btn btn-primary" data-pane="base64">Base64</button>
+            <button type="button" class="btn btn-outline-secondary" data-pane="url">URL 인코딩</button>
+            <button type="button" class="btn btn-outline-secondary" data-pane="file">파일 → Base64</button>
+        </div>
+
+        <div class="be-pane is-active" id="be-pane-base64">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="row g-3">
+                    <div class="col-md-6 be-field">
+                        <label for="be-text">텍스트</label>
+                        <textarea id="be-text" class="form-control be-area" placeholder="인코딩할 텍스트"></textarea>
+                    </div>
+                    <div class="col-md-6 be-field">
+                        <label for="be-b64">Base64</label>
+                        <textarea id="be-b64" class="form-control be-area" placeholder="디코딩할 Base64"></textarea>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap mt-3 align-items-center">
+                    <button type="button" id="be-encode-btn" class="btn btn-primary"><i class="fa-solid fa-arrow-right"></i> 인코딩 →</button>
+                    <button type="button" id="be-decode-btn" class="btn btn-outline-primary"><i class="fa-solid fa-arrow-left"></i> ← 디코딩</button>
+                    <button type="button" id="be-clear-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-eraser"></i> 지우기</button>
+                    <div class="form-check ms-2"><input class="form-check-input" type="checkbox" id="be-urlsafe"><label class="form-check-label" for="be-urlsafe" style="font-size:13px;">URL-safe (-_ , 패딩 제거)</label></div>
+                </div>
+                <div class="be-status" id="be-status"></div>
+            </div>
+        </div>
+
+        <div class="be-pane" id="be-pane-url">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="row g-3">
+                    <div class="col-md-6 be-field">
+                        <label for="be-url-plain">원본 (한글·공백·기호 포함)</label>
+                        <textarea id="be-url-plain" class="form-control be-area" placeholder="예) 검색어=삼성전자 주가"></textarea>
+                    </div>
+                    <div class="col-md-6 be-field">
+                        <label for="be-url-encoded">인코딩 결과</label>
+                        <textarea id="be-url-encoded" class="form-control be-area" placeholder="%EA%B2%80%EC%83%89%EC%96%B4..."></textarea>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap mt-3 align-items-center">
+                    <button type="button" id="be-url-encode-btn" class="btn btn-primary"><i class="fa-solid fa-arrow-right"></i> 인코딩 →</button>
+                    <button type="button" id="be-url-decode-btn" class="btn btn-outline-primary"><i class="fa-solid fa-arrow-left"></i> ← 디코딩</button>
+                    <div class="form-check ms-2"><input class="form-check-input" type="checkbox" id="be-url-whole"><label class="form-check-label" for="be-url-whole" style="font-size:13px;">주소 전체 인코딩(:/?&amp;= 는 그대로 둠)</label></div>
+                </div>
+                <div class="be-status" id="be-url-status"></div>
+                <div class="form-text text-muted mt-2">
+                    기본은 <b>값 하나</b>를 인코딩하는 방식(<code>encodeURIComponent</code>)입니다 — 쿼리스트링의 값이나 한글 파일명에 쓰세요.
+                    주소 전체를 넣을 때는 오른쪽 옵션을 켜야 <code>://</code>나 <code>?</code>가 깨지지 않습니다.
+                </div>
+            </div>
+        </div>
+
+        <div class="be-pane" id="be-pane-file">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="be-section-title">파일 선택</div>
+                <div class="be-dropzone" id="be-dropzone">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    클릭하거나 파일을 끌어다 놓으세요 (이미지·폰트·작은 파일 권장)
+                    <input type="file" id="be-file" class="d-none">
+                </div>
+                <div class="d-flex gap-3 flex-wrap mt-3">
+                    <div class="form-check"><input class="form-check-input" type="radio" name="be-filefmt" id="be-fmt-dataurl" checked><label class="form-check-label" for="be-fmt-dataurl" style="font-size:13px;">data URL (HTML·CSS에 바로 삽입)</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="be-filefmt" id="be-fmt-raw"><label class="form-check-label" for="be-fmt-raw" style="font-size:13px;">Base64 문자열만</label></div>
+                </div>
+                <div class="be-status" id="be-file-status"></div>
+            </div>
+            <div class="card card-custom bg-white p-3 p-md-4" id="be-file-result" style="display:none;">
+                <div class="be-section-title">결과</div>
+                <textarea id="be-file-out" class="form-control be-area" readonly></textarea>
+                <button type="button" id="be-file-copy" class="btn btn-outline-primary mt-3"><i class="fa-solid fa-copy"></i> 복사</button>
+                <div class="form-text text-muted mt-2">
+                    Base64로 바꾸면 용량이 약 <b>33% 커집니다</b>. 큰 이미지를 data URL로 심으면 HTML/CSS 파일이 무거워지고 캐시도 안 되니,
+                    아이콘처럼 작은 파일에만 쓰는 편이 좋습니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var textEl = document.getElementById('be-text');
+    var b64El = document.getElementById('be-b64');
+    var encodeBtn = document.getElementById('be-encode-btn');
+    var decodeBtn = document.getElementById('be-decode-btn');
+    var clearBtn = document.getElementById('be-clear-btn');
+    var urlsafeEl = document.getElementById('be-urlsafe');
+    var statusEl = document.getElementById('be-status');
+
+    var urlPlainEl = document.getElementById('be-url-plain');
+    var urlEncodedEl = document.getElementById('be-url-encoded');
+    var urlEncodeBtn = document.getElementById('be-url-encode-btn');
+    var urlDecodeBtn = document.getElementById('be-url-decode-btn');
+    var urlWholeEl = document.getElementById('be-url-whole');
+    var urlStatusEl = document.getElementById('be-url-status');
+
+    var fileInput = document.getElementById('be-file');
+    var dropzone = document.getElementById('be-dropzone');
+    var fmtDataUrlEl = document.getElementById('be-fmt-dataurl');
+    var fileStatusEl = document.getElementById('be-file-status');
+    var fileResultEl = document.getElementById('be-file-result');
+    var fileOutEl = document.getElementById('be-file-out');
+    var fileCopyBtn = document.getElementById('be-file-copy');
+
+    var lastFile = null;
+
+    function setStatus(el, message, isError) {
+        el.textContent = message || '';
+        el.className = 'be-status' + (message ? (isError ? ' is-error' : ' is-ok') : '');
+    }
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // btoa는 바이트 문자열만 받아 한글을 그대로 넣으면 예외가 난다.
+    // UTF-8로 인코딩한 바이트를 거쳐야 한글/이모지가 살아남는다.
+    function encodeBase64(text) {
+        var bytes = new TextEncoder().encode(text);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+        var out = btoa(binary);
+        if (urlsafeEl.checked) out = out.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return out;
+    }
+
+    function decodeBase64(b64) {
+        var normalized = (b64 || '').trim().replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+        // URL-safe는 패딩(=)을 떼고 다니므로 4의 배수로 채워준다
+        while (normalized.length % 4) normalized += '=';
+        var binary = atob(normalized);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    }
+
+    encodeBtn.addEventListener('click', function () {
+        if (!textEl.value) { setStatus(statusEl, '인코딩할 텍스트를 입력해주세요.', true); return; }
+        try {
+            b64El.value = encodeBase64(textEl.value);
+            setStatus(statusEl, '인코딩했습니다 · ' + b64El.value.length.toLocaleString() + '자', false);
+        } catch (e) {
+            setStatus(statusEl, '인코딩에 실패했습니다: ' + ((e && e.message) || e), true);
+        }
+    });
+
+    decodeBtn.addEventListener('click', function () {
+        if (!b64El.value) { setStatus(statusEl, '디코딩할 Base64를 입력해주세요.', true); return; }
+        try {
+            textEl.value = decodeBase64(b64El.value);
+            setStatus(statusEl, '디코딩했습니다 · ' + textEl.value.length.toLocaleString() + '자', false);
+        } catch (e) {
+            setStatus(statusEl, 'Base64 형식이 아니거나 중간이 깨졌습니다.', true);
+        }
+    });
+
+    clearBtn.addEventListener('click', function () {
+        textEl.value = '';
+        b64El.value = '';
+        setStatus(statusEl, '', false);
+    });
+
+    urlEncodeBtn.addEventListener('click', function () {
+        var value = urlPlainEl.value;
+        if (!value) { setStatus(urlStatusEl, '인코딩할 내용을 입력해주세요.', true); return; }
+        urlEncodedEl.value = urlWholeEl.checked ? encodeURI(value) : encodeURIComponent(value);
+        setStatus(urlStatusEl, '인코딩했습니다.', false);
+    });
+
+    urlDecodeBtn.addEventListener('click', function () {
+        var value = urlEncodedEl.value;
+        if (!value) { setStatus(urlStatusEl, '디코딩할 내용을 입력해주세요.', true); return; }
+        try {
+            urlPlainEl.value = decodeURIComponent(value);
+            setStatus(urlStatusEl, '디코딩했습니다.', false);
+        } catch (e) {
+            // % 뒤에 16진수가 아닌 글자가 오면 URIError가 난다
+            setStatus(urlStatusEl, '올바른 URL 인코딩이 아닙니다(% 뒤 두 글자가 16진수여야 합니다).', true);
+        }
+    });
+
+    function handleFile(file) {
+        if (!file) return;
+        lastFile = file;
+        setStatus(fileStatusEl, '읽는 중…', false);
+        var reader = new FileReader();
+        reader.onload = function () {
+            var dataUrl = String(reader.result || '');
+            var raw = dataUrl.slice(dataUrl.indexOf(',') + 1);
+            fileOutEl.value = fmtDataUrlEl.checked ? dataUrl : raw;
+            fileResultEl.style.display = 'block';
+            fileResultEl.setAttribute('data-ready', '1');
+            setStatus(fileStatusEl, file.name + ' · 원본 ' + fmtBytes(file.size) + ' → Base64 ' + fmtBytes(raw.length), false);
+        };
+        reader.onerror = function () { setStatus(fileStatusEl, '파일을 읽지 못했습니다.', true); };
+        reader.readAsDataURL(file);
+    }
+
+    fileInput.addEventListener('change', function () { handleFile(fileInput.files[0]); fileInput.value = ''; });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    document.querySelectorAll('input[name="be-filefmt"]').forEach(function (el) {
+        el.addEventListener('change', function () { if (lastFile) handleFile(lastFile); });
+    });
+    fileCopyBtn.addEventListener('click', function () {
+        if (!fileOutEl.value) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(fileOutEl.value).then(function () {
+                var original = fileCopyBtn.innerHTML;
+                fileCopyBtn.innerHTML = '<i class="fa-solid fa-check"></i> 복사했습니다';
+                setTimeout(function () { fileCopyBtn.innerHTML = original; }, 1200);
+            });
+        }
+    });
+
+    document.querySelectorAll('.be-tabs .btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.be-tabs .btn').forEach(function (b) {
+                b.classList.toggle('btn-primary', b === btn);
+                b.classList.toggle('btn-outline-secondary', b !== btn);
+            });
+            document.querySelectorAll('.be-pane').forEach(function (pane) {
+                pane.classList.toggle('is-active', pane.id === 'be-pane-' + btn.dataset.pane);
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>

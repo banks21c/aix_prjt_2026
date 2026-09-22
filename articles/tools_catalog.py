@@ -142,6 +142,47 @@ CATEGORIES = [
         ],
     },
     {
+        'key': 'crypto',
+        'label': '보안·인코딩',
+        'tools': [
+            {
+                'url_name': 'password_generator',
+                'tab': '비밀번호 생성',
+                'title': '비밀번호 생성기',
+                'icon': 'fa-key',
+                'desc': '추측하기 어려운 무작위 비밀번호를 원하는 길이·문자 조합으로 만들어드려요. 강도(엔트로피)도 함께 보여줍니다.',
+            },
+            {
+                'url_name': 'file_hash',
+                'tab': '해시·체크섬',
+                'title': '해시 · 체크섬 검증',
+                'icon': 'fa-fingerprint',
+                'desc': '내려받은 파일이 변조·손상되지 않았는지 SHA-256 체크섬으로 확인해요. 텍스트 해시도 바로 계산합니다.',
+            },
+            {
+                'url_name': 'text_encrypt',
+                'tab': '텍스트 암호화',
+                'title': '텍스트 암호화',
+                'icon': 'fa-lock',
+                'desc': '비밀번호로 텍스트를 AES-256으로 잠그고 풉니다. 메일·메신저로 민감한 내용을 보낼 때 쓰세요.',
+            },
+            {
+                'url_name': 'base64_encoder',
+                'tab': 'Base64·URL',
+                'title': 'Base64 · URL 인코더',
+                'icon': 'fa-file-code',
+                'desc': '텍스트를 Base64로 바꾸거나 되돌리고, URL 인코딩도 합니다. 이미지·파일을 data URL로 바꿀 수도 있어요.',
+            },
+            {
+                'url_name': 'uuid_generator',
+                'tab': 'UUID',
+                'title': 'UUID 생성기',
+                'icon': 'fa-hashtag',
+                'desc': '중복되지 않는 식별자(UUID v4)를 원하는 개수만큼 만들어드려요. 대문자·하이픈 제거 등 형식도 고를 수 있어요.',
+            },
+        ],
+    },
+    {
         'key': 'text',
         'label': '텍스트·기타',
         'tools': [

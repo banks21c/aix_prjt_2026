@@ -1,0 +1,360 @@
+{% load static tools_tags %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_title }}</title>
+    {% tool_meta 'file_hash' %}
+    {% include "articles/_favicon.html" %}
+    <link rel="stylesheet" href="{% url 'theme_css' %}?v={{ theme_version }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: var(--bg-page, #f4f6f9); font-family: 'Pretendard', sans-serif; }
+        .navbar-brand { font-weight: 800; letter-spacing: -0.5px; color: var(--brand-primary, #0d47a1) !important; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .tools-tabs { background: #fff; border-bottom: 1px solid var(--bg-subtle-2, #e9ecef); }
+        .tools-tabs-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+        .tools-tab { padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-secondary, #868e96); white-space: nowrap; border-bottom: 3px solid transparent; text-decoration: none; }
+        .tools-tab:hover { color: var(--brand-primary, #0d47a1); }
+        .tools-tab.is-active { color: var(--brand-primary, #0d47a1); border-bottom-color: var(--brand-primary, #0d47a1); }
+
+        .fh-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary, #6c757d); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+        .fh-field label { font-size: 13px; font-weight: 700; color: var(--text-secondary, #495057); margin-bottom: 5px; }
+
+        .fh-pane-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .fh-pane { display: none; }
+        .fh-pane.is-active { display: block; }
+
+        .fh-dropzone {
+            border: 2px dashed var(--bg-subtle-2, #dee2e6); border-radius: 12px; padding: 32px; text-align: center;
+            cursor: pointer; color: var(--text-secondary, #6c757d); transition: border-color .15s, background .15s;
+        }
+        .fh-dropzone:hover, .fh-dropzone.dragover { border-color: var(--brand-primary, #0d47a1); background: var(--bg-page, #f4f6f9); }
+        .fh-dropzone i { font-size: 26px; margin-bottom: 8px; color: var(--brand-primary, #0d47a1); }
+
+        .fh-item { padding: 14px 0; border-top: 1px solid var(--bg-subtle-2, #f1f3f5); }
+        .fh-item:first-child { border-top: none; }
+        .fh-item-head { display: flex; gap: 10px; align-items: center; }
+        .fh-item-name { font-size: 14px; font-weight: 700; color: var(--text-primary, #212529); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+        .fh-item-size { font-size: 12.5px; color: var(--text-secondary, #868e96); flex: 0 0 auto; }
+        .fh-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;
+                   background: var(--bg-subtle, #f8f9fa); border-radius: 8px; padding: 9px 12px; margin-top: 8px; color: var(--text-primary, #212529); }
+        .fh-badge { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 3px 11px; flex: 0 0 auto; }
+        .fh-badge.is-match { background: #e6f4ea; color: #1e7e34; }
+        .fh-badge.is-diff { background: #fdecea; color: #c92a2a; }
+        .fh-badge.is-busy { background: var(--bg-subtle-2, #f1f3f5); color: #868e96; }
+
+        textarea.fh-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; min-height: 150px; }
+        .fh-unsupported { display: none; }
+    </style>
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/fontawesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'articles/vendor/fontawesome/css/solid.min.css' %}">
+</head>
+<body>
+
+    {% include "articles/_header.html" %}
+    {% tools_tabs 'file_hash' %}
+
+    <div class="container my-5" style="max-width: 900px;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="fw-bold text-dark">해시 · 체크섬 검증</h2>
+                <p class="text-muted mb-0">내려받은 파일이 중간에 변조·손상되지 않았는지 SHA-256 체크섬으로 확인해요. 파일은 서버로 전송되지 않고 브라우저에서 바로 계산합니다.</p>
+            </div>
+        </div>
+
+        <div class="alert alert-warning fh-unsupported" id="fh-unsupported">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            이 브라우저에서는 암호화 기능(Web Crypto)을 쓸 수 없습니다. 최신 브라우저에서 <b>https</b> 주소로 접속해주세요.
+        </div>
+
+        <div class="fh-pane-tabs">
+            <button type="button" class="btn btn-primary" data-pane="file">파일 해시</button>
+            <button type="button" class="btn btn-outline-secondary" data-pane="text">텍스트 해시</button>
+        </div>
+
+        <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4 fh-field">
+                    <label for="fh-algo">해시 알고리즘</label>
+                    <select id="fh-algo" class="form-select">
+                        <option value="SHA-256">SHA-256 (표준)</option>
+                        <option value="SHA-512">SHA-512</option>
+                        <option value="SHA-384">SHA-384</option>
+                        <option value="SHA-1">SHA-1 (구형 · 취약)</option>
+                    </select>
+                </div>
+                <div class="col-md-8 fh-field">
+                    <label for="fh-expected">비교할 체크섬 (선택)</label>
+                    <input type="text" id="fh-expected" class="form-control" placeholder="배포처에 적힌 해시값을 붙여넣으면 일치 여부를 표시합니다" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <div class="fh-pane is-active" id="fh-pane-file">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="fh-section-title">파일 선택 (여러 개 가능)</div>
+                <div class="fh-dropzone" id="fh-dropzone">
+                    <i class="fa-solid fa-file-shield d-block"></i>
+                    클릭하거나 파일을 여기로 끌어다 놓으세요
+                    <input type="file" id="fh-file" multiple class="d-none">
+                </div>
+            </div>
+            <div class="card card-custom bg-white p-3 p-md-4" id="fh-result-card" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fh-section-title mb-0">결과</div>
+                    <button type="button" id="fh-clear-btn" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-trash-can"></i> 비우기</button>
+                </div>
+                <div id="fh-list"></div>
+            </div>
+        </div>
+
+        <div class="fh-pane" id="fh-pane-text">
+            <div class="card card-custom bg-white p-3 p-md-4 mb-3">
+                <div class="fh-section-title">텍스트 입력</div>
+                <textarea id="fh-text" class="form-control fh-input" placeholder="해시를 구할 텍스트를 입력하세요"></textarea>
+                <div class="form-text text-muted mt-2">입력하는 즉시 계산됩니다. UTF-8로 인코딩한 바이트의 해시입니다.</div>
+            </div>
+            <div class="card card-custom bg-white p-3 p-md-4" id="fh-text-result" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="fh-section-title mb-0">결과</div>
+                    <span id="fh-text-badge"></span>
+                </div>
+                <div class="fh-hash" id="fh-text-hash"></div>
+                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="fh-text-copy"><i class="fa-solid fa-copy"></i> 복사</button>
+            </div>
+        </div>
+
+        <div class="form-text text-muted mt-3">
+            <i class="fa-solid fa-circle-info"></i>
+            <b>체크섬은 왜 확인하나요?</b> 파일을 내려받는 도중 깨졌거나, 배포처가 아닌 곳에서 변조된 파일을 받았는지 알아내기 위해서예요.
+            배포처가 공개한 해시값과 여기서 계산한 값이 한 글자라도 다르면 그 파일은 원본이 아닙니다.
+            <b>SHA-1</b>은 충돌 공격이 현실화된 알고리즘이라 무결성 검증 용도로는 권장하지 않습니다(옛 배포처 호환용으로만 두었습니다).
+            MD5는 브라우저 내장 암호화 기능이 지원하지 않아 제공하지 않습니다.
+        </div>
+    </div>
+
+    {% include "articles/_footer.html" %}
+{% include "articles/_cookie_banner.html" %}
+<script>
+(function () {
+    var algoEl = document.getElementById('fh-algo');
+    var expectedEl = document.getElementById('fh-expected');
+    var fileInput = document.getElementById('fh-file');
+    var dropzone = document.getElementById('fh-dropzone');
+    var resultCard = document.getElementById('fh-result-card');
+    var listEl = document.getElementById('fh-list');
+    var clearBtn = document.getElementById('fh-clear-btn');
+    var textEl = document.getElementById('fh-text');
+    var textResultEl = document.getElementById('fh-text-result');
+    var textHashEl = document.getElementById('fh-text-hash');
+    var textBadgeEl = document.getElementById('fh-text-badge');
+    var textCopyBtn = document.getElementById('fh-text-copy');
+    var unsupportedEl = document.getElementById('fh-unsupported');
+
+    // Web Crypto는 보안 컨텍스트(https 또는 localhost)에서만 동작한다
+    var supported = !!(window.crypto && window.crypto.subtle);
+    var files = [];
+
+    function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+        return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function toHex(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var out = '';
+        for (var i = 0; i < bytes.length; i += 1) out += bytes[i].toString(16).padStart(2, '0');
+        return out;
+    }
+
+    function digest(algo, data) {
+        return crypto.subtle.digest(algo, data).then(toHex);
+    }
+
+    function normalizeExpected() {
+        // 배포처 표기에 공백·줄바꿈이 섞이거나 "sha256:" 접두사가 붙는 경우가 흔하다
+        return (expectedEl.value || '').trim().toLowerCase().replace(/^[a-z0-9-]+[:=]\s*/, '').replace(/\s+/g, '');
+    }
+
+    function badgeFor(hash) {
+        var expected = normalizeExpected();
+        if (!expected) return null;
+        var match = expected === hash;
+        var span = document.createElement('span');
+        span.className = 'fh-badge ' + (match ? 'is-match' : 'is-diff');
+        span.textContent = match ? '일치' : '불일치';
+        return span;
+    }
+
+    function copyText(text, btn) {
+        var done = function () {
+            var original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사했습니다';
+            setTimeout(function () { btn.innerHTML = original; }, 1200);
+        };
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('복사에 실패했습니다.'); }
+            document.body.removeChild(ta);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+        else fallback();
+    }
+
+    function renderList() {
+        listEl.innerHTML = '';
+        if (!files.length) {
+            resultCard.style.display = 'none';
+            return;
+        }
+        resultCard.style.display = 'block';
+        files.forEach(function (entry) {
+            var row = document.createElement('div');
+            row.className = 'fh-item';
+            row.setAttribute('data-name', entry.file.name);
+
+            var head = document.createElement('div');
+            head.className = 'fh-item-head';
+            var name = document.createElement('div');
+            name.className = 'fh-item-name';
+            name.textContent = entry.file.name;
+            var size = document.createElement('div');
+            size.className = 'fh-item-size';
+            size.textContent = fmtBytes(entry.file.size);
+            head.appendChild(name);
+            head.appendChild(size);
+
+            var hash = document.createElement('div');
+            hash.className = 'fh-hash';
+            if (entry.error) {
+                hash.textContent = entry.error;
+            } else if (entry.hash) {
+                hash.textContent = entry.hash;
+                var badge = badgeFor(entry.hash);
+                if (badge) head.appendChild(badge);
+            } else {
+                hash.textContent = '계산 중…';
+                var busy = document.createElement('span');
+                busy.className = 'fh-badge is-busy';
+                busy.textContent = '계산 중';
+                head.appendChild(busy);
+            }
+
+            row.appendChild(head);
+            row.appendChild(hash);
+
+            if (entry.hash) {
+                var copy = document.createElement('button');
+                copy.type = 'button';
+                copy.className = 'btn btn-outline-primary btn-sm mt-2 fh-copy';
+                copy.innerHTML = '<i class="fa-solid fa-copy"></i> 복사';
+                copy.addEventListener('click', function () { copyText(entry.hash, copy); });
+                row.appendChild(copy);
+            }
+            listEl.appendChild(row);
+        });
+        listEl.setAttribute('data-done', files.every(function (e) { return e.hash || e.error; }) ? '1' : '0');
+    }
+
+    function hashAll() {
+        var algo = algoEl.value;
+        listEl.removeAttribute('data-done');
+        renderList();
+        var pending = files.filter(function (e) { return !e.hash && !e.error; });
+        function step(i) {
+            if (i >= pending.length) { renderList(); return; }
+            var entry = pending[i];
+            entry.file.arrayBuffer()
+                .then(function (buf) { return digest(algo, buf); })
+                .then(function (hex) { entry.hash = hex; })
+                .catch(function (e) { entry.error = '해시를 계산하지 못했습니다: ' + ((e && e.message) || e); })
+                .then(function () {
+                    renderList();
+                    step(i + 1);   // 한 번에 하나씩 — 큰 파일 여러 개를 동시에 읽으면 메모리가 터진다
+                });
+        }
+        step(0);
+    }
+
+    function handleFiles(list) {
+        var added = Array.prototype.slice.call(list);
+        if (!added.length) return;
+        added.forEach(function (file) { files.push({ file: file, hash: null, error: null }); });
+        hashAll();
+    }
+
+    function hashText() {
+        var text = textEl.value;
+        if (!text) {
+            textResultEl.style.display = 'none';
+            return;
+        }
+        digest(algoEl.value, new TextEncoder().encode(text)).then(function (hex) {
+            textHashEl.textContent = hex;
+            textResultEl.style.display = 'block';
+            textResultEl.setAttribute('data-hash', hex);
+            textBadgeEl.innerHTML = '';
+            var badge = badgeFor(hex);
+            if (badge) textBadgeEl.appendChild(badge);
+        });
+    }
+
+    fileInput.addEventListener('change', function () {
+        handleFiles(fileInput.files);
+        fileInput.value = '';
+    });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
+    clearBtn.addEventListener('click', function () {
+        files = [];
+        renderList();
+    });
+
+    algoEl.addEventListener('change', function () {
+        // 알고리즘이 바뀌면 기존 결과는 의미가 없다 — 전부 다시 계산한다
+        files.forEach(function (entry) { entry.hash = null; entry.error = null; });
+        hashAll();
+        hashText();
+    });
+    expectedEl.addEventListener('input', function () { renderList(); hashText(); });
+    textEl.addEventListener('input', hashText);
+    textCopyBtn.addEventListener('click', function () { copyText(textHashEl.textContent, textCopyBtn); });
+
+    document.querySelectorAll('.fh-pane-tabs .btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.fh-pane-tabs .btn').forEach(function (b) {
+                b.classList.toggle('btn-primary', b === btn);
+                b.classList.toggle('btn-outline-secondary', b !== btn);
+            });
+            document.querySelectorAll('.fh-pane').forEach(function (pane) {
+                pane.classList.toggle('is-active', pane.id === 'fh-pane-' + btn.dataset.pane);
+            });
+        });
+    });
+
+    if (!supported) {
+        unsupportedEl.style.display = 'block';
+        dropzone.style.pointerEvents = 'none';
+        dropzone.style.opacity = '.5';
+        textEl.disabled = true;
+    }
+})();
+</script>
+</body>
+</html>

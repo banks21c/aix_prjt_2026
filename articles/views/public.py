@@ -411,6 +411,37 @@ def world_clock_view(request):
     return render(request, 'articles/world_clock.html', {'site_title': 'NextFinUp - 세계 시간 변환기'})
 
 
+# ── 보안·인코딩 유틸 ──────────────────────────────────────────────────────────
+# 다섯 개 모두 브라우저 내장 Web Crypto(SubtleCrypto·getRandomValues)만 쓴다. 비밀번호·해시 대상
+# 파일·암호화할 원문은 성격상 서버로 절대 보내면 안 되는 값들이라, 이 분야야말로 "브라우저에서만
+# 처리"가 기능 설명이 아니라 안전 요건이다. 그래서 CDN 라이브러리도 쓰지 않는다.
+
+def password_generator_view(request):
+    # 모듈로 편향 없이 crypto.getRandomValues로 뽑고, 엔트로피(비트)를 함께 보여준다.
+    return render(request, 'articles/password_generator.html', {'site_title': 'NextFinUp - 비밀번호 생성기'})
+
+
+def file_hash_view(request):
+    # SHA-256/384/512/SHA-1 파일·텍스트 해시와 배포처 체크섬 비교. MD5는 Web Crypto가
+    # 지원하지 않아(설계상 제외된 알고리즘) 제공하지 않고 화면에 그 사실을 밝힌다.
+    return render(request, 'articles/file_hash.html', {'site_title': 'NextFinUp - 해시·체크섬 검증'})
+
+
+def text_encrypt_view(request):
+    # PBKDF2(SHA-256, 20만 회) → AES-256-GCM. 소금·IV를 암호문 앞에 붙여 한 덩어리로 주고받는다.
+    return render(request, 'articles/text_encrypt.html', {'site_title': 'NextFinUp - 텍스트 암호화'})
+
+
+def base64_encoder_view(request):
+    # Base64(URL-safe 포함)·URL 인코딩·파일 → data URL.
+    return render(request, 'articles/base64_encoder.html', {'site_title': 'NextFinUp - Base64·URL 인코더'})
+
+
+def uuid_generator_view(request):
+    # crypto.randomUUID(없으면 getRandomValues로 v4 규격 직접 조립).
+    return render(request, 'articles/uuid_generator.html', {'site_title': 'NextFinUp - UUID 생성기'})
+
+
 def json_formatter_view(request):
     # JSON 예쁘게 출력/압축/검증 도구. 개발용 텍스트(API 응답, 설정값 등)가 서버로 전송/저장되지
     # 않도록 다른 유틸과 마찬가지로 파싱·포맷팅 전부 브라우저(JS 내장 JSON.parse/stringify)에서만
